@@ -8,8 +8,8 @@
     <!-- PWA -->
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#030303">
-    <link rel="icon" href="./icon.svg" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="./icon.svg">
+    <link rel="icon" href="./ICONE VEND-S.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="./ICONE VEND-S.svg">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Vend-s CRM">
@@ -344,7 +344,7 @@
                 </div>
             </div>
 
-            <div id="view-contacts" class="hidden max-w-6xl mx-auto h-full flex flex-col">
+            <div id="view-contacts" class="hidden max-w-6xl mx-auto">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 shrink-0">
                     <div class="flex items-center gap-2 bg-sant-surface border border-sant-border rounded-lg p-2 w-full sm:w-96 focus-within:border-sant-cyan transition-colors">
                         <i class="ph ph-magnifying-glass text-gray-400 px-2"></i>
@@ -407,7 +407,7 @@
                     </div>
                 </div>
 
-                <div id="contactsContainer" class="flex-1 overflow-y-auto pb-10 custom-scrollbar"></div>
+                <div id="contactsContainer" class="pb-10"></div>
             </div>
 
             <div id="view-calendar" class="hidden max-w-6xl mx-auto h-full flex flex-col">
@@ -464,7 +464,7 @@
                 </div>
             </div>
 
-            <div id="view-tasks" class="hidden max-w-6xl mx-auto h-full flex flex-col">
+            <div id="view-tasks" class="hidden max-w-6xl mx-auto">
                 <div class="flex justify-between items-end mb-8 shrink-0">
                     <div class="flex items-center gap-4">
                         <div class="w-12 h-12 rounded-xl bg-sant-cyan/10 text-sant-cyan flex items-center justify-center text-2xl border border-sant-cyan/20">
@@ -499,7 +499,7 @@
                 </div>
 
                 <!-- VISÃO LISTA -->
-                <div id="tasksList" class="overflow-y-auto space-y-3 pb-10 custom-scrollbar min-h-[200px] max-h-[calc(100vh-280px)]"></div>
+                <div id="tasksList" class="space-y-3 pb-10 min-h-[200px]"></div>
 
                 <!-- VISÃO KANBAN -->
                 <div id="kanbanBoard" class="hidden pb-4">
@@ -517,7 +517,7 @@
                                 </div>
                                 <span id="kanban-count-todo" class="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full font-bold">0</span>
                             </div>
-                            <div id="kanban-cards-todo" class="overflow-y-auto p-3 space-y-3 custom-scrollbar min-h-[120px] max-h-[calc(100vh-280px)]"></div>
+                            <div id="kanban-cards-todo" class="p-3 space-y-3 min-h-[120px]"></div>
                         </div>
 
                         <!-- Coluna: Em Andamento -->
@@ -532,7 +532,7 @@
                                 </div>
                                 <span id="kanban-count-doing" class="text-xs bg-sant-cyan/20 text-sant-cyan px-2 py-0.5 rounded-full font-bold">0</span>
                             </div>
-                            <div id="kanban-cards-doing" class="overflow-y-auto p-3 space-y-3 custom-scrollbar min-h-[120px] max-h-[calc(100vh-280px)]"></div>
+                            <div id="kanban-cards-doing" class="p-3 space-y-3 min-h-[120px]"></div>
                         </div>
 
                         <!-- Coluna: Concluído -->
@@ -547,7 +547,7 @@
                                 </div>
                                 <span id="kanban-count-done" class="text-xs bg-green-500/20 text-green-500 px-2 py-0.5 rounded-full font-bold">0</span>
                             </div>
-                            <div id="kanban-cards-done" class="overflow-y-auto p-3 space-y-3 custom-scrollbar min-h-[120px] max-h-[calc(100vh-280px)]"></div>
+                            <div id="kanban-cards-done" class="p-3 space-y-3 min-h-[120px]"></div>
                         </div>
 
                     </div>
@@ -2251,7 +2251,7 @@
                     <div class="flex items-start gap-3 p-3 bg-[#0a0a0a] border border-sant-border rounded-lg hover:border-sant-cyan/30 transition-colors shrink-0">
                         <button onclick="toggleTask('${t.id}')" class="w-5 h-5 rounded border border-sant-border hover:border-sant-cyan flex items-center justify-center shrink-0 mt-0.5"><i class="ph ph-check text-transparent"></i></button>
                         <div class="flex-1 min-w-0">
-                            <p class="text-sm text-gray-300 truncate">${t.title}</p>
+                            <p class="text-sm text-[#fbbf24] truncate">${t.title}</p>
                             ${dateTimeDisplay ? `<p class="text-[11px] text-sant-cyan mt-1 font-medium">${dateTimeDisplay}</p>` : ''}
                             ${dclBar}
                         </div>
@@ -2423,7 +2423,7 @@
                             <p class="text-[10px] text-gray-500">${item.time || 'Dia todo'}</p>
                         </div>
                         <div class="flex-1 min-w-0 border-l border-sant-border pl-3">
-                            <p class="text-sm font-bold text-white flex items-center gap-2 truncate"><i class="ph ph-calendar-blank text-sant-cyan"></i> ${item.title}</p>
+                            <p class="text-sm font-bold text-sant-cyan flex items-center gap-2 truncate"><i class="ph ph-calendar-blank text-sant-cyan"></i> ${item.title}</p>
                             ${item.location ? `<p class="text-[11px] text-gray-400 mt-0.5 truncate">${item.location}</p>` : ''}
                         </div>
                     </div>`;
@@ -2431,11 +2431,11 @@
                     return `
                     <div onclick="switchView('tasks')" class="flex items-center gap-3 p-3 bg-amber-500/5 border border-amber-500/10 rounded-lg cursor-pointer hover:border-amber-500/30 transition-colors">
                         <div class="text-center shrink-0 w-14">
-                            <p class="text-xs font-bold text-[#fbbf24]">${dateLabel}</p>
+                            <p class="text-xs font-bold text-sant-cyan">${dateLabel}</p>
                             <p class="text-[10px] text-gray-500">${item.time || 'Sem hora'}</p>
                         </div>
                         <div class="flex-1 min-w-0 border-l border-sant-border pl-3">
-                            <p class="text-sm font-bold text-white flex items-center gap-2 truncate"><i class="ph ph-list-checks text-[#fbbf24]"></i> ${item.title}</p>
+                            <p class="text-sm font-bold text-[#fbbf24] flex items-center gap-2 truncate"><i class="ph ph-list-checks text-[#fbbf24]"></i> ${item.title}</p>
                         </div>
                     </div>`;
                 }
@@ -2467,7 +2467,7 @@
                         ${String(day).padStart(2,'0')}
                     </div>
                     <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium text-white truncate">${fullName(c)}</p>
+                        <p class="text-sm font-medium text-[#ec4899] truncate">${fullName(c)}</p>
                         ${isToday ? '<p class="text-[10px] text-sant-purple font-bold">🎉 Hoje!</p>' : ''}
                     </div>
                     <i class="ph ph-cake text-sant-purple shrink-0"></i>
@@ -3828,13 +3828,13 @@
                         dotsHtml = `<div class="flex items-center gap-0.5 mt-1 flex-wrap">`;
                         dayEvents.filter(e => !e.isBirthday).slice(0, 3).forEach(e => {
                             const m = getEventTypeMeta(e);
-                            dotsHtml += `<span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${m.dot};opacity:0.8;" title="${m.label}"></span>`;
+                            dotsHtml += `<span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:#00FFFF;opacity:0.8;" title="${m.label}"></span>`;
                         });
                         if (totalEvs > 3) dotsHtml += `<span class="text-[8px] text-sant-cyan opacity-70">+${totalEvs-3}</span>`;
                         for (let di = 0; di < Math.min(totalBdays, 3); di++)
                             dotsHtml += `<span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:#ec4899;opacity:0.7;" title="Aniversário"></span>`;
                         for (let di = 0; di < Math.min(totalTasks, 3); di++)
-                            dotsHtml += `<span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:#f59e0b;opacity:0.7;" title="Tarefa"></span>`;
+                            dotsHtml += `<span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:#fbbf24;opacity:0.7;" title="Tarefa"></span>`;
                         if (totalTasks > 3) dotsHtml += `<span class="text-[8px] text-amber-400 opacity-70">+${totalTasks-3}</span>`;
                         dotsHtml += `</div>`;
                     }
@@ -3921,13 +3921,13 @@
                         dotsW = `<div class="flex items-center gap-0.5 mt-1 flex-wrap">`;
                         dayEvents.filter(e => !e.isBirthday && !e.isBlock).slice(0, 4).forEach(e => {
                             const m = getEventTypeMeta(e);
-                            dotsW += `<span class="w-1.5 h-1.5 rounded-full" style="background:${m.dot};opacity:0.8;" title="${m.label}"></span>`;
+                            dotsW += `<span class="w-1.5 h-1.5 rounded-full" style="background:#00FFFF;opacity:0.8;" title="${m.label}"></span>`;
                         });
                         if (totalEvW > 4) dotsW += `<span class="text-[8px] text-sant-cyan opacity-70">+${totalEvW-4}</span>`;
                         for (let di = 0; di < Math.min(totalBdW, 3); di++)
                             dotsW += `<span class="w-1.5 h-1.5 rounded-full" style="background:#ec4899;opacity:0.7;"></span>`;
                         for (let di = 0; di < Math.min(totalTkW, 4); di++)
-                            dotsW += `<span class="w-1.5 h-1.5 rounded-full" style="background:#f59e0b;opacity:0.7;"></span>`;
+                            dotsW += `<span class="w-1.5 h-1.5 rounded-full" style="background:#fbbf24;opacity:0.7;"></span>`;
                         if (totalTkW > 4) dotsW += `<span class="text-[8px] text-amber-400 opacity-70">+${totalTkW-4}</span>`;
                         dotsW += `</div>`;
                     }
@@ -4420,7 +4420,7 @@
                         <i class="ph ph-check"></i>
                     </button>
                     <div class="flex-1 min-w-0 ${t.completed ? 'opacity-50' : ''}">
-                        <h4 class="text-white font-medium break-words ${t.completed ? 'line-through' : ''}">${t.title} ${t.recurrence && t.recurrence !== 'none' ? '<i class="ph ph-repeat text-sant-cyan text-xs" title="Tarefa recorrente"></i>' : ''}</h4>
+                        <h4 class="text-[#fbbf24] font-medium break-words ${t.completed ? 'line-through' : ''}">${t.title} ${t.recurrence && t.recurrence !== 'none' ? '<i class="ph ph-repeat text-sant-cyan text-xs" title="Tarefa recorrente"></i>' : ''}</h4>
                         ${isOverdue ? `<p class="text-[11px] text-red-400 mt-1 font-semibold flex items-center gap-1"><i class="ph ph-warning-circle"></i> Vencida — ${dateTimeDisplay}</p>` : (dateTimeDisplay ? `<p class="text-[11px] text-sant-cyan mt-1"><i class="ph ph-calendar-blank"></i> ${dateTimeDisplay}</p>` : '')}
                         ${(() => { const c = t.contactId ? contacts.find(x => x.id === t.contactId) : null; return c ? `<p class="text-[11px] text-sant-purple mt-1 flex items-center gap-1"><i class="ph ph-user-circle"></i> ${fullName(c)}</p>` : ''; })()}
                         ${t.desc ? `<p class="text-[10px] text-sant-purple mt-1 flex items-center gap-1"><i class="ph ph-notebook"></i> Tem notas</p>` : ''}
@@ -5221,14 +5221,14 @@
                          ondragend="dragEnd(event)"
                          class="kanban-card bg-[#141414] border border-sant-border border-l-4 ${prioBorder} rounded-xl p-3 cursor-grab active:cursor-grabbing group hover:border-sant-cyan/30 transition-all">
                         <div class="flex items-start gap-2 mb-1">
-                            <h4 class="text-sm font-medium leading-snug flex-1 ${col.id === 'done' ? 'line-through text-gray-500' : 'text-white'}">${t.title}</h4>
+                            <h4 class="text-sm font-medium leading-snug flex-1 ${col.id === 'done' ? 'line-through text-gray-500' : 'text-[#fbbf24]'}">${t.title}</h4>
                             <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                                 <button onclick="editTask('${t.id}')" class="text-gray-500 hover:text-sant-cyan p-0.5"><i class="ph ph-pencil-simple text-sm"></i></button>
                                 <button onclick="deleteTask('${t.id}')" class="text-gray-500 hover:text-red-500 p-0.5"><i class="ph ph-trash text-sm"></i></button>
                             </div>
                         </div>
                         ${prioBadge ? `<div class="mb-1.5">${prioBadge}</div>` : ''}
-                        ${dateFmt ? `<p class="text-[10px] ${isOverdue ? 'text-red-400 font-semibold' : 'text-gray-500'} flex items-center gap-1 mb-0.5">
+                        ${dateFmt ? `<p class="text-[10px] ${isOverdue ? 'text-red-400 font-semibold' : 'text-sant-cyan'} flex items-center gap-1 mb-0.5">
                             <i class="ph ${isOverdue ? 'ph-warning-circle' : 'ph-calendar-blank'}"></i> ${dateFmt}
                         </p>` : ''}
                         ${clHtml}
