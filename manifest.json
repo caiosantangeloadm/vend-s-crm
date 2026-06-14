@@ -1,0 +1,20 @@
+{
+  "name": "Vend-s Inteligência CRM",
+  "short_name": "Vend-s CRM",
+  "description": "CRM pessoal para gestão de contatos, agenda, tarefas e notas.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#030303",
+  "theme_color": "#030303",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
