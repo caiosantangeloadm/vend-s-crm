@@ -69,6 +69,12 @@
         .modal-overlay:not(.hidden) > div { animation: modalPop 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
 
+        .notes-masonry { column-count: 1; column-gap: 1.25rem; }
+        @media (min-width: 640px) { .notes-masonry { column-count: 2; } }
+        @media (min-width: 1024px) { .notes-masonry { column-count: 3; } }
+        @media (min-width: 1280px) { .notes-masonry { column-count: 4; } }
+        .notes-masonry > * { break-inside: avoid; margin-bottom: 1.25rem; }
+
         .tooltip-nav { position: relative; }
         .tooltip-nav::after {
             content: attr(data-tip);
@@ -159,6 +165,7 @@
                     <button onclick="openCategoryManager()" class="w-full text-left px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-[#1f1f1f] transition-colors">Gerenciar Categorias</button>
                     <button onclick="openOriginManager()" class="w-full text-left px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-[#1f1f1f] transition-colors border-t border-sant-border">Gerenciar Origens</button>
                     <button onclick="openTagsModal()" class="w-full text-left px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-[#1f1f1f] transition-colors border-t border-sant-border">Gerenciar Tags</button>
+                    <button onclick="openTemplatesManager()" class="w-full text-left px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-[#1f1f1f] transition-colors border-t border-sant-border">Modelos de Mensagem</button>
                     <button onclick="exportData()" class="w-full text-left px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-[#1f1f1f] transition-colors border-t border-sant-border">Exportar Backup</button>
                     <label class="w-full text-left px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-[#1f1f1f] transition-colors cursor-pointer flex border-t border-sant-border">
                         Importar Backup <input type="file" id="importFile" accept=".json" class="hidden" onchange="importData(event)">
@@ -410,7 +417,7 @@
                 <div id="contactsContainer" class="pb-10"></div>
             </div>
 
-            <div id="view-calendar" class="hidden max-w-6xl mx-auto h-full flex flex-col">
+            <div id="view-calendar" class="hidden max-w-6xl mx-auto flex flex-col">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 shrink-0">
                     <div>
                         <h2 id="calendarMonthYear" class="text-2xl font-bold text-white mb-1">...</h2>
@@ -434,7 +441,7 @@
                 </div>
 
                 <!-- Visão Mensal -->
-                <div id="calendarMonthView" class="flex-1 border border-sant-border rounded-xl overflow-hidden bg-sant-surface flex flex-col">
+                <div id="calendarMonthView" class="border border-sant-border rounded-xl overflow-hidden bg-sant-surface flex flex-col">
                     <div class="grid grid-cols-7 border-b border-sant-border shrink-0">
                         <div class="py-3 text-center text-xs font-bold text-gray-500 uppercase">Dom</div>
                         <div class="py-3 text-center text-xs font-bold text-gray-500 uppercase">Seg</div>
@@ -444,23 +451,23 @@
                         <div class="py-3 text-center text-xs font-bold text-gray-500 uppercase">Sex</div>
                         <div class="py-3 text-center text-xs font-bold text-gray-500 uppercase">Sáb</div>
                     </div>
-                    <div id="calendarDays" class="grid grid-cols-7 auto-rows-[minmax(100px,1fr)] flex-1 overflow-y-auto bg-sant-bg custom-scrollbar"></div>
+                    <div id="calendarDays" class="grid grid-cols-7 auto-rows-[minmax(100px,1fr)] bg-sant-bg"></div>
                 </div>
-                
+
                 <!-- Visão Semanal -->
-                <div id="calendarWeekView" class="hidden flex-1 border border-sant-border rounded-xl overflow-hidden bg-sant-surface flex flex-col">
+                <div id="calendarWeekView" class="hidden border border-sant-border rounded-xl overflow-hidden bg-sant-surface flex flex-col">
                     <div id="calendarWeekHeader" class="grid grid-cols-7 border-b border-sant-border shrink-0 bg-[#0a0a0a]"></div>
-                    <div id="calendarWeekDays" class="grid grid-cols-7 flex-1 overflow-y-auto bg-sant-bg custom-scrollbar divide-x divide-sant-border"></div>
+                    <div id="calendarWeekDays" class="grid grid-cols-7 bg-sant-bg divide-x divide-sant-border"></div>
                 </div>
 
                 <!-- Visão Diária -->
-                <div id="calendarDayView" class="hidden flex-1 border border-sant-border rounded-xl overflow-hidden bg-sant-surface flex flex-col">
-                    <div id="dayTimeline" class="flex-1 overflow-y-auto relative p-6 space-y-4 custom-scrollbar"></div>
+                <div id="calendarDayView" class="hidden border border-sant-border rounded-xl overflow-hidden bg-sant-surface flex flex-col">
+                    <div id="dayTimeline" class="relative p-6 space-y-4 pb-10"></div>
                 </div>
 
                 <!-- Visão Lista -->
-                <div id="calendarListView" class="hidden flex-1 border border-sant-border rounded-xl overflow-hidden bg-sant-surface flex flex-col">
-                    <div id="listTimeline" class="flex-1 overflow-y-auto relative p-6 space-y-6 custom-scrollbar"></div>
+                <div id="calendarListView" class="hidden border border-sant-border rounded-xl overflow-hidden bg-sant-surface flex flex-col">
+                    <div id="listTimeline" class="relative p-6 space-y-6 pb-10"></div>
                 </div>
             </div>
 
@@ -554,7 +561,7 @@
                 </div>
             </div>
 
-            <div id="view-reports" class="hidden max-w-5xl mx-auto h-full flex flex-col">
+            <div id="view-reports" class="hidden max-w-5xl mx-auto">
                 <div class="flex items-center gap-4 mb-8 shrink-0">
                     <div class="w-12 h-12 rounded-xl bg-sant-purple/10 text-sant-purple flex items-center justify-center text-2xl border border-sant-purple/20">
                         <i class="ph ph-chart-line-up"></i>
@@ -568,11 +575,12 @@
                 <div class="flex gap-2 mb-6 shrink-0 border-b border-sant-border pb-4 overflow-x-auto custom-scrollbar">
                     <button onclick="switchReportTab('birthdays')" id="tab-birthdays" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-purple text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-cake"></i> Aniversariantes</button>
                     <button onclick="switchReportTab('categories')" id="tab-categories" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-pie-chart"></i> Por Categoria</button>
+                    <button onclick="switchReportTab('charts')" id="tab-charts" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-chart-bar"></i> Gráficos</button>
                     <button onclick="switchReportTab('directory')" id="tab-directory" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-address-book"></i> Diretório de Contatos</button>
                     <button onclick="switchReportTab('leads')" id="tab-leads" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-star"></i> Oportunidades</button>
                 </div>
 
-                <div id="report-birthdays" class="report-content flex-1 flex flex-col">
+                <div id="report-birthdays" class="report-content flex flex-col">
                     <div class="bg-sant-surface border border-sant-border rounded-xl p-5 mb-6 flex flex-wrap gap-4 items-end shrink-0">
                         <div class="flex-1 min-w-[200px]">
                             <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Data Inicial</label>
@@ -586,27 +594,58 @@
                             <i class="ph ph-magnifying-glass"></i> Buscar Aniversariantes
                         </button>
                     </div>
-                    <div id="birthdayReportResults" class="flex-1 overflow-y-auto space-y-3 pb-10 custom-scrollbar">
-                        <div class="h-full flex flex-col items-center justify-center text-gray-600">
+                    <div id="birthdayReportResults" class="space-y-3 pb-10">
+                        <div class="py-20 flex flex-col items-center justify-center text-gray-600">
                             <i class="ph ph-calendar-blank text-5xl mb-3"></i>
                             <p>Selecione o período acima para gerar o relatório.</p>
                         </div>
                     </div>
                 </div>
 
-                <div id="report-categories" class="report-content hidden flex-1 flex flex-col">
+                <div id="report-categories" class="report-content hidden flex flex-col">
+                    <div class="flex justify-end gap-2 mb-4 shrink-0">
+                        <button onclick="exportCategoryCsv()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors">
+                            <i class="ph ph-file-csv"></i> Exportar CSV
+                        </button>
+                        <button onclick="exportCategoryPdf()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors">
+                            <i class="ph ph-file-pdf"></i> Exportar PDF
+                        </button>
+                    </div>
                     <div id="categorySummaryCards" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 shrink-0"></div>
-                    <div id="categoryDetailedLists" class="flex-1 overflow-y-auto space-y-8 pb-10 pr-2 custom-scrollbar"></div>
+                    <div id="categoryDetailedLists" class="space-y-8 pb-10 pr-2"></div>
                 </div>
 
-                <div id="report-directory" class="report-content hidden flex-1 flex flex-col">
-                    <div class="flex justify-end mb-4 shrink-0">
+                <div id="report-charts" class="report-content hidden flex flex-col pb-10">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-sant-surface border border-sant-border rounded-xl p-5 flex flex-col">
+                            <h3 class="text-sm font-bold text-gray-300 uppercase tracking-wider mb-4 flex items-center gap-2"><i class="ph ph-pie-chart text-sant-cyan"></i> Contatos por Categoria</h3>
+                            <div class="relative h-72"><canvas id="chartCategory"></canvas></div>
+                        </div>
+                        <div class="bg-sant-surface border border-sant-border rounded-xl p-5 flex flex-col">
+                            <h3 class="text-sm font-bold text-gray-300 uppercase tracking-wider mb-4 flex items-center gap-2"><i class="ph ph-thermometer text-sant-cyan"></i> Leads por Temperatura</h3>
+                            <div class="relative h-72"><canvas id="chartTemperature"></canvas></div>
+                        </div>
+                        <div class="bg-sant-surface border border-sant-border rounded-xl p-5 flex flex-col md:col-span-2">
+                            <h3 class="text-sm font-bold text-gray-300 uppercase tracking-wider mb-4 flex items-center gap-2"><i class="ph ph-chart-bar text-sant-cyan"></i> Contatos por Origem</h3>
+                            <div class="relative h-72"><canvas id="chartOrigin"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="report-directory" class="report-content hidden flex flex-col pb-10">
+                    <div class="flex justify-end gap-2 mb-4 shrink-0">
                         <button onclick="copyAllEmails()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors">
                             <i class="ph ph-copy"></i> Copiar Todos E-mails
                         </button>
+                        <button onclick="exportDirectoryCsv()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors">
+                            <i class="ph ph-file-csv"></i> Exportar CSV
+                        </button>
+                        <button onclick="exportDirectoryPdf()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors">
+                            <i class="ph ph-file-pdf"></i> Exportar PDF
+                        </button>
                     </div>
-                    <div class="flex-1 bg-sant-surface border border-sant-border rounded-xl overflow-hidden flex flex-col">
-                        <div class="overflow-x-auto flex-1 custom-scrollbar">
+                    <div class="bg-sant-surface border border-sant-border rounded-xl overflow-hidden flex flex-col">
+                        <div class="overflow-x-auto custom-scrollbar">
                             <table class="w-full text-left text-sm text-gray-300 whitespace-nowrap">
                                 <thead class="text-xs uppercase bg-[#141414] text-gray-500 border-b border-sant-border sticky top-0 z-10">
                                     <tr>
@@ -623,9 +662,17 @@
                     </div>
                 </div>
 
-                <div id="report-leads" class="report-content hidden flex-1 flex flex-col">
+                <div id="report-leads" class="report-content hidden flex flex-col">
+                    <div class="flex justify-end gap-2 mb-4 shrink-0">
+                        <button onclick="exportLeadsCsv()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors">
+                            <i class="ph ph-file-csv"></i> Exportar CSV
+                        </button>
+                        <button onclick="exportLeadsPdf()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors">
+                            <i class="ph ph-file-pdf"></i> Exportar PDF
+                        </button>
+                    </div>
                     <div id="leadsSummaryCards" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 shrink-0"></div>
-                    <div id="leadsDetailedLists" class="flex-1 overflow-y-auto space-y-8 pb-10 pr-2 custom-scrollbar"></div>
+                    <div id="leadsDetailedLists" class="space-y-8 pb-10 pr-2"></div>
                 </div>
             </div>
 
@@ -687,13 +734,13 @@
                 <!-- Notas fixadas -->
                 <div id="pinnedNotesSection" class="hidden mb-6 shrink-0">
                     <p class="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1"><i class="ph ph-push-pin"></i> Fixadas</p>
-                    <div id="pinnedNotesGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 items-start"></div>
+                    <div id="pinnedNotesGrid" class="notes-masonry"></div>
                 </div>
 
                 <!-- Demais notas -->
                 <div class="pb-10">
                     <p id="otherNotesLabel" class="hidden text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1"><i class="ph ph-notepad"></i> Outras</p>
-                    <div id="notesGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 items-start"></div>
+                    <div id="notesGrid" class="notes-masonry"></div>
                 </div>
             </div>
 
@@ -1372,7 +1419,18 @@
                     <a id="historyContactAddress" href="#" target="_blank" rel="noopener" class="hidden text-xs text-sant-cyan hover:underline mt-1 items-center gap-1"><i class="ph ph-map-pin"></i> <span></span></a>
                     <div id="historyCustomFields" class="flex flex-wrap gap-1.5 mt-1.5"></div>
                 </div>
-                <button onclick="closeHistoryModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+                <div class="flex items-center gap-3 shrink-0">
+                    <button onclick="openSendMessageModal(currentHistoryContactId)" class="text-gray-400 hover:text-sant-cyan transition-colors" title="Enviar Mensagem"><i class="ph ph-paper-plane-tilt text-lg"></i></button>
+                    <button onclick="closeHistoryModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+                </div>
+            </div>
+            <div class="px-4 pt-3 pb-1 border-b border-sant-border bg-[#0a0a0a] shrink-0">
+                <div class="flex items-center gap-2 mb-3">
+                    <i class="ph ph-bell-ringing text-sant-cyan"></i>
+                    <label class="text-xs font-bold text-gray-500 uppercase tracking-wider shrink-0">Próximo contato em</label>
+                    <input type="date" id="historyNextContact" onchange="setNextContact(this.value)" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-1.5 text-sm text-white outline-none">
+                    <button id="historyNextContactClear" onclick="setNextContact('')" title="Remover lembrete" class="hidden text-gray-500 hover:text-red-500 transition-colors p-1"><i class="ph ph-x-circle"></i></button>
+                </div>
             </div>
             <div class="p-4 border-b border-sant-border bg-[#0a0a0a] shrink-0">
                 <div class="grid grid-cols-2 gap-3 mb-3">
@@ -1446,6 +1504,66 @@
         </div>
     </div>
 
+    <!-- Enviar Mensagem -->
+    <div id="sendMessageModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg overflow-hidden flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center p-5 border-b border-sant-border">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-paper-plane-tilt text-sant-cyan"></i> Enviar Mensagem</h3>
+                <button onclick="closeSendMessageModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <div class="p-5 flex flex-col gap-3">
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Modelo</label>
+                    <select id="sendMsgTemplate" onchange="loadSendMsgTemplate()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none"></select>
+                </div>
+                <div id="sendMsgSubjectWrap">
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Assunto (e-mail)</label>
+                    <input type="text" id="sendMsgSubject" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Mensagem</label>
+                    <textarea id="sendMsgBody" rows="6" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none resize-none"></textarea>
+                </div>
+                <div class="flex flex-wrap gap-2 justify-end pt-2">
+                    <button onclick="sendMsgCopy()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-300 hover:text-sant-cyan px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"><i class="ph ph-copy"></i> Copiar Texto</button>
+                    <button onclick="sendMsgEmail()" class="bg-sant-cyan/10 hover:bg-sant-cyan text-sant-cyan hover:text-sant-bg border border-sant-cyan/30 px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"><i class="ph ph-envelope-simple"></i> Abrir E-mail</button>
+                    <button onclick="sendMsgWhatsapp()" class="bg-[#25D366]/10 hover:bg-[#25D366] text-[#25D366] hover:text-white border border-[#25D366]/30 px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"><i class="ph ph-whatsapp-logo"></i> Abrir WhatsApp</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modelos de Mensagem -->
+    <div id="templatesModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center p-5 border-b border-sant-border shrink-0">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-chats-circle text-sant-purple"></i> Modelos de Mensagem</h3>
+                <button onclick="closeTemplatesManager()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <div class="p-5 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
+                <p class="text-[11px] text-gray-500">Variáveis disponíveis: <code class="text-sant-cyan">{{nome}}</code> <code class="text-sant-cyan">{{sobrenome}}</code> <code class="text-sant-cyan">{{nomeCompleto}}</code> <code class="text-sant-cyan">{{empresa}}</code></p>
+                <div class="bg-[#0a0a0a] border border-sant-border rounded-xl p-4 flex flex-col gap-3">
+                    <p id="tplFormTitle" class="text-sm font-bold text-white">Novo Modelo</p>
+                    <input type="text" id="tplTitle" placeholder="Título do modelo (ex: Boas-vindas)" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                    <select id="tplChannel" onchange="toggleTplSubjectField()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                        <option value="whatsapp">WhatsApp</option>
+                        <option value="email">E-mail</option>
+                        <option value="both">WhatsApp + E-mail</option>
+                    </select>
+                    <div id="tplSubjectWrap" class="hidden">
+                        <input type="text" id="tplSubject" placeholder="Assunto (e-mail)" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                    </div>
+                    <textarea id="tplBody" rows="4" placeholder="Texto da mensagem..." class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none resize-none"></textarea>
+                    <div class="flex gap-2 justify-end">
+                        <button onclick="resetTemplateForm()" class="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Limpar</button>
+                        <button id="tplSaveBtn" onclick="saveTemplate()" class="bg-sant-purple hover:bg-purple-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">Adicionar</button>
+                    </div>
+                </div>
+                <div id="templatesList" class="flex flex-col gap-2"></div>
+            </div>
+        </div>
+    </div>
+
     <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3"></div>
 
     <script>
@@ -1466,6 +1584,12 @@
         const defaultCategories = ['Família', 'Alunos Universidade', 'Amigos', 'Conhecidos', 'Potenciais Clientes', 'Clientes', 'Ex Clientes'];
         const defaultOrigins = ['Indicação', 'Evento', 'Site', 'Redes Sociais', 'Anúncio/Mídia Paga', 'Prospecção Ativa', 'Outro'];
         const legacyOriginMap = { indicacao: 'Indicação', evento: 'Evento', site: 'Site', redes_sociais: 'Redes Sociais', anuncio: 'Anúncio/Mídia Paga', prospeccao: 'Prospecção Ativa', outro: 'Outro' };
+        const defaultMessageTemplates = [
+            { id: 'tpl-boas-vindas', title: 'Boas-vindas', channel: 'whatsapp', subject: '', body: 'Olá {{nome}}! 😊 Seja muito bem-vindo(a)! Foi um prazer ter você com a gente. Qualquer dúvida, estou à disposição.' },
+            { id: 'tpl-cobranca', title: 'Cobrança', channel: 'whatsapp', subject: '', body: 'Olá {{nome}}, espero que esteja bem! Passando para lembrar sobre o pagamento pendente. Qualquer dúvida, estou à disposição. Obrigado!' },
+            { id: 'tpl-aniversario', title: 'Aniversário', channel: 'both', subject: 'Feliz Aniversário! 🎉', body: 'Feliz aniversário, {{nome}}! 🎉 Desejamos um dia repleto de alegria e um ano incrível pela frente. Um abraço!' },
+            { id: 'tpl-followup', title: 'Follow-up', channel: 'whatsapp', subject: '', body: 'Oi {{nome}}, tudo bem? Faz um tempinho que não conversamos — fico à disposição para o que precisar.' }
+        ];
 
         let currentMonthDate;
         let calViewMode = 'month';
@@ -1481,6 +1605,9 @@
             { id: 'done',  label: 'Concluído'    },
         ];
         let currentHistoryContactId = null;
+        let messageTemplates = [];
+        let sendMsgContactId = null;
+        let editingTemplateId = null;
         let activeFilters = { category: '', isLead: '', temperature: '', tag: '' };
         let currentContactTags = [];
         let currentContactCustomFields = [];
@@ -1823,12 +1950,13 @@
                 });
 
                 // Verifica aniversários uma vez por hora (quando minuto === 0)
-                if (parseInt(mStr) === 0) checkBirthdayReminders();
+                if (parseInt(mStr) === 0) { checkBirthdayReminders(); checkFollowupReminders(); }
 
             }, 60000);
 
             // Verifica imediatamente ao abrir o app
             checkBirthdayReminders();
+            checkFollowupReminders();
         }
 
         // ── CENTRAL DE NOTIFICAÇÕES ────────────────────────────────────────────
@@ -1880,9 +2008,9 @@
                 return;
             }
 
-            const icons  = { event: 'ph-calendar-check', task: 'ph-check-square', birthday: 'ph-cake' };
-            const colors = { event: '#5b8fa8', task: '#f59e0b', birthday: '#ec4899' };
-            const labels = { event: 'Agenda', task: 'Tarefa', birthday: 'Aniversário' };
+            const icons  = { event: 'ph-calendar-check', task: 'ph-check-square', birthday: 'ph-cake', followup: 'ph-bell-ringing' };
+            const colors = { event: '#5b8fa8', task: '#f59e0b', birthday: '#ec4899', followup: '#00FFFF' };
+            const labels = { event: 'Agenda', task: 'Tarefa', birthday: 'Aniversário', followup: 'Follow-up' };
 
             list.innerHTML = notifications.map(n => {
                 const icon  = icons[n.type]  || 'ph-bell';
@@ -2022,6 +2150,7 @@
             notes = JSON.parse(localStorage.getItem('sant_crm_notes') || '[]');
             notifications = JSON.parse(localStorage.getItem('vends_notifications') || '[]');
             scheduleBlocks = JSON.parse(localStorage.getItem('sant_crm_schedule_blocks') || '[]');
+            messageTemplates = JSON.parse(localStorage.getItem('sant_crm_message_templates') || JSON.stringify(defaultMessageTemplates));
             migrateContactCodes();
             migrateContactOrigins();
         }
@@ -2041,6 +2170,7 @@
         function saveToStorage() { localStorage.setItem('sant_crm_contacts', JSON.stringify(contacts)); }
         function saveCategoriesToStorage() { localStorage.setItem('sant_crm_categories', JSON.stringify(categories)); }
         function saveOriginsToStorage() { localStorage.setItem('sant_crm_origins', JSON.stringify(origins)); }
+        function saveMessageTemplatesToStorage() { localStorage.setItem('sant_crm_message_templates', JSON.stringify(messageTemplates)); }
         function migrateContactOrigins() {
             let changed = false;
             contacts.forEach(c => {
@@ -2089,7 +2219,8 @@
                     if (data.tags) tags = data.tags;
                     if (data.notes) notes = data.notes;
                     if (data.notifications) notifications = data.notifications;
-                    saveToStorage(); saveCategoriesToStorage(); saveOriginsToStorage(); saveTasksToStorage(); saveEventsToStorage(); saveTagsToStorage(); saveNotesToStorage();
+                    if (data.messageTemplates) messageTemplates = data.messageTemplates;
+                    saveToStorage(); saveCategoriesToStorage(); saveOriginsToStorage(); saveTasksToStorage(); saveEventsToStorage(); saveTagsToStorage(); saveNotesToStorage(); saveMessageTemplatesToStorage();
                     localStorage.setItem('vends_notifications', JSON.stringify(notifications));
                     init();
                     showToast('Dados importados com sucesso!');
@@ -3531,6 +3662,143 @@
         }
         function closeOriginManager() { document.getElementById('originModal').classList.add('hidden'); }
 
+        // ── Modelos de Mensagem (WhatsApp/E-mail) ────────────────────────
+        function fillMessageTemplate(text, c) {
+            const vars = {
+                nome: c.name || '',
+                sobrenome: c.lastName || '',
+                nomeCompleto: fullName(c),
+                empresa: c.company || ''
+            };
+            return (text || '').replace(/\{\{\s*(\w+)\s*\}\}/g, (m, key) => vars[key] !== undefined ? vars[key] : m);
+        }
+
+        function channelLabel(ch) {
+            return ch === 'whatsapp' ? 'WhatsApp' : ch === 'email' ? 'E-mail' : 'WhatsApp + E-mail';
+        }
+
+        function openSendMessageModal(contactId) {
+            const c = contacts.find(x => x.id === contactId);
+            if (!c) return;
+            sendMsgContactId = contactId;
+            const select = document.getElementById('sendMsgTemplate');
+            select.innerHTML = messageTemplates.map(t => `<option value="${t.id}">${t.title}</option>`).join('');
+            document.getElementById('sendMessageModal').classList.remove('hidden');
+            loadSendMsgTemplate();
+        }
+        function closeSendMessageModal() { document.getElementById('sendMessageModal').classList.add('hidden'); }
+
+        function loadSendMsgTemplate() {
+            const c = contacts.find(x => x.id === sendMsgContactId);
+            if (!c) return;
+            const t = messageTemplates.find(x => x.id === document.getElementById('sendMsgTemplate').value) || messageTemplates[0];
+            if (!t) return;
+            document.getElementById('sendMsgSubject').value = fillMessageTemplate(t.subject || '', c);
+            document.getElementById('sendMsgBody').value = fillMessageTemplate(t.body || '', c);
+            document.getElementById('sendMsgSubjectWrap').classList.toggle('hidden', t.channel === 'whatsapp');
+        }
+
+        function sendMsgCopy() {
+            const text = document.getElementById('sendMsgBody').value;
+            navigator.clipboard.writeText(text).then(() => showToast('Texto copiado!'));
+        }
+
+        function sendMsgWhatsapp() {
+            const c = contacts.find(x => x.id === sendMsgContactId);
+            const phone = (c.phoneProf || c.phonePess || c.phone || '').replace(/\D/g, '');
+            if (!phone) { showToast('Este contato não tem telefone cadastrado.', 'error'); return; }
+            const text = encodeURIComponent(document.getElementById('sendMsgBody').value);
+            window.open(`https://wa.me/55${phone}?text=${text}`, '_blank');
+        }
+
+        function sendMsgEmail() {
+            const c = contacts.find(x => x.id === sendMsgContactId);
+            const email = c.emailProf || c.emailPess || c.email || '';
+            if (!email) { showToast('Este contato não tem e-mail cadastrado.', 'error'); return; }
+            const subject = encodeURIComponent(document.getElementById('sendMsgSubject').value);
+            const body = encodeURIComponent(document.getElementById('sendMsgBody').value);
+            window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+        }
+
+        function toggleTplSubjectField() {
+            document.getElementById('tplSubjectWrap').classList.toggle('hidden', document.getElementById('tplChannel').value === 'whatsapp');
+        }
+
+        function resetTemplateForm() {
+            editingTemplateId = null;
+            document.getElementById('tplTitle').value = '';
+            document.getElementById('tplChannel').value = 'whatsapp';
+            document.getElementById('tplSubject').value = '';
+            document.getElementById('tplBody').value = '';
+            toggleTplSubjectField();
+            document.getElementById('tplFormTitle').innerText = 'Novo Modelo';
+            document.getElementById('tplSaveBtn').innerText = 'Adicionar';
+        }
+
+        function renderTemplatesList() {
+            const list = document.getElementById('templatesList');
+            list.innerHTML = messageTemplates.map(t => `
+                <div class="flex justify-between items-center bg-[#141414] border border-sant-border rounded-lg p-3 gap-2">
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm text-gray-200 truncate">${t.title}</p>
+                        <p class="text-[10px] text-gray-500 uppercase">${channelLabel(t.channel)}</p>
+                    </div>
+                    <button onclick="editTemplate('${t.id}')" class="text-gray-500 hover:text-sant-cyan transition-colors p-1"><i class="ph ph-pencil-simple"></i></button>
+                    <button onclick="deleteTemplate('${t.id}')" class="text-gray-500 hover:text-red-500 transition-colors p-1"><i class="ph ph-trash"></i></button>
+                </div>`
+            ).join('');
+        }
+
+        function editTemplate(id) {
+            const t = messageTemplates.find(x => x.id === id);
+            if (!t) return;
+            editingTemplateId = id;
+            document.getElementById('tplTitle').value = t.title;
+            document.getElementById('tplChannel').value = t.channel;
+            document.getElementById('tplSubject').value = t.subject || '';
+            document.getElementById('tplBody').value = t.body || '';
+            toggleTplSubjectField();
+            document.getElementById('tplFormTitle').innerText = 'Editar Modelo';
+            document.getElementById('tplSaveBtn').innerText = 'Salvar';
+        }
+
+        function saveTemplate() {
+            const title = document.getElementById('tplTitle').value.trim();
+            const channel = document.getElementById('tplChannel').value;
+            const subject = document.getElementById('tplSubject').value.trim();
+            const body = document.getElementById('tplBody').value.trim();
+            if (!title || !body) { showToast('Preencha o título e a mensagem.', 'error'); return; }
+            if (editingTemplateId) {
+                const t = messageTemplates.find(x => x.id === editingTemplateId);
+                t.title = title; t.channel = channel; t.subject = subject; t.body = body;
+            } else {
+                messageTemplates.push({ id: crypto.randomUUID(), title, channel, subject, body });
+            }
+            saveMessageTemplatesToStorage();
+            renderTemplatesList();
+            resetTemplateForm();
+            showToast('Modelo salvo!');
+        }
+
+        function deleteTemplate(id) {
+            const t = messageTemplates.find(x => x.id === id);
+            if (!t) return;
+            showConfirm(`Excluir modelo "${t.title}"?`, 'Esta ação não pode ser desfeita.', () => {
+                messageTemplates = messageTemplates.filter(x => x.id !== id);
+                saveMessageTemplatesToStorage();
+                renderTemplatesList();
+                if (editingTemplateId === id) resetTemplateForm();
+                showToast('Modelo removido.');
+            });
+        }
+
+        function openTemplatesManager() {
+            resetTemplateForm();
+            document.getElementById('templatesModal').classList.remove('hidden');
+            renderTemplatesList();
+        }
+        function closeTemplatesManager() { document.getElementById('templatesModal').classList.add('hidden'); }
+
         function renderCategoryManager() {
             const list = document.getElementById('categoryList');
             const sorted = [...categories].sort((a, b) => a.localeCompare(b, 'pt-BR'));
@@ -4525,6 +4793,7 @@
             btn.classList.add('bg-sant-purple', 'text-white');
 
             if(tabId === 'categories') generateCategoryReport();
+            if(tabId === 'charts') generateChartsReport();
             if(tabId === 'directory') generateDirectoryReport();
             if(tabId === 'leads') generateLeadsReport();
             if(tabId === 'birthdays') {
@@ -4641,6 +4910,66 @@
             }).join('');
         }
 
+        let reportCharts = {};
+        function generateChartsReport() {
+            Object.values(reportCharts).forEach(ch => ch && ch.destroy());
+            reportCharts = {};
+
+            const palette = ['#00FFFF', '#fbbf24', '#ec4899', '#a78bfa', '#34d399', '#60a5fa', '#f87171', '#f472b6', '#facc15', '#4ade80'];
+
+            const catCounts = {};
+            contacts.forEach(c => { const k = c.category || 'Sem Categoria'; catCounts[k] = (catCounts[k] || 0) + 1; });
+            const catEntries = Object.entries(catCounts).sort((a,b) => b[1] - a[1]);
+
+            const tempLabels = { quente: 'Quente', morno: 'Morno', frio: 'Frio' };
+            const tempCounts = { quente: 0, morno: 0, frio: 0 };
+            contacts.filter(c => c.isLead).forEach(c => { const t = c.temperature || 'frio'; if (tempCounts[t] !== undefined) tempCounts[t]++; });
+            const tempColors = { quente: '#f87171', morno: '#fbbf24', frio: '#60a5fa' };
+
+            const origCounts = {};
+            contacts.forEach(c => { const k = c.origin || 'Sem Origem'; origCounts[k] = (origCounts[k] || 0) + 1; });
+            const origEntries = Object.entries(origCounts).sort((a,b) => b[1] - a[1]);
+
+            const commonOptions = {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#9ca3af' } } }
+            };
+
+            reportCharts.category = new Chart(document.getElementById('chartCategory'), {
+                type: 'pie',
+                data: {
+                    labels: catEntries.map(e => e[0]),
+                    datasets: [{ data: catEntries.map(e => e[1]), backgroundColor: catEntries.map((_, i) => palette[i % palette.length]) }]
+                },
+                options: commonOptions
+            });
+
+            reportCharts.temperature = new Chart(document.getElementById('chartTemperature'), {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(tempCounts).map(k => tempLabels[k]),
+                    datasets: [{ data: Object.values(tempCounts), backgroundColor: Object.keys(tempCounts).map(k => tempColors[k]) }]
+                },
+                options: commonOptions
+            });
+
+            reportCharts.origin = new Chart(document.getElementById('chartOrigin'), {
+                type: 'bar',
+                data: {
+                    labels: origEntries.map(e => e[0]),
+                    datasets: [{ label: 'Contatos', data: origEntries.map(e => e[1]), backgroundColor: '#00FFFF' }]
+                },
+                options: {
+                    ...commonOptions,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { color: '#9ca3af' }, grid: { color: '#1f1f1f' } },
+                        y: { ticks: { color: '#9ca3af', precision: 0 }, grid: { color: '#1f1f1f' } }
+                    }
+                }
+            });
+        }
+
         function generateDirectoryReport() {
             const tbody = document.getElementById('directoryReportResults');
             const sorted = [...contacts].sort((a,b) => fullName(a).localeCompare(fullName(b), 'pt-BR'));
@@ -4732,6 +5061,117 @@
             if(leads.length === 0) lists.innerHTML = '<div class="text-center text-gray-500 mt-10"><i class="ph ph-star text-4xl mb-2 opacity-50"></i><p>Você ainda não marcou nenhum contato como Potencial Cliente.</p></div>';
         }
 
+        // ── Exportação de Relatórios (CSV / PDF) ────────────────────────────
+        function csvEscape(val) {
+            const s = (val === null || val === undefined) ? '' : String(val);
+            if (/[",\n;]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+            return s;
+        }
+
+        function downloadReportCsv(filename, headers, rows) {
+            if (rows.length === 0) { showToast('Nenhum dado para exportar.', 'error'); return; }
+            const lines = [headers, ...rows].map(r => r.map(csvEscape).join(';'));
+            const csv = '﻿' + lines.join('\r\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('CSV exportado!');
+        }
+
+        function printReportPdf(title, headers, rows) {
+            if (rows.length === 0) { showToast('Nenhum dado para exportar.', 'error'); return; }
+            const win = window.open('', '_blank');
+            const thead = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+            const tbody = rows.map(r => `<tr>${r.map(c => `<td>${c === null || c === undefined ? '' : String(c).replace(/\n/g, '<br>')}</td>`).join('')}</tr>`).join('');
+            win.document.write(`
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>${title}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 24px; color: #111; }
+                        h1 { font-size: 18px; margin-bottom: 4px; }
+                        p.meta { font-size: 11px; color: #666; margin-bottom: 16px; }
+                        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+                        th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; vertical-align: top; }
+                        th { background: #f0f0f0; }
+                        @media print { body { padding: 0; } }
+                    </style>
+                </head>
+                <body>
+                    <h1>${title}</h1>
+                    <p class="meta">Vend-s Inteligência CRM · Exportado em ${new Date().toLocaleString('pt-BR')} · ${rows.length} registro(s)</p>
+                    <table><thead>${thead}</thead><tbody>${tbody}</tbody></table>
+                    <scr${''}ipt>window.onload = () => { window.print(); };</scr${''}ipt>
+                </body>
+                </html>
+            `);
+            win.document.close();
+        }
+
+        function getDirectoryReportRows() {
+            const sorted = [...contacts].sort((a,b) => fullName(a).localeCompare(fullName(b), 'pt-BR'));
+            return sorted.map(c => {
+                const emails = [c.emailProf, c.emailPess, c.email].filter(Boolean);
+                const phones = [c.phoneProf, c.phonePess, c.phone].filter(Boolean);
+                const birthStr = c.birth ? c.birth.split('-').reverse().join('/') : '';
+                return [fullName(c), c.category || '', birthStr, emails.join(', '), phones.join(', ')];
+            });
+        }
+        function exportDirectoryCsv() {
+            downloadReportCsv(`diretorio_contatos_${getSPTodayStr()}.csv`, ['Nome', 'Categoria', 'Aniversário', 'E-mails', 'Telefones'], getDirectoryReportRows());
+        }
+        function exportDirectoryPdf() {
+            printReportPdf('Diretório de Contatos', ['Nome', 'Categoria', 'Aniversário', 'E-mails', 'Telefones'], getDirectoryReportRows());
+        }
+
+        function getCategoryReportRows() {
+            const sorted = [...contacts].sort((a,b) => {
+                const catA = a.category || 'Sem Categoria', catB = b.category || 'Sem Categoria';
+                if (catA !== catB) return catA.localeCompare(catB, 'pt-BR');
+                return fullName(a).localeCompare(fullName(b), 'pt-BR');
+            });
+            return sorted.map(c => {
+                const phone = c.phoneProf || c.phonePess || c.phone || '';
+                const email = c.emailProf || c.emailPess || c.email || '';
+                return [c.category || 'Sem Categoria', fullName(c), phone, email];
+            });
+        }
+        function exportCategoryCsv() {
+            downloadReportCsv(`contatos_por_categoria_${getSPTodayStr()}.csv`, ['Categoria', 'Nome', 'Telefone', 'E-mail'], getCategoryReportRows());
+        }
+        function exportCategoryPdf() {
+            printReportPdf('Contatos por Categoria', ['Categoria', 'Nome', 'Telefone', 'E-mail'], getCategoryReportRows());
+        }
+
+        function getLeadsReportRows() {
+            const tempLabels = { quente: '🔥 Quente', morno: '☀️ Morno', frio: '❄️ Frio' };
+            const leads = contacts.filter(c => c.isLead).sort((a,b) => {
+                const order = { quente: 0, morno: 1, frio: 2 };
+                const ta = order[a.temperature] ?? 3, tb = order[b.temperature] ?? 3;
+                if (ta !== tb) return ta - tb;
+                return fullName(a).localeCompare(fullName(b), 'pt-BR');
+            });
+            return leads.map(c => {
+                const phone = c.phoneProf || c.phonePess || c.phone || '';
+                const email = c.emailProf || c.emailPess || c.email || '';
+                const jobStr = [c.job, c.company].filter(Boolean).join(' @ ');
+                return [tempLabels[c.temperature] || c.temperature || '', fullName(c), jobStr, phone, email];
+            });
+        }
+        function exportLeadsCsv() {
+            downloadReportCsv(`oportunidades_${getSPTodayStr()}.csv`, ['Temperatura', 'Nome', 'Empresa/Cargo', 'Telefone', 'E-mail'], getLeadsReportRows());
+        }
+        function exportLeadsPdf() {
+            printReportPdf('Oportunidades (Leads)', ['Temperatura', 'Nome', 'Empresa/Cargo', 'Telefone', 'E-mail'], getLeadsReportRows());
+        }
+
         function copyAllEmails() {
             const emails = contacts.flatMap(c => [c.emailProf, c.emailPess, c.email]).filter(Boolean);
             const uniqueEmails = [...new Set(emails)];
@@ -4799,7 +5239,8 @@
                 events: JSON.parse(localStorage.getItem('sant_crm_events') || '[]'),
                 tags: JSON.parse(localStorage.getItem('sant_crm_tags') || '[]'),
                 notes: JSON.parse(localStorage.getItem('sant_crm_notes') || '[]'),
-                notifications: JSON.parse(localStorage.getItem('vends_notifications') || '[]')
+                notifications: JSON.parse(localStorage.getItem('vends_notifications') || '[]'),
+                messageTemplates: JSON.parse(localStorage.getItem('sant_crm_message_templates') || '[]')
             };
             const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -5534,6 +5975,8 @@
                 `<span class="px-2 py-0.5 rounded text-[10px] font-medium bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20"><b>${f.label || '?'}:</b> ${f.value || '-'}</span>`
             ).join('');
 
+            document.getElementById('historyNextContact').value = c.nextContact || '';
+            document.getElementById('historyNextContactClear').classList.toggle('hidden', !c.nextContact);
             document.getElementById('interactionDate').value = getSPTodayStr();
             document.getElementById('interactionNotes').value = '';
             document.getElementById('historyModal').classList.remove('hidden');
@@ -5700,6 +6143,39 @@
         function closeHistoryModal() {
             document.getElementById('historyModal').classList.add('hidden');
             currentHistoryContactId = null;
+        }
+
+        function setNextContact(value) {
+            if (!currentHistoryContactId) return;
+            const c = contacts.find(x => x.id === currentHistoryContactId);
+            if (!c) return;
+            c.nextContact = value || '';
+            if (!c.nextContact) {
+                const key = `vends_followup_notified_${c.id}_${getSPTodayStr()}`;
+                localStorage.removeItem(key);
+            }
+            saveToStorage();
+            document.getElementById('historyNextContactClear').classList.toggle('hidden', !c.nextContact);
+            showToast(c.nextContact ? 'Lembrete de follow-up definido.' : 'Lembrete removido.');
+        }
+
+        function checkFollowupReminders() {
+            const todayStr = getSPTodayStr();
+            contacts.forEach(c => {
+                if (!c.nextContact) return;
+                if (c.nextContact > todayStr) return;
+
+                const notifKey = `vends_followup_notified_${c.id}_${todayStr}`;
+                if (localStorage.getItem(notifKey)) return;
+
+                const dateLabel = c.nextContact.split('-').reverse().join('/');
+                const msg = c.nextContact === todayStr
+                    ? `📅 Follow-up com ${fullName(c)} agendado para hoje.`
+                    : `⏰ Follow-up com ${fullName(c)} venceu em ${dateLabel}.`;
+
+                addNotification('followup', `Follow-up: ${fullName(c)}`, msg);
+                localStorage.setItem(notifKey, '1');
+            });
         }
 
         function logInteraction() {
