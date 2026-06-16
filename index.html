@@ -854,6 +854,13 @@
                                 <input type="text" id="contactLastName" class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-2.5 text-sm text-white focus:border-sant-cyan outline-none transition-colors">
                             </div>
                         </div>
+                        <div class="md:col-span-1">
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Foto (URL)</label>
+                            <div class="flex gap-3 items-center">
+                                <input type="url" id="contactPhoto" placeholder="https://exemplo.com/foto.jpg" oninput="previewContactPhoto(this.value)" class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-4 py-2.5 text-sm text-white focus:border-sant-cyan outline-none transition-colors">
+                                <div id="contactPhotoPreview" class="w-10 h-10 rounded-full bg-sant-cyan/10 border border-sant-cyan/20 shrink-0 overflow-hidden flex items-center justify-center"><i class="ph ph-user text-gray-600" style="font-size:18px"></i></div>
+                            </div>
+                        </div>
                         <div>
                             <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Categoria</label>
                             <select id="contactCategory" class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-2.5 text-sm text-white focus:border-sant-cyan outline-none transition-colors appearance-none">
@@ -1525,12 +1532,15 @@
     <div id="historyModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4">
         <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
             <div class="flex justify-between items-center p-5 border-b border-sant-border shrink-0">
-                <div>
+                <div class="flex items-center gap-4">
+                    <div id="historyContactAvatar" class="shrink-0"></div>
+                    <div>
                     <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-clock-clockwise text-sant-cyan"></i> Histórico de Interações</h3>
                     <p id="historyContactName" class="text-xs text-gray-500 mt-0.5"></p>
                     <a id="historyContactAddress" href="#" target="_blank" rel="noopener" class="hidden text-xs text-sant-cyan hover:underline mt-1 items-center gap-1"><i class="ph ph-map-pin"></i> <span></span></a>
                     <div id="historyCustomFields" class="flex flex-wrap gap-1.5 mt-1.5"></div>
-                </div>
+                    </div><!-- /info text -->
+                </div><!-- /avatar+info flex -->
                 <div class="flex items-center gap-3 shrink-0">
                     <button onclick="openSendMessageModal(currentHistoryContactId)" class="text-gray-400 hover:text-sant-cyan transition-colors" title="Enviar Mensagem"><i class="ph ph-paper-plane-tilt text-lg"></i></button>
                     <button onclick="closeHistoryModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
@@ -1905,9 +1915,7 @@
                 html += matchContacts.map(c => `
                     <div data-gs-item class="gs-item flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-white/5 transition-colors rounded-xl mx-1"
                          onclick="gsOpenContact('${c.id}')">
-                        <span class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold text-white" style="background:#5b8fa8;">
-                            ${(c.name||'?')[0].toUpperCase()}
-                        </span>
+                        ${contactAvatarHtml(c, 'w-8 h-8 text-xs')}
                         <div class="min-w-0">
                             <div class="text-sm text-white truncate">${hl(fullName(c))}</div>
                             <div class="text-xs text-gray-500 truncate">${hl(c.company||c.phone||c.email||'')}</div>
@@ -3398,7 +3406,7 @@
                 <div class="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
                     ${items.map(c => `
                         <button onclick="openHistoryModal('${c.id}')" class="shrink-0 flex items-center gap-2 bg-sant-surface border border-sant-border hover:border-sant-cyan rounded-full pl-1.5 pr-3 py-1.5 transition-colors">
-                            <div class="w-6 h-6 rounded-full bg-sant-cyan/10 text-sant-cyan flex items-center justify-center text-[10px] font-bold shrink-0">${(c.name || '?').charAt(0).toUpperCase()}${(c.lastName || c.name || '').charAt(c.lastName ? 0 : 1).toUpperCase()}</div>
+                            ${contactAvatarHtml(c, 'w-6 h-6 text-[10px]')}
                             <span class="text-xs text-gray-300 whitespace-nowrap">${fullName(c)}</span>
                         </button>
                     `).join('')}
@@ -3528,6 +3536,26 @@
             }
         }
 
+        function contactAvatarHtml(c, sizeClass) {
+            const initials = (`${(c.name||'')[0]||''}${c.lastName?c.lastName[0]:(c.name||'')[1]||''}`).toUpperCase() || '?';
+            if (c.photo) {
+                return `<div class="${sizeClass} rounded-full shrink-0 border border-sant-cyan/20 overflow-hidden bg-sant-cyan/10 flex items-center justify-center">
+                    <img src="${c.photo}" alt="" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='<span class=\\'font-bold text-sant-cyan uppercase\\'>${initials}</span>'">
+                </div>`;
+            }
+            return `<div class="${sizeClass} rounded-full bg-sant-cyan/10 text-sant-cyan flex items-center justify-center font-bold border border-sant-cyan/20 shrink-0 uppercase">${initials}</div>`;
+        }
+
+        function previewContactPhoto(url) {
+            const prev = document.getElementById('contactPhotoPreview');
+            if (!prev) return;
+            if (url) {
+                prev.innerHTML = `<img src="${url}" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='<i class=\\'ph ph-user text-gray-600\\' style=\\'font-size:18px\\'></i>'">`;
+            } else {
+                prev.innerHTML = `<i class="ph ph-user text-gray-600" style="font-size:18px"></i>`;
+            }
+        }
+
         function contactCardHtml(c, mode, density) {
             const dispEmail = c.emailProf || c.emailPess || c.email || '';
             const dispPhone = c.phoneProf || c.phonePess || c.phone || '';
@@ -3543,8 +3571,6 @@
                 ? `<span class="absolute -top-1 -right-1 w-4 h-4 bg-sant-cyan text-sant-bg text-[9px] font-bold rounded-full flex items-center justify-center">${c.interactions.length > 9 ? '9+' : c.interactions.length}</span>` : '';
             const lastInteractionDate = (c.interactions && c.interactions.length > 0)
                 ? [...c.interactions].sort((a,b) => (b.date||'').localeCompare(a.date||''))[0].date : null;
-            const avatar = `${(c.name||'')[0]||''}${c.lastName?c.lastName[0]:(c.name||'')[1]||''}`;
-
             if (mode === 'grid') {
                 const tagsHtml = (c.tags && c.tags.length > 0)
                     ? `<div class="flex flex-wrap gap-1 mt-2">${c.tags.slice(0,4).map(t=>`<span class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20">${t}</span>`).join('')}${c.tags.length>4?`<span class="text-[9px] text-gray-500">+${c.tags.length-4}</span>`:''}</div>` : '';
@@ -3552,7 +3578,7 @@
                 <div class="bg-sant-surface border border-sant-border rounded-xl p-5 hover:border-sant-cyan/50 transition-all group flex flex-col h-full min-w-0">
                     <div class="flex justify-between items-start mb-4">
                         <div class="flex items-center gap-3 min-w-0">
-                            <div class="w-10 h-10 rounded-full bg-sant-cyan/10 text-sant-cyan flex items-center justify-center font-bold border border-sant-cyan/20 shrink-0 uppercase">${avatar}</div>
+                            ${contactAvatarHtml(c, 'w-10 h-10')}
                             <div class="min-w-0">
                                 <h3 class="font-bold text-white truncate text-sm" title="${fullName(c)}">${fullName(c)} ${c.code?`<span class="text-gray-500 font-mono text-[10px] font-normal">#${c.code}</span>`:''}</h3>
                                 ${c.category?`<span class="inline-block px-2 py-0.5 mt-1 rounded text-[10px] font-medium bg-sant-purple/20 text-sant-purple border border-sant-purple/30">${c.category}</span>`:''}
@@ -3584,7 +3610,7 @@
             if (compact) {
                 return `
                 <div class="bg-sant-surface border border-sant-border rounded-lg px-3 py-1.5 hover:border-sant-cyan/50 transition-all group flex items-center gap-3 min-w-0">
-                    <div class="w-6 h-6 rounded-full bg-sant-cyan/10 text-sant-cyan flex items-center justify-center font-bold border border-sant-cyan/20 shrink-0 uppercase text-[10px]">${avatar}</div>
+                    ${contactAvatarHtml(c, 'w-6 h-6 text-[10px]')}
                     <div class="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4 items-center min-w-0">
                         <div class="min-w-0 flex items-center gap-1.5">
                             <h3 class="font-bold text-white text-xs truncate" title="${fullName(c)}">${fullName(c)}</h3>
@@ -3605,7 +3631,7 @@
             }
             return `
             <div class="bg-sant-surface border border-sant-border rounded-lg p-3 hover:border-sant-cyan/50 transition-all group flex items-center gap-4 min-w-0">
-                <div class="w-8 h-8 rounded-full bg-sant-cyan/10 text-sant-cyan flex items-center justify-center font-bold border border-sant-cyan/20 shrink-0 uppercase text-xs">${avatar}</div>
+                ${contactAvatarHtml(c, 'w-8 h-8 text-xs')}
                 <div class="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4 items-center min-w-0">
                     <div class="min-w-0">
                         <h3 class="font-bold text-white text-sm truncate" title="${fullName(c)}">${fullName(c)} ${c.code?`<span class="text-gray-500 font-mono text-[10px] font-normal">#${c.code}</span>`:''}</h3>
@@ -3702,9 +3728,13 @@
                 notes: document.getElementById('contactNotes').value,
                 isLead: document.getElementById('contactIsLead').checked,
                 temperature: document.querySelector('input[name="contactTemp"]:checked') ? document.querySelector('input[name="contactTemp"]:checked').value : 'frio',
+                photo: document.getElementById('contactPhoto').value.trim(),
                 tags: [...currentContactTags],
                 customFields: currentContactCustomFields.filter(f => f.label.trim() || f.value.trim()).map(f => ({ label: f.label.trim(), value: f.value.trim() })),
                 interactions: existing ? (existing.interactions || []) : [],
+                links: existing ? (existing.links || []) : [],
+                quickNotes: existing ? (existing.quickNotes || []) : [],
+                nextContact: existing ? (existing.nextContact || '') : '',
                 createdAt: existing ? (existing.createdAt || new Date().toISOString()) : new Date().toISOString(),
                 code: existing ? existing.code : getNextContactCode()
             };
@@ -3798,7 +3828,9 @@
             document.getElementById('contactPhonePess').value = contact.phonePess || '';
             document.getElementById('contactBirth').value = contact.birth || '';
             document.getElementById('contactNotes').value = contact.notes || '';
-            
+            document.getElementById('contactPhoto').value = contact.photo || '';
+            previewContactPhoto(contact.photo || '');
+
             document.getElementById('contactIsLead').checked = contact.isLead || false;
             document.getElementById('tempContainer').classList.toggle('hidden', !contact.isLead);
             if (contact.temperature) {
@@ -5835,6 +5867,7 @@
             renderContactTagPills();
             currentContactCustomFields = [];
             renderContactCustomFields();
+            previewContactPhoto('');
             document.getElementById('contactModal').classList.remove('hidden');
             setTimeout(()=>document.getElementById('contactModal').classList.remove('opacity-0'), 10);
             takeModalSnapshot('contactModal');
@@ -6612,6 +6645,7 @@
             if (!c) return;
             addRecentContact(contactId);
             document.getElementById('historyContactName').innerText = fullName(c);
+            document.getElementById('historyContactAvatar').innerHTML = contactAvatarHtml(c, 'w-12 h-12');
             const addrLink = document.getElementById('historyContactAddress');
             const addrStr = buildAddressString(c);
             if (addrStr) {
