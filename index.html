@@ -120,6 +120,30 @@
         .kanban-card.dragging { opacity: 0.35; box-shadow: 0 0 0 2px #00FFFF; }
         .kanban-col { transition: ring 0.15s ease; }
         .kanban-col.drag-over { outline: 2px solid rgba(0,255,255,0.4); background: rgba(0,255,255,0.03); }
+        /* Animação de confirmação visual (✓ feito) */
+        @keyframes checkPop {
+            0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+            40%  { opacity: 1; transform: translate(-50%, -50%) scale(1.25); }
+            70%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+        }
+        .check-pop-badge {
+            position: fixed; pointer-events: none; z-index: 9999;
+            font-size: 22px; font-weight: 900; color: #5b8fa8;
+            animation: checkPop 0.65s ease forwards;
+            text-shadow: 0 0 12px rgba(91,143,168,0.6);
+        }
+        @keyframes noteSavePulse {
+            0%   { box-shadow: 0 0 0 0 rgba(91,143,168,0.5); }
+            60%  { box-shadow: 0 0 0 6px rgba(91,143,168,0.15); }
+            100% { box-shadow: 0 0 0 0 rgba(91,143,168,0); }
+        }
+        .note-save-pulse { animation: noteSavePulse 0.55s ease; }
+
+        .cal-event-chip { cursor: grab; transition: opacity 0.15s ease; }
+        .cal-event-chip:active { cursor: grabbing; }
+        .cal-event-chip.cal-dragging { opacity: 0.35; }
+        .cal-day-cell.cal-drop-over { outline: 2px solid #5b8fa8; background: rgba(91,143,168,0.08); }
 
         /* Modo Apresentação/Foco */
         body.focus-mode aside,
@@ -290,6 +314,25 @@
                     </div>
                 </div>
 
+                <!-- Card: Esta Semana -->
+                <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
+                    <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase mb-5 flex items-center gap-2"><i class="ph ph-lightning text-sant-cyan"></i> Esta Semana — Produtividade</p>
+                    <div class="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                            <p id="dashWeekTasksDone" class="text-4xl font-bold text-sant-cyan leading-none">0</p>
+                            <p class="text-[11px] text-gray-500 mt-2 leading-tight">tarefas<br>concluídas</p>
+                        </div>
+                        <div>
+                            <p id="dashWeekEventsDone" class="text-4xl font-bold leading-none" style="color:#7aafc8">0</p>
+                            <p class="text-[11px] text-gray-500 mt-2 leading-tight">eventos<br>realizados</p>
+                        </div>
+                        <div>
+                            <p id="dashWeekInteractions" class="text-4xl font-bold text-[#fbbf24] leading-none">0</p>
+                            <p class="text-[11px] text-gray-500 mt-2 leading-tight">interações<br>registradas</p>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 lg:col-span-2">
                         <p class="text-xs font-bold text-white tracking-wide uppercase flex items-center gap-2 mb-6"><i class="ph ph-chart-pie-slice text-sant-cyan text-lg"></i> Distribuição por Categoria</p>
@@ -314,7 +357,10 @@
                     <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 flex flex-col h-[400px]">
                         <div class="flex justify-between items-center mb-6 shrink-0">
                             <p class="text-xs font-bold text-white tracking-wide uppercase flex items-center gap-2"><i class="ph ph-list-checks text-sant-cyan text-lg"></i> Suas Tarefas</p>
-                            <button onclick="switchView('tasks')" class="text-[10px] font-bold uppercase text-gray-500 hover:text-sant-cyan transition-colors">Ver todas</button>
+                            <div class="flex items-center gap-3">
+                                <span id="dashTasksEstimate" class="text-[10px] text-gray-500 hidden"><i class="ph ph-hourglass"></i> <span id="dashTasksEstimateVal"></span></span>
+                                <button onclick="switchView('tasks')" class="text-[10px] font-bold uppercase text-gray-500 hover:text-sant-cyan transition-colors">Ver todas</button>
+                            </div>
                         </div>
                         <div id="dashTasksList" class="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar"></div>
                     </div>
@@ -365,6 +411,16 @@
                         <button id="btnDensity" onclick="toggleDensity()" title="Alternar densidade (confortável/compacto)" class="p-2.5 bg-sant-surface border border-sant-border rounded-lg text-gray-500 hover:text-sant-cyan hover:border-sant-cyan transition-colors shrink-0">
                             <i class="ph ph-rows text-lg"></i>
                         </button>
+                        <div class="relative shrink-0">
+                            <select id="contactSortSelect" onchange="setContactSort(this.value)" title="Ordenar por" class="appearance-none bg-sant-surface border border-sant-border rounded-lg pl-8 pr-3 py-2.5 text-sm text-gray-400 hover:text-sant-cyan hover:border-sant-cyan outline-none transition-colors cursor-pointer">
+                                <option value="name">A–Z Nome</option>
+                                <option value="code">Código #</option>
+                                <option value="createdAt">Mais recentes</option>
+                                <option value="lastInteraction">Última interação</option>
+                                <option value="category">Categoria</option>
+                            </select>
+                            <i class="ph ph-sort-ascending absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"></i>
+                        </div>
                         <button onclick="toggleAdvFilters()" id="btnAdvFilters" title="Filtros Avançados" class="p-2.5 bg-sant-surface border border-sant-border rounded-lg text-gray-500 hover:text-sant-cyan hover:border-sant-cyan transition-colors shrink-0">
                             <i class="ph ph-funnel text-lg"></i>
                         </button>
@@ -373,6 +429,7 @@
                         </button>
                     </div>
                 </div>
+                <div id="recentContactsBar" class="hidden mb-5"></div>
                 <!-- Painel de Filtros Avançados -->
                 <div id="advFiltersPanel" class="hidden mb-5 p-4 bg-sant-surface border border-sant-cyan/30 rounded-xl">
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -494,14 +551,30 @@
                 </div>
 
                 <div id="taskFilterBar" class="flex flex-col sm:flex-row gap-3 mb-6 shrink-0 border-b border-sant-border pb-4">
-                    <div class="flex gap-4" id="taskStatusFilters">
+                    <div class="flex gap-2 flex-wrap" id="taskStatusFilters">
                         <button onclick="filterTasks('all')" id="btnFilterAll" class="filter-status-btn px-4 py-1.5 rounded-full bg-sant-cyan text-sant-bg font-semibold text-sm transition-colors">Todas</button>
                         <button onclick="filterTasks('pending')" id="btnFilterPending" class="filter-status-btn px-4 py-1.5 rounded-full border border-sant-border text-gray-400 hover:text-white transition-colors text-sm">Pendentes</button>
                         <button onclick="filterTasks('completed')" id="btnFilterCompleted" class="filter-status-btn px-4 py-1.5 rounded-full border border-sant-border text-gray-400 hover:text-white transition-colors text-sm">Concluídas</button>
+                        <button onclick="toggleTaskFocus()" id="btnTaskFocus" class="px-4 py-1.5 rounded-full border border-[#fbbf24]/40 text-[#fbbf24]/60 hover:text-[#fbbf24] hover:border-[#fbbf24] transition-colors text-sm flex items-center gap-1.5">
+                            <i class="ph ph-lightning"></i> Foco do Dia
+                        </button>
                     </div>
-                    <div class="flex items-center gap-2 bg-sant-surface border border-sant-border rounded-lg p-2 sm:ml-auto focus-within:border-sant-cyan transition-colors">
-                        <i class="ph ph-magnifying-glass text-gray-400 px-1"></i>
-                        <input type="text" id="taskSearchInput" placeholder="Buscar tarefas..." class="bg-transparent border-none outline-none text-sm placeholder-gray-600 w-48" oninput="onTaskSearch(this.value)">
+                    <div class="flex items-center gap-2 sm:ml-auto flex-wrap">
+                        <div class="relative">
+                            <select id="taskSortSelect" onchange="setTaskSort(this.value)" class="appearance-none bg-sant-surface border border-sant-border rounded-lg pl-7 pr-3 py-2 text-sm text-gray-400 outline-none transition-colors cursor-pointer hover:border-sant-cyan">
+                                <option value="date">Por data</option>
+                                <option value="priority">Por prioridade</option>
+                                <option value="createdAt">Por criação</option>
+                            </select>
+                            <i class="ph ph-sort-ascending absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none text-sm"></i>
+                        </div>
+                        <select id="taskTagFilter" onchange="onTaskTagFilter(this.value)" class="bg-sant-surface border border-sant-border rounded-lg px-3 py-2 text-sm text-gray-400 outline-none appearance-none">
+                            <option value="">Todas as etiquetas</option>
+                        </select>
+                        <div class="flex items-center gap-2 bg-sant-surface border border-sant-border rounded-lg p-2 focus-within:border-sant-cyan transition-colors">
+                            <i class="ph ph-magnifying-glass text-gray-400 px-1"></i>
+                            <input type="text" id="taskSearchInput" placeholder="Buscar tarefas..." class="bg-transparent border-none outline-none text-sm placeholder-gray-600 w-40" oninput="onTaskSearch(this.value)">
+                        </div>
                     </div>
                 </div>
 
@@ -688,13 +761,16 @@
                             <p class="text-sm text-gray-500">Anotações rápidas, lembretes e ideias.</p>
                         </div>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 flex-wrap">
                         <div class="relative shrink-0">
                             <button type="button" onclick="toggleNoteTemplateMenu()" class="flex items-center gap-2 bg-sant-surface border border-sant-border hover:border-sant-cyan/40 text-gray-300 hover:text-sant-cyan px-3 py-2.5 rounded-lg text-sm transition-colors">
                                 <i class="ph ph-file-text"></i> Modelo
                             </button>
                             <div id="noteTemplateMenu" class="hidden absolute right-0 mt-1 w-56 bg-sant-surface border border-sant-border rounded-lg shadow-2xl z-20 overflow-hidden"></div>
                         </div>
+                        <button id="btnNotesArchive" onclick="toggleNotesArchive()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-white transition-colors">
+                            <i class="ph ph-archive"></i> Arquivo
+                        </button>
                         <div class="flex items-center gap-2 bg-sant-surface border border-sant-border rounded-lg p-2 w-full sm:w-72 focus-within:border-sant-cyan transition-colors">
                             <i class="ph ph-magnifying-glass text-gray-400 px-2"></i>
                             <input type="text" id="notesSearchInput" placeholder="Pesquisar notas..." oninput="renderNotes()" class="bg-transparent border-none outline-none w-full text-sm placeholder-gray-600">
@@ -723,6 +799,10 @@
                             <select id="newNoteContact" onclick="event.stopPropagation()" class="bg-[#141414] border border-sant-border rounded-lg px-2 py-1.5 text-xs text-gray-300 outline-none max-w-[160px]">
                                 <option value="">Sem contato vinculado</option>
                             </select>
+                            <label class="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer" title="Lembrete / Vencimento">
+                                <i class="ph ph-bell text-sant-cyan"></i>
+                                <input type="date" id="newNoteDueDate" onclick="event.stopPropagation()" class="bg-[#141414] border border-sant-border rounded-lg px-2 py-1 text-xs text-gray-300 outline-none focus:border-sant-cyan transition-colors">
+                            </label>
                         </div>
                         <div class="flex items-center gap-2">
                             <button onclick="event.stopPropagation(); collapseNewNote()" class="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Fechar</button>
@@ -1261,16 +1341,48 @@
                     </div>
                 </div>
 
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5 flex items-center gap-1"><i class="ph ph-hourglass text-sant-cyan"></i> Estimativa</label>
+                        <select id="taskEstimate" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                            <option value="0">Sem estimativa</option>
+                            <option value="15">15 min</option>
+                            <option value="30">30 min</option>
+                            <option value="45">45 min</option>
+                            <option value="60">1 hora</option>
+                            <option value="90">1h 30min</option>
+                            <option value="120">2 horas</option>
+                            <option value="180">3 horas</option>
+                            <option value="240">4 horas</option>
+                            <option value="480">Dia inteiro</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5 flex items-center gap-1"><i class="ph ph-user-circle text-sant-cyan"></i> Contato vinculado</label>
+                        <select id="taskContactId" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                            <option value="">Nenhum</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Descrição / Notas</label>
                     <textarea id="taskDesc" rows="2" placeholder="Detalhes, links ou instruções..." class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none resize-none"></textarea>
                 </div>
 
+                <!-- ETIQUETAS DA TAREFA -->
                 <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5 flex items-center gap-1"><i class="ph ph-user-circle"></i> Contato vinculado</label>
-                    <select id="taskContactId" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
-                        <option value="">Nenhum</option>
-                    </select>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5 flex items-center gap-1"><i class="ph ph-tag text-sant-purple"></i> Etiquetas</label>
+                    <div id="taskTagsContainer" class="flex flex-wrap gap-2 min-h-[32px] p-2 bg-[#141414] border border-sant-border rounded-lg mb-2"></div>
+                    <div class="flex gap-2">
+                        <input type="text" id="taskTagInput" placeholder="Adicionar etiqueta..." list="taskTagSuggestions"
+                            class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-purple outline-none transition-colors"
+                            onkeydown="if(event.key==='Enter'){event.preventDefault();addTaskTag()}">
+                        <datalist id="taskTagSuggestions"></datalist>
+                        <button type="button" onclick="addTaskTag()" class="bg-sant-purple/20 hover:bg-sant-purple text-sant-purple hover:text-white px-3 py-2 rounded-lg text-sm font-bold transition-colors border border-sant-purple/30">
+                            <i class="ph ph-plus"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- CHECKLIST -->
@@ -1568,6 +1680,8 @@
 
     <script>
         let contacts = [];
+        let recentContactIds = [];
+        let currentContactSort = 'name';
         let categories = [];
         let origins = [];
         let tasks = [];
@@ -1579,6 +1693,7 @@
         let newNoteTags = [];
         let editNoteTagsTemp = {};
         let notesActiveTagFilter = '';
+        let notesShowArchived = false;
         let currentViewMode = localStorage.getItem('sant_crm_view_mode') || 'grid';
         let currentDensity = localStorage.getItem('sant_crm_density') || 'comfortable';
         const defaultCategories = ['Família', 'Alunos Universidade', 'Amigos', 'Conhecidos', 'Potenciais Clientes', 'Clientes', 'Ex Clientes'];
@@ -1612,6 +1727,10 @@
         let currentContactTags = [];
         let currentContactCustomFields = [];
         let currentChecklist = [];
+        let currentTaskTags = [];
+        let currentTaskTagFilter = '';
+        let currentTaskSort = 'date';
+        let taskFocusMode = false;
 
         function showConfirm(msg, sub, cb) {
             document.getElementById('confirmMessage').innerText = msg;
@@ -1950,13 +2069,14 @@
                 });
 
                 // Verifica aniversários uma vez por hora (quando minuto === 0)
-                if (parseInt(mStr) === 0) { checkBirthdayReminders(); checkFollowupReminders(); }
+                if (parseInt(mStr) === 0) { checkBirthdayReminders(); checkFollowupReminders(); checkNoteReminders(); }
 
             }, 60000);
 
             // Verifica imediatamente ao abrir o app
             checkBirthdayReminders();
             checkFollowupReminders();
+            checkNoteReminders();
         }
 
         // ── CENTRAL DE NOTIFICAÇÕES ────────────────────────────────────────────
@@ -2142,6 +2262,8 @@
 
         function loadData() {
             contacts = JSON.parse(localStorage.getItem('sant_crm_contacts') || '[]');
+            recentContactIds = JSON.parse(localStorage.getItem('vends_recent_contacts') || '[]');
+            currentContactSort = localStorage.getItem('sant_crm_contact_sort') || 'name';
             categories = JSON.parse(localStorage.getItem('sant_crm_categories') || JSON.stringify(defaultCategories));
             origins = JSON.parse(localStorage.getItem('sant_crm_origins') || JSON.stringify(defaultOrigins));
             tasks = JSON.parse(localStorage.getItem('sant_crm_tasks') || '[]');
@@ -2188,7 +2310,7 @@
         function saveNotesToStorage() { localStorage.setItem('sant_crm_notes', JSON.stringify(notes)); }
 
         function exportData() {
-            const data = { contacts, categories, origins, tasks, events, tags, notes, notifications };
+            const data = { contacts, categories, origins, tasks, events, tags, notes, notifications, messageTemplates, scheduleBlocks };
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -2220,7 +2342,8 @@
                     if (data.notes) notes = data.notes;
                     if (data.notifications) notifications = data.notifications;
                     if (data.messageTemplates) messageTemplates = data.messageTemplates;
-                    saveToStorage(); saveCategoriesToStorage(); saveOriginsToStorage(); saveTasksToStorage(); saveEventsToStorage(); saveTagsToStorage(); saveNotesToStorage(); saveMessageTemplatesToStorage();
+                    if (data.scheduleBlocks) scheduleBlocks = data.scheduleBlocks;
+                    saveToStorage(); saveCategoriesToStorage(); saveOriginsToStorage(); saveTasksToStorage(); saveEventsToStorage(); saveTagsToStorage(); saveNotesToStorage(); saveMessageTemplatesToStorage(); saveScheduleBlocksToStorage();
                     localStorage.setItem('vends_notifications', JSON.stringify(notifications));
                     init();
                     showToast('Dados importados com sucesso!');
@@ -2351,6 +2474,14 @@
             const pendingTasksToday = tasks.filter(t => !t.completed && t.date === todayStr);
             const dTasksList = document.getElementById('dashTasksList');
             
+            const totalEstMin = pendingTasksToday.reduce((sum, t) => sum + (t.estimatedMinutes || 0), 0);
+            const estEl = document.getElementById('dashTasksEstimate');
+            const estValEl = document.getElementById('dashTasksEstimateVal');
+            if (estEl && estValEl && totalEstMin > 0) {
+                estValEl.innerText = formatEstimate(totalEstMin) + ' estimadas';
+                estEl.classList.remove('hidden');
+            } else if (estEl) { estEl.classList.add('hidden'); }
+
             if(pendingTasksToday.length === 0) {
                 dTasksList.innerHTML = emptyState('ph-check-circle', 'Tudo em dia!', 'Nenhuma tarefa para hoje — que tal planejar a semana?');
             } else {
@@ -2360,7 +2491,7 @@
                     return timeA.localeCompare(timeB);
                 });
 
-                dTasksList.innerHTML = sortedPendingTasks.slice(0,5).map(t => {
+                dTasksList.innerHTML = sortedPendingTasks.slice(0,10).map(t => {
                     const dateStr = t.date ? t.date.split('-').reverse().join('/') : '';
                     const timeStr = t.time ? t.time : '';
                     let dateTimeDisplay = '';
@@ -2394,6 +2525,52 @@
             renderMonthBirthdays(todayStr);
             renderContactsGrowthChart();
             renderHealthDashboard();
+            renderWeekStats(todayStr);
+        }
+
+        function renderWeekStats(todayStr) {
+            // Início da semana: segunda-feira
+            const [ty, tm, td] = todayStr.split('-').map(Number);
+            const today = new Date(ty, tm - 1, td);
+            const dow = today.getDay(); // 0=dom
+            const diffToMon = dow === 0 ? -6 : 1 - dow;
+            const weekStart = new Date(today);
+            weekStart.setDate(today.getDate() + diffToMon);
+            const weekStartStr = `${weekStart.getFullYear()}-${String(weekStart.getMonth()+1).padStart(2,'0')}-${String(weekStart.getDate()).padStart(2,'0')}`;
+
+            // Tarefas concluídas na semana
+            const tasksDone = tasks.filter(t => {
+                if (!t.completed) return false;
+                const ref = t.completedAt ? t.completedAt.substring(0, 10) : (t.date || '');
+                return ref >= weekStartStr && ref <= todayStr;
+            }).length;
+
+            // Eventos realizados na semana (startDate entre segunda e hoje)
+            const eventsDone = events.filter(e => {
+                const d = e.startDate || '';
+                return d >= weekStartStr && d <= todayStr && e.recurrence === 'none';
+            }).length +
+            events.filter(e => e.recurrence && e.recurrence !== 'none').reduce((acc, e) => {
+                // conta ocorrências recorrentes que caíram na semana
+                let d = new Date(weekStart);
+                const end = new Date(today);
+                while (d <= end) {
+                    const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                    if (isEventOnDate(e, ds)) acc++;
+                    d.setDate(d.getDate() + 1);
+                }
+                return acc;
+            }, 0);
+
+            // Interações registradas na semana
+            const interactions = contacts.reduce((acc, c) => {
+                return acc + (c.interactions || []).filter(i => i.date >= weekStartStr && i.date <= todayStr).length;
+            }, 0);
+
+            const el = (id, val) => { const e = document.getElementById(id); if (e) e.innerText = val; };
+            el('dashWeekTasksDone', tasksDone);
+            el('dashWeekEventsDone', eventsDone);
+            el('dashWeekInteractions', interactions);
         }
 
         // ── Saúde da Base ────────────────────────────────────────────────
@@ -2499,6 +2676,83 @@
         }
 
         // ── Próximos 3 Dias (Dashboard) ─────────────────────────────────
+        // ── Drag-and-drop de eventos no calendário mensal ──
+        let calDragEventId = null;
+        let calDragFromDate = null;
+
+        function onCalEventDragStart(ev, eventId, fromDate) {
+            calDragEventId = eventId;
+            calDragFromDate = fromDate;
+            ev.dataTransfer.effectAllowed = 'move';
+            ev.dataTransfer.setData('text/plain', eventId);
+            const chip = ev.currentTarget;
+            chip.classList.add('cal-dragging');
+        }
+
+        function onCalDayDragOver(ev, cell) {
+            if (!calDragEventId) return;
+            ev.preventDefault();
+            ev.dataTransfer.dropEffect = 'move';
+            cell.classList.add('cal-drop-over');
+        }
+
+        function onCalDayDragLeave(cell) {
+            cell.classList.remove('cal-drop-over');
+        }
+
+        function onCalDayDrop(ev, toDate) {
+            ev.preventDefault();
+            document.querySelectorAll('.cal-drop-over').forEach(el => el.classList.remove('cal-drop-over'));
+            document.querySelectorAll('.cal-dragging').forEach(el => el.classList.remove('cal-dragging'));
+            if (!calDragEventId || !calDragFromDate || toDate === calDragFromDate) {
+                calDragEventId = null; calDragFromDate = null;
+                return;
+            }
+            const event = events.find(x => x.id === calDragEventId);
+            if (!event) { calDragEventId = null; calDragFromDate = null; return; }
+
+            if (event.recurrence && event.recurrence !== 'none') {
+                const fromFmt = calDragFromDate.split('-').reverse().join('/');
+                const choice = confirm(`"${event.title}" é um evento recorrente.\n\nOK → Reagendar somente ${fromFmt}\nCancelar → Reagendar toda a série`);
+                if (choice) {
+                    // Só esta ocorrência: exclui da série e cria avulso na nova data
+                    event.excludedDates = [...(event.excludedDates || []), calDragFromDate];
+                    const copy = {
+                        ...event,
+                        id: crypto.randomUUID(),
+                        recurrence: 'none',
+                        recurrenceEndType: 'never',
+                        excludedDates: [],
+                        startDate: toDate,
+                        endDate: event.endDate ? toDate : ''
+                    };
+                    events.push(copy);
+                } else {
+                    // Toda a série: desloca startDate (e endDate se existir)
+                    const diffMs = new Date(toDate) - new Date(calDragFromDate);
+                    const diffDays = Math.round(diffMs / 86400000);
+                    event.startDate = addDaysToDateStr(event.startDate, diffDays);
+                    if (event.endDate) event.endDate = addDaysToDateStr(event.endDate, diffDays);
+                    if (event.recurrenceEndDate) event.recurrenceEndDate = addDaysToDateStr(event.recurrenceEndDate, diffDays);
+                }
+            } else {
+                event.startDate = toDate;
+                if (event.endDate) event.endDate = toDate;
+            }
+            saveEventsToStorage();
+            renderCalendar();
+            showToast('Compromisso reagendado!');
+            calDragEventId = null;
+            calDragFromDate = null;
+        }
+
+        function onCalDragEnd() {
+            document.querySelectorAll('.cal-drop-over').forEach(el => el.classList.remove('cal-drop-over'));
+            document.querySelectorAll('.cal-dragging').forEach(el => el.classList.remove('cal-dragging'));
+            calDragEventId = null;
+            calDragFromDate = null;
+        }
+
         function addDaysToDateStr(dateStr, days) {
             const [y, m, d] = dateStr.split('-').map(Number);
             const date = new Date(y, m - 1, d);
@@ -2800,6 +3054,7 @@
             document.getElementById('newNoteBody').value = '';
             document.getElementById('newNoteContact').value = '';
             document.getElementById('newNoteTagInput').value = '';
+            document.getElementById('newNoteDueDate').value = '';
             newNoteColor = '';
             newNoteTags = [];
             renderNewNoteTagPills();
@@ -2810,29 +3065,78 @@
             const contactId = document.getElementById('newNoteContact').value || null;
             if (!title && !body) { collapseNewNote(); return; }
             const now = new Date().toISOString();
+            const newNoteDueDate = document.getElementById('newNoteDueDate').value || '';
+            const newId = crypto.randomUUID();
             notes.unshift({
-                id: crypto.randomUUID(),
+                id: newId,
                 title, body,
                 color: newNoteColor,
                 pinned: false,
                 contactId,
                 tags: [...newNoteTags],
+                dueDate: newNoteDueDate,
                 createdAt: now,
                 updatedAt: now
             });
             saveNotesToStorage();
             collapseNewNote();
             renderNotes();
+            // Pulso no card recém-criado
+            requestAnimationFrame(() => {
+                const card = document.getElementById('note-' + newId);
+                if (card) { card.classList.add('note-save-pulse'); setTimeout(() => card.classList.remove('note-save-pulse'), 600); }
+            });
         }
         function toggleNotePin(id) {
             const n = notes.find(x => x.id === id);
             if (n) { n.pinned = !n.pinned; saveNotesToStorage(); renderNotes(); }
         }
         function deleteNote(id) {
-            if (!confirm('Excluir esta nota?')) return;
+            if (!confirm('Excluir esta nota permanentemente?')) return;
             notes = notes.filter(x => x.id !== id);
             saveNotesToStorage();
             renderNotes();
+        }
+
+        function archiveNote(id) {
+            const n = notes.find(x => x.id === id);
+            if (!n) return;
+            n.archived = true;
+            n.updatedAt = new Date().toISOString();
+            saveNotesToStorage();
+            renderNotes();
+            showToast('Nota arquivada.');
+        }
+
+        function unarchiveNote(id) {
+            const n = notes.find(x => x.id === id);
+            if (!n) return;
+            n.archived = false;
+            n.updatedAt = new Date().toISOString();
+            saveNotesToStorage();
+            renderNotes();
+            showToast('Nota restaurada.');
+        }
+
+        function exportNoteTxt(id) {
+            const n = notes.find(x => x.id === id);
+            if (!n) return;
+            const lines = [];
+            if (n.title) lines.push(n.title, '');
+            if (n.body) lines.push(n.body, '');
+            if (n.dueDate) lines.push(`Lembrete: ${n.dueDate.split('-').reverse().join('/')}`, '');
+            const linkedContact = n.contactId ? contacts.find(x => x.id === n.contactId) : null;
+            if (linkedContact) lines.push(`Contato: ${fullName(linkedContact)}`, '');
+            if (n.tags && n.tags.length) lines.push(`Etiquetas: ${n.tags.join(', ')}`, '');
+            const created = new Date(n.createdAt).toLocaleString('pt-BR');
+            lines.push(`Criada em: ${created}`);
+            const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            const slug = (n.title || 'nota').toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 40);
+            a.download = `vends_nota_${slug}.txt`;
+            a.click();
+            URL.revokeObjectURL(a.href);
         }
         function setNoteColor(id, color) {
             const n = notes.find(x => x.id === id);
@@ -2854,9 +3158,15 @@
                     <button type="button" onclick="addEditNoteTag('${id}')" class="bg-sant-purple/20 hover:bg-sant-purple text-sant-purple hover:text-white px-3 py-1.5 rounded-lg text-xs transition-colors border border-sant-purple/30 shrink-0"><i class="ph ph-plus"></i></button>
                 </div>
                 <div class="mt-3 pt-3 border-t border-sant-border flex items-center justify-between flex-wrap gap-2">
-                    <select id="editNoteContact-${id}" class="bg-[#141414] border border-sant-border rounded-lg px-2 py-1.5 text-xs text-gray-300 outline-none max-w-[160px]">
-                        <option value="">Sem contato vinculado</option>
-                    </select>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <select id="editNoteContact-${id}" class="bg-[#141414] border border-sant-border rounded-lg px-2 py-1.5 text-xs text-gray-300 outline-none max-w-[160px]">
+                            <option value="">Sem contato vinculado</option>
+                        </select>
+                        <label class="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer" title="Lembrete / Vencimento">
+                            <i class="ph ph-bell text-sant-cyan"></i>
+                            <input type="date" id="editNoteDueDate-${id}" value="${n.dueDate || ''}" class="bg-[#141414] border border-sant-border rounded-lg px-2 py-1 text-xs text-gray-300 outline-none focus:border-sant-cyan transition-colors">
+                        </label>
+                    </div>
                     <div class="flex items-center gap-2">
                         <button onclick="renderNotes()" class="px-3 py-1.5 text-xs text-gray-400 hover:text-white transition-colors">Cancelar</button>
                         <button onclick="saveEditNote('${id}')" class="px-3 py-1.5 text-xs bg-sant-cyan hover:bg-cyan-400 text-sant-bg rounded-lg font-bold transition-colors">Salvar</button>
@@ -2873,10 +3183,16 @@
             n.body = document.getElementById('editNoteBody-'+id).value.trim();
             n.contactId = document.getElementById('editNoteContact-'+id).value || null;
             n.tags = [...(editNoteTagsTemp[id] || [])];
+            n.dueDate = document.getElementById('editNoteDueDate-'+id).value || '';
             delete editNoteTagsTemp[id];
             n.updatedAt = new Date().toISOString();
             saveNotesToStorage();
             renderNotes();
+            // Pulso no card salvo
+            requestAnimationFrame(() => {
+                const card = document.getElementById('note-' + id);
+                if (card) { card.classList.add('note-save-pulse'); setTimeout(() => card.classList.remove('note-save-pulse'), 600); }
+            });
         }
 
         function noteCardHtml(n) {
@@ -2891,24 +3207,45 @@
             const tagPills = (n.tags && n.tags.length > 0)
                 ? `<div class="flex flex-wrap gap-1 mb-2">${n.tags.map(t => `<span onclick="event.stopPropagation(); filterNotesByTag('${t}')" class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-purple/10 text-sant-purple border border-sant-purple/20 cursor-pointer hover:bg-sant-purple/20 transition-colors"><i class="ph ph-tag"></i> ${t}</span>`).join('')}</div>`
                 : '';
+            const todayForNote = getSPTodayStr();
+            const dueBadge = n.dueDate ? (() => {
+                const isOverdue = n.dueDate < todayForNote;
+                const isToday   = n.dueDate === todayForNote;
+                const [y,m,d]   = n.dueDate.split('-');
+                const label     = `${d}/${m}/${y}`;
+                const cls = isOverdue ? 'text-red-400 border-red-400/30 bg-red-400/10'
+                          : isToday   ? 'text-[#fbbf24] border-[#fbbf24]/30 bg-[#fbbf24]/10'
+                          :             'text-sant-cyan border-sant-cyan/30 bg-sant-cyan/10';
+                const icon = isOverdue ? 'ph-warning-circle' : 'ph-bell';
+                return `<span class="inline-flex items-center gap-1 px-2 py-0.5 mb-2 rounded text-[10px] font-medium border ${cls}"><i class="ph ${icon}"></i> ${isOverdue ? 'Vencida: ' : isToday ? 'Vence hoje: ' : 'Lembrete: '}${label}</span>`;
+            })() : '';
             return `
-            <div id="note-${n.id}" class="${c.bg} ${c.border} border rounded-2xl p-5 flex flex-col group relative min-h-[140px]">
+            <div id="note-${n.id}" class="${c.bg} ${c.border} border rounded-2xl p-5 flex flex-col group relative min-h-[140px] ${n.archived ? 'opacity-80' : ''}">
+                ${n.archived ? `<div class="flex items-center gap-1 text-[10px] text-gray-500 mb-2 font-medium"><i class="ph ph-archive"></i> Arquivada</div>` : ''}
                 <div class="flex justify-between items-start gap-2 mb-1">
-                    ${n.title ? `<h3 class="font-bold text-white text-sm break-words">${n.title}</h3>` : '<div></div>'}
-                    <button onclick="toggleNotePin('${n.id}')" class="text-gray-500 hover:text-sant-cyan transition-colors opacity-0 group-hover:opacity-100 ${n.pinned ? 'opacity-100 text-sant-cyan' : ''}" title="${n.pinned ? 'Desafixar' : 'Fixar'}">
-                        <i class="ph ${n.pinned ? 'ph-fill' : ''} ph-push-pin text-sm"></i>
-                    </button>
+                    ${n.title ? `<h3 class="font-bold text-white text-sm break-words flex-1">${n.title}</h3>` : '<div class="flex-1"></div>'}
+                    <div class="flex items-center gap-0.5 shrink-0">
+                        <button onclick="event.stopPropagation(); toggleNotePin('${n.id}')" class="text-gray-500 hover:text-sant-cyan transition-colors p-1 opacity-0 group-hover:opacity-100 ${n.pinned ? '!opacity-100 text-sant-cyan' : ''}" title="${n.pinned ? 'Desafixar' : 'Fixar'}">
+                            <i class="ph ${n.pinned ? 'ph-fill' : ''} ph-push-pin text-sm"></i>
+                        </button>
+                        ${n.archived
+                            ? `<button onclick="event.stopPropagation(); unarchiveNote('${n.id}')" class="text-gray-500 hover:text-sant-cyan transition-colors p-1 opacity-0 group-hover:opacity-100" title="Restaurar nota"><i class="ph ph-arrow-counter-clockwise text-sm"></i></button>`
+                            : `<button onclick="event.stopPropagation(); archiveNote('${n.id}')" class="text-gray-500 hover:text-amber-400 transition-colors p-1 opacity-0 group-hover:opacity-100" title="Arquivar nota"><i class="ph ph-archive text-sm"></i></button>`
+                        }
+                    </div>
                 </div>
                 ${contactBadge}
+                ${dueBadge}
                 ${tagPills}
                 ${n.body ? `<p class="text-sm text-gray-300 whitespace-pre-wrap break-words mb-3 cursor-text" onclick="startEditNote('${n.id}')">${n.body}</p>` : `<div class="flex-1 cursor-text" onclick="startEditNote('${n.id}')"></div>`}
                 <div class="mt-auto pt-2 flex items-center justify-between">
                     <span class="text-[10px] text-gray-500 whitespace-nowrap">${formatNoteDate(n.updatedAt || n.createdAt)}</span>
                     <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <div class="flex items-center gap-1 mr-1">${colorDots}</div>
-                        <button onclick="event.stopPropagation(); convertNoteToTask('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Converter em tarefa"><i class="ph ph-check-square text-sm"></i></button>
-                        <button onclick="startEditNote('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Editar"><i class="ph ph-pencil-simple text-sm"></i></button>
-                        <button onclick="deleteNote('${n.id}')" class="text-gray-400 hover:text-red-500 p-1" title="Excluir"><i class="ph ph-trash text-sm"></i></button>
+                        <div class="flex items-center gap-0.5 mr-0.5">${colorDots}</div>
+                        <button onclick="event.stopPropagation(); convertNoteToTask('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-0.5" title="Converter em tarefa"><i class="ph ph-check-square text-sm"></i></button>
+                        <button onclick="event.stopPropagation(); exportNoteTxt('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-0.5" title="Exportar como .txt"><i class="ph ph-file-text text-sm"></i></button>
+                        <button onclick="startEditNote('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-0.5" title="Editar"><i class="ph ph-pencil-simple text-sm"></i></button>
+                        <button onclick="deleteNote('${n.id}')" class="text-gray-400 hover:text-red-500 p-0.5" title="Excluir permanentemente"><i class="ph ph-trash text-sm"></i></button>
                     </div>
                 </div>
             </div>`;
@@ -2953,12 +3290,34 @@
         function renderNotes() {
             renderNoteTagFilterBar();
             const term = (document.getElementById('notesSearchInput')?.value || '').toLowerCase();
+            // Oculta caixa de nova nota no modo arquivo
+            const newNoteBox = document.getElementById('newNoteBox');
+            if (newNoteBox) newNoteBox.classList.toggle('hidden', notesShowArchived);
+
+            // Separa arquivadas antes de qualquer filtro
+            const archivedCount = notes.filter(n => n.archived).length;
             let filtered = notes.filter(n =>
+                notesShowArchived ? n.archived : !n.archived
+            );
+
+            // Atualiza botão de arquivo
+            const archBtn = document.getElementById('btnNotesArchive');
+            if (archBtn) {
+                if (notesShowArchived) {
+                    archBtn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20 transition-colors';
+                    archBtn.innerHTML = `<i class="ph ph-arrow-counter-clockwise"></i> Voltar às notas`;
+                } else {
+                    archBtn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-white transition-colors';
+                    archBtn.innerHTML = `<i class="ph ph-archive"></i> Arquivo${archivedCount > 0 ? ` <span class="ml-0.5 px-1.5 py-0.5 rounded-full bg-sant-border text-gray-400 text-[10px]">${archivedCount}</span>` : ''}`;
+                }
+            }
+
+            filtered = filtered.filter(n =>
                 (n.title || '').toLowerCase().includes(term) || (n.body || '').toLowerCase().includes(term)
             );
             if (notesActiveTagFilter) filtered = filtered.filter(n => n.tags && n.tags.includes(notesActiveTagFilter));
-            const pinned = filtered.filter(n => n.pinned);
-            const others = filtered.filter(n => !n.pinned);
+            const pinned = filtered.filter(n => n.pinned && !notesShowArchived);
+            const others = filtered.filter(n => !n.pinned || notesShowArchived);
 
             const pinnedSection = document.getElementById('pinnedNotesSection');
             const pinnedGrid = document.getElementById('pinnedNotesGrid');
@@ -2977,11 +3336,19 @@
 
             if (others.length === 0 && pinned.length === 0) {
                 grid.className = 'grid grid-cols-1';
-                grid.innerHTML = `<div class="flex items-center justify-center h-64">${emptyState('ph-note', 'Nenhuma nota ainda', 'Use o campo acima para criar sua primeira nota.')}</div>`;
+                const emptyMsg = notesShowArchived
+                    ? emptyState('ph-archive', 'Arquivo vazio', 'Nenhuma nota arquivada ainda.')
+                    : emptyState('ph-note', 'Nenhuma nota ainda', 'Use o campo acima para criar sua primeira nota.');
+                grid.innerHTML = `<div class="flex items-center justify-center h-64">${emptyMsg}</div>`;
             } else {
                 grid.className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 items-start';
                 grid.innerHTML = others.map(noteCardHtml).join('');
             }
+        }
+
+        function toggleNotesArchive() {
+            notesShowArchived = !notesShowArchived;
+            renderNotes();
         }
 
         function setViewMode(mode, save = true) {
@@ -3015,9 +3382,70 @@
             btn.title = compact ? 'Modo compacto (clique para confortável)' : 'Modo confortável (clique para compacto)';
         }
 
+        function addRecentContact(id) {
+            recentContactIds = [id, ...recentContactIds.filter(x => x !== id)].slice(0, 8);
+            localStorage.setItem('vends_recent_contacts', JSON.stringify(recentContactIds));
+            renderRecentContacts();
+        }
+
+        function renderRecentContacts() {
+            const bar = document.getElementById('recentContactsBar');
+            if (!bar) return;
+            const items = recentContactIds.map(id => contacts.find(c => c.id === id)).filter(Boolean);
+            if (items.length === 0) { bar.classList.add('hidden'); return; }
+            bar.classList.remove('hidden');
+            bar.innerHTML = `<p class="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5"><i class="ph ph-clock-counter-clockwise"></i> Recentes</p>
+                <div class="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
+                    ${items.map(c => `
+                        <button onclick="openHistoryModal('${c.id}')" class="shrink-0 flex items-center gap-2 bg-sant-surface border border-sant-border hover:border-sant-cyan rounded-full pl-1.5 pr-3 py-1.5 transition-colors">
+                            <div class="w-6 h-6 rounded-full bg-sant-cyan/10 text-sant-cyan flex items-center justify-center text-[10px] font-bold shrink-0">${(c.name || '?').charAt(0).toUpperCase()}${(c.lastName || c.name || '').charAt(c.lastName ? 0 : 1).toUpperCase()}</div>
+                            <span class="text-xs text-gray-300 whitespace-nowrap">${fullName(c)}</span>
+                        </button>
+                    `).join('')}
+                </div>`;
+        }
+
+        function setContactSort(val) {
+            currentContactSort = val;
+            localStorage.setItem('sant_crm_contact_sort', val);
+            const sel = document.getElementById('contactSortSelect');
+            if (sel) sel.value = val;
+            renderContacts(document.getElementById('searchInput') ? document.getElementById('searchInput').value : '');
+        }
+
+        function sortContacts(arr) {
+            const copy = [...arr];
+            switch (currentContactSort) {
+                case 'code':
+                    return copy.sort((a, b) => (a.code || 9999) - (b.code || 9999));
+                case 'createdAt':
+                    return copy.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+                case 'lastInteraction':
+                    return copy.sort((a, b) => {
+                        const lastDate = c => (c.interactions && c.interactions.length)
+                            ? [...c.interactions].sort((x,y) => (y.date||'').localeCompare(x.date||''))[0].date || ''
+                            : '';
+                        return lastDate(b).localeCompare(lastDate(a));
+                    });
+                case 'category':
+                    return copy.sort((a, b) => {
+                        const ca = (a.category || '').localeCompare(b.category || '', 'pt-BR');
+                        return ca !== 0 ? ca : fullName(a).localeCompare(fullName(b), 'pt-BR');
+                    });
+                default:
+                    return copy.sort((a, b) => fullName(a).localeCompare(fullName(b), 'pt-BR'));
+            }
+        }
+
+        function scrollToContactSection(letter) {
+            const el = document.getElementById('contact-section-' + letter);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
         function renderContacts(searchTerm = '') {
             const container = document.getElementById('contactsContainer');
-            
+            renderRecentContacts();
+
             let filtered = contacts.filter(c => {
                 const term = searchTerm.toLowerCase();
                 return (fullName(c).toLowerCase().includes(term)) ||
@@ -3037,144 +3465,167 @@
             const countEl = document.getElementById('filterResultCount');
             if (countEl) countEl.innerText = hasActiveFilters() ? `${filtered.length} contato(s) encontrado(s)` : '';
 
-            filtered.sort((a, b) => fullName(a).localeCompare(fullName(b), 'pt-BR'));
+            // sync sort select
+            const sortSel = document.getElementById('contactSortSelect');
+            if (sortSel) sortSel.value = currentContactSort;
+
+            filtered = sortContacts(filtered);
 
             if (filtered.length === 0) {
                 container.innerHTML = `<div class="flex items-center justify-center h-64">${emptyState('ph-users', 'Nenhum contato encontrado', 'Tente ajustar os filtros ou cadastre um novo contato.')}</div>`;
                 return;
             }
 
+            // ── Índice A–Z (só quando sort=name, sem busca ativa, sem filtros) ──
+            const showAZ = currentContactSort === 'name' && !searchTerm && !hasActiveFilters();
+            const azBar = document.getElementById('recentContactsBar');
+            if (showAZ && filtered.length > 0) {
+                const letters = [...new Set(filtered.map(c => {
+                    const l = fullName(c).trim()[0] || '#';
+                    return /[A-Za-zÀ-ú]/.test(l) ? l.toUpperCase() : '#';
+                }))].sort((a,b) => a === '#' ? 1 : b === '#' ? -1 : a.localeCompare(b,'pt-BR'));
+                const jumpBar = `<div class="flex flex-wrap gap-1 mb-4 mt-1">
+                    ${letters.map(l => `<button onclick="scrollToContactSection('${l}')" class="w-7 h-7 rounded-lg text-xs font-bold border border-sant-border text-gray-400 hover:border-sant-cyan hover:text-sant-cyan transition-colors">${l}</button>`).join('')}
+                </div>`;
+                container.className = 'pb-10';
+                container.innerHTML = jumpBar + filtered.reduce((html, c, i) => {
+                    const letter = (() => { const l = fullName(c).trim()[0] || '#'; return /[A-Za-zÀ-ú]/.test(l) ? l.toUpperCase() : '#'; })();
+                    const prevLetter = i > 0 ? (() => { const l = fullName(filtered[i-1]).trim()[0] || '#'; return /[A-Za-zÀ-ú]/.test(l) ? l.toUpperCase() : '#'; })() : null;
+                    const header = (letter !== prevLetter)
+                        ? `<div id="contact-section-${letter}" class="flex items-center gap-3 mt-4 mb-2 scroll-mt-4"><span class="text-lg font-black text-sant-cyan w-8 shrink-0">${letter}</span><div class="flex-1 h-px bg-sant-border"></div><span class="text-[10px] text-gray-600 font-bold">${filtered.filter(x => { const l2 = fullName(x).trim()[0]||'#'; return (/[A-Za-zÀ-ú]/.test(l2)?l2.toUpperCase():'#') === letter; }).length}</span></div>`
+                        : '';
+                    return html + header + contactCardHtml(c, currentViewMode, currentDensity);
+                }, '');
+                if (currentViewMode === 'grid') {
+                    // wrap grid sections
+                    container.innerHTML = jumpBar + letters.map(letter => {
+                        const group = filtered.filter(c => { const l = fullName(c).trim()[0]||'#'; return (/[A-Za-zÀ-ú]/.test(l)?l.toUpperCase():'#') === letter; });
+                        return `<div id="contact-section-${letter}" class="scroll-mt-4 mb-4">
+                            <div class="flex items-center gap-3 mb-3"><span class="text-lg font-black text-sant-cyan w-8 shrink-0">${letter}</span><div class="flex-1 h-px bg-sant-border"></div><span class="text-[10px] text-gray-600 font-bold">${group.length}</span></div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">${group.map(c => contactCardHtml(c, 'grid', currentDensity)).join('')}</div>
+                        </div>`;
+                    }).join('');
+                } else {
+                    const compact = currentDensity === 'compact';
+                    container.innerHTML = jumpBar + letters.map(letter => {
+                        const group = filtered.filter(c => { const l = fullName(c).trim()[0]||'#'; return (/[A-Za-zÀ-ú]/.test(l)?l.toUpperCase():'#') === letter; });
+                        return `<div id="contact-section-${letter}" class="scroll-mt-4 mb-4">
+                            <div class="flex items-center gap-3 mb-2"><span class="text-lg font-black text-sant-cyan w-8 shrink-0">${letter}</span><div class="flex-1 h-px bg-sant-border"></div><span class="text-[10px] text-gray-600 font-bold">${group.length}</span></div>
+                            <div class="flex flex-col ${compact ? 'gap-1' : 'gap-2'}">${group.map(c => contactCardHtml(c, 'list', currentDensity)).join('')}</div>
+                        </div>`;
+                    }).join('');
+                }
+                return;
+            }
+
             if (currentViewMode === 'grid') {
                 container.className = 'flex-1 overflow-y-auto pb-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 auto-rows-max';
-                container.innerHTML = filtered.map(c => {
-                    const dispEmail = c.emailProf || c.emailPess || c.email || '';
-                    const dispPhone = c.phoneProf || c.phonePess || c.phone || '';
-                    const dispJob = [c.job, c.company].filter(Boolean).join(' @ ');
-                    
-                    let leadTag = '';
-                    if(c.isLead) {
-                        if(c.temperature === 'quente') leadTag = `<span class="inline-block px-2 py-0.5 mt-1 ml-1 rounded text-[10px] font-bold bg-red-500/20 text-red-500 border border-red-500/30" title="Lead Quente">🔥 Quente</span>`;
-                        else if(c.temperature === 'frio') leadTag = `<span class="inline-block px-2 py-0.5 mt-1 ml-1 rounded text-[10px] font-bold bg-blue-500/20 text-blue-500 border border-blue-500/30" title="Lead Frio">❄️ Frio</span>`;
-                        else leadTag = `<span class="inline-block px-2 py-0.5 mt-1 ml-1 rounded text-[10px] font-bold bg-[#fbbf24]/20 text-[#fbbf24] border border-[#fbbf24]/30" title="Lead Morno">☀️ Morno</span>`;
-                    }
-
-                    const tagsHtml = (c.tags && c.tags.length > 0)
-                        ? `<div class="flex flex-wrap gap-1 mt-2">${c.tags.slice(0,4).map(t => `<span class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20">${t}</span>`).join('')}${c.tags.length > 4 ? `<span class="text-[9px] text-gray-500">+${c.tags.length-4}</span>` : ''}</div>`
-                        : '';
-
-                    const histCount = c.interactions && c.interactions.length > 0 ? `<span class="absolute -top-1 -right-1 w-4 h-4 bg-sant-cyan text-sant-bg text-[9px] font-bold rounded-full flex items-center justify-center">${c.interactions.length > 9 ? '9+' : c.interactions.length}</span>` : '';
-
-                    const lastInteractionDate = (c.interactions && c.interactions.length > 0)
-                        ? [...c.interactions].sort((a,b) => (b.date||'').localeCompare(a.date||''))[0].date
-                        : null;
-                    const lastInteractionHtml = lastInteractionDate
-                        ? `<p class="text-[10px] text-gray-500 truncate"><i class="ph ph-clock-counter-clockwise mr-1"></i> Última interação: ${lastInteractionDate.split('-').reverse().join('/')}</p>`
-                        : '';
-
-                    return `
-                    <div class="bg-sant-surface border border-sant-border rounded-xl p-5 hover:border-sant-cyan/50 transition-all group flex flex-col h-full min-w-0">
-                        <div class="flex justify-between items-start mb-4">
-                            <div class="flex items-center gap-3 min-w-0">
-                                <div class="w-10 h-10 rounded-full bg-sant-cyan/10 text-sant-cyan flex items-center justify-center font-bold border border-sant-cyan/20 shrink-0 uppercase">
-                                    ${c.name[0]||''}${c.lastName?c.lastName[0]:c.name[1]||''}
-                                </div>
-                                <div class="min-w-0">
-                                    <h3 class="font-bold text-white truncate text-sm" title="${fullName(c)}">${fullName(c)} ${c.code ? `<span class="text-gray-500 font-mono text-[10px] font-normal">#${c.code}</span>` : ''}</h3>
-                                    ${c.category ? `<span class="inline-block px-2 py-0.5 mt-1 rounded text-[10px] font-medium bg-sant-purple/20 text-sant-purple border border-sant-purple/30">${c.category}</span>` : ''}
-                                    ${leadTag}
-                                    ${inactivityBadgeHtml(c) ? `<div class="mt-1">${inactivityBadgeHtml(c)}</div>` : ''}
-                                </div>
-                            </div>
-                            <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                <button onclick="openHistoryModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 relative" title="Histórico">${histCount}<i class="ph ph-clock-clockwise"></i></button>
-                                <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Exportar vCard (.vcf)"><i class="ph ph-address-book"></i></button>
-                                <button onclick="duplicateContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Duplicar contato"><i class="ph ph-copy"></i></button>
-                                <button onclick="editContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1"><i class="ph ph-pencil-simple"></i></button>
-                                <button onclick="deleteContact('${c.id}')" class="text-gray-400 hover:text-red-500 p-1"><i class="ph ph-trash"></i></button>
-                            </div>
-                        </div>
-                        <div class="space-y-2 mt-auto">
-                            ${dispJob ? `<p class="text-xs text-sant-cyan truncate"><i class="ph ph-briefcase mr-1"></i> ${dispJob}</p>` : ''}
-                            ${dispPhone ? `<p class="text-xs text-gray-400 truncate"><i class="ph ph-phone mr-1"></i> ${dispPhone}</p>` : ''}
-                            ${dispEmail ? `<p class="text-xs text-gray-400 truncate"><i class="ph ph-envelope-simple mr-1"></i> ${dispEmail}</p>` : ''}
-                            ${lastInteractionHtml}
-                            ${tagsHtml}
-                        </div>
-                    </div>`
-                }).join('');
+                container.innerHTML = filtered.map(c => contactCardHtml(c, 'grid', currentDensity)).join('');
             } else {
                 const compact = currentDensity === 'compact';
                 container.className = `flex-1 overflow-y-auto pb-10 flex flex-col ${compact ? 'gap-1' : 'gap-2'}`;
-                container.innerHTML = filtered.map(c => {
-                    const dispEmail = c.emailProf || c.emailPess || c.email || '';
-                    const dispPhone = c.phoneProf || c.phonePess || c.phone || '';
-                    const dispJob = [c.job, c.company].filter(Boolean).join(' @ ');
-                    
-                    let leadTag = '';
-                    if(c.isLead) {
-                        if(c.temperature === 'quente') leadTag = `<span class="inline-block px-1.5 py-0.5 mt-0.5 ml-1 rounded text-[9px] font-bold bg-red-500/20 text-red-500 border border-red-500/30" title="Lead Quente">🔥</span>`;
-                        else if(c.temperature === 'frio') leadTag = `<span class="inline-block px-1.5 py-0.5 mt-0.5 ml-1 rounded text-[9px] font-bold bg-blue-500/20 text-blue-500 border border-blue-500/30" title="Lead Frio">❄️</span>`;
-                        else leadTag = `<span class="inline-block px-1.5 py-0.5 mt-0.5 ml-1 rounded text-[9px] font-bold bg-[#fbbf24]/20 text-[#fbbf24] border border-[#fbbf24]/30" title="Lead Morno">☀️</span>`;
-                    }
-
-                    const listTagsHtml = (c.tags && c.tags.length > 0)
-                        ? c.tags.slice(0,3).map(t => `<span class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20">${t}</span>`).join('')
-                        : '';
-
-                    if (compact) {
-                        return `
-                        <div class="bg-sant-surface border border-sant-border rounded-lg px-3 py-1.5 hover:border-sant-cyan/50 transition-all group flex items-center gap-3 min-w-0">
-                            <div class="w-6 h-6 rounded-full bg-sant-cyan/10 text-sant-cyan flex items-center justify-center font-bold border border-sant-cyan/20 shrink-0 uppercase text-[10px]">
-                                ${c.name[0]||''}${c.lastName?c.lastName[0]:c.name[1]||''}
-                            </div>
-                            <div class="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4 items-center min-w-0">
-                                <div class="min-w-0 flex items-center gap-1.5">
-                                    <h3 class="font-bold text-white text-xs truncate" title="${fullName(c)}">${fullName(c)}</h3>
-                                    ${c.code ? `<span class="text-gray-500 font-mono text-[9px] shrink-0">#${c.code}</span>` : ''}
-                                    ${leadTag}
-                                    ${inactivityBadgeHtml(c)}
-                                </div>
-                                <div class="text-xs text-sant-cyan truncate hidden md:block" title="${dispJob}">${dispJob || '-'}</div>
-                                <div class="text-xs text-gray-400 truncate hidden md:block">${dispPhone || '-'}</div>
-                                <div class="text-xs text-gray-400 truncate hidden md:block" title="${dispEmail}">${dispEmail || '-'}</div>
-                            </div>
-                            <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 bg-[#141414] rounded" title="Exportar vCard (.vcf)"><i class="ph ph-address-book text-xs"></i></button>
-                                <button onclick="duplicateContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 bg-[#141414] rounded" title="Duplicar contato"><i class="ph ph-copy text-xs"></i></button>
-                                <button onclick="editContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 bg-[#141414] rounded"><i class="ph ph-pencil-simple text-xs"></i></button>
-                                <button onclick="deleteContact('${c.id}')" class="text-gray-400 hover:text-red-500 p-1 bg-[#141414] rounded"><i class="ph ph-trash text-xs"></i></button>
-                            </div>
-                        </div>`
-                    }
-                    return `
-                    <div class="bg-sant-surface border border-sant-border rounded-lg p-3 hover:border-sant-cyan/50 transition-all group flex items-center gap-4 min-w-0">
-                        <div class="w-8 h-8 rounded-full bg-sant-cyan/10 text-sant-cyan flex items-center justify-center font-bold border border-sant-cyan/20 shrink-0 uppercase text-xs">
-                            ${c.name[0]||''}${c.lastName?c.lastName[0]:c.name[1]||''}
-                        </div>
-                        <div class="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4 items-center min-w-0">
-                            <div class="min-w-0">
-                                <h3 class="font-bold text-white text-sm truncate" title="${fullName(c)}">${fullName(c)} ${c.code ? `<span class="text-gray-500 font-mono text-[10px] font-normal">#${c.code}</span>` : ''}</h3>
-                                <div class="flex flex-wrap gap-1 mt-0.5">
-                                    ${c.category ? `<span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-purple/20 text-sant-purple border border-sant-purple/30">${c.category}</span>` : ''}
-                                    ${leadTag}
-                                    ${listTagsHtml}
-                                    ${inactivityBadgeHtml(c)}
-                                </div>
-                            </div>
-                            <div class="text-xs text-sant-cyan truncate" title="${dispJob}">${dispJob || '-'}</div>
-                            <div class="text-xs text-gray-400 truncate">${dispPhone || '-'}</div>
-                            <div class="text-xs text-gray-400 truncate" title="${dispEmail}">${dispEmail || '-'}</div>
-                        </div>
-                        <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                            <button onclick="openHistoryModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded relative" title="Histórico">${c.interactions && c.interactions.length > 0 ? `<span class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-sant-cyan text-sant-bg text-[8px] font-bold rounded-full flex items-center justify-center">${c.interactions.length}</span>` : ''}<i class="ph ph-clock-clockwise"></i></button>
-                            <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Exportar vCard (.vcf)"><i class="ph ph-address-book"></i></button>
-                            <button onclick="duplicateContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Duplicar contato"><i class="ph ph-copy"></i></button>
-                            <button onclick="editContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded"><i class="ph ph-pencil-simple"></i></button>
-                            <button onclick="deleteContact('${c.id}')" class="text-gray-400 hover:text-red-500 p-1.5 bg-[#141414] rounded"><i class="ph ph-trash"></i></button>
-                        </div>
-                    </div>`
-                }).join('');
+                container.innerHTML = filtered.map(c => contactCardHtml(c, 'list', currentDensity)).join('');
             }
+        }
+
+        function contactCardHtml(c, mode, density) {
+            const dispEmail = c.emailProf || c.emailPess || c.email || '';
+            const dispPhone = c.phoneProf || c.phonePess || c.phone || '';
+            const dispJob = [c.job, c.company].filter(Boolean).join(' @ ');
+            let leadTag = '';
+            if (c.isLead) {
+                if (c.temperature === 'quente') leadTag = `<span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-500/20 text-red-500 border border-red-500/30" title="Lead Quente">🔥${mode==='grid'?' Quente':''}</span>`;
+                else if (c.temperature === 'frio') leadTag = `<span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-500/20 text-blue-500 border border-blue-500/30" title="Lead Frio">❄️${mode==='grid'?' Frio':''}</span>`;
+                else leadTag = `<span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#fbbf24]/20 text-[#fbbf24] border border-[#fbbf24]/30" title="Lead Morno">☀️${mode==='grid'?' Morno':''}</span>`;
+            }
+            const inact = inactivityBadgeHtml(c);
+            const histCount = c.interactions && c.interactions.length > 0
+                ? `<span class="absolute -top-1 -right-1 w-4 h-4 bg-sant-cyan text-sant-bg text-[9px] font-bold rounded-full flex items-center justify-center">${c.interactions.length > 9 ? '9+' : c.interactions.length}</span>` : '';
+            const lastInteractionDate = (c.interactions && c.interactions.length > 0)
+                ? [...c.interactions].sort((a,b) => (b.date||'').localeCompare(a.date||''))[0].date : null;
+            const avatar = `${(c.name||'')[0]||''}${c.lastName?c.lastName[0]:(c.name||'')[1]||''}`;
+
+            if (mode === 'grid') {
+                const tagsHtml = (c.tags && c.tags.length > 0)
+                    ? `<div class="flex flex-wrap gap-1 mt-2">${c.tags.slice(0,4).map(t=>`<span class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20">${t}</span>`).join('')}${c.tags.length>4?`<span class="text-[9px] text-gray-500">+${c.tags.length-4}</span>`:''}</div>` : '';
+                return `
+                <div class="bg-sant-surface border border-sant-border rounded-xl p-5 hover:border-sant-cyan/50 transition-all group flex flex-col h-full min-w-0">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-10 h-10 rounded-full bg-sant-cyan/10 text-sant-cyan flex items-center justify-center font-bold border border-sant-cyan/20 shrink-0 uppercase">${avatar}</div>
+                            <div class="min-w-0">
+                                <h3 class="font-bold text-white truncate text-sm" title="${fullName(c)}">${fullName(c)} ${c.code?`<span class="text-gray-500 font-mono text-[10px] font-normal">#${c.code}</span>`:''}</h3>
+                                ${c.category?`<span class="inline-block px-2 py-0.5 mt-1 rounded text-[10px] font-medium bg-sant-purple/20 text-sant-purple border border-sant-purple/30">${c.category}</span>`:''}
+                                ${leadTag?`<span class="ml-1">${leadTag}</span>`:''}
+                                ${inact?`<div class="mt-1">${inact}</div>`:''}
+                            </div>
+                        </div>
+                        <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                            <button onclick="openHistoryModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 relative" title="Histórico">${histCount}<i class="ph ph-clock-clockwise"></i></button>
+                            <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Exportar vCard"><i class="ph ph-address-book"></i></button>
+                            <button onclick="duplicateContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Duplicar"><i class="ph ph-copy"></i></button>
+                            <button onclick="editContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1"><i class="ph ph-pencil-simple"></i></button>
+                            <button onclick="deleteContact('${c.id}')" class="text-gray-400 hover:text-red-500 p-1"><i class="ph ph-trash"></i></button>
+                        </div>
+                    </div>
+                    <div class="space-y-2 mt-auto">
+                        ${dispJob?`<p class="text-xs text-sant-cyan truncate"><i class="ph ph-briefcase mr-1"></i>${dispJob}</p>`:''}
+                        ${dispPhone?`<p class="text-xs text-gray-400 truncate"><i class="ph ph-phone mr-1"></i>${dispPhone}</p>`:''}
+                        ${dispEmail?`<p class="text-xs text-gray-400 truncate"><i class="ph ph-envelope-simple mr-1"></i>${dispEmail}</p>`:''}
+                        ${lastInteractionDate?`<p class="text-[10px] text-gray-500 truncate"><i class="ph ph-clock-counter-clockwise mr-1"></i>Última interação: ${lastInteractionDate.split('-').reverse().join('/')}</p>`:''}
+                        ${tagsHtml}
+                    </div>
+                </div>`;
+            }
+            // list mode
+            const compact = density === 'compact';
+            const listTagsHtml = (c.tags && c.tags.length > 0)
+                ? c.tags.slice(0,3).map(t=>`<span class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20">${t}</span>`).join('') : '';
+            if (compact) {
+                return `
+                <div class="bg-sant-surface border border-sant-border rounded-lg px-3 py-1.5 hover:border-sant-cyan/50 transition-all group flex items-center gap-3 min-w-0">
+                    <div class="w-6 h-6 rounded-full bg-sant-cyan/10 text-sant-cyan flex items-center justify-center font-bold border border-sant-cyan/20 shrink-0 uppercase text-[10px]">${avatar}</div>
+                    <div class="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4 items-center min-w-0">
+                        <div class="min-w-0 flex items-center gap-1.5">
+                            <h3 class="font-bold text-white text-xs truncate" title="${fullName(c)}">${fullName(c)}</h3>
+                            ${c.code?`<span class="text-gray-500 font-mono text-[9px] shrink-0">#${c.code}</span>`:''}
+                            ${leadTag} ${inact}
+                        </div>
+                        <div class="text-xs text-sant-cyan truncate hidden md:block">${dispJob||'-'}</div>
+                        <div class="text-xs text-gray-400 truncate hidden md:block">${dispPhone||'-'}</div>
+                        <div class="text-xs text-gray-400 truncate hidden md:block">${dispEmail||'-'}</div>
+                    </div>
+                    <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 bg-[#141414] rounded" title="Exportar vCard"><i class="ph ph-address-book text-xs"></i></button>
+                        <button onclick="duplicateContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 bg-[#141414] rounded" title="Duplicar"><i class="ph ph-copy text-xs"></i></button>
+                        <button onclick="editContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 bg-[#141414] rounded"><i class="ph ph-pencil-simple text-xs"></i></button>
+                        <button onclick="deleteContact('${c.id}')" class="text-gray-400 hover:text-red-500 p-1 bg-[#141414] rounded"><i class="ph ph-trash text-xs"></i></button>
+                    </div>
+                </div>`;
+            }
+            return `
+            <div class="bg-sant-surface border border-sant-border rounded-lg p-3 hover:border-sant-cyan/50 transition-all group flex items-center gap-4 min-w-0">
+                <div class="w-8 h-8 rounded-full bg-sant-cyan/10 text-sant-cyan flex items-center justify-center font-bold border border-sant-cyan/20 shrink-0 uppercase text-xs">${avatar}</div>
+                <div class="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4 items-center min-w-0">
+                    <div class="min-w-0">
+                        <h3 class="font-bold text-white text-sm truncate" title="${fullName(c)}">${fullName(c)} ${c.code?`<span class="text-gray-500 font-mono text-[10px] font-normal">#${c.code}</span>`:''}</h3>
+                        <div class="flex flex-wrap gap-1 mt-0.5">
+                            ${c.category?`<span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-purple/20 text-sant-purple border border-sant-purple/30">${c.category}</span>`:''}
+                            ${leadTag} ${listTagsHtml} ${inact}
+                        </div>
+                    </div>
+                    <div class="text-xs text-sant-cyan truncate">${dispJob||'-'}</div>
+                    <div class="text-xs text-gray-400 truncate">${dispPhone||'-'}</div>
+                    <div class="text-xs text-gray-400 truncate">${dispEmail||'-'}</div>
+                </div>
+                <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    <button onclick="openHistoryModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded relative" title="Histórico">${c.interactions&&c.interactions.length?`<span class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-sant-cyan text-sant-bg text-[8px] font-bold rounded-full flex items-center justify-center">${c.interactions.length}</span>`:''}<i class="ph ph-clock-clockwise"></i></button>
+                    <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Exportar vCard"><i class="ph ph-address-book"></i></button>
+                    <button onclick="duplicateContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Duplicar"><i class="ph ph-copy"></i></button>
+                    <button onclick="editContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded"><i class="ph ph-pencil-simple"></i></button>
+                    <button onclick="deleteContact('${c.id}')" class="text-gray-400 hover:text-red-500 p-1.5 bg-[#141414] rounded"><i class="ph ph-trash"></i></button>
+                </div>
+            </div>`;
         }
 
         function fullName(c) {
@@ -3321,7 +3772,8 @@
         function editContact(id) {
             const contact = contacts.find(c => c.id === id);
             if (!contact) return;
-            
+            addRecentContact(id);
+
             openModal();
             
             document.getElementById('modalTitle').innerText = 'Editar Contato';
@@ -4108,7 +4560,8 @@
                     }
 
                     daysGrid.innerHTML += `
-                        <div onclick="switchToDayView('${dateStr}')" class="border-r border-b border-sant-border p-2 cursor-pointer hover:bg-[#141414] transition-colors relative group min-h-[100px] ${isToday ? 'bg-sant-cyan/5' : ''}">
+                        <div onclick="switchToDayView('${dateStr}')"
+                            class="border-r border-b border-sant-border p-2 cursor-pointer hover:bg-[#141414] transition-colors relative group min-h-[100px] ${isToday ? 'bg-sant-cyan/5' : ''}">
                             <div class="text-right mb-1">
                                 <span class="text-xs font-bold ${isToday ? 'bg-sant-cyan text-sant-bg px-2 py-0.5 rounded-full' : 'text-gray-400 group-hover:text-white'}">${d}</span>
                             </div>
@@ -4173,7 +4626,12 @@
                         } else if(e.isBirthday) {
                             eventsHtml += `<div onclick="event.stopPropagation(); switchToDayView('${dateStr}')" class="text-[10px] truncate ${m.bg} ${m.text} p-1.5 rounded mb-1.5 border ${m.border} cursor-pointer hover:opacity-80"><i class="ph ${m.icon}"></i> ${e.title}</div>`;
                         } else {
-                            eventsHtml += `<div onclick="event.stopPropagation(); switchToDayView('${dateStr}')" class="text-[10px] truncate ${m.bg} text-sant-cyan p-1.5 rounded mb-1.5 border ${m.border} cursor-pointer hover:opacity-80"><span class="font-bold mr-1">${e.startTime || ''}</span>${e.title}</div>`;
+                            eventsHtml += `<div
+                                draggable="true"
+                                ondragstart="onCalEventDragStart(event,'${e.id}','${dateStr}')"
+                                ondragend="onCalDragEnd()"
+                                onclick="event.stopPropagation(); openEventModal(events.find(x=>x.id==='${e.id}'), '${dateStr}')"
+                                class="cal-event-chip text-[10px] truncate ${m.bg} text-sant-cyan p-1.5 rounded mb-1.5 border ${m.border} hover:opacity-90"><span class="font-bold mr-1">${e.startTime || ''}</span>${e.title}</div>`;
                         }
                     });
                     if (dayTasksW.length > 0) {
@@ -4201,7 +4659,11 @@
                     }
 
                     daysGrid.innerHTML += `
-                        <div class="p-2 min-h-[300px] ${isToday ? 'bg-sant-cyan/5' : ''}" onclick="switchToDayView('${dateStr}')">
+                        <div class="cal-day-cell p-2 min-h-[300px] ${isToday ? 'bg-sant-cyan/5' : ''}"
+                            onclick="switchToDayView('${dateStr}')"
+                            ondragover="onCalDayDragOver(event, this)"
+                            ondragleave="onCalDayDragLeave(this)"
+                            ondrop="onCalDayDrop(event, '${dateStr}')">
                             ${eventsHtml}
                             ${dotsW}
                         </div>`;
@@ -4337,6 +4799,7 @@
                                     <div class="flex justify-between items-start">
                                         <h4 class="font-bold text-sant-cyan text-lg flex items-center gap-2"><i class="ph ${m.icon} ${m.text}"></i> ${e.title}</h4>
                                         <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button onclick="duplicateEvent('${e.id}')" class="text-gray-500 hover:text-sant-cyan" title="Duplicar evento"><i class="ph ph-copy"></i></button>
                                             <button onclick="openEventModal(events.find(x=>x.id==='${e.id}'), '${dateStr}')" class="text-gray-500 hover:text-sant-cyan"><i class="ph ph-pencil-simple"></i></button>
                                             <button onclick="deleteEvent('${e.id}', '${dateStr}')" class="text-gray-500 hover:text-red-500"><i class="ph ph-trash"></i></button>
                                         </div>
@@ -4463,6 +4926,14 @@
             closeRecurEditModal();
         }
 
+        function duplicateEvent(id) {
+            const e = events.find(x => x.id === id);
+            if (!e) return;
+            const copy = { ...e, id: '', title: 'Cópia de ' + e.title, recurrence: 'none', excludedDates: [] };
+            openEventModal(copy, null);
+            showToast('Evento duplicado — revise e salve.', 'info');
+        }
+
         function deleteEvent(id, dateStr) {
             const ev = events.find(e => e.id === id);
             if (!ev) return;
@@ -4518,11 +4989,29 @@
             closeRecurDeleteModal();
         }
 
+        function showCheckPopAnim(triggerEl) {
+            if (!triggerEl) return;
+            const rect = triggerEl.getBoundingClientRect();
+            const badge = document.createElement('div');
+            badge.className = 'check-pop-badge';
+            badge.textContent = '✓';
+            badge.style.left = (rect.left + rect.width / 2) + 'px';
+            badge.style.top  = (rect.top  + rect.height / 2) + 'px';
+            document.body.appendChild(badge);
+            setTimeout(() => badge.remove(), 700);
+        }
+
         function toggleTask(id) {
             const t = tasks.find(x => x.id === id);
             if(t) {
+                const wasCompleted = t.completed;
                 t.completed = !t.completed;
                 t.completedAt = t.completed ? new Date().toISOString() : null;
+                // Animação ✓ apenas ao CONCLUIR (não ao desmarcar)
+                if (!wasCompleted) {
+                    const btn = document.querySelector(`button[onclick="toggleTask('${id}')"]`);
+                    showCheckPopAnim(btn);
+                }
                 if (t.completed) t.kanbanColumn = 'done';
                 else if (t.kanbanColumn === 'done') t.kanbanColumn = 'todo';
 
@@ -4570,12 +5059,35 @@
 
         function filterTasks(f) {
             currentTaskFilter = f;
+            taskFocusMode = false;
+            const focusBtn = document.getElementById('btnTaskFocus');
+            if (focusBtn) focusBtn.className = 'px-4 py-1.5 rounded-full border border-[#fbbf24]/40 text-[#fbbf24]/60 hover:text-[#fbbf24] hover:border-[#fbbf24] transition-colors text-sm flex items-center gap-1.5';
             if (taskViewMode === 'kanban') switchTaskView('list');
             document.querySelectorAll('button[id^="btnFilter"]').forEach(b => { b.className = 'filter-status-btn px-4 py-1.5 rounded-full border border-sant-border text-gray-400 hover:text-white transition-colors text-sm'; });
             const btn = f==='all'? 'btnFilterAll' : f==='pending'? 'btnFilterPending' : 'btnFilterCompleted';
             document.getElementById(btn).className = 'filter-status-btn px-4 py-1.5 rounded-full bg-sant-cyan text-sant-bg font-semibold text-sm transition-colors';
             const searchVal = document.getElementById('taskSearchInput') ? document.getElementById('taskSearchInput').value : '';
             renderTasks(f, searchVal);
+        }
+
+        function setTaskSort(val) {
+            currentTaskSort = val;
+            const searchVal = document.getElementById('taskSearchInput') ? document.getElementById('taskSearchInput').value : '';
+            if (taskViewMode === 'kanban') renderKanban();
+            else renderTasks(currentTaskFilter, searchVal);
+        }
+
+        function toggleTaskFocus() {
+            taskFocusMode = !taskFocusMode;
+            const focusBtn = document.getElementById('btnTaskFocus');
+            if (taskFocusMode) {
+                if (focusBtn) focusBtn.className = 'px-4 py-1.5 rounded-full bg-[#fbbf24] text-sant-bg font-semibold transition-colors text-sm flex items-center gap-1.5';
+                if (taskViewMode === 'kanban') switchTaskView('list');
+                renderTasks('pending', '');
+            } else {
+                if (focusBtn) focusBtn.className = 'px-4 py-1.5 rounded-full border border-[#fbbf24]/40 text-[#fbbf24]/60 hover:text-[#fbbf24] hover:border-[#fbbf24] transition-colors text-sm flex items-center gap-1.5';
+                renderTasks(currentTaskFilter, document.getElementById('taskSearchInput') ? document.getElementById('taskSearchInput').value : '');
+            }
         }
 
         function renderTasks(filter = 'all', searchTerm = '') {
@@ -4586,13 +5098,22 @@
             if(filter === 'pending') filtered = tasks.filter(t => !t.completed);
             if(filter === 'completed') filtered = tasks.filter(t => t.completed);
 
-            if(searchTerm) {
-                const term = searchTerm.toLowerCase();
-                filtered = filtered.filter(t => t.title.toLowerCase().includes(term) || (t.desc && t.desc.toLowerCase().includes(term)));
+            if (currentTaskTagFilter) filtered = filtered.filter(t => t.tags && t.tags.includes(currentTaskTagFilter));
+
+            if (taskFocusMode) {
+                filtered = filtered.filter(t => !t.completed && t.date === todayStr);
             }
 
+            if(searchTerm) {
+                const term = searchTerm.toLowerCase();
+                filtered = filtered.filter(t => t.title.toLowerCase().includes(term) || (t.desc && t.desc.toLowerCase().includes(term)) || (t.tags && t.tags.some(tg => tg.toLowerCase().includes(term))));
+            }
+
+            fillTaskTagFilterSelect();
+
+            const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3, undefined: 4 };
             filtered.sort((a, b) => {
-                if (filter === 'all') {
+                if (filter === 'all' && currentTaskSort !== 'priority') {
                     if (a.completed && !b.completed) return 1;
                     if (!a.completed && b.completed) return -1;
                 }
@@ -4600,6 +5121,19 @@
                     const compA = a.completedAt || (a.date ? a.date + 'T' + (a.time || '00:00') : '');
                     const compB = b.completedAt || (b.date ? b.date + 'T' + (b.time || '00:00') : '');
                     return compB.localeCompare(compA);
+                }
+                if (currentTaskSort === 'priority') {
+                    const pa = priorityOrder[a.priority] ?? 4;
+                    const pb = priorityOrder[b.priority] ?? 4;
+                    if (pa !== pb) return pa - pb;
+                    const dateA = a.date || '9999-12-31';
+                    const dateB = b.date || '9999-12-31';
+                    return dateA.localeCompare(dateB);
+                }
+                if (currentTaskSort === 'createdAt') {
+                    const ca = a.createdAt || '';
+                    const cb = b.createdAt || '';
+                    return cb.localeCompare(ca);
                 }
                 const dateA = a.date || '9999-12-31';
                 const dateB = b.date || '9999-12-31';
@@ -4609,9 +5143,26 @@
                 return timeA.localeCompare(timeB);
             });
 
+            if (taskFocusMode) {
+                if (filtered.length === 0) {
+                    list.innerHTML = emptyState('ph-lightning', 'Foco do Dia vazio', 'Nenhuma tarefa pendente para hoje. Tudo em dia!');
+                    return;
+                }
+                const focusPriority = ['urgent','high','medium','low'];
+                const top3 = filtered.slice().sort((a,b) => (priorityOrder[a.priority]??4) - (priorityOrder[b.priority]??4)).slice(0,3).map(t=>t.id);
+                list.innerHTML = `<div class="mb-3 flex items-center gap-2 text-[#fbbf24] text-xs font-semibold uppercase tracking-wider"><i class="ph ph-lightning"></i> Modo Foco — ${filtered.length} tarefa${filtered.length!==1?'s':''} de hoje</div>` +
+                    filtered.map((t, idx) => {
+                        const isFocus = top3.includes(t.id);
+                        const card = taskCardHtml(t, todayStr);
+                        if (!isFocus) return card;
+                        return `<div class="ring-1 ring-[#fbbf24]/40 rounded-xl relative"><span class="absolute top-2 right-2 z-10 text-[9px] font-bold text-[#fbbf24] bg-[#fbbf24]/10 border border-[#fbbf24]/20 px-1.5 py-0.5 rounded pointer-events-none">⚡ FOCO</span>${card}</div>`;
+                    }).join('');
+                return;
+            }
+
             if(filtered.length === 0) { list.innerHTML = emptyState('ph-clipboard-text', 'Nenhuma tarefa encontrada', 'Que tal criar uma nova tarefa para organizar a semana?'); return; }
 
-            if (!searchTerm && filter !== 'completed') {
+            if (!searchTerm && filter !== 'completed' && currentTaskSort === 'date') {
                 const groups = {
                     overdue: { label: 'Atrasadas', icon: 'ph-warning-circle', color: 'text-red-400', items: [] },
                     today: { label: 'Hoje', icon: 'ph-star', color: 'text-sant-cyan', items: [] },
@@ -4690,19 +5241,71 @@
                     <div class="flex-1 min-w-0 ${t.completed ? 'opacity-50' : ''}">
                         <h4 class="text-[#fbbf24] font-medium break-words ${t.completed ? 'line-through' : ''}">${t.title} ${t.recurrence && t.recurrence !== 'none' ? '<i class="ph ph-repeat text-sant-cyan text-xs" title="Tarefa recorrente"></i>' : ''}</h4>
                         ${isOverdue ? `<p class="text-[11px] text-red-400 mt-1 font-semibold flex items-center gap-1"><i class="ph ph-warning-circle"></i> Vencida — ${dateTimeDisplay}</p>` : (dateTimeDisplay ? `<p class="text-[11px] text-sant-cyan mt-1"><i class="ph ph-calendar-blank"></i> ${dateTimeDisplay}</p>` : '')}
+                        ${t.estimatedMinutes ? `<p class="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1"><i class="ph ph-hourglass"></i> ${formatEstimate(t.estimatedMinutes)}</p>` : ''}
                         ${(() => { const c = t.contactId ? contacts.find(x => x.id === t.contactId) : null; return c ? `<p class="text-[11px] text-sant-purple mt-1 flex items-center gap-1"><i class="ph ph-user-circle"></i> ${fullName(c)}</p>` : ''; })()}
                         ${t.desc ? `<p class="text-[10px] text-sant-purple mt-1 flex items-center gap-1"><i class="ph ph-notebook"></i> Tem notas</p>` : ''}
+                        ${(t.tags && t.tags.length) ? `<div class="flex flex-wrap gap-1 mt-2">${t.tags.map(tag => `<span class="px-2 py-0.5 rounded-full bg-sant-purple/15 border border-sant-purple/30 text-sant-purple text-[10px] font-medium"><i class="ph ph-tag text-[9px]"></i> ${tag}</span>`).join('')}</div>` : ''}
                         ${checklistHtml}
                     </div>
                     <div class="flex flex-col items-end gap-2 shrink-0">
                         ${t.priority === 'high' ? '<i class="ph ph-flag text-red-500" title="Alta Prioridade"></i>' : (t.priority==='low' ? '<i class="ph ph-flag text-gray-600" title="Baixa"></i>' : '<i class="ph ph-flag text-sant-cyan" title="Normal"></i>')}
                         <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onclick="duplicateTask('${t.id}')" class="text-gray-400 hover:text-sant-cyan" title="Duplicar tarefa"><i class="ph ph-copy text-lg"></i></button>
                             <button onclick="editTask('${t.id}')" class="text-gray-400 hover:text-sant-cyan"><i class="ph ph-pencil-simple text-lg"></i></button>
                             <button onclick="deleteTask('${t.id}')" class="text-gray-400 hover:text-red-500"><i class="ph ph-trash text-lg"></i></button>
                         </div>
                     </div>
                 </div>`;
             })();
+        }
+
+        function formatEstimate(min) {
+            if (!min || min <= 0) return '';
+            if (min < 60) return `${min}min`;
+            const h = Math.floor(min / 60), m = min % 60;
+            return m ? `${h}h${m}min` : `${h}h`;
+        }
+
+        function fillTaskTagSuggestions() {
+            const dl = document.getElementById('taskTagSuggestions');
+            if (dl) dl.innerHTML = tags.map(t => `<option value="${t}">`).join('');
+        }
+
+        function renderTaskTagsInModal() {
+            const container = document.getElementById('taskTagsContainer');
+            if (!container) return;
+            container.innerHTML = currentTaskTags.map(tag => `
+                <span class="flex items-center gap-1 px-2 py-0.5 rounded-full bg-sant-purple/15 border border-sant-purple/30 text-sant-purple text-xs font-medium">
+                    <i class="ph ph-tag text-[10px]"></i>${tag}
+                    <button type="button" onclick="removeTaskTag('${tag}')" class="hover:text-white ml-0.5 leading-none">&times;</button>
+                </span>`).join('');
+        }
+
+        function addTaskTag() {
+            const input = document.getElementById('taskTagInput');
+            const val = (input.value || '').trim();
+            if (!val || currentTaskTags.includes(val)) { input.value = ''; return; }
+            currentTaskTags.push(val);
+            if (!tags.includes(val)) { tags.push(val); localStorage.setItem('sant_crm_tags', JSON.stringify(tags)); fillTaskTagSuggestions(); }
+            renderTaskTagsInModal();
+            input.value = '';
+        }
+
+        function removeTaskTag(tag) {
+            currentTaskTags = currentTaskTags.filter(t => t !== tag);
+            renderTaskTagsInModal();
+        }
+
+        function fillTaskTagFilterSelect() {
+            const sel = document.getElementById('taskTagFilter');
+            if (!sel) return;
+            const usedTags = [...new Set(tasks.flatMap(t => t.tags || []))].sort((a,b) => a.localeCompare(b,'pt-BR'));
+            sel.innerHTML = `<option value="">Todas as etiquetas</option>` + usedTags.map(t => `<option value="${t}" ${t === currentTaskTagFilter ? 'selected' : ''}>${t}</option>`).join('');
+        }
+
+        function onTaskTagFilter(val) {
+            currentTaskTagFilter = val;
+            _refreshCurrentTaskView();
         }
 
         function saveTask() {
@@ -4723,6 +5326,8 @@
                 contactId: document.getElementById('taskContactId').value || '',
                 recurrence: document.getElementById('taskRecurrence').value,
                 recurrenceInterval: parseInt(document.getElementById('taskRecInterval').value) || 1,
+                tags: [...currentTaskTags],
+                estimatedMinutes: parseInt(document.getElementById('taskEstimate').value) || 0,
                 checklist: currentChecklist.map(i => ({...i})),
                 kanbanColumn: existingTask ? (existingTask.kanbanColumn || 'todo') : 'todo',
                 completed: false,
@@ -4766,9 +5371,37 @@
             document.getElementById('taskRecInterval').value = t.recurrenceInterval || 1;
             updateTaskRecurrenceUI();
             populateContactSelect('taskContactId', t.contactId || '');
+            document.getElementById('taskEstimate').value = t.estimatedMinutes || 0;
             currentChecklist = t.checklist ? t.checklist.map(i => ({...i})) : [];
             renderChecklistInModal();
+            currentTaskTags = t.tags ? [...t.tags] : [];
+            fillTaskTagSuggestions();
+            renderTaskTagsInModal();
             takeModalSnapshot('taskModal');
+        }
+
+        function duplicateTask(id) {
+            const t = tasks.find(x => x.id === id);
+            if (!t) return;
+            openTaskModal();
+            document.getElementById('taskModalTitle').innerText = 'Duplicar Tarefa';
+            document.getElementById('taskTitle').value = 'Cópia de ' + t.title;
+            document.getElementById('taskDate').value = t.date || '';
+            document.getElementById('taskTime').value = t.time || '';
+            document.getElementById('taskPriority').value = t.priority || 'medium';
+            document.getElementById('taskNotification').value = t.notification || '0';
+            document.getElementById('taskDesc').value = t.desc || '';
+            document.getElementById('taskRecurrence').value = 'none';
+            document.getElementById('taskRecInterval').value = 1;
+            updateTaskRecurrenceUI();
+            populateContactSelect('taskContactId', t.contactId || '');
+            currentChecklist = (t.checklist || []).map(i => ({ ...i, id: crypto.randomUUID(), done: false }));
+            renderChecklistInModal();
+            currentTaskTags = t.tags ? [...t.tags] : [];
+            fillTaskTagSuggestions();
+            renderTaskTagsInModal();
+            takeModalSnapshot('taskModal');
+            showToast('Tarefa duplicada — revise e salve.', 'info');
         }
 
         function deleteTask(id) {
@@ -5497,8 +6130,12 @@
             updateTaskRecurrenceUI();
             document.getElementById('taskModalTitle').innerText = 'Nova Tarefa';
             populateContactSelect('taskContactId', '');
+            document.getElementById('taskEstimate').value = 0;
             currentChecklist = [];
             renderChecklistInModal();
+            currentTaskTags = [];
+            fillTaskTagSuggestions();
+            renderTaskTagsInModal();
             document.getElementById('taskModal').classList.remove('hidden');
             takeModalSnapshot('taskModal');
         }
@@ -5596,16 +6233,20 @@
 
         function renderKanban(searchTerm = '') {
             let filtered = tasks;
+            if (currentTaskTagFilter) filtered = filtered.filter(t => t.tags && t.tags.includes(currentTaskTagFilter));
             if (searchTerm) {
                 const term = searchTerm.toLowerCase();
                 filtered = filtered.filter(t =>
                     t.title.toLowerCase().includes(term) ||
-                    (t.desc && t.desc.toLowerCase().includes(term))
+                    (t.desc && t.desc.toLowerCase().includes(term)) ||
+                    (t.tags && t.tags.some(tg => tg.toLowerCase().includes(term)))
                 );
             }
+            fillTaskTagFilterSelect();
 
             const todayStr = getSPTodayStr();
 
+            const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
             KANBAN_COLS.forEach(col => {
                 const colTasks = filtered
                     .filter(t => getTaskKanbanCol(t) === col.id)
@@ -5614,6 +6255,14 @@
                             const compA = a.completedAt || (a.date ? a.date + 'T' + (a.time || '00:00') : '');
                             const compB = b.completedAt || (b.date ? b.date + 'T' + (b.time || '00:00') : '');
                             return compB.localeCompare(compA);
+                        }
+                        if (currentTaskSort === 'priority') {
+                            const pa = priorityOrder[a.priority] ?? 4;
+                            const pb = priorityOrder[b.priority] ?? 4;
+                            if (pa !== pb) return pa - pb;
+                        }
+                        if (currentTaskSort === 'createdAt') {
+                            return (b.createdAt || '').localeCompare(a.createdAt || '');
                         }
                         const dateA = a.date || '9999-12-31';
                         const dateB = b.date || '9999-12-31';
@@ -5664,6 +6313,7 @@
                         <div class="flex items-start gap-2 mb-1">
                             <h4 class="text-sm font-medium leading-snug flex-1 ${col.id === 'done' ? 'line-through text-gray-500' : 'text-[#fbbf24]'}">${t.title}</h4>
                             <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                <button onclick="duplicateTask('${t.id}')" class="text-gray-500 hover:text-sant-cyan p-0.5" title="Duplicar"><i class="ph ph-copy text-sm"></i></button>
                                 <button onclick="editTask('${t.id}')" class="text-gray-500 hover:text-sant-cyan p-0.5"><i class="ph ph-pencil-simple text-sm"></i></button>
                                 <button onclick="deleteTask('${t.id}')" class="text-gray-500 hover:text-red-500 p-0.5"><i class="ph ph-trash text-sm"></i></button>
                             </div>
@@ -5672,7 +6322,9 @@
                         ${dateFmt ? `<p class="text-[10px] ${isOverdue ? 'text-red-400 font-semibold' : 'text-sant-cyan'} flex items-center gap-1 mb-0.5">
                             <i class="ph ${isOverdue ? 'ph-warning-circle' : 'ph-calendar-blank'}"></i> ${dateFmt}
                         </p>` : ''}
+                        ${t.estimatedMinutes ? `<p class="text-[10px] text-gray-500 flex items-center gap-1 mb-0.5"><i class="ph ph-hourglass"></i> ${formatEstimate(t.estimatedMinutes)}</p>` : ''}
                         ${clHtml}
+                        ${(t.tags && t.tags.length) ? `<div class="flex flex-wrap gap-1 mt-2">${t.tags.map(tag => `<span class="px-1.5 py-0.5 rounded-full bg-sant-purple/15 border border-sant-purple/30 text-sant-purple text-[9px] font-medium"><i class="ph ph-tag text-[8px]"></i> ${tag}</span>`).join('')}</div>` : ''}
                         <div class="flex items-center justify-between mt-2.5 pt-2 border-t border-sant-border/40">
                             <button onclick="toggleTask('${t.id}')"
                                 class="text-[10px] flex items-center gap-1 transition-colors ${col.id === 'done' ? 'text-green-500 hover:text-gray-400' : 'text-gray-600 hover:text-sant-cyan'}">
@@ -5958,6 +6610,7 @@
             currentHistoryContactId = contactId;
             const c = contacts.find(x => x.id === contactId);
             if (!c) return;
+            addRecentContact(contactId);
             document.getElementById('historyContactName').innerText = fullName(c);
             const addrLink = document.getElementById('historyContactAddress');
             const addrStr = buildAddressString(c);
@@ -6157,6 +6810,24 @@
             saveToStorage();
             document.getElementById('historyNextContactClear').classList.toggle('hidden', !c.nextContact);
             showToast(c.nextContact ? 'Lembrete de follow-up definido.' : 'Lembrete removido.');
+        }
+
+        function checkNoteReminders() {
+            const todayStr = getSPTodayStr();
+            notes.forEach(n => {
+                if (!n.dueDate || n.dueDate > todayStr) return;
+                const notifKey = `vends_note_notified_${n.id}_${todayStr}`;
+                if (localStorage.getItem(notifKey)) return;
+                const [y,m,d] = n.dueDate.split('-');
+                const label = `${d}/${m}/${y}`;
+                const isToday = n.dueDate === todayStr;
+                const noteTitle = n.title || (n.body || '').substring(0, 40) || 'Nota';
+                const msg = isToday
+                    ? `📝 Lembrete de hoje: "${noteTitle}"`
+                    : `⏰ Nota vencida em ${label}: "${noteTitle}"`;
+                addNotification('task', `Lembrete de nota`, msg);
+                localStorage.setItem(notifKey, '1');
+            });
         }
 
         function checkFollowupReminders() {
