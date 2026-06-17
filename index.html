@@ -3556,6 +3556,31 @@
             }
         }
 
+        function contactWaUrl(c) {
+            const raw = (c.phoneProf || c.phonePess || '').replace(/\D/g, '');
+            if (!raw) return '';
+            const num = raw.startsWith('55') && raw.length >= 12 ? raw : '55' + raw;
+            return `https://wa.me/${num}`;
+        }
+
+        function contactRelScore(c) {
+            const todayMs = new Date().setHours(0, 0, 0, 0);
+            const interactions = (c.interactions || []).filter(i => i.date);
+            let daysSince;
+            if (!interactions.length) {
+                if (!c.createdAt) return null;
+                daysSince = Math.floor((todayMs - new Date(c.createdAt.substring(0, 10)).setHours(0, 0, 0, 0)) / 86400000);
+                if (daysSince < 14) return null;
+                if (daysSince <= 60) return { dot: '🟡', label: 'Esfriando', cls: 'text-[#fbbf24]', title: 'Sem interações há ' + daysSince + ' dias' };
+                return { dot: '🔴', label: 'Inativo', cls: 'text-red-400', title: 'Sem interações há ' + daysSince + ' dias' };
+            }
+            const lastDate = [...interactions].sort((a, b) => b.date.localeCompare(a.date))[0].date;
+            daysSince = Math.floor((todayMs - new Date(lastDate).setHours(0, 0, 0, 0)) / 86400000);
+            if (daysSince <= 30) return { dot: '🟢', label: 'Ativo', cls: 'text-green-400', title: 'Última interação há ' + daysSince + ' dias' };
+            if (daysSince <= 90) return { dot: '🟡', label: 'Esfriando', cls: 'text-[#fbbf24]', title: 'Última interação há ' + daysSince + ' dias' };
+            return { dot: '🔴', label: 'Inativo', cls: 'text-red-400', title: 'Última interação há ' + daysSince + ' dias' };
+        }
+
         function contactCardHtml(c, mode, density) {
             const dispEmail = c.emailProf || c.emailPess || c.email || '';
             const dispPhone = c.phoneProf || c.phonePess || c.phone || '';
@@ -3571,6 +3596,9 @@
                 ? `<span class="absolute -top-1 -right-1 w-4 h-4 bg-sant-cyan text-sant-bg text-[9px] font-bold rounded-full flex items-center justify-center">${c.interactions.length > 9 ? '9+' : c.interactions.length}</span>` : '';
             const lastInteractionDate = (c.interactions && c.interactions.length > 0)
                 ? [...c.interactions].sort((a,b) => (b.date||'').localeCompare(a.date||''))[0].date : null;
+            const waUrl = contactWaUrl(c);
+            const score = contactRelScore(c);
+            const scoreBadge = score ? `<span class="${score.cls} text-[9px] font-semibold shrink-0" title="${score.title}">${score.dot} ${score.label}</span>` : '';
             if (mode === 'grid') {
                 const tagsHtml = (c.tags && c.tags.length > 0)
                     ? `<div class="flex flex-wrap gap-1 mt-2">${c.tags.slice(0,4).map(t=>`<span class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20">${t}</span>`).join('')}${c.tags.length>4?`<span class="text-[9px] text-gray-500">+${c.tags.length-4}</span>`:''}</div>` : '';
@@ -3581,9 +3609,11 @@
                             ${contactAvatarHtml(c, 'w-10 h-10')}
                             <div class="min-w-0">
                                 <h3 class="font-bold text-white truncate text-sm" title="${fullName(c)}">${fullName(c)} ${c.code?`<span class="text-gray-500 font-mono text-[10px] font-normal">#${c.code}</span>`:''}</h3>
-                                ${c.category?`<span class="inline-block px-2 py-0.5 mt-1 rounded text-[10px] font-medium bg-sant-purple/20 text-sant-purple border border-sant-purple/30">${c.category}</span>`:''}
-                                ${leadTag?`<span class="ml-1">${leadTag}</span>`:''}
-                                ${inact?`<div class="mt-1">${inact}</div>`:''}
+                                <div class="flex flex-wrap items-center gap-1 mt-1">
+                                    ${c.category?`<span class="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-sant-purple/20 text-sant-purple border border-sant-purple/30">${c.category}</span>`:''}
+                                    ${leadTag} ${scoreBadge}
+                                    ${inact?`<div>${inact}</div>`:''}
+                                </div>
                             </div>
                         </div>
                         <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
@@ -3600,6 +3630,10 @@
                         ${dispEmail?`<p class="text-xs text-gray-400 truncate"><i class="ph ph-envelope-simple mr-1"></i>${dispEmail}</p>`:''}
                         ${lastInteractionDate?`<p class="text-[10px] text-gray-500 truncate"><i class="ph ph-clock-counter-clockwise mr-1"></i>Última interação: ${lastInteractionDate.split('-').reverse().join('/')}</p>`:''}
                         ${tagsHtml}
+                        ${(waUrl||dispEmail)?`<div class="flex gap-2 mt-3 pt-3 border-t border-sant-border">
+                            ${waUrl?`<a href="${waUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20 text-xs font-medium transition-colors"><i class="ph ph-whatsapp-logo"></i> WhatsApp</a>`:''}
+                            ${dispEmail?`<a href="mailto:${dispEmail}" onclick="event.stopPropagation()" class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-sant-cyan/10 text-sant-cyan hover:bg-sant-cyan/20 text-xs font-medium transition-colors"><i class="ph ph-envelope-simple"></i> E-mail</a>`:''}
+                        </div>`:''}
                     </div>
                 </div>`;
             }
@@ -3615,13 +3649,15 @@
                         <div class="min-w-0 flex items-center gap-1.5">
                             <h3 class="font-bold text-white text-xs truncate" title="${fullName(c)}">${fullName(c)}</h3>
                             ${c.code?`<span class="text-gray-500 font-mono text-[9px] shrink-0">#${c.code}</span>`:''}
-                            ${leadTag} ${inact}
+                            ${leadTag} ${scoreBadge} ${inact}
                         </div>
                         <div class="text-xs text-sant-cyan truncate hidden md:block">${dispJob||'-'}</div>
                         <div class="text-xs text-gray-400 truncate hidden md:block">${dispPhone||'-'}</div>
                         <div class="text-xs text-gray-400 truncate hidden md:block">${dispEmail||'-'}</div>
                     </div>
                     <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        ${waUrl?`<a href="${waUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="text-green-400 hover:text-green-300 p-1 bg-[#141414] rounded" title="WhatsApp"><i class="ph ph-whatsapp-logo text-xs"></i></a>`:''}
+                        ${dispEmail?`<a href="mailto:${dispEmail}" onclick="event.stopPropagation()" class="text-sant-cyan hover:text-[#7aafc8] p-1 bg-[#141414] rounded" title="E-mail"><i class="ph ph-envelope-simple text-xs"></i></a>`:''}
                         <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 bg-[#141414] rounded" title="Exportar vCard"><i class="ph ph-address-book text-xs"></i></button>
                         <button onclick="duplicateContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 bg-[#141414] rounded" title="Duplicar"><i class="ph ph-copy text-xs"></i></button>
                         <button onclick="editContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 bg-[#141414] rounded"><i class="ph ph-pencil-simple text-xs"></i></button>
@@ -3635,9 +3671,9 @@
                 <div class="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4 items-center min-w-0">
                     <div class="min-w-0">
                         <h3 class="font-bold text-white text-sm truncate" title="${fullName(c)}">${fullName(c)} ${c.code?`<span class="text-gray-500 font-mono text-[10px] font-normal">#${c.code}</span>`:''}</h3>
-                        <div class="flex flex-wrap gap-1 mt-0.5">
+                        <div class="flex flex-wrap items-center gap-1 mt-0.5">
                             ${c.category?`<span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-purple/20 text-sant-purple border border-sant-purple/30">${c.category}</span>`:''}
-                            ${leadTag} ${listTagsHtml} ${inact}
+                            ${leadTag} ${listTagsHtml} ${scoreBadge} ${inact}
                         </div>
                     </div>
                     <div class="text-xs text-sant-cyan truncate">${dispJob||'-'}</div>
@@ -3645,6 +3681,8 @@
                     <div class="text-xs text-gray-400 truncate">${dispEmail||'-'}</div>
                 </div>
                 <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    ${waUrl?`<a href="${waUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="text-green-400 hover:text-green-300 p-1.5 bg-[#141414] rounded" title="WhatsApp"><i class="ph ph-whatsapp-logo"></i></a>`:''}
+                    ${dispEmail?`<a href="mailto:${dispEmail}" onclick="event.stopPropagation()" class="text-sant-cyan hover:text-[#7aafc8] p-1.5 bg-[#141414] rounded" title="E-mail"><i class="ph ph-envelope-simple"></i></a>`:''}
                     <button onclick="openHistoryModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded relative" title="Histórico">${c.interactions&&c.interactions.length?`<span class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-sant-cyan text-sant-bg text-[8px] font-bold rounded-full flex items-center justify-center">${c.interactions.length}</span>`:''}<i class="ph ph-clock-clockwise"></i></button>
                     <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Exportar vCard"><i class="ph ph-address-book"></i></button>
                     <button onclick="duplicateContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Duplicar"><i class="ph ph-copy"></i></button>
