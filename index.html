@@ -320,6 +320,31 @@
                     <div id="dashPriorityList" class="space-y-2"></div>
                 </div>
 
+                <!-- Card: Taxa de Follow-up -->
+                <div id="dashFollowupCard" class="bg-sant-surface border border-sant-border rounded-2xl p-6">
+                    <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase mb-5 flex items-center gap-2"><i class="ph ph-arrow-counter-clockwise text-sant-cyan"></i> Taxa de Resposta — Follow-ups</p>
+                    <div class="flex items-center gap-6">
+                        <div class="text-center shrink-0">
+                            <p id="dashFollowupRate" class="text-5xl font-bold leading-none">--</p>
+                            <p class="text-[11px] text-gray-500 mt-2">de resposta</p>
+                        </div>
+                        <div class="flex-1 space-y-2">
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="text-gray-400">Com prazo vencido</span>
+                                <span id="dashFollowupTotal" class="text-white font-semibold">0</span>
+                            </div>
+                            <div class="w-full bg-[#1f1f1f] rounded-full h-2">
+                                <div id="dashFollowupBar" class="h-2 rounded-full transition-all" style="width:0%"></div>
+                            </div>
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="text-gray-400">Contatados no prazo</span>
+                                <span id="dashFollowupHonored" class="font-semibold">0</span>
+                            </div>
+                            <div id="dashFollowupEmpty" class="hidden text-[11px] text-gray-500 italic">Nenhum follow-up vencido ainda.</div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Card: Esta Semana -->
                 <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
                     <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase mb-5 flex items-center gap-2"><i class="ph ph-lightning text-sant-cyan"></i> Esta Semana — Produtividade</p>
@@ -2704,6 +2729,46 @@
             renderInteractionsChart();
             renderHealthDashboard();
             renderWeekStats(todayStr);
+            renderFollowupRate(todayStr);
+        }
+
+        function renderFollowupRate(todayStr) {
+            const rateEl   = document.getElementById('dashFollowupRate');
+            const totalEl  = document.getElementById('dashFollowupTotal');
+            const honoredEl= document.getElementById('dashFollowupHonored');
+            const barEl    = document.getElementById('dashFollowupBar');
+            const emptyEl  = document.getElementById('dashFollowupEmpty');
+            if (!rateEl) return;
+
+            // Contatos com nextContact vencido (passado ou hoje)
+            const withDue = contacts.filter(c => c.nextContact && c.nextContact <= todayStr);
+            if (withDue.length === 0) {
+                rateEl.textContent = '--';
+                rateEl.style.color = '#6b7280';
+                totalEl.textContent = '0';
+                honoredEl.textContent = '0';
+                barEl.style.width = '0%';
+                emptyEl.classList.remove('hidden');
+                return;
+            }
+            emptyEl.classList.add('hidden');
+
+            // "Honrado" = tem ao menos 1 interação na data do follow-up ou depois
+            const honored = withDue.filter(c => {
+                const ints = c.interactions || [];
+                return ints.some(i => i.date && i.date >= c.nextContact);
+            });
+
+            const pct = Math.round(honored.length / withDue.length * 100);
+            const color = pct >= 80 ? '#4ade80' : pct >= 50 ? '#fbbf24' : '#f87171';
+
+            rateEl.textContent = pct + '%';
+            rateEl.style.color = color;
+            totalEl.textContent = withDue.length;
+            honoredEl.textContent = honored.length;
+            honoredEl.style.color = color;
+            barEl.style.width = pct + '%';
+            barEl.style.backgroundColor = color;
         }
 
         function renderWeekStats(todayStr) {
