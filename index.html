@@ -1518,6 +1518,47 @@
     </div>
 
     <!-- MODAL DE ATALHOS DE TECLADO -->
+    <!-- Mini-modal: Registro Rápido de Interação -->
+    <div id="quickInteractionModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeQuickInteraction()">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-sm shadow-2xl modalPop">
+            <div class="flex justify-between items-center px-5 py-4 border-b border-sant-border">
+                <div>
+                    <h3 class="text-sm font-bold text-white flex items-center gap-2"><i class="ph ph-lightning text-sant-cyan"></i> Interação Rápida</h3>
+                    <p id="quickInteractionName" class="text-xs text-gray-500 mt-0.5"></p>
+                </div>
+                <button onclick="closeQuickInteraction()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <div class="p-5 space-y-4">
+                <input type="hidden" id="quickInteractionContactId">
+                <div class="flex gap-3">
+                    <div class="flex-1">
+                        <label class="block text-[10px] text-gray-500 uppercase font-bold mb-1.5">Tipo</label>
+                        <select id="quickInteractionType" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan transition-colors">
+                            <option value="Ligação">📞 Ligação</option>
+                            <option value="Reunião">🤝 Reunião</option>
+                            <option value="E-mail">✉️ E-mail</option>
+                            <option value="WhatsApp">💬 WhatsApp</option>
+                            <option value="Visita">🏢 Visita</option>
+                            <option value="Outro">📌 Outro</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-gray-500 uppercase font-bold mb-1.5">Data</label>
+                        <input type="date" id="quickInteractionDate" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan transition-colors">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[10px] text-gray-500 uppercase font-bold mb-1.5">Notas <span class="text-gray-600 normal-case font-normal">(opcional)</span></label>
+                    <textarea id="quickInteractionNotes" rows="3" placeholder="O que foi discutido? Qual o próximo passo?" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan transition-colors resize-none placeholder-gray-600"></textarea>
+                </div>
+                <div class="flex gap-3 pt-1">
+                    <button onclick="closeQuickInteraction()" class="flex-1 px-4 py-2 rounded-lg border border-sant-border text-gray-400 hover:text-white text-sm transition-colors">Cancelar</button>
+                    <button onclick="saveQuickInteraction()" class="flex-1 px-4 py-2 rounded-lg text-sm font-bold transition-colors" style="background:#5b8fa8;color:#030303">Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="shortcutsModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4">
         <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-md shadow-2xl">
             <div class="flex justify-between items-center p-5 border-b border-sant-border">
@@ -3784,6 +3825,7 @@
                             </div>
                         </div>
                         <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                            <button onclick="openQuickInteraction('${c.id}')" class="text-gray-400 hover:text-[#fbbf24] p-1" title="Registrar interação rápida"><i class="ph ph-plus-circle"></i></button>
                             <button onclick="openHistoryModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 relative" title="Histórico">${histCount}<i class="ph ph-clock-clockwise"></i></button>
                             <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Exportar vCard"><i class="ph ph-address-book"></i></button>
                             <button onclick="duplicateContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Duplicar"><i class="ph ph-copy"></i></button>
@@ -3825,6 +3867,7 @@
                     <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                         ${waUrl?`<a href="${waUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="text-green-400 hover:text-green-300 p-1 bg-[#141414] rounded" title="WhatsApp"><i class="ph ph-whatsapp-logo text-xs"></i></a>`:''}
                         ${dispEmail?`<a href="mailto:${dispEmail}" onclick="event.stopPropagation()" class="text-sant-cyan hover:text-[#7aafc8] p-1 bg-[#141414] rounded" title="E-mail"><i class="ph ph-envelope-simple text-xs"></i></a>`:''}
+                        <button onclick="openQuickInteraction('${c.id}')" class="text-gray-400 hover:text-[#fbbf24] p-1 bg-[#141414] rounded" title="Registrar interação rápida"><i class="ph ph-plus-circle text-xs"></i></button>
                         <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 bg-[#141414] rounded" title="Exportar vCard"><i class="ph ph-address-book text-xs"></i></button>
                         <button onclick="duplicateContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 bg-[#141414] rounded" title="Duplicar"><i class="ph ph-copy text-xs"></i></button>
                         <button onclick="editContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 bg-[#141414] rounded"><i class="ph ph-pencil-simple text-xs"></i></button>
@@ -3850,6 +3893,7 @@
                 <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                     ${waUrl?`<a href="${waUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="text-green-400 hover:text-green-300 p-1.5 bg-[#141414] rounded" title="WhatsApp"><i class="ph ph-whatsapp-logo"></i></a>`:''}
                     ${dispEmail?`<a href="mailto:${dispEmail}" onclick="event.stopPropagation()" class="text-sant-cyan hover:text-[#7aafc8] p-1.5 bg-[#141414] rounded" title="E-mail"><i class="ph ph-envelope-simple"></i></a>`:''}
+                    <button onclick="openQuickInteraction('${c.id}')" class="text-gray-400 hover:text-[#fbbf24] p-1.5 bg-[#141414] rounded" title="Registrar interação rápida"><i class="ph ph-plus-circle"></i></button>
                     <button onclick="openHistoryModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded relative" title="Histórico">${c.interactions&&c.interactions.length?`<span class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-sant-cyan text-sant-bg text-[8px] font-bold rounded-full flex items-center justify-center">${c.interactions.length}</span>`:''}<i class="ph ph-clock-clockwise"></i></button>
                     <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Exportar vCard"><i class="ph ph-address-book"></i></button>
                     <button onclick="duplicateContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Duplicar"><i class="ph ph-copy"></i></button>
@@ -3857,6 +3901,38 @@
                     <button onclick="deleteContact('${c.id}')" class="text-gray-400 hover:text-red-500 p-1.5 bg-[#141414] rounded"><i class="ph ph-trash"></i></button>
                 </div>
             </div>`;
+        }
+
+        function openQuickInteraction(contactId) {
+            const c = contacts.find(x => x.id === contactId);
+            if (!c) return;
+            document.getElementById('quickInteractionContactId').value = contactId;
+            document.getElementById('quickInteractionName').textContent = fullName(c);
+            document.getElementById('quickInteractionType').value = 'Ligação';
+            document.getElementById('quickInteractionDate').value = getSPTodayStr();
+            document.getElementById('quickInteractionNotes').value = '';
+            document.getElementById('quickInteractionModal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('quickInteractionNotes').focus(), 80);
+        }
+
+        function closeQuickInteraction() {
+            document.getElementById('quickInteractionModal').classList.add('hidden');
+        }
+
+        function saveQuickInteraction() {
+            const contactId = document.getElementById('quickInteractionContactId').value;
+            const type  = document.getElementById('quickInteractionType').value;
+            const date  = document.getElementById('quickInteractionDate').value;
+            const notes = document.getElementById('quickInteractionNotes').value.trim();
+            if (!date) { showToast('Informe a data da interação.', 'error'); return; }
+            const c = contacts.find(x => x.id === contactId);
+            if (!c) return;
+            if (!c.interactions) c.interactions = [];
+            c.interactions.push({ id: crypto.randomUUID(), type, date, notes });
+            localStorage.setItem('sant_crm_contacts', JSON.stringify(contacts));
+            closeQuickInteraction();
+            renderContacts();
+            showToast(`Interação registrada para ${fullName(c)}!`, 'success');
         }
 
         function fullName(c) {
