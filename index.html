@@ -375,6 +375,15 @@
                     </div>
                 </div>
 
+                <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 flex flex-col h-[320px]">
+                    <div class="flex justify-between items-center mb-4 shrink-0">
+                        <p class="text-xs font-bold text-white tracking-wide uppercase flex items-center gap-2"><i class="ph ph-activity text-[#fbbf24] text-lg"></i> Interações por Mês</p>
+                    </div>
+                    <div class="flex-1 relative">
+                        <canvas id="dashInteractionsChart"></canvas>
+                    </div>
+                </div>
+
                 <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 flex flex-col">
                     <div class="flex justify-between items-center mb-6 shrink-0">
                         <p class="text-xs font-bold text-white tracking-wide uppercase flex items-center gap-2"><i class="ph ph-heartbeat text-sant-cyan text-lg"></i> Saúde da Base</p>
@@ -2557,6 +2566,7 @@
             renderUpcomingWeek(todayStr);
             renderMonthBirthdays(todayStr);
             renderContactsGrowthChart();
+            renderInteractionsChart();
             renderHealthDashboard();
             renderWeekStats(todayStr);
         }
@@ -2651,6 +2661,66 @@
         }
 
         // ── Evolução de Contatos (Dashboard) ─────────────────────────────
+        let interactionsChartInstance = null;
+        function renderInteractionsChart() {
+            const canvas = document.getElementById('dashInteractionsChart');
+            if (!canvas || typeof Chart === 'undefined') return;
+
+            const counts = {};
+            contacts.forEach(c => {
+                (c.interactions || []).forEach(i => {
+                    const month = i.date ? i.date.substring(0, 7) : null;
+                    if (month) counts[month] = (counts[month] || 0) + 1;
+                });
+            });
+
+            const months = Object.keys(counts).sort();
+            if (months.length === 0) {
+                if (interactionsChartInstance) { interactionsChartInstance.destroy(); interactionsChartInstance = null; }
+                canvas.parentElement.innerHTML = '<p class="text-xs text-gray-600 text-center mt-8">Nenhuma interação registrada ainda.</p>';
+                return;
+            }
+
+            // Preenche meses sem interação entre o primeiro e o último
+            const allMonths = [];
+            const [sy, sm] = months[0].split('-').map(Number);
+            const [ey, em] = months[months.length - 1].split('-').map(Number);
+            let cy = sy, cm = sm;
+            while (cy < ey || (cy === ey && cm <= em)) {
+                allMonths.push(`${cy}-${String(cm).padStart(2,'0')}`);
+                cm++; if (cm > 12) { cm = 1; cy++; }
+            }
+
+            const labelFmt = new Intl.DateTimeFormat('pt-BR', { month: 'short', year: '2-digit' });
+            const labels = allMonths.map(m => { const [y,mo] = m.split('-').map(Number); return labelFmt.format(new Date(y, mo-1, 1)).replace('.',''); });
+            const data   = allMonths.map(m => counts[m] || 0);
+
+            if (interactionsChartInstance) interactionsChartInstance.destroy();
+            interactionsChartInstance = new Chart(canvas, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Interações',
+                        data,
+                        backgroundColor: 'rgba(251,191,36,0.25)',
+                        borderColor: '#fbbf24',
+                        borderWidth: 1.5,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { color: '#1f1f1f' }, ticks: { color: '#9ca3af' } },
+                        y: { beginAtZero: true, grid: { color: '#1f1f1f' }, ticks: { color: '#9ca3af', precision: 0 } }
+                    }
+                }
+            });
+        }
+
         let contactsGrowthChartInstance = null;
         function renderContactsGrowthChart() {
             const canvas = document.getElementById('dashContactsGrowthChart');
