@@ -1531,6 +1531,39 @@
     </div>
 
     <!-- MODAL DE ATALHOS DE TECLADO -->
+    <!-- Modal: Mesclar Contatos -->
+    <div id="mergeContactModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeMergeModal()">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg shadow-2xl modalPop flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center px-5 py-4 border-b border-sant-border shrink-0">
+                <h3 class="text-sm font-bold text-white flex items-center gap-2"><i class="ph ph-git-merge text-sant-cyan"></i> Mesclar Contatos</h3>
+                <button onclick="closeMergeModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <div class="p-5 space-y-4 overflow-y-auto custom-scrollbar">
+                <!-- Contato base (fixo) -->
+                <div>
+                    <p class="text-[10px] text-gray-500 uppercase font-bold mb-1.5">Contato base <span class="text-gray-600 normal-case font-normal">(será mantido)</span></p>
+                    <div id="mergeBaseCard" class="p-3 rounded-xl border border-sant-cyan/30 bg-sant-cyan/5 text-sm text-white"></div>
+                </div>
+                <!-- Selecionar contato a mesclar -->
+                <div>
+                    <p class="text-[10px] text-gray-500 uppercase font-bold mb-1.5">Contato a mesclar <span class="text-gray-600 normal-case font-normal">(será excluído)</span></p>
+                    <input type="text" id="mergeSearchInput" placeholder="Buscar por nome, empresa ou telefone..." class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan transition-colors mb-2" oninput="renderMergeCandidates()">
+                    <div id="mergeCandidatesList" class="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar"></div>
+                </div>
+                <!-- Preview do que será mesclado -->
+                <div id="mergePreviewSection" class="hidden">
+                    <p class="text-[10px] text-gray-500 uppercase font-bold mb-2">O que será transferido do contato excluído:</p>
+                    <div id="mergePreview" class="grid grid-cols-3 gap-2 text-center"></div>
+                    <p class="text-[11px] text-gray-600 mt-3">Os dados cadastrais (nome, empresa, telefone etc.) do <span class="text-white">contato base</span> serão mantidos. Interações, notas rápidas, links e tarefas vinculadas serão combinados.</p>
+                </div>
+            </div>
+            <div class="px-5 py-4 border-t border-sant-border shrink-0 flex gap-3">
+                <button onclick="closeMergeModal()" class="flex-1 px-4 py-2 rounded-lg border border-sant-border text-gray-400 hover:text-white text-sm transition-colors">Cancelar</button>
+                <button id="btnConfirmMerge" onclick="confirmMerge()" class="flex-1 px-4 py-2 rounded-lg text-sm font-bold transition-colors opacity-40 cursor-not-allowed" style="background:#5b8fa8;color:#030303" disabled>Mesclar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Mini-modal: Registro Rápido de Interação -->
     <div id="quickInteractionModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeQuickInteraction()">
         <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-sm shadow-2xl modalPop">
@@ -3848,6 +3881,7 @@
                             <button onclick="openQuickInteraction('${c.id}')" class="text-gray-400 hover:text-[#fbbf24] p-1" title="Registrar interação rápida"><i class="ph ph-plus-circle"></i></button>
                             <button onclick="openHistoryModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 relative" title="Histórico">${histCount}<i class="ph ph-clock-clockwise"></i></button>
                             <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Exportar vCard"><i class="ph ph-address-book"></i></button>
+                            <button onclick="openMergeModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Mesclar com outro contato"><i class="ph ph-git-merge"></i></button>
                             <button onclick="duplicateContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Duplicar"><i class="ph ph-copy"></i></button>
                             <button onclick="editContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1"><i class="ph ph-pencil-simple"></i></button>
                             <button onclick="deleteContact('${c.id}')" class="text-gray-400 hover:text-red-500 p-1"><i class="ph ph-trash"></i></button>
@@ -3889,6 +3923,7 @@
                         ${dispEmail?`<a href="mailto:${dispEmail}" onclick="event.stopPropagation()" class="text-sant-cyan hover:text-[#7aafc8] p-1 bg-[#141414] rounded" title="E-mail"><i class="ph ph-envelope-simple text-xs"></i></a>`:''}
                         <button onclick="openQuickInteraction('${c.id}')" class="text-gray-400 hover:text-[#fbbf24] p-1 bg-[#141414] rounded" title="Registrar interação rápida"><i class="ph ph-plus-circle text-xs"></i></button>
                         <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 bg-[#141414] rounded" title="Exportar vCard"><i class="ph ph-address-book text-xs"></i></button>
+                        <button onclick="openMergeModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 bg-[#141414] rounded" title="Mesclar com outro contato"><i class="ph ph-git-merge text-xs"></i></button>
                         <button onclick="duplicateContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 bg-[#141414] rounded" title="Duplicar"><i class="ph ph-copy text-xs"></i></button>
                         <button onclick="editContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 bg-[#141414] rounded"><i class="ph ph-pencil-simple text-xs"></i></button>
                         <button onclick="deleteContact('${c.id}')" class="text-gray-400 hover:text-red-500 p-1 bg-[#141414] rounded"><i class="ph ph-trash text-xs"></i></button>
@@ -3916,11 +3951,130 @@
                     <button onclick="openQuickInteraction('${c.id}')" class="text-gray-400 hover:text-[#fbbf24] p-1.5 bg-[#141414] rounded" title="Registrar interação rápida"><i class="ph ph-plus-circle"></i></button>
                     <button onclick="openHistoryModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded relative" title="Histórico">${c.interactions&&c.interactions.length?`<span class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-sant-cyan text-sant-bg text-[8px] font-bold rounded-full flex items-center justify-center">${c.interactions.length}</span>`:''}<i class="ph ph-clock-clockwise"></i></button>
                     <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Exportar vCard"><i class="ph ph-address-book"></i></button>
+                    <button onclick="openMergeModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Mesclar com outro contato"><i class="ph ph-git-merge"></i></button>
                     <button onclick="duplicateContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Duplicar"><i class="ph ph-copy"></i></button>
                     <button onclick="editContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded"><i class="ph ph-pencil-simple"></i></button>
                     <button onclick="deleteContact('${c.id}')" class="text-gray-400 hover:text-red-500 p-1.5 bg-[#141414] rounded"><i class="ph ph-trash"></i></button>
                 </div>
             </div>`;
+        }
+
+        // ── Mesclar Contatos ─────────────────────────────────────────────
+        let mergeBaseId = null;
+        let mergeTargetId = null;
+
+        function openMergeModal(contactId) {
+            mergeBaseId = contactId;
+            mergeTargetId = null;
+            const c = contacts.find(x => x.id === contactId);
+            if (!c) return;
+            const dispJob = [c.job, c.company].filter(Boolean).join(' @ ');
+            const dispPhone = c.phoneProf || c.phonePess || '';
+            document.getElementById('mergeBaseCard').innerHTML = `
+                <p class="font-bold text-white">${fullName(c)} <span class="text-gray-500 font-mono text-[10px]">#${c.code||''}</span></p>
+                ${dispJob ? `<p class="text-xs text-sant-cyan mt-0.5">${dispJob}</p>` : ''}
+                ${dispPhone ? `<p class="text-xs text-gray-400 mt-0.5">${dispPhone}</p>` : ''}`;
+            document.getElementById('mergeSearchInput').value = '';
+            document.getElementById('mergePreviewSection').classList.add('hidden');
+            document.getElementById('btnConfirmMerge').disabled = true;
+            document.getElementById('btnConfirmMerge').classList.add('opacity-40','cursor-not-allowed');
+            renderMergeCandidates();
+            document.getElementById('mergeContactModal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('mergeSearchInput').focus(), 80);
+        }
+
+        function closeMergeModal() {
+            document.getElementById('mergeContactModal').classList.add('hidden');
+            mergeBaseId = null; mergeTargetId = null;
+        }
+
+        function renderMergeCandidates() {
+            const term = document.getElementById('mergeSearchInput').value.toLowerCase().trim();
+            const list = document.getElementById('mergeCandidatesList');
+            let pool = contacts.filter(c => c.id !== mergeBaseId);
+            if (term) pool = pool.filter(c =>
+                fullName(c).toLowerCase().includes(term) ||
+                (c.company||'').toLowerCase().includes(term) ||
+                (c.phoneProf||'').includes(term) ||
+                (c.phonePess||'').includes(term)
+            );
+            pool = pool.slice(0, 8);
+            if (pool.length === 0) {
+                list.innerHTML = `<p class="text-xs text-gray-600 italic px-1">Nenhum contato encontrado.</p>`;
+                return;
+            }
+            list.innerHTML = pool.map(c => {
+                const dispJob = [c.job, c.company].filter(Boolean).join(' @ ');
+                const sel = c.id === mergeTargetId;
+                return `<div onclick="selectMergeTarget('${c.id}')" class="flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${sel ? 'border-sant-cyan bg-sant-cyan/10' : 'border-sant-border hover:border-sant-cyan/40'}">
+                    ${contactAvatarHtml(c, 'w-7 h-7 text-[10px]')}
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-bold text-white truncate">${fullName(c)} <span class="text-gray-500 font-mono text-[10px]">#${c.code||''}</span></p>
+                        ${dispJob ? `<p class="text-[11px] text-sant-cyan truncate">${dispJob}</p>` : ''}
+                    </div>
+                    ${sel ? `<i class="ph ph-check-circle text-sant-cyan text-lg shrink-0"></i>` : ''}
+                </div>`;
+            }).join('');
+        }
+
+        function selectMergeTarget(contactId) {
+            mergeTargetId = contactId;
+            renderMergeCandidates();
+            const target = contacts.find(c => c.id === contactId);
+            if (!target) return;
+            const intCount  = (target.interactions || []).length;
+            const noteCount = (target.quickNotes || []).length;
+            const linkCount = (target.links || []).length;
+            const taskCount = tasks.filter(t => t.contactId === contactId).length;
+            const preview   = document.getElementById('mergePreview');
+            const stat = (val, label, icon) =>
+                `<div class="bg-[#141414] border border-sant-border rounded-lg p-2">
+                    <p class="text-lg font-bold text-white">${val}</p>
+                    <p class="text-[10px] text-gray-500 flex items-center justify-center gap-1 mt-0.5"><i class="ph ${icon}"></i>${label}</p>
+                </div>`;
+            preview.innerHTML =
+                stat(intCount,  'interações',    'ph-handshake') +
+                stat(noteCount, 'notas rápidas', 'ph-notepad') +
+                stat(linkCount, 'links',         'ph-link') +
+                stat(taskCount, 'tarefas',       'ph-check-square');
+            document.getElementById('mergePreviewSection').classList.remove('hidden');
+            const btn = document.getElementById('btnConfirmMerge');
+            btn.disabled = false;
+            btn.classList.remove('opacity-40','cursor-not-allowed');
+        }
+
+        function confirmMerge() {
+            if (!mergeBaseId || !mergeTargetId) return;
+            const base   = contacts.find(c => c.id === mergeBaseId);
+            const target = contacts.find(c => c.id === mergeTargetId);
+            if (!base || !target) return;
+            showConfirm(
+                `Mesclar "${fullName(target)}" em "${fullName(base)}"?`,
+                `"${fullName(target)}" será excluído permanentemente. Suas interações, notas e links serão transferidos para "${fullName(base)}".`,
+                () => {
+                    // Transferir dados do target para o base
+                    base.interactions = [...(base.interactions||[]), ...(target.interactions||[])].sort((a,b) => (a.date||'').localeCompare(b.date||''));
+                    base.quickNotes   = [...(base.quickNotes||[]),   ...(target.quickNotes||[])];
+                    base.links        = [...(base.links||[]),        ...(target.links||[])];
+                    // Redirecionar tarefas e eventos vinculados
+                    tasks.forEach(t  => { if (t.contactId === mergeTargetId) t.contactId = mergeBaseId; });
+                    events.forEach(e => { if (e.contactId === mergeTargetId) e.contactId = mergeBaseId; });
+                    // Redirecionar notas (Keep)
+                    notes.forEach(n  => { if (n.contactId === mergeTargetId) n.contactId = mergeBaseId; });
+                    // Registrar no changelog
+                    base.changeLog = base.changeLog || [];
+                    base.changeLog.push({ id: crypto.randomUUID(), date: getSPTodayStr(), field: 'Mesclagem', from: `Contato #${target.code||'?'} (${fullName(target)})`, to: 'Incorporado a este contato' });
+                    // Remover o target
+                    contacts = contacts.filter(c => c.id !== mergeTargetId);
+                    saveToStorage();
+                    localStorage.setItem('sant_crm_tasks',  JSON.stringify(tasks));
+                    localStorage.setItem('sant_crm_events', JSON.stringify(events));
+                    localStorage.setItem('sant_crm_notes',  JSON.stringify(notes));
+                    renderContacts();
+                    closeMergeModal();
+                    showToast(`Contatos mesclados com sucesso!`, 'success');
+                }
+            );
         }
 
         function openQuickInteraction(contactId) {
