@@ -314,6 +314,12 @@
                     </div>
                 </div>
 
+                <!-- Card: Próximas Ações Prioritárias -->
+                <div id="dashPriorityCard" class="hidden bg-sant-surface border border-red-500/30 rounded-2xl p-6">
+                    <p class="text-[10px] font-bold tracking-wider uppercase mb-4 flex items-center gap-2" style="color:#f87171"><i class="ph ph-warning-circle text-base"></i> Próximas Ações Prioritárias</p>
+                    <div id="dashPriorityList" class="space-y-2"></div>
+                </div>
+
                 <!-- Card: Esta Semana -->
                 <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
                     <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase mb-5 flex items-center gap-2"><i class="ph ph-lightning text-sant-cyan"></i> Esta Semana — Produtividade</p>
@@ -2565,6 +2571,7 @@
 
             renderUpcomingWeek(todayStr);
             renderMonthBirthdays(todayStr);
+            renderPriorityActions(todayStr);
             renderContactsGrowthChart();
             renderInteractionsChart();
             renderHealthDashboard();
@@ -2661,6 +2668,62 @@
         }
 
         // ── Evolução de Contatos (Dashboard) ─────────────────────────────
+        function renderPriorityActions(todayStr) {
+            const card = document.getElementById('dashPriorityCard');
+            const list = document.getElementById('dashPriorityList');
+            if (!card || !list) return;
+
+            const items = [];
+
+            // 1. Tarefas urgentes ou high de hoje não concluídas
+            tasks.filter(t => !t.completed && t.date === todayStr && (t.priority === 'urgent' || t.priority === 'high'))
+                .forEach(t => {
+                    const priorityLabel = t.priority === 'urgent' ? 'Urgente' : 'Alta';
+                    const priorityColor = t.priority === 'urgent' ? '#f87171' : '#fbbf24';
+                    items.push({
+                        type: 'task', priority: t.priority === 'urgent' ? 0 : 1,
+                        html: `<div class="flex items-center gap-3 p-3 rounded-xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 transition-colors cursor-pointer" onclick="switchView('tasks')">
+                            <i class="ph ph-check-square text-lg shrink-0" style="color:${priorityColor}"></i>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm text-white font-medium truncate">${t.title}</p>
+                                ${t.time ? `<p class="text-[11px] text-gray-500 mt-0.5"><i class="ph ph-clock"></i> ${t.time}</p>` : ''}
+                            </div>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0" style="color:${priorityColor};background:${priorityColor}18">${priorityLabel}</span>
+                        </div>`
+                    });
+                });
+
+            // 2. Follow-ups vencidos (nextContact <= hoje)
+            contacts.filter(c => c.nextContact && c.nextContact <= todayStr)
+                .sort((a,b) => a.nextContact.localeCompare(b.nextContact))
+                .slice(0, 5)
+                .forEach(c => {
+                    const isToday = c.nextContact === todayStr;
+                    const label = isToday ? 'Hoje' : `Vencido ${c.nextContact.split('-').reverse().join('/')}`;
+                    const color = isToday ? '#fbbf24' : '#f87171';
+                    items.push({
+                        type: 'followup', priority: isToday ? 2 : 1,
+                        html: `<div class="flex items-center gap-3 p-3 rounded-xl border border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 transition-colors cursor-pointer" onclick="openContactHistory('${c.id}')">
+                            <i class="ph ph-user-circle text-lg shrink-0" style="color:${color}"></i>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm text-white font-medium truncate">${fullName(c)}</p>
+                                <p class="text-[11px] text-gray-500 mt-0.5">Follow-up pendente</p>
+                            </div>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0" style="color:${color};background:${color}18">${label}</span>
+                        </div>`
+                    });
+                });
+
+            if (items.length === 0) {
+                card.classList.add('hidden');
+                return;
+            }
+
+            items.sort((a,b) => a.priority - b.priority);
+            list.innerHTML = items.map(i => i.html).join('');
+            card.classList.remove('hidden');
+        }
+
         let interactionsChartInstance = null;
         function renderInteractionsChart() {
             const canvas = document.getElementById('dashInteractionsChart');
