@@ -1424,6 +1424,14 @@
                 </div>
 
                 <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5 flex items-center gap-1"><i class="ph ph-lock text-red-400"></i> Bloqueada por <span class="text-gray-600 normal-case font-normal">(opcional)</span></label>
+                    <select id="taskDependsOn" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-red-400/50 transition-colors">
+                        <option value="">Sem dependência</option>
+                    </select>
+                    <p class="text-[10px] text-gray-600 mt-1">Esta tarefa só poderá ser concluída após a tarefa selecionada acima estar concluída.</p>
+                </div>
+
+                <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Descrição / Notas</label>
                     <textarea id="taskDesc" rows="2" placeholder="Detalhes, links ou instruções..." class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none resize-none"></textarea>
                 </div>
@@ -5653,6 +5661,13 @@
         function toggleTask(id) {
             const t = tasks.find(x => x.id === id);
             if(t) {
+                if (!t.completed && t.dependsOnId) {
+                    const blocker = tasks.find(x => x.id === t.dependsOnId);
+                    if (blocker && !blocker.completed) {
+                        showToast(`Bloqueada! Conclua primeiro: "${blocker.title}"`, 'error');
+                        return;
+                    }
+                }
                 const wasCompleted = t.completed;
                 t.completed = !t.completed;
                 t.completedAt = t.completed ? new Date().toISOString() : null;
@@ -5851,6 +5866,8 @@
                 else if (timeStr) dateTimeDisplay = timeStr;
 
                 const isOverdue = t.date && !t.completed && t.date < todayStr;
+                const blocker = t.dependsOnId ? tasks.find(x => x.id === t.dependsOnId) : null;
+                const isBlocked = blocker && !blocker.completed;
 
                 const cl = t.checklist || [];
                 const clTotal = cl.length;
@@ -5884,12 +5901,13 @@
                     </div>`;
 
                 return `
-                <div class="flex items-start gap-4 p-4 bg-sant-surface border border-sant-border rounded-xl group hover:border-sant-cyan/30 transition-colors ${isOverdue ? 'overdue-task' : ''} ${allDone && !t.completed ? 'border-sant-cyan/20' : ''}">
-                    <button onclick="toggleTask('${t.id}')" class="w-6 h-6 rounded border ${t.completed ? 'bg-sant-cyan border-sant-cyan text-sant-bg' : 'border-gray-500 text-transparent'} flex items-center justify-center shrink-0 mt-0.5 transition-colors">
-                        <i class="ph ph-check"></i>
+                <div class="flex items-start gap-4 p-4 bg-sant-surface border rounded-xl group transition-colors ${isBlocked ? 'border-red-500/30 bg-red-500/5 hover:border-red-500/50' : 'border-sant-border hover:border-sant-cyan/30'} ${isOverdue ? 'overdue-task' : ''} ${allDone && !t.completed ? 'border-sant-cyan/20' : ''}">
+                    <button onclick="toggleTask('${t.id}')" class="w-6 h-6 rounded border ${t.completed ? 'bg-sant-cyan border-sant-cyan text-sant-bg' : isBlocked ? 'border-red-500/50 text-transparent cursor-not-allowed' : 'border-gray-500 text-transparent'} flex items-center justify-center shrink-0 mt-0.5 transition-colors" ${isBlocked ? 'title="Bloqueada — conclua a tarefa anterior primeiro"' : ''}>
+                        <i class="ph ${isBlocked ? 'ph-lock text-red-400/60' : 'ph-check'}"></i>
                     </button>
                     <div class="flex-1 min-w-0 ${t.completed ? 'opacity-50' : ''}">
-                        <h4 class="text-[#fbbf24] font-medium break-words ${t.completed ? 'line-through' : ''}">${t.title} ${t.recurrence && t.recurrence !== 'none' ? '<i class="ph ph-repeat text-sant-cyan text-xs" title="Tarefa recorrente"></i>' : ''}</h4>
+                        <h4 class="text-[#fbbf24] font-medium break-words ${t.completed ? 'line-through' : ''}">${t.title} ${t.recurrence && t.recurrence !== 'none' ? '<i class="ph ph-repeat text-sant-cyan text-xs" title="Tarefa recorrente"></i>' : ''}${isBlocked ? `<span class="ml-2 text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded-full"><i class="ph ph-lock"></i> Bloqueada</span>` : ''}</h4>
+                        ${isBlocked ? `<p class="text-[11px] text-red-400/70 mt-1 flex items-center gap-1"><i class="ph ph-arrow-bend-right-down"></i> Aguardando: <span class="font-medium text-red-400 cursor-pointer hover:underline" onclick="editTask('${blocker.id}')">${blocker.title}</span></p>` : ''}
                         ${isOverdue ? `<p class="text-[11px] text-red-400 mt-1 font-semibold flex items-center gap-1"><i class="ph ph-warning-circle"></i> Vencida — ${dateTimeDisplay}</p>` : (dateTimeDisplay ? `<p class="text-[11px] text-sant-cyan mt-1"><i class="ph ph-calendar-blank"></i> ${dateTimeDisplay}</p>` : '')}
                         ${t.estimatedMinutes ? `<p class="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1"><i class="ph ph-hourglass"></i> ${formatEstimate(t.estimatedMinutes)}</p>` : ''}
                         ${(() => { const c = t.contactId ? contacts.find(x => x.id === t.contactId) : null; return c ? `<p class="text-[11px] text-sant-purple mt-1 flex items-center gap-1"><i class="ph ph-user-circle"></i> ${fullName(c)}</p>` : ''; })()}
@@ -5914,6 +5932,15 @@
             if (min < 60) return `${min}min`;
             const h = Math.floor(min / 60), m = min % 60;
             return m ? `${h}h${m}min` : `${h}h`;
+        }
+
+        function fillTaskDependsOnSelect(currentTaskId = '') {
+            const sel = document.getElementById('taskDependsOn');
+            if (!sel) return;
+            const candidates = tasks.filter(t => t.id !== currentTaskId && !t.completed)
+                .sort((a,b) => (a.title||'').localeCompare(b.title||'','pt-BR'));
+            sel.innerHTML = `<option value="">Sem dependência</option>` +
+                candidates.map(t => `<option value="${t.id}">${t.title}${t.date ? ' ('+t.date.split('-').reverse().join('/')+')' : ''}</option>`).join('');
         }
 
         function fillTaskTagSuggestions() {
@@ -5987,6 +6014,7 @@
                 notification: document.getElementById('taskNotification').value,
                 desc: document.getElementById('taskDesc').value,
                 contactId: document.getElementById('taskContactId').value || '',
+                dependsOnId: document.getElementById('taskDependsOn').value || '',
                 recurrence: document.getElementById('taskRecurrence').value,
                 recurrenceInterval: parseInt(document.getElementById('taskRecInterval').value) || 1,
                 tags: [...currentTaskTags],
@@ -6034,6 +6062,8 @@
             document.getElementById('taskRecInterval').value = t.recurrenceInterval || 1;
             updateTaskRecurrenceUI();
             populateContactSelect('taskContactId', t.contactId || '');
+            fillTaskDependsOnSelect(t.id);
+            document.getElementById('taskDependsOn').value = t.dependsOnId || '';
             document.getElementById('taskEstimate').value = t.estimatedMinutes || 0;
             currentChecklist = t.checklist ? t.checklist.map(i => ({...i})) : [];
             renderChecklistInModal();
@@ -6810,6 +6840,8 @@
             updateTaskRecurrenceUI();
             document.getElementById('taskModalTitle').innerText = 'Nova Tarefa';
             populateContactSelect('taskContactId', '');
+            fillTaskDependsOnSelect('');
+            document.getElementById('taskDependsOn').value = '';
             document.getElementById('taskEstimate').value = 0;
             currentChecklist = [];
             renderChecklistInModal();
