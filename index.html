@@ -1631,6 +1631,7 @@
                     <p id="historyContactName" class="text-xs text-gray-500 mt-0.5"></p>
                     <a id="historyContactAddress" href="#" target="_blank" rel="noopener" class="hidden text-xs text-sant-cyan hover:underline mt-1 items-center gap-1"><i class="ph ph-map-pin"></i> <span></span></a>
                     <div id="historyCustomFields" class="flex flex-wrap gap-1.5 mt-1.5"></div>
+                    <div id="contactStatsBar" class="hidden flex items-center gap-3 mt-2 flex-wrap"></div>
                     </div><!-- /info text -->
                 </div><!-- /avatar+info flex -->
                 <div class="flex items-center gap-3 shrink-0">
@@ -7121,6 +7122,40 @@
             document.getElementById('historyNextContactClear').classList.toggle('hidden', !c.nextContact);
             document.getElementById('interactionDate').value = getSPTodayStr();
             document.getElementById('interactionNotes').value = '';
+
+            // ── Estatísticas do contato ──────────────────────────────────
+            const statsBar = document.getElementById('contactStatsBar');
+            const ints = c.interactions || [];
+            if (ints.length > 0 || c.createdAt) {
+                const sorted = [...ints].filter(i => i.date).sort((a,b) => a.date.localeCompare(b.date));
+                const firstDate = sorted.length > 0 ? sorted[0].date : (c.createdAt ? c.createdAt.substring(0,10) : null);
+                const todayStr = getSPTodayStr();
+                const daysSinceFirst = firstDate
+                    ? Math.round((new Date(todayStr) - new Date(firstDate)) / 86400000)
+                    : null;
+                const avgDays = (ints.length > 1 && daysSinceFirst > 0)
+                    ? Math.round(daysSinceFirst / (ints.length - 1))
+                    : null;
+
+                const stat = (icon, val, label) =>
+                    `<span class="flex items-center gap-1 text-[10px] text-gray-400 bg-[#141414] border border-sant-border rounded-lg px-2 py-1">
+                        <i class="ph ${icon} text-sant-cyan"></i>
+                        <span class="font-bold text-white">${val}</span>
+                        <span>${label}</span>
+                    </span>`;
+
+                let html = stat('ph-handshake', ints.length, `interaç${ints.length === 1 ? 'ão' : 'ões'}`);
+                if (daysSinceFirst !== null) html += stat('ph-calendar-blank', daysSinceFirst, `dia${daysSinceFirst === 1 ? '' : 's'} de relacionamento`);
+                if (avgDays !== null) html += stat('ph-clock-clockwise', `~${avgDays}d`, 'entre contatos');
+
+                statsBar.innerHTML = html;
+                statsBar.classList.remove('hidden');
+                statsBar.classList.add('flex');
+            } else {
+                statsBar.classList.add('hidden');
+                statsBar.classList.remove('flex');
+            }
+
             document.getElementById('historyModal').classList.remove('hidden');
             renderHistoryList();
             renderLinkedItems();
