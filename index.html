@@ -718,6 +718,19 @@
                 </div>
 
                 <div id="report-charts" class="report-content hidden flex flex-col pb-10">
+                    <div class="flex items-center justify-between mb-5 shrink-0">
+                        <p class="text-xs text-gray-500">Filtrando contatos pelo período de cadastro</p>
+                        <div class="flex items-center gap-2">
+                            <i class="ph ph-funnel text-gray-500 text-sm"></i>
+                            <select id="chartPeriodFilter" onchange="generateChartsReport()" class="appearance-none bg-sant-surface border border-sant-border rounded-lg px-3 py-1.5 text-sm text-gray-300 outline-none transition-colors cursor-pointer hover:border-sant-cyan">
+                                <option value="all">Todo o período</option>
+                                <option value="30">Últimos 30 dias</option>
+                                <option value="90">Últimos 90 dias</option>
+                                <option value="180">Últimos 180 dias</option>
+                                <option value="365">Último ano</option>
+                            </select>
+                        </div>
+                    </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="bg-sant-surface border border-sant-border rounded-xl p-5 flex flex-col">
                             <h3 class="text-sm font-bold text-gray-300 uppercase tracking-wider mb-4 flex items-center gap-2"><i class="ph ph-pie-chart text-sant-cyan"></i> Contatos por Categoria</h3>
@@ -6008,17 +6021,33 @@
 
             const palette = ['#00FFFF', '#fbbf24', '#ec4899', '#a78bfa', '#34d399', '#60a5fa', '#f87171', '#f472b6', '#facc15', '#4ade80'];
 
+            // Filtro de período
+            const periodDays = parseInt(document.getElementById('chartPeriodFilter')?.value || 'all');
+            let filtered = contacts;
+            if (periodDays && !isNaN(periodDays)) {
+                const cutoff = new Date();
+                cutoff.setDate(cutoff.getDate() - periodDays);
+                const cutoffStr = cutoff.toISOString().substring(0, 10);
+                filtered = contacts.filter(c => c.createdAt && c.createdAt.substring(0, 10) >= cutoffStr);
+            }
+
+            // Badge com total filtrado
+            const periodSel = document.getElementById('chartPeriodFilter');
+            const periodLabel = periodSel ? periodSel.options[periodSel.selectedIndex].text : '';
+            document.querySelector('#report-charts .text-xs.text-gray-500').textContent =
+                `${filtered.length} contato${filtered.length !== 1 ? 's' : ''} cadastrado${filtered.length !== 1 ? 's' : ''} — ${periodLabel}`;
+
             const catCounts = {};
-            contacts.forEach(c => { const k = c.category || 'Sem Categoria'; catCounts[k] = (catCounts[k] || 0) + 1; });
+            filtered.forEach(c => { const k = c.category || 'Sem Categoria'; catCounts[k] = (catCounts[k] || 0) + 1; });
             const catEntries = Object.entries(catCounts).sort((a,b) => b[1] - a[1]);
 
             const tempLabels = { quente: 'Quente', morno: 'Morno', frio: 'Frio' };
             const tempCounts = { quente: 0, morno: 0, frio: 0 };
-            contacts.filter(c => c.isLead).forEach(c => { const t = c.temperature || 'frio'; if (tempCounts[t] !== undefined) tempCounts[t]++; });
+            filtered.filter(c => c.isLead).forEach(c => { const t = c.temperature || 'frio'; if (tempCounts[t] !== undefined) tempCounts[t]++; });
             const tempColors = { quente: '#f87171', morno: '#fbbf24', frio: '#60a5fa' };
 
             const origCounts = {};
-            contacts.forEach(c => { const k = c.origin || 'Sem Origem'; origCounts[k] = (origCounts[k] || 0) + 1; });
+            filtered.forEach(c => { const k = c.origin || 'Sem Origem'; origCounts[k] = (origCounts[k] || 0) + 1; });
             const origEntries = Object.entries(origCounts).sort((a,b) => b[1] - a[1]);
 
             const commonOptions = {
