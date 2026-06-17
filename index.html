@@ -490,6 +490,30 @@
             </div>
 
             <div id="view-calendar" class="hidden max-w-6xl mx-auto flex flex-col">
+                <div class="flex gap-6">
+                <!-- ── Mini-calendário lateral ── -->
+                <div class="hidden lg:flex flex-col gap-4 shrink-0 w-56">
+                    <div class="bg-sant-surface border border-sant-border rounded-xl p-4 sticky top-0">
+                        <div class="flex items-center justify-between mb-3">
+                            <button onclick="miniCalNav(-1)" class="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-white transition-colors rounded hover:bg-white/5"><i class="ph ph-caret-left text-xs"></i></button>
+                            <span id="miniCalTitle" class="text-xs font-bold text-white capitalize"></span>
+                            <button onclick="miniCalNav(1)" class="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-white transition-colors rounded hover:bg-white/5"><i class="ph ph-caret-right text-xs"></i></button>
+                        </div>
+                        <div class="grid grid-cols-7 mb-1">
+                            <span class="text-[9px] text-gray-600 text-center font-bold">D</span>
+                            <span class="text-[9px] text-gray-600 text-center font-bold">S</span>
+                            <span class="text-[9px] text-gray-600 text-center font-bold">T</span>
+                            <span class="text-[9px] text-gray-600 text-center font-bold">Q</span>
+                            <span class="text-[9px] text-gray-600 text-center font-bold">Q</span>
+                            <span class="text-[9px] text-gray-600 text-center font-bold">S</span>
+                            <span class="text-[9px] text-gray-600 text-center font-bold">S</span>
+                        </div>
+                        <div id="miniCalGrid" class="grid grid-cols-7 gap-y-0.5"></div>
+                        <button onclick="miniCalGoToday()" class="mt-3 w-full text-[10px] font-bold text-sant-cyan hover:text-white transition-colors py-1 border border-sant-cyan/20 hover:border-sant-cyan rounded-lg">Hoje</button>
+                    </div>
+                </div>
+                <!-- ── Conteúdo principal da agenda ── -->
+                <div class="flex-1 min-w-0 flex flex-col">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 shrink-0">
                     <div>
                         <h2 id="calendarMonthYear" class="text-2xl font-bold text-white mb-1">...</h2>
@@ -552,6 +576,8 @@
                     <div id="listTimeline" class="relative p-6 space-y-6 pb-10"></div>
                 </div>
                 </div><!-- /calViewsWrapper -->
+                </div><!-- /conteúdo principal -->
+                </div><!-- /flex gap-6 -->
             </div>
 
             <div id="view-tasks" class="hidden max-w-6xl mx-auto">
@@ -4810,6 +4836,67 @@
             });
         }
 
+        // ── Mini-calendário lateral ──────────────────────────────────────
+        let miniCalDate = new Date();
+
+        function renderMiniCal() {
+            const el = document.getElementById('miniCalGrid');
+            const title = document.getElementById('miniCalTitle');
+            if (!el || !title) return;
+            const y = miniCalDate.getFullYear();
+            const m = miniCalDate.getMonth();
+            title.textContent = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(new Date(y, m, 1));
+            const todayStr = getSPTodayStr();
+            const firstDay = new Date(y, m, 1).getDay();
+            const daysInMonth = new Date(y, m + 1, 0).getDate();
+            // Dias com eventos/tarefas neste mês
+            const busyDays = new Set();
+            const pad = n => String(n).padStart(2,'0');
+            const prefix = `${y}-${pad(m+1)}-`;
+            events.forEach(ev => { if ((ev.startDate||'').startsWith(prefix)) busyDays.add(ev.startDate); });
+            tasks.forEach(t => { if ((t.date||'').startsWith(prefix) && !t.completed) busyDays.add(t.date); });
+
+            let html = '';
+            for (let i = 0; i < firstDay; i++) html += '<span></span>';
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = `${y}-${pad(m+1)}-${pad(d)}`;
+                const isToday = dateStr === todayStr;
+                const isBusy = busyDays.has(dateStr);
+                const isSelected = currentMonthDate &&
+                    currentMonthDate.getFullYear() === y &&
+                    currentMonthDate.getMonth() === m &&
+                    currentMonthDate.getDate() === d;
+                html += `<button onclick="miniCalClickDay('${dateStr}')"
+                    class="relative w-7 h-7 mx-auto flex items-center justify-center text-[11px] rounded-full transition-colors
+                    ${isSelected ? 'bg-sant-cyan text-sant-bg font-bold' :
+                      isToday    ? 'border border-sant-cyan text-sant-cyan font-bold hover:bg-sant-cyan/20' :
+                                   'text-gray-400 hover:bg-white/10 hover:text-white'}">
+                    ${d}
+                    ${isBusy && !isSelected ? '<span class="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-sant-cyan opacity-70"></span>' : ''}
+                </button>`;
+            }
+            el.innerHTML = html;
+        }
+
+        function miniCalNav(dir) {
+            miniCalDate = new Date(miniCalDate.getFullYear(), miniCalDate.getMonth() + dir, 1);
+            renderMiniCal();
+        }
+
+        function miniCalGoToday() {
+            const todayStr = getSPTodayStr();
+            miniCalDate = new Date();
+            switchToDayView(todayStr);
+            renderMiniCal();
+        }
+
+        function miniCalClickDay(dateStr) {
+            const [y, m, d] = dateStr.split('-').map(Number);
+            miniCalDate = new Date(y, m - 1, 1);
+            switchToDayView(dateStr);
+            renderMiniCal();
+        }
+
         function changeCalendar(dir) {
             let nextDate = new Date(currentMonthDate);
             
@@ -5069,6 +5156,10 @@
         // ── FIM NÍVEL 4 helpers ─────────────────────────────────────────────
 
         function renderCalendar() {
+            // Sincroniza mini-calendário com o mês atual
+            miniCalDate = new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth(), 1);
+            renderMiniCal();
+
             const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
             const monthYearLabel = document.getElementById('calendarMonthYear');
             const year = currentMonthDate.getFullYear();
