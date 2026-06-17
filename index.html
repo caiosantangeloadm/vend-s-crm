@@ -1699,6 +1699,12 @@
                     <div id="contactNotesList" class="space-y-2 mb-2"></div>
                 </div>
                 <div id="historyList" class="p-4 space-y-3"></div>
+                <div class="px-4 pb-4" id="changeLogSection">
+                    <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 mb-2">
+                        <i class="ph ph-clock-counter-clockwise"></i> Histórico de Alterações
+                    </h4>
+                    <div id="contactChangeLog" class="space-y-1.5"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -4030,6 +4036,7 @@
                 links: existing ? (existing.links || []) : [],
                 quickNotes: existing ? (existing.quickNotes || []) : [],
                 nextContact: existing ? (existing.nextContact || '') : '',
+                changeLog: existing ? (existing.changeLog || []) : [],
                 createdAt: existing ? (existing.createdAt || new Date().toISOString()) : new Date().toISOString(),
                 code: existing ? existing.code : getNextContactCode()
             };
@@ -4064,6 +4071,36 @@
 
         function persistContact(contact, id) {
             if (id) {
+                const old = contacts.find(c => c.id === id);
+                if (old) {
+                    const today = getSPTodayStr();
+                    const watchedFields = [
+                        { key: 'category',    label: 'Categoria' },
+                        { key: 'company',     label: 'Empresa' },
+                        { key: 'job',         label: 'Cargo' },
+                        { key: 'phoneProf',   label: 'Telefone profissional' },
+                        { key: 'phonePess',   label: 'Telefone pessoal' },
+                        { key: 'emailProf',   label: 'E-mail profissional' },
+                        { key: 'emailPess',   label: 'E-mail pessoal' },
+                        { key: 'origin',      label: 'Origem' },
+                        { key: 'isLead',      label: 'Lead', fmt: v => v ? 'Sim' : 'Não' },
+                        { key: 'temperature', label: 'Temperatura', fmt: v => ({ quente:'Quente', morno:'Morno', frio:'Frio' }[v]||v) },
+                    ];
+                    const nameOld = fullName(old);
+                    const nameNew = fullName(contact);
+                    if (nameOld !== nameNew)
+                        contact.changeLog.push({ id: crypto.randomUUID(), date: today, field: 'Nome', from: nameOld, to: nameNew });
+                    const tagsOld = (old.tags||[]).slice().sort().join(', ') || '—';
+                    const tagsNew = (contact.tags||[]).slice().sort().join(', ') || '—';
+                    if (tagsOld !== tagsNew)
+                        contact.changeLog.push({ id: crypto.randomUUID(), date: today, field: 'Etiquetas', from: tagsOld, to: tagsNew });
+                    watchedFields.forEach(({ key, label, fmt }) => {
+                        const vOld = fmt ? fmt(old[key]) : (old[key] || '—');
+                        const vNew = fmt ? fmt(contact[key]) : (contact[key] || '—');
+                        if (String(vOld) !== String(vNew))
+                            contact.changeLog.push({ id: crypto.randomUUID(), date: today, field: label, from: String(vOld), to: String(vNew) });
+                    });
+                }
                 const index = contacts.findIndex(c => c.id === id);
                 if (index !== -1) contacts[index] = contact;
             } else {
@@ -7162,6 +7199,32 @@
             renderContactQuickNotes();
             renderContactLinks();
             renderContactNotes();
+            renderChangeLog();
+        }
+
+        function renderChangeLog() {
+            const box = document.getElementById('contactChangeLog');
+            const section = document.getElementById('changeLogSection');
+            if (!box || !currentHistoryContactId) return;
+            const c = contacts.find(x => x.id === currentHistoryContactId);
+            const log = (c && c.changeLog || []).slice().reverse();
+            if (log.length === 0) { section.classList.add('hidden'); return; }
+            section.classList.remove('hidden');
+            box.innerHTML = log.map(entry => {
+                const [y,m,d] = entry.date.split('-');
+                const dateStr = `${d}/${m}/${y}`;
+                return `<div class="flex items-start gap-2 text-[11px] text-gray-400 py-1.5 border-b border-sant-border/40 last:border-0">
+                    <i class="ph ph-pencil-simple text-sant-cyan shrink-0 mt-0.5"></i>
+                    <div class="flex-1 min-w-0">
+                        <span class="font-bold text-gray-300">${entry.field}</span>
+                        <span class="text-gray-600"> · </span>
+                        <span class="line-through text-gray-600 truncate">${entry.from}</span>
+                        <span class="text-sant-cyan mx-1">→</span>
+                        <span class="text-white">${entry.to}</span>
+                    </div>
+                    <span class="text-gray-600 shrink-0">${dateStr}</span>
+                </div>`;
+            }).join('');
         }
 
         // ── Notas (Keep) vinculadas ao contato ───────────────────────────
