@@ -582,6 +582,9 @@
                         <select id="taskTagFilter" onchange="onTaskTagFilter(this.value)" class="bg-sant-surface border border-sant-border rounded-lg px-3 py-2 text-sm text-gray-400 outline-none appearance-none">
                             <option value="">Todas as etiquetas</option>
                         </select>
+                        <select id="taskContactFilter" onchange="onTaskContactFilter(this.value)" class="bg-sant-surface border border-sant-border rounded-lg px-3 py-2 text-sm text-gray-400 outline-none appearance-none">
+                            <option value="">Todos os contatos</option>
+                        </select>
                         <div class="flex items-center gap-2 bg-sant-surface border border-sant-border rounded-lg p-2 focus-within:border-sant-cyan transition-colors">
                             <i class="ph ph-magnifying-glass text-gray-400 px-1"></i>
                             <input type="text" id="taskSearchInput" placeholder="Buscar tarefas..." class="bg-transparent border-none outline-none text-sm placeholder-gray-600 w-40" oninput="onTaskSearch(this.value)">
@@ -1750,6 +1753,7 @@
         let currentChecklist = [];
         let currentTaskTags = [];
         let currentTaskTagFilter = '';
+        let currentTaskContactFilter = '';
         let currentTaskSort = 'date';
         let taskFocusMode = false;
 
@@ -5311,6 +5315,7 @@
             if(filter === 'completed') filtered = tasks.filter(t => t.completed);
 
             if (currentTaskTagFilter) filtered = filtered.filter(t => t.tags && t.tags.includes(currentTaskTagFilter));
+            if (currentTaskContactFilter) filtered = filtered.filter(t => t.contactId === currentTaskContactFilter);
 
             if (taskFocusMode) {
                 filtered = filtered.filter(t => !t.completed && t.date === todayStr);
@@ -5321,7 +5326,7 @@
                 filtered = filtered.filter(t => t.title.toLowerCase().includes(term) || (t.desc && t.desc.toLowerCase().includes(term)) || (t.tags && t.tags.some(tg => tg.toLowerCase().includes(term))));
             }
 
-            fillTaskTagFilterSelect();
+            fillTaskTagFilterSelect(); fillTaskContactFilterSelect();
 
             const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3, undefined: 4 };
             filtered.sort((a, b) => {
@@ -5517,6 +5522,19 @@
 
         function onTaskTagFilter(val) {
             currentTaskTagFilter = val;
+            _refreshCurrentTaskView();
+        }
+
+        function fillTaskContactFilterSelect() {
+            const sel = document.getElementById('taskContactFilter');
+            if (!sel) return;
+            const usedIds = [...new Set(tasks.filter(t => t.contactId).map(t => t.contactId))];
+            const usedContacts = usedIds.map(id => contacts.find(c => c.id === id)).filter(Boolean).sort((a,b) => fullName(a).localeCompare(fullName(b), 'pt-BR'));
+            sel.innerHTML = `<option value="">Todos os contatos</option>` + usedContacts.map(c => `<option value="${c.id}" ${c.id === currentTaskContactFilter ? 'selected' : ''}>${fullName(c)}</option>`).join('');
+        }
+
+        function onTaskContactFilter(val) {
+            currentTaskContactFilter = val;
             _refreshCurrentTaskView();
         }
 
@@ -6455,7 +6473,7 @@
                     (t.tags && t.tags.some(tg => tg.toLowerCase().includes(term)))
                 );
             }
-            fillTaskTagFilterSelect();
+            fillTaskTagFilterSelect(); fillTaskContactFilterSelect();
 
             const todayStr = getSPTodayStr();
 
