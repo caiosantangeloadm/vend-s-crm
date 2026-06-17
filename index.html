@@ -884,9 +884,9 @@
                 <div id="noteTagFilterBar" class="hidden flex flex-wrap items-center gap-2 mb-4 shrink-0"></div>
 
                 <!-- Nova nota -->
-                <div id="newNoteBox" class="bg-sant-surface border border-sant-border rounded-2xl p-4 mb-6 shrink-0 cursor-text transition-colors hover:border-sant-cyan/30 max-w-xl" onclick="expandNewNote()">
-                    <input type="text" id="newNoteTitle" placeholder="Título" class="hidden w-full bg-transparent border-none outline-none text-white font-bold mb-2 placeholder-gray-600">
-                    <textarea id="newNoteBody" rows="1" placeholder="Criar uma nota..." class="w-full bg-transparent border-none outline-none text-sm text-gray-300 placeholder-gray-600 resize-none"></textarea>
+                <div id="newNoteBox" class="bg-sant-surface border border-sant-border rounded-2xl p-5 mb-6 shrink-0 cursor-text transition-colors hover:border-sant-cyan/30" onclick="expandNewNote()">
+                    <input type="text" id="newNoteTitle" placeholder="Título" class="hidden w-full bg-transparent border-none outline-none text-white font-bold mb-3 placeholder-gray-600 text-base">
+                    <textarea id="newNoteBody" rows="2" placeholder="Criar uma nota..." class="w-full bg-transparent border-none outline-none text-sm text-gray-300 placeholder-gray-600 resize-none"></textarea>
                     <div id="newNoteTagsContainer" class="hidden flex-wrap gap-1.5 mb-2"></div>
                     <div id="newNoteTagInputWrap" class="hidden gap-2 mb-2">
                         <input type="text" id="newNoteTagInput" placeholder="Adicionar etiqueta (Ex: Financeiro, Ideias, Urgente)..." list="noteTagSuggestions"
@@ -3375,6 +3375,7 @@
         }
 
         function expandNewNote() {
+            document.getElementById('newNoteBody').rows = 5;
             document.getElementById('newNoteTitle').classList.remove('hidden');
             document.getElementById('newNoteActions').classList.remove('hidden');
             document.getElementById('newNoteTagsContainer').classList.remove('hidden');
@@ -3411,6 +3412,7 @@
             document.getElementById('newNoteTagInputWrap').classList.remove('flex');
             document.getElementById('newNoteTitle').value = '';
             document.getElementById('newNoteBody').value = '';
+            document.getElementById('newNoteBody').rows = 2;
             document.getElementById('newNoteContact').value = '';
             document.getElementById('newNoteTagInput').value = '';
             document.getElementById('newNoteDueDate').value = '';
@@ -3508,7 +3510,7 @@
             const card = document.getElementById('note-' + id);
             card.innerHTML = `
                 <input type="text" id="editNoteTitle-${id}" value="${(n.title||'').replace(/"/g,'&quot;')}" placeholder="Título" class="w-full bg-transparent border-none outline-none text-white font-bold mb-2 placeholder-gray-600">
-                <textarea id="editNoteBody-${id}" rows="4" placeholder="Nota..." class="w-full bg-transparent border-none outline-none text-sm text-gray-300 placeholder-gray-600 resize-none">${n.body||''}</textarea>
+                <textarea id="editNoteBody-${id}" rows="8" placeholder="Nota..." class="w-full bg-transparent border-none outline-none text-sm text-gray-300 placeholder-gray-600 resize-none">${n.body||''}</textarea>
                 <div id="editNoteTagsContainer-${id}" class="flex flex-wrap gap-1.5 mb-2"></div>
                 <div class="flex gap-2 mb-2">
                     <input type="text" id="editNoteTagInput-${id}" placeholder="Adicionar etiqueta..." list="noteTagSuggestions"
