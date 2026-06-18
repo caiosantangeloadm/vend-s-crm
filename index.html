@@ -1756,7 +1756,22 @@
                     <i class="ph ph-plus"></i> Registrar Interação
                 </button>
             </div>
+            <!-- Abas: Detalhes / Timeline -->
+            <div class="flex border-b border-sant-border shrink-0 bg-[#0a0a0a]">
+                <button id="histTabDetail" onclick="switchHistoryView('detail')"
+                    class="flex-1 py-2.5 text-xs font-bold tracking-wider uppercase transition-colors border-b-2 border-sant-cyan text-sant-cyan">
+                    <i class="ph ph-list-dashes mr-1"></i> Detalhes
+                </button>
+                <button id="histTabTimeline" onclick="switchHistoryView('timeline')"
+                    class="flex-1 py-2.5 text-xs font-bold tracking-wider uppercase transition-colors border-b-2 border-transparent text-gray-500 hover:text-gray-300">
+                    <i class="ph ph-git-commit mr-1"></i> Timeline
+                </button>
+            </div>
             <div class="flex-1 overflow-y-auto custom-scrollbar">
+                <!-- Timeline unificada -->
+                <div id="contactTimelineSection" class="hidden p-4 space-y-1"></div>
+                <!-- Detalhe (layout original) -->
+                <div id="contactDetailSection">
                 <div id="linkedItemsSection" class="px-4 pt-4">
                     <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 mb-2">
                         <i class="ph ph-link"></i> Compromissos &amp; Tarefas Vinculadas
@@ -1797,6 +1812,7 @@
                     </h4>
                     <div id="contactChangeLog" class="space-y-1.5"></div>
                 </div>
+                </div><!-- /contactDetailSection -->
             </div>
         </div>
     </div>
@@ -7537,6 +7553,7 @@
                 statsBar.classList.remove('flex');
             }
 
+            switchHistoryView('detail');
             document.getElementById('historyModal').classList.remove('hidden');
             renderHistoryList();
             renderLinkedItems();
@@ -7544,6 +7561,141 @@
             renderContactLinks();
             renderContactNotes();
             renderChangeLog();
+        }
+
+        function switchHistoryView(mode) {
+            const detailBtn    = document.getElementById('histTabDetail');
+            const timelineBtn  = document.getElementById('histTabTimeline');
+            const detailSec    = document.getElementById('contactDetailSection');
+            const timelineSec  = document.getElementById('contactTimelineSection');
+            if (mode === 'timeline') {
+                detailSec.classList.add('hidden');
+                timelineSec.classList.remove('hidden');
+                detailBtn.classList.replace('border-sant-cyan','border-transparent');
+                detailBtn.classList.replace('text-sant-cyan','text-gray-500');
+                timelineBtn.classList.replace('border-transparent','border-sant-cyan');
+                timelineBtn.classList.replace('text-gray-500','text-sant-cyan');
+                renderContactTimeline(currentHistoryContactId);
+            } else {
+                timelineSec.classList.add('hidden');
+                detailSec.classList.remove('hidden');
+                timelineBtn.classList.replace('border-sant-cyan','border-transparent');
+                timelineBtn.classList.replace('text-sant-cyan','text-gray-500');
+                detailBtn.classList.replace('border-transparent','border-sant-cyan');
+                detailBtn.classList.replace('text-gray-500','text-sant-cyan');
+            }
+        }
+
+        function renderContactTimeline(contactId) {
+            const box = document.getElementById('contactTimelineSection');
+            if (!box) return;
+            const c = contacts.find(x => x.id === contactId);
+            if (!c) return;
+
+            const items = [];
+
+            // Interações
+            (c.interactions || []).forEach(i => {
+                if (!i.date) return;
+                const icons = { 'Ligação':'ph-phone','Reunião':'ph-handshake','E-mail':'ph-envelope','WhatsApp':'ph-whatsapp-logo','Visita':'ph-buildings','Outro':'ph-pushpin' };
+                items.push({ date: i.date, sortKey: i.date + 'B', type: 'interaction',
+                    icon: icons[i.type] || 'ph-chat-circle',
+                    color: '#5b8fa8',
+                    label: i.type || 'Interação',
+                    text: i.notes || '',
+                });
+            });
+
+            // Notas rápidas
+            (c.quickNotes || []).forEach(n => {
+                const d = (n.createdAt || '').substring(0,10);
+                if (!d) return;
+                items.push({ date: d, sortKey: n.createdAt || d, type: 'quicknote',
+                    icon: 'ph-note-pencil',
+                    color: '#a78bfa',
+                    label: 'Nota rápida',
+                    text: n.text || '',
+                });
+            });
+
+            // Tarefas vinculadas
+            (tasks || []).filter(t => t.contactId === contactId && t.date).forEach(t => {
+                items.push({ date: t.date, sortKey: t.date + 'A', type: 'task',
+                    icon: t.completed ? 'ph-check-square' : 'ph-square',
+                    color: t.completed ? '#4ade80' : '#fbbf24',
+                    label: t.completed ? 'Tarefa concluída' : 'Tarefa',
+                    text: t.title || '',
+                    sub: t.desc || '',
+                    id: t.id,
+                });
+            });
+
+            // Eventos vinculados
+            (events || []).filter(e => e.contactId === contactId && e.startDate).forEach(e => {
+                items.push({ date: e.startDate, sortKey: e.startDate + (e.startTime || '00:00'), type: 'event',
+                    icon: 'ph-calendar-check',
+                    color: '#5b8fa8',
+                    label: 'Compromisso',
+                    text: e.title || '',
+                    sub: e.location || '',
+                    id: e.id,
+                });
+            });
+
+            if (items.length === 0) {
+                box.innerHTML = `<div class="text-center py-10 text-gray-600">
+                    <i class="ph ph-clock text-3xl block mb-2"></i>
+                    <p class="text-sm">Nenhum registro ainda.</p>
+                    <p class="text-xs mt-1">Interações, notas, tarefas e eventos aparecerão aqui.</p>
+                </div>`;
+                return;
+            }
+
+            // Ordena decrescente
+            items.sort((a,b) => b.sortKey.localeCompare(a.sortKey));
+
+            // Agrupa por mês/ano
+            const groups = {};
+            items.forEach(item => {
+                const [y,m] = item.date.split('-');
+                const key = `${y}-${m}`;
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(item);
+            });
+
+            const monthNames = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+            let html = '';
+            Object.keys(groups).sort((a,b) => b.localeCompare(a)).forEach(key => {
+                const [y,m] = key.split('-');
+                html += `<p class="text-[10px] font-bold text-gray-600 uppercase tracking-wider pt-3 pb-1 sticky top-0 bg-sant-surface z-10">${monthNames[parseInt(m)-1]} ${y}</p>`;
+                groups[key].forEach(item => {
+                    const [iy,im,id2] = item.date.split('-');
+                    const dayStr = `${id2}/${im}`;
+                    const textHtml = item.text ? `<p class="text-xs text-gray-300 mt-0.5 leading-relaxed">${item.text}</p>` : '';
+                    const subHtml  = item.sub  ? `<p class="text-[11px] text-gray-500 mt-0.5">${item.sub}</p>` : '';
+                    const clickable = item.type === 'task'
+                        ? `onclick="closeHistoryModal();editTask('${item.id}')" style="cursor:pointer"`
+                        : item.type === 'event'
+                        ? `onclick="closeHistoryModal();switchToDayView('${item.date}')" style="cursor:pointer"`
+                        : '';
+                    html += `<div class="flex gap-3 py-2 border-b border-sant-border/40 last:border-0 hover:bg-[#141414] rounded-lg px-2 -mx-2 transition-colors" ${clickable}>
+                        <div class="flex flex-col items-center gap-1 shrink-0 w-8">
+                            <span class="text-[10px] font-bold text-gray-500 leading-none">${dayStr}</span>
+                            <div class="w-px flex-1 bg-sant-border min-h-[12px]"></div>
+                        </div>
+                        <div class="flex items-start gap-2 flex-1 min-w-0 pb-1">
+                            <i class="ph ${item.icon} text-base shrink-0 mt-0.5" style="color:${item.color}"></i>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-[10px] font-bold uppercase tracking-wider" style="color:${item.color}">${item.label}</p>
+                                ${textHtml}${subHtml}
+                            </div>
+                        </div>
+                    </div>`;
+                });
+            });
+
+            box.innerHTML = html;
         }
 
         function renderChangeLog() {
