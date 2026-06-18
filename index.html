@@ -3981,27 +3981,25 @@
                 const tagsHtml = (c.tags && c.tags.length > 0)
                     ? `<div class="flex flex-wrap gap-1 mt-2">${c.tags.slice(0,4).map(t=>`<span class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20">${t}</span>`).join('')}${c.tags.length>4?`<span class="text-[9px] text-gray-500">+${c.tags.length-4}</span>`:''}</div>` : '';
                 return `
-                <div class="bg-sant-surface border border-sant-border rounded-xl p-5 hover:border-sant-cyan/50 transition-all group flex flex-col h-full min-w-0">
-                    <div class="flex justify-between items-start mb-4">
-                        <div class="flex items-center gap-3 min-w-0">
-                            ${contactAvatarHtml(c, 'w-10 h-10')}
-                            <div class="min-w-0">
-                                <h3 class="font-bold text-white truncate text-sm" title="${fullName(c)}">${fullName(c)} ${c.code?`<span class="text-gray-500 font-mono text-[10px] font-normal">#${c.code}</span>`:''}</h3>
-                                <div class="flex flex-wrap items-center gap-1 mt-1">
-                                    ${c.category?`<span class="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-sant-purple/20 text-sant-purple border border-sant-purple/30">${c.category}</span>`:''}
-                                    ${leadTag} ${scoreBadge}
-                                    ${inact?`<div>${inact}</div>`:''}
-                                </div>
+                <div class="relative bg-sant-surface border border-sant-border rounded-xl p-5 hover:border-sant-cyan/50 transition-all group flex flex-col h-full min-w-0">
+                    <div class="absolute top-3 right-3 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-sant-surface/95 rounded-lg p-1 z-10 shadow-lg">
+                        <button onclick="openQuickInteraction('${c.id}')" class="text-gray-400 hover:text-[#fbbf24] p-1" title="Registrar interação rápida"><i class="ph ph-plus-circle"></i></button>
+                        <button onclick="openHistoryModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 relative" title="Histórico">${histCount}<i class="ph ph-clock-clockwise"></i></button>
+                        <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Exportar vCard"><i class="ph ph-address-book"></i></button>
+                        <button onclick="openMergeModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Mesclar com outro contato"><i class="ph ph-git-merge"></i></button>
+                        <button onclick="duplicateContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Duplicar"><i class="ph ph-copy"></i></button>
+                        <button onclick="editContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1"><i class="ph ph-pencil-simple"></i></button>
+                        <button onclick="deleteContact('${c.id}')" class="text-gray-400 hover:text-red-500 p-1"><i class="ph ph-trash"></i></button>
+                    </div>
+                    <div class="flex items-center gap-3 mb-4">
+                        ${contactAvatarHtml(c, 'w-10 h-10')}
+                        <div class="min-w-0 flex-1">
+                            <h3 class="font-bold text-white text-sm leading-snug break-words">${fullName(c)} ${c.code?`<span class="text-gray-500 font-mono text-[10px] font-normal">#${c.code}</span>`:''}</h3>
+                            <div class="flex flex-wrap items-center gap-1 mt-1">
+                                ${c.category?`<span class="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-sant-purple/20 text-sant-purple border border-sant-purple/30">${c.category}</span>`:''}
+                                ${leadTag} ${scoreBadge}
+                                ${inact?`<div>${inact}</div>`:''}
                             </div>
-                        </div>
-                        <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                            <button onclick="openQuickInteraction('${c.id}')" class="text-gray-400 hover:text-[#fbbf24] p-1" title="Registrar interação rápida"><i class="ph ph-plus-circle"></i></button>
-                            <button onclick="openHistoryModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 relative" title="Histórico">${histCount}<i class="ph ph-clock-clockwise"></i></button>
-                            <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Exportar vCard"><i class="ph ph-address-book"></i></button>
-                            <button onclick="openMergeModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Mesclar com outro contato"><i class="ph ph-git-merge"></i></button>
-                            <button onclick="duplicateContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Duplicar"><i class="ph ph-copy"></i></button>
-                            <button onclick="editContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1"><i class="ph ph-pencil-simple"></i></button>
-                            <button onclick="deleteContact('${c.id}')" class="text-gray-400 hover:text-red-500 p-1"><i class="ph ph-trash"></i></button>
                         </div>
                     </div>
                     <div class="space-y-2 mt-auto">
