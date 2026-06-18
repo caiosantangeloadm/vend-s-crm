@@ -5327,9 +5327,20 @@
             Object.keys(eventTypeDefaultLabels).forEach(k => {
                 eventTypeMeta[k].label = eventTypeLabels[k] || eventTypeDefaultLabels[k];
             });
+            fillEventTypeSelect();
         }
         function saveEventTypeLabels() {
             localStorage.setItem('vends_event_type_labels', JSON.stringify(eventTypeLabels));
+            fillEventTypeSelect();
+        }
+        function fillEventTypeSelect() {
+            const sel = document.getElementById('eventType');
+            if (!sel) return;
+            const cur = sel.value;
+            sel.innerHTML = Object.keys(eventTypeDefaultLabels).map(k =>
+                `<option value="${k}">${eventTypeMeta[k].label}</option>`
+            ).join('');
+            if (cur) sel.value = cur;
         }
         function getEventTypeMeta(ev) {
             if (ev.isBirthday) return eventTypeMeta.birthday;
