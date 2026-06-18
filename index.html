@@ -5638,6 +5638,18 @@
                     const dayTasksW = tasks.filter(t => t.date === dateStr && !t.completed);
                     const dayTasksDoneW = tasks.filter(t => t.date === dateStr && t.completed);
 
+                    // Detect conflicts in week view (timed events only)
+                    const timedWeekEvs = dayEvents.filter(e => !e.isBlock && !e.isBirthday && e.startTime);
+                    const weekConflictIds = new Set();
+                    timedWeekEvs.forEach((a, i) => {
+                        const aS = _calTimeToMin(a.startTime), aE = a.endTime ? _calTimeToMin(a.endTime) : aS + 60;
+                        timedWeekEvs.forEach((b, j) => {
+                            if (i === j) return;
+                            const bS = _calTimeToMin(b.startTime), bE = b.endTime ? _calTimeToMin(b.endTime) : bS + 60;
+                            if (aS < bE && aE > bS) { weekConflictIds.add(a.id); weekConflictIds.add(b.id); }
+                        });
+                    });
+
                     let eventsHtml = '';
                     dayEvents.forEach(e => {
                         const m = getEventTypeMeta(e);
@@ -5646,12 +5658,15 @@
                         } else if(e.isBirthday) {
                             eventsHtml += `<div onclick="event.stopPropagation(); switchToDayView('${dateStr}')" class="text-[10px] truncate ${m.bg} ${m.text} p-1.5 rounded mb-1.5 border ${m.border} cursor-pointer hover:opacity-80"><i class="ph ${m.icon}"></i> ${e.title}</div>`;
                         } else {
+                            const hasConflict = weekConflictIds.has(e.id);
+                            const chipBorder = hasConflict ? 'border-orange-500/70' : m.border;
+                            const warnIcon = hasConflict ? '<i class="ph ph-warning text-orange-400 ml-1 shrink-0"></i>' : '';
                             eventsHtml += `<div
                                 draggable="true"
                                 ondragstart="onCalEventDragStart(event,'${e.id}','${dateStr}')"
                                 ondragend="onCalDragEnd()"
                                 onclick="event.stopPropagation(); openEventModal(events.find(x=>x.id==='${e.id}'), '${dateStr}')"
-                                class="cal-event-chip text-[10px] truncate ${m.bg} text-sant-cyan p-1.5 rounded mb-1.5 border ${m.border} hover:opacity-90"><span class="font-bold mr-1">${e.startTime || ''}</span>${e.title}</div>`;
+                                class="cal-event-chip text-[10px] truncate ${m.bg} text-sant-cyan p-1.5 rounded mb-1.5 border ${chipBorder} hover:opacity-90 flex items-center"><span class="font-bold mr-1">${e.startTime || ''}</span><span class="truncate">${e.title}</span>${warnIcon}</div>`;
                         }
                     });
                     if (dayTasksW.length > 0) {
@@ -5873,12 +5888,15 @@
                     const colW  = `calc((100% - 56px) / ${e._totalCols})`;
                     const lft   = `calc(52px + ${e._col} * (100% - 56px) / ${e._totalCols})`;
                     const linkedC = e.contactId ? contacts.find(c=>c.id===e.contactId) : null;
-                    return `<div class="absolute rounded-lg border ${m.border} ${m.bg} overflow-hidden cursor-pointer hover:brightness-110 transition-all group/ev z-10"
+                    const isConflict = e._totalCols > 1;
+                    const borderCls = isConflict ? 'border-orange-500/70' : m.border;
+                    const conflictIcon = isConflict ? `<i class="ph ph-warning text-orange-400 text-[10px] shrink-0" title="Conflito de horário"></i>` : '';
+                    return `<div class="absolute rounded-lg border ${borderCls} ${m.bg} overflow-hidden cursor-pointer hover:brightness-110 transition-all group/ev z-10"
                         style="top:${e.sMin*PX_PER_MIN}px;height:${h}px;left:${lft};width:${colW};padding:3px 6px"
                         onclick="openEventModal(events.find(x=>x.id==='${e.id}'),'${dateStr}')">
                         <div class="flex items-start justify-between gap-1 h-full overflow-hidden">
                             <div class="min-w-0 flex-1 overflow-hidden">
-                                <p class="text-xs font-bold truncate leading-tight text-sant-cyan">${e.title}</p>
+                                <p class="text-xs font-bold truncate leading-tight text-sant-cyan flex items-center gap-1">${e.title}${conflictIcon}</p>
                                 ${h>34?`<p class="text-[10px] text-gray-500 mt-0.5 leading-tight">${e.startTime}${e.endTime?' – '+e.endTime:''}</p>`:''}
                                 ${h>54&&e.location?`<p class="text-[10px] text-gray-500 mt-0.5 truncate leading-tight"><i class="ph ph-map-pin"></i> ${e.location}</p>`:''}
                                 ${h>74&&linkedC?`<p class="text-[10px] text-gray-500 mt-0.5 truncate leading-tight"><i class="ph ph-user"></i> ${fullName(linkedC)}</p>`:''}
