@@ -569,6 +569,21 @@
                 </div>
                 <div id="calSearchResults" class="hidden border border-sant-border rounded-xl bg-sant-surface mb-4 overflow-hidden"></div>
 
+                <!-- Filtros avançados da Agenda -->
+                <div class="flex flex-wrap items-center gap-3 mb-4 shrink-0">
+                    <div id="calTypeFilterBar" class="flex flex-wrap gap-1.5"></div>
+                    <div class="flex items-center gap-2 ml-auto">
+                        <select id="calContactFilter" onchange="setCalFilterContact(this.value)"
+                            class="bg-sant-surface border border-sant-border rounded-lg px-3 py-1.5 text-xs text-gray-300 outline-none focus:border-sant-cyan transition-colors">
+                            <option value="">Todos os contatos</option>
+                        </select>
+                        <button id="calClearFiltersBtn" onclick="clearCalFilters()" title="Limpar filtros"
+                            class="hidden text-gray-500 hover:text-red-400 transition-colors text-xs flex items-center gap-1 px-2 py-1.5 border border-sant-border rounded-lg">
+                            <i class="ph ph-x-circle"></i> Limpar
+                        </button>
+                    </div>
+                </div>
+
                 <div id="calViewsWrapper">
                 <!-- Visão Mensal -->
                 <div id="calendarMonthView" class="border border-sant-border rounded-xl overflow-hidden bg-sant-surface flex flex-col">
@@ -1926,6 +1941,8 @@
 
         let currentMonthDate;
         let calViewMode = 'month';
+        let calFilterType = '';
+        let calFilterContact = '';
         let notificationInterval;
         let currentView = 'dashboard';
         let currentTaskFilter = 'all';
@@ -5153,6 +5170,66 @@
             return eventTypeMeta[ev.type] || eventTypeMeta.other;
         }
 
+        function calEventPassesFilter(e) {
+            if (e.isBirthday) {
+                if (calFilterType && calFilterType !== 'birthday') return false;
+                if (calFilterContact) return false;
+                return true;
+            }
+            if (calFilterType) {
+                const t = e.type || 'other';
+                if (t !== calFilterType) return false;
+            }
+            if (calFilterContact && e.contactId !== calFilterContact) return false;
+            return true;
+        }
+        function setCalFilterType(val) {
+            calFilterType = calFilterType === val ? '' : val;
+            renderCalFilterBar();
+            renderCalendar();
+        }
+        function setCalFilterContact(val) {
+            calFilterContact = val;
+            renderCalendar();
+        }
+        function clearCalFilters() {
+            calFilterType = '';
+            calFilterContact = '';
+            document.getElementById('calContactFilter').value = '';
+            renderCalFilterBar();
+            renderCalendar();
+        }
+        function renderCalFilterBar() {
+            const types = [
+                { key: 'meeting', label: 'Reunião',    color: '#5b8fa8' },
+                { key: 'call',    label: 'Ligação',    color: '#facc15' },
+                { key: 'visit',   label: 'Visita',     color: '#a855f7' },
+                { key: 'other',   label: 'Outro',      color: '#9ca3af' },
+                { key: 'birthday',label: 'Aniversário',color: '#ec4899' },
+            ];
+            const bar = document.getElementById('calTypeFilterBar');
+            if (!bar) return;
+            bar.innerHTML = types.map(t => {
+                const active = calFilterType === t.key;
+                return `<button onclick="setCalFilterType('${t.key}')"
+                    class="px-3 py-1 rounded-full text-[11px] font-bold border transition-colors"
+                    style="${active
+                        ? `background:${t.color}22;color:${t.color};border-color:${t.color}55`
+                        : 'background:transparent;color:#6b7280;border-color:#1f1f1f'}"
+                >${t.label}</button>`;
+            }).join('');
+        }
+        function fillCalContactFilter() {
+            const sel = document.getElementById('calContactFilter');
+            if (!sel) return;
+            const usedIds = [...new Set(events.filter(e => e.contactId).map(e => e.contactId))];
+            const linked = usedIds.map(id => contacts.find(c => c.id === id)).filter(Boolean)
+                .sort((a,b) => fullName(a).localeCompare(fullName(b), 'pt-BR'));
+            sel.innerHTML = '<option value="">Todos os contatos</option>' +
+                linked.map(c => `<option value="${c.id}">${fullName(c)}</option>`).join('');
+            sel.value = calFilterContact;
+        }
+
         // ── Bloqueios de Horário Fixos (Disponibilidade) ────────────────────
         function getBlocksForDate(dateStr) {
             const d = new Date(dateStr + 'T00:00:00');
@@ -5237,6 +5314,12 @@
         // ── FIM NÍVEL 4 helpers ─────────────────────────────────────────────
 
         function renderCalendar() {
+            // Inicializa filtros
+            renderCalFilterBar();
+            fillCalContactFilter();
+            const clearBtn = document.getElementById('calClearFiltersBtn');
+            if (clearBtn) clearBtn.classList.toggle('hidden', !calFilterType && !calFilterContact);
+
             // Sincroniza mini-calendário com o mês atual
             miniCalDate = new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth(), 1);
             renderMiniCal();
@@ -5262,7 +5345,7 @@
                     const monthDayStr = dateStr.substring(5);
                     const isToday = dateStr === todayStr;
                     
-                    let dayEvents = events.filter(e => isEventOnDate(e, dateStr));
+                    let dayEvents = events.filter(e => isEventOnDate(e, dateStr) && calEventPassesFilter(e));
                     const bdays = contacts.filter(c => c.birth && c.birth.endsWith(monthDayStr)).map(c => ({ id: 'bday-'+crypto.randomUUID(), title: `Aniv: ${fullName(c)}`, isBirthday: true, startTime: '' }));
                     dayEvents = [...bdays, ...dayEvents].sort((a,b) => {
                         if (a.isBirthday && !b.isBirthday) return -1;
@@ -5356,7 +5439,7 @@
                             <p class="text-lg font-bold mt-1 ${isToday ? 'text-sant-cyan' : 'text-white'}">${d}</p>
                         </div>`;
 
-                    let dayEvents = events.filter(e => isEventOnDate(e, dateStr));
+                    let dayEvents = events.filter(e => isEventOnDate(e, dateStr) && calEventPassesFilter(e));
                     const bdays = contacts.filter(c => c.birth && c.birth.endsWith(monthDayStr)).map(c => ({ id: 'bday-'+crypto.randomUUID(), title: `Aniv: ${fullName(c)}`, isBirthday: true, startTime: '' }));
                     const blocksW = getBlocksForDate(dateStr);
                     dayEvents = [...bdays, ...dayEvents, ...blocksW].sort((a,b) => {
@@ -5436,7 +5519,7 @@
                     const monthDayStr = dateStr.substring(5);
                     const isToday = dateStr === todayStr;
 
-                    let dayEvents = events.filter(e => isEventOnDate(e, dateStr));
+                    let dayEvents = events.filter(e => isEventOnDate(e, dateStr) && calEventPassesFilter(e));
                     const bdays = contacts.filter(c => c.birth && c.birth.endsWith(monthDayStr)).map(c => ({ id: 'bday-'+c.id, title: `Aniversário: ${fullName(c)}`, isBirthday: true, startTime: '' }));
                     const blocks = getBlocksForDate(dateStr);
                     dayEvents = [...bdays, ...dayEvents, ...blocks].sort((a,b) => {
@@ -5500,7 +5583,7 @@
                 const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
                 const monthDayStr = dateStr.substring(5);
                 
-                let dayEvents = events.filter(e => isEventOnDate(e, dateStr));
+                let dayEvents = events.filter(e => isEventOnDate(e, dateStr) && calEventPassesFilter(e));
                 const bdays = contacts.filter(c => c.birth && c.birth.endsWith(monthDayStr)).map(c => ({ id: 'bd', title: `Aniversário: ${fullName(c)}`, isBirthday: true, startTime: '' }));
                 const blocks = getBlocksForDate(dateStr);
 
