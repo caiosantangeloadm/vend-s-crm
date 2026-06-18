@@ -149,6 +149,23 @@
         body.focus-mode aside,
         body.focus-mode header { display: none !important; }
         body.focus-mode #mainContentArea { padding-top: 2rem !important; }
+
+        /* ── Impressão / Exportar Dashboard ── */
+        @media print {
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            html, body { background: #030303 !important; height: auto !important; overflow: visible !important; }
+            aside, header, #view-contacts, #view-tasks, #view-notes,
+            #view-calendar, #view-reports, .modal-overlay, #notifPanel,
+            #globalSearchResults, #focusExitBtn, #dashReportBtn { display: none !important; }
+            #mainContentArea { padding: 0 1.5rem 2rem !important; overflow: visible !important; height: auto !important; }
+            #view-dashboard { display: block !important; max-width: 100% !important; }
+            #dashPrintHeader { display: flex !important; }
+            .custom-scrollbar, [class*="overflow-y-auto"] { overflow: visible !important; max-height: none !important; height: auto !important; }
+            .h-\[400px\], .h-\[320px\], .h-\[300px\] { height: auto !important; min-height: 0 !important; }
+            [style*="max-height:calc"] { max-height: none !important; }
+            .rounded-2xl { break-inside: avoid; page-break-inside: avoid; margin-bottom: 1rem; }
+            canvas { max-height: 260px !important; }
+        }
     </style>
 </head>
 <body class="h-screen w-screen flex antialiased">
@@ -280,7 +297,29 @@
         <div id="mainContentArea" class="flex-1 overflow-y-auto p-8 pt-28 pb-24">
             
             <div id="view-dashboard" class="hidden max-w-6xl mx-auto space-y-6">
-                
+
+                <!-- Cabeçalho: só aparece na impressão -->
+                <div id="dashPrintHeader" class="hidden items-center justify-between pb-5 border-b border-sant-border">
+                    <div>
+                        <h1 class="text-2xl font-bold text-white">Vend-s Inteligência CRM</h1>
+                        <p class="text-sm text-gray-400">Relatório do Dashboard — <span id="dashPrintDate"></span></p>
+                    </div>
+                    <div class="text-right text-xs text-gray-500">
+                        <p id="dashPrintContactCount"></p>
+                    </div>
+                </div>
+
+                <!-- Barra de título + botão Gerar Relatório -->
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-2xl font-bold text-white">Dashboard</h2>
+                        <p class="text-sm text-gray-500 mt-0.5">Visão geral da sua base de relacionamentos</p>
+                    </div>
+                    <button id="dashReportBtn" onclick="printDashboardPdf()" class="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-sant-border text-gray-400 hover:text-white hover:border-sant-cyan transition-colors text-sm font-medium">
+                        <i class="ph ph-printer text-base"></i> Gerar Relatório
+                    </button>
+                </div>
+
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 flex flex-col justify-center">
                         <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase mb-2">Total de Contatos</p>
@@ -6895,6 +6934,15 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
             showToast('CSV exportado!');
+        }
+
+        function printDashboardPdf() {
+            const todayStr = new Date().toLocaleDateString('pt-BR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+            const dateEl = document.getElementById('dashPrintDate');
+            if (dateEl) dateEl.textContent = todayStr;
+            const countEl = document.getElementById('dashPrintContactCount');
+            if (countEl) countEl.textContent = `${contacts.length} contato${contacts.length !== 1 ? 's' : ''} na base`;
+            window.print();
         }
 
         function printReportPdf(title, headers, rows) {
