@@ -3850,7 +3850,7 @@
             const colNext  = { inbox: 'doing', doing: 'done', done: 'inbox' };
             const curCol   = n.kanbanColumn || 'inbox';
             const snippet  = (n.body || '').slice(0, 120) + ((n.body||'').length > 120 ? '…' : '');
-            return `<div draggable="true"
+            return `<div id="note-${n.id}" draggable="true"
                 ondragstart="noteKanbanDragId='${n.id}'; event.dataTransfer.effectAllowed='move';"
                 ondragend="document.querySelectorAll('[id^=noteKanbanCol]').forEach(el=>el.classList.remove('ring-1','ring-sant-cyan/40','ring-amber-400/40','ring-green-400/40'))"
                 class="${c.bg} ${c.border} border rounded-xl p-3 cursor-grab active:cursor-grabbing group">
