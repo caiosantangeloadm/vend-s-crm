@@ -188,6 +188,7 @@
                     <div class="absolute -left-4 top-0 w-4 h-full bg-transparent"></div>
                     <button onclick="openCategoryManager()" class="w-full text-left px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-[#1f1f1f] transition-colors">Gerenciar Categorias</button>
                     <button onclick="openOriginManager()" class="w-full text-left px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-[#1f1f1f] transition-colors border-t border-sant-border">Gerenciar Origens</button>
+                    <button onclick="openEventTypeLabelsModal()" class="w-full text-left px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-[#1f1f1f] transition-colors border-t border-sant-border">Tipos de Evento</button>
                     <button onclick="openTagsModal()" class="w-full text-left px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-[#1f1f1f] transition-colors border-t border-sant-border">Gerenciar Tags</button>
                     <button onclick="openTemplatesManager()" class="w-full text-left px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-[#1f1f1f] transition-colors border-t border-sant-border">Modelos de Mensagem</button>
                     <button onclick="exportData()" class="w-full text-left px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-[#1f1f1f] transition-colors border-t border-sant-border">Exportar Backup</button>
@@ -1832,6 +1833,20 @@
         </div>
     </div>
 
+    <!-- Modal: Tipos de Evento -->
+    <div id="eventTypeLabelsModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-sm overflow-hidden flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center p-5 border-b border-sant-border">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-calendar-blank text-sant-cyan"></i> Tipos de Evento</h3>
+                <button onclick="closeEventTypeLabelsModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <div class="p-5 flex flex-col gap-3">
+                <p class="text-xs text-gray-500">Personalize os nomes exibidos para cada tipo. O botão <i class="ph ph-arrow-counter-clockwise"></i> restaura o padrão.</p>
+                <div id="eventTypeLabelsBody" class="flex flex-col gap-3"></div>
+            </div>
+        </div>
+    </div>
+
     <div id="originModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4">
         <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-sm overflow-hidden flex flex-col shadow-2xl">
             <div class="flex justify-between items-center p-5 border-b border-sant-border">
@@ -2509,6 +2524,7 @@
             messageTemplates = JSON.parse(localStorage.getItem('sant_crm_message_templates') || JSON.stringify(defaultMessageTemplates));
             migrateContactCodes();
             migrateContactOrigins();
+            loadEventTypeLabels();
         }
 
         // ── Códigos sequenciais de contato ──────────────────────────────────
@@ -2544,7 +2560,7 @@
         function saveNotesToStorage() { localStorage.setItem('sant_crm_notes', JSON.stringify(notes)); }
 
         function exportData() {
-            const data = { contacts, categories, origins, tasks, events, tags, notes, notifications, messageTemplates, scheduleBlocks };
+            const data = { contacts, categories, origins, tasks, events, tags, notes, notifications, messageTemplates, scheduleBlocks, eventTypeLabels };
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -2577,6 +2593,7 @@
                     if (data.notifications) notifications = data.notifications;
                     if (data.messageTemplates) messageTemplates = data.messageTemplates;
                     if (data.scheduleBlocks) scheduleBlocks = data.scheduleBlocks;
+                    if (data.eventTypeLabels) { eventTypeLabels = data.eventTypeLabels; localStorage.setItem('vends_event_type_labels', JSON.stringify(eventTypeLabels)); loadEventTypeLabels(); }
                     saveToStorage(); saveCategoriesToStorage(); saveOriginsToStorage(); saveTasksToStorage(); saveEventsToStorage(); saveTagsToStorage(); saveNotesToStorage(); saveMessageTemplatesToStorage(); saveScheduleBlocksToStorage();
                     localStorage.setItem('vends_notifications', JSON.stringify(notifications));
                     init();
@@ -5159,15 +5176,46 @@
         }
 
         const eventTypeMeta = {
-            meeting:  { label: 'Reunião',  icon: 'ph-users-three',  dot: '#5b8fa8', bg: 'bg-sant-cyan/10',   text: 'text-sant-cyan',   border: 'border-sant-cyan/20' },
-            call:     { label: 'Ligação',  icon: 'ph-phone',        dot: '#facc15', bg: 'bg-yellow-500/10',  text: 'text-yellow-400',  border: 'border-yellow-500/20' },
-            visit:    { label: 'Visita',   icon: 'ph-map-pin',      dot: '#a855f7', bg: 'bg-sant-purple/10', text: 'text-sant-purple', border: 'border-sant-purple/20' },
-            other:    { label: 'Outro',    icon: 'ph-calendar',     dot: '#9ca3af', bg: 'bg-gray-500/10',    text: 'text-gray-400',    border: 'border-gray-500/20' },
-            birthday: { label: 'Aniversário', icon: 'ph-cake',      dot: '#ec4899', bg: 'bg-pink-500/10',    text: 'text-pink-500',    border: 'border-pink-500/20' }
+            meeting:  { label: 'Reunião',     icon: 'ph-users-three',  dot: '#5b8fa8', bg: 'bg-sant-cyan/10',   text: 'text-sant-cyan',   border: 'border-sant-cyan/20' },
+            call:     { label: 'Ligação',     icon: 'ph-phone',        dot: '#facc15', bg: 'bg-yellow-500/10',  text: 'text-yellow-400',  border: 'border-yellow-500/20' },
+            visit:    { label: 'Visita',      icon: 'ph-map-pin',      dot: '#a855f7', bg: 'bg-sant-purple/10', text: 'text-sant-purple', border: 'border-sant-purple/20' },
+            other:    { label: 'Outro',       icon: 'ph-calendar',     dot: '#9ca3af', bg: 'bg-gray-500/10',    text: 'text-gray-400',    border: 'border-gray-500/20' },
+            birthday: { label: 'Aniversário', icon: 'ph-cake',         dot: '#ec4899', bg: 'bg-pink-500/10',    text: 'text-pink-500',    border: 'border-pink-500/20' }
         };
+        const eventTypeDefaultLabels = { meeting: 'Reunião', call: 'Ligação', visit: 'Visita', other: 'Outro' };
+        let eventTypeLabels = {};
+        function loadEventTypeLabels() {
+            eventTypeLabels = JSON.parse(localStorage.getItem('vends_event_type_labels') || '{}');
+            Object.keys(eventTypeDefaultLabels).forEach(k => {
+                eventTypeMeta[k].label = eventTypeLabels[k] || eventTypeDefaultLabels[k];
+            });
+        }
+        function saveEventTypeLabels() {
+            localStorage.setItem('vends_event_type_labels', JSON.stringify(eventTypeLabels));
+        }
         function getEventTypeMeta(ev) {
             if (ev.isBirthday) return eventTypeMeta.birthday;
             return eventTypeMeta[ev.type] || eventTypeMeta.other;
+        }
+        function openEventTypeLabelsModal() {
+            document.getElementById('eventTypeLabelsModal').classList.remove('hidden');
+            renderEventTypeLabelsModal();
+        }
+        function closeEventTypeLabelsModal() {
+            document.getElementById('eventTypeLabelsModal').classList.add('hidden');
+        }
+        function renderEventTypeLabelsModal() {
+            const box = document.getElementById('eventTypeLabelsBody');
+            box.innerHTML = Object.keys(eventTypeDefaultLabels).map(k => `
+                <div class="flex items-center gap-3">
+                    <span class="text-xs text-gray-500 w-24 shrink-0">${eventTypeDefaultLabels[k]} <span class="text-gray-700">(padrão)</span></span>
+                    <input type="text" value="${eventTypeMeta[k].label}"
+                        placeholder="${eventTypeDefaultLabels[k]}"
+                        oninput="eventTypeLabels['${k}']=this.value.trim()||'${eventTypeDefaultLabels[k]}'; eventTypeMeta['${k}'].label=eventTypeLabels['${k}']; saveEventTypeLabels(); renderCalFilterBar();"
+                        class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan transition-colors">
+                    <button onclick="eventTypeLabels['${k}']=''; eventTypeMeta['${k}'].label='${eventTypeDefaultLabels[k]}'; saveEventTypeLabels(); renderEventTypeLabelsModal(); renderCalFilterBar();"
+                        class="text-gray-600 hover:text-red-400 transition-colors p-1" title="Restaurar padrão"><i class="ph ph-arrow-counter-clockwise"></i></button>
+                </div>`).join('');
         }
 
         function calEventPassesFilter(e) {
@@ -5201,22 +5249,23 @@
         }
         function renderCalFilterBar() {
             const types = [
-                { key: 'meeting', label: 'Reunião',    color: '#5b8fa8' },
-                { key: 'call',    label: 'Ligação',    color: '#facc15' },
-                { key: 'visit',   label: 'Visita',     color: '#a855f7' },
-                { key: 'other',   label: 'Outro',      color: '#9ca3af' },
-                { key: 'birthday',label: 'Aniversário',color: '#ec4899' },
+                { key: 'meeting',  color: '#5b8fa8' },
+                { key: 'call',     color: '#facc15' },
+                { key: 'visit',    color: '#a855f7' },
+                { key: 'other',    color: '#9ca3af' },
+                { key: 'birthday', color: '#ec4899' },
             ];
             const bar = document.getElementById('calTypeFilterBar');
             if (!bar) return;
             bar.innerHTML = types.map(t => {
                 const active = calFilterType === t.key;
+                const label = eventTypeMeta[t.key] ? eventTypeMeta[t.key].label : t.key;
                 return `<button onclick="setCalFilterType('${t.key}')"
                     class="px-3 py-1 rounded-full text-[11px] font-bold border transition-colors"
                     style="${active
                         ? `background:${t.color}22;color:${t.color};border-color:${t.color}55`
                         : 'background:transparent;color:#6b7280;border-color:#1f1f1f'}"
-                >${t.label}</button>`;
+                >${label}</button>`;
             }).join('');
         }
         function fillCalContactFilter() {
@@ -6838,7 +6887,8 @@
                 tags: JSON.parse(localStorage.getItem('sant_crm_tags') || '[]'),
                 notes: JSON.parse(localStorage.getItem('sant_crm_notes') || '[]'),
                 notifications: JSON.parse(localStorage.getItem('vends_notifications') || '[]'),
-                messageTemplates: JSON.parse(localStorage.getItem('sant_crm_message_templates') || '[]')
+                messageTemplates: JSON.parse(localStorage.getItem('sant_crm_message_templates') || '[]'),
+                eventTypeLabels: JSON.parse(localStorage.getItem('vends_event_type_labels') || '{}')
             };
             const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
