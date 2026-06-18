@@ -1770,12 +1770,29 @@
                     <button onclick="closeHistoryModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
                 </div>
             </div>
-            <div class="px-4 pt-3 pb-1 border-b border-sant-border bg-[#0a0a0a] shrink-0">
-                <div class="flex items-center gap-2 mb-3">
+            <div class="px-4 pt-3 pb-3 border-b border-sant-border bg-[#0a0a0a] shrink-0 space-y-3">
+                <div class="flex items-center gap-2">
                     <i class="ph ph-bell-ringing text-sant-cyan"></i>
                     <label class="text-xs font-bold text-gray-500 uppercase tracking-wider shrink-0">Próximo contato em</label>
                     <input type="date" id="historyNextContact" onchange="setNextContact(this.value)" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-1.5 text-sm text-white outline-none">
                     <button id="historyNextContactClear" onclick="setNextContact('')" title="Remover lembrete" class="hidden text-gray-500 hover:text-red-500 transition-colors p-1"><i class="ph ph-x-circle"></i></button>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <i class="ph ph-arrows-clockwise text-sant-cyan shrink-0"></i>
+                    <label class="text-xs font-bold text-gray-500 uppercase tracking-wider shrink-0">Frequência ideal</label>
+                    <input type="number" id="historyFrequencyDays" min="0" max="365" placeholder="—"
+                        onchange="setContactFrequency(this.value)"
+                        class="w-16 bg-[#141414] border border-sant-border rounded-lg px-2 py-1.5 text-sm text-white outline-none text-center focus:border-sant-cyan transition-colors">
+                    <span class="text-xs text-gray-600">dias</span>
+                    <div class="flex gap-1 ml-1">
+                        <button onclick="setContactFrequency(7)"  class="px-2 py-1 rounded text-[10px] font-bold bg-[#141414] border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors">7d</button>
+                        <button onclick="setContactFrequency(15)" class="px-2 py-1 rounded text-[10px] font-bold bg-[#141414] border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors">15d</button>
+                        <button onclick="setContactFrequency(30)" class="px-2 py-1 rounded text-[10px] font-bold bg-[#141414] border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors">30d</button>
+                        <button onclick="setContactFrequency(60)" class="px-2 py-1 rounded text-[10px] font-bold bg-[#141414] border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors">60d</button>
+                        <button onclick="setContactFrequency(90)" class="px-2 py-1 rounded text-[10px] font-bold bg-[#141414] border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors">90d</button>
+                        <button onclick="setContactFrequency(0)" title="Desativar" class="px-2 py-1 rounded text-[10px] font-bold bg-[#141414] border border-sant-border hover:border-red-500/40 text-gray-600 hover:text-red-400 transition-colors"><i class="ph ph-x"></i></button>
+                    </div>
+                    <span id="historyFrequencyStatus" class="text-[10px] font-semibold ml-1"></span>
                 </div>
             </div>
             <div class="p-4 border-b border-sant-border bg-[#0a0a0a] shrink-0">
@@ -2343,7 +2360,7 @@
                 });
 
                 // Verifica aniversários uma vez por hora (quando minuto === 0)
-                if (parseInt(mStr) === 0) { checkBirthdayReminders(); checkFollowupReminders(); checkNoteReminders(); }
+                if (parseInt(mStr) === 0) { checkBirthdayReminders(); checkFollowupReminders(); checkNoteReminders(); checkFrequencyReminders(); }
 
             }, 60000);
 
@@ -2351,6 +2368,7 @@
             checkBirthdayReminders();
             checkFollowupReminders();
             checkNoteReminders();
+            checkFrequencyReminders();
         }
 
         // ── CENTRAL DE NOTIFICAÇÕES ────────────────────────────────────────────
@@ -4122,6 +4140,7 @@
                 else leadTag = `<span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#fbbf24]/20 text-[#fbbf24] border border-[#fbbf24]/30" title="Lead Morno">☀️${mode==='grid'?' Morno':''}</span>`;
             }
             const inact = inactivityBadgeHtml(c);
+            const freqBadge = frequencyBadgeHtml(c);
             const histCount = c.interactions && c.interactions.length > 0
                 ? `<span class="absolute -top-1 -right-1 w-4 h-4 bg-sant-cyan text-sant-bg text-[9px] font-bold rounded-full flex items-center justify-center">${c.interactions.length > 9 ? '9+' : c.interactions.length}</span>` : '';
             const lastInteractionDate = (c.interactions && c.interactions.length > 0)
@@ -4179,7 +4198,7 @@
                         <div class="min-w-0 flex items-center gap-1.5">
                             <h3 class="font-bold text-white text-xs truncate" title="${fullName(c)}">${fullName(c)}</h3>
                             ${c.code?`<span class="text-gray-500 font-mono text-[9px] shrink-0">#${c.code}</span>`:''}
-                            ${leadTag} ${scoreBadge} ${inact}
+                            ${leadTag} ${scoreBadge} ${inact} ${freqBadge}
                         </div>
                         <div class="text-xs text-sant-cyan truncate hidden md:block">${dispJob||'-'}</div>
                         <div class="text-xs text-gray-400 truncate hidden md:block">${dispPhone||'-'}</div>
@@ -4457,6 +4476,7 @@
                 links: existing ? (existing.links || []) : [],
                 quickNotes: existing ? (existing.quickNotes || []) : [],
                 nextContact: existing ? (existing.nextContact || '') : '',
+                contactFrequencyDays: existing ? (existing.contactFrequencyDays || 0) : 0,
                 changeLog: existing ? (existing.changeLog || []) : [],
                 createdAt: existing ? (existing.createdAt || new Date().toISOString()) : new Date().toISOString(),
                 code: existing ? existing.code : getNextContactCode()
@@ -7766,6 +7786,16 @@
 
             document.getElementById('historyNextContact').value = c.nextContact || '';
             document.getElementById('historyNextContactClear').classList.toggle('hidden', !c.nextContact);
+            const freqInput = document.getElementById('historyFrequencyDays');
+            if (freqInput) freqInput.value = c.contactFrequencyDays || '';
+            const s = getFrequencyStatus(c);
+            const statusEl = document.getElementById('historyFrequencyStatus');
+            if (statusEl) {
+                if (!s) { statusEl.textContent = ''; statusEl.style.color = ''; }
+                else if (s.isOverdue) { statusEl.textContent = `⚠️ Vencido há ${Math.abs(s.diffDays)}d`; statusEl.style.color = '#f87171'; }
+                else if (s.isWarning) { statusEl.textContent = `⏰ Em ${s.diffDays}d`; statusEl.style.color = '#fbbf24'; }
+                else { statusEl.textContent = `✓ Em dia (${s.diffDays}d)`; statusEl.style.color = '#4ade80'; }
+            }
             document.getElementById('interactionDate').value = getSPTodayStr();
             document.getElementById('interactionNotes').value = '';
 
@@ -8128,6 +8158,71 @@
         function closeHistoryModal() {
             document.getElementById('historyModal').classList.add('hidden');
             currentHistoryContactId = null;
+        }
+
+        function getFrequencyStatus(c) {
+            const freq = parseInt(c.contactFrequencyDays) || 0;
+            if (!freq) return null;
+            const ints = (c.interactions || []).filter(i => i.date).sort((a,b) => b.date.localeCompare(a.date));
+            const lastDate = ints.length > 0 ? ints[0].date : (c.createdAt ? c.createdAt.substring(0,10) : null);
+            if (!lastDate) return null;
+            const ideal = new Date(lastDate + 'T00:00:00');
+            ideal.setDate(ideal.getDate() + freq);
+            const idealStr = ideal.toISOString().substring(0,10);
+            const todayStr = getSPTodayStr();
+            const diffDays = Math.round((new Date(idealStr) - new Date(todayStr)) / 86400000);
+            return { freq, lastDate, idealStr, diffDays,
+                isOverdue: diffDays < 0,
+                isWarning: diffDays >= 0 && diffDays <= 3,
+                isOk: diffDays > 3 };
+        }
+
+        function frequencyBadgeHtml(c) {
+            const s = getFrequencyStatus(c);
+            if (!s || s.isOk) return '';
+            if (s.isOverdue) {
+                const d = Math.abs(s.diffDays);
+                return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-500/15 text-red-400 border border-red-500/25" title="Frequência: a cada ${s.freq}d — vencido há ${d}d"><i class="ph ph-arrows-clockwise"></i> Venc. ${d}d</span>`;
+            }
+            return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/25" title="Frequência: a cada ${s.freq}d — ideal em ${s.diffDays}d"><i class="ph ph-arrows-clockwise"></i> Em ${s.diffDays}d</span>`;
+        }
+
+        function setContactFrequency(days) {
+            if (!currentHistoryContactId) return;
+            const c = contacts.find(x => x.id === currentHistoryContactId);
+            if (!c) return;
+            const val = parseInt(days) || 0;
+            c.contactFrequencyDays = val;
+            saveToStorage();
+            document.getElementById('historyFrequencyDays').value = val || '';
+            const s = getFrequencyStatus(c);
+            const statusEl = document.getElementById('historyFrequencyStatus');
+            if (!s) { statusEl.textContent = ''; statusEl.style.color = ''; return; }
+            if (s.isOverdue) {
+                statusEl.textContent = `⚠️ Vencido há ${Math.abs(s.diffDays)} dia(s)`;
+                statusEl.style.color = '#f87171';
+            } else if (s.isWarning) {
+                statusEl.textContent = `⏰ Ideal em ${s.diffDays} dia(s)`;
+                statusEl.style.color = '#fbbf24';
+            } else {
+                statusEl.textContent = `✓ Em dia — ideal em ${s.diffDays} dia(s)`;
+                statusEl.style.color = '#4ade80';
+            }
+            showToast(val ? `Frequência definida: a cada ${val} dias.` : 'Frequência removida.');
+        }
+
+        function checkFrequencyReminders() {
+            const todayStr = getSPTodayStr();
+            contacts.forEach(c => {
+                const s = getFrequencyStatus(c);
+                if (!s || !s.isOverdue) return;
+                const notifKey = `vends_freq_notified_${c.id}_${todayStr}`;
+                if (localStorage.getItem(notifKey)) return;
+                const d = Math.abs(s.diffDays);
+                addNotification('followup', `Frequência vencida: ${fullName(c)}`,
+                    `🔁 ${fullName(c)} deveria ser contatado a cada ${s.freq} dia(s). Último contato: ${s.lastDate.split('-').reverse().join('/')} (há ${d + s.freq} dias).`);
+                localStorage.setItem(notifKey, '1');
+            });
         }
 
         function setNextContact(value) {
