@@ -877,6 +877,11 @@
                             </button>
                             <div id="noteTemplateMenu" class="hidden absolute right-0 mt-1 w-56 bg-sant-surface border border-sant-border rounded-lg shadow-2xl z-20 overflow-hidden"></div>
                         </div>
+                        <!-- Toggle Cards / Kanban -->
+                        <div class="flex bg-sant-surface border border-sant-border rounded-lg overflow-hidden shrink-0">
+                            <button id="btnNotesCards" onclick="setNotesViewMode('cards')" class="px-3 py-2 text-xs font-medium text-sant-cyan bg-sant-cyan/10 transition-colors flex items-center gap-1"><i class="ph ph-cards"></i> Cards</button>
+                            <button id="btnNotesKanban" onclick="setNotesViewMode('kanban')" class="px-3 py-2 text-xs font-medium text-gray-400 hover:text-white transition-colors flex items-center gap-1"><i class="ph ph-kanban"></i> Kanban</button>
+                        </div>
                         <button id="btnNotesArchive" onclick="toggleNotesArchive()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-white transition-colors">
                             <i class="ph ph-archive"></i> Arquivo
                         </button>
@@ -925,6 +930,24 @@
                         <div class="flex items-center gap-2">
                             <button onclick="event.stopPropagation(); collapseNewNote()" class="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Fechar</button>
                             <button onclick="event.stopPropagation(); saveNewNote()" class="px-4 py-2 text-sm bg-sant-cyan hover:bg-cyan-400 text-sant-bg rounded-lg font-bold transition-colors">Salvar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Kanban de Notas -->
+                <div id="notesKanbanView" class="hidden pb-10">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div id="noteKanbanCol-inbox" ondragover="event.preventDefault(); this.classList.add('ring-1','ring-sant-cyan/40')" ondragleave="this.classList.remove('ring-1','ring-sant-cyan/40')" ondrop="onNoteKanbanDrop(event,'inbox')" class="bg-sant-surface border border-sant-border rounded-xl p-3 min-h-[300px] transition-all">
+                            <p class="text-[10px] font-bold uppercase tracking-wider mb-3 flex items-center gap-2 text-sant-cyan"><i class="ph ph-tray"></i> Entrada <span id="noteKanbanCount-inbox" class="ml-auto bg-sant-cyan/20 text-sant-cyan px-2 py-0.5 rounded-full text-[9px]">0</span></p>
+                            <div id="noteKanbanCards-inbox" class="space-y-2"></div>
+                        </div>
+                        <div id="noteKanbanCol-doing" ondragover="event.preventDefault(); this.classList.add('ring-1','ring-amber-400/40')" ondragleave="this.classList.remove('ring-1','ring-amber-400/40')" ondrop="onNoteKanbanDrop(event,'doing')" class="bg-sant-surface border border-sant-border rounded-xl p-3 min-h-[300px] transition-all">
+                            <p class="text-[10px] font-bold uppercase tracking-wider mb-3 flex items-center gap-2" style="color:#fbbf24"><i class="ph ph-spinner-gap"></i> Em andamento <span id="noteKanbanCount-doing" class="ml-auto px-2 py-0.5 rounded-full text-[9px]" style="background:#fbbf2420;color:#fbbf24">0</span></p>
+                            <div id="noteKanbanCards-doing" class="space-y-2"></div>
+                        </div>
+                        <div id="noteKanbanCol-done" ondragover="event.preventDefault(); this.classList.add('ring-1','ring-green-400/40')" ondragleave="this.classList.remove('ring-1','ring-green-400/40')" ondrop="onNoteKanbanDrop(event,'done')" class="bg-sant-surface border border-sant-border rounded-xl p-3 min-h-[300px] transition-all">
+                            <p class="text-[10px] font-bold uppercase tracking-wider mb-3 flex items-center gap-2 text-green-400"><i class="ph ph-check-circle"></i> Concluído <span id="noteKanbanCount-done" class="ml-auto bg-green-400/20 text-green-400 px-2 py-0.5 rounded-full text-[9px]">0</span></p>
+                            <div id="noteKanbanCards-done" class="space-y-2"></div>
                         </div>
                     </div>
                 </div>
@@ -1941,6 +1964,8 @@
         let editNoteTagsTemp = {};
         let notesActiveTagFilter = '';
         let notesShowArchived = false;
+        let notesViewMode = 'cards';
+        let noteKanbanDragId = null;
         let currentNotesSort = 'newest';
         let currentViewMode = localStorage.getItem('sant_crm_view_mode') || 'grid';
         let currentDensity = localStorage.getItem('sant_crm_density') || 'comfortable';
@@ -3699,6 +3724,7 @@
         }
 
         function renderNotes() {
+            if (notesViewMode === 'kanban') { renderNotesKanban(); return; }
             renderNoteTagFilterBar();
             const term = (document.getElementById('notesSearchInput')?.value || '').toLowerCase();
             // Oculta caixa de nova nota no modo arquivo
@@ -3765,6 +3791,98 @@
         }
 
         function setNotesSort(val) { currentNotesSort = val; renderNotes(); }
+
+        function setNotesViewMode(mode) {
+            notesViewMode = mode;
+            const kanban = document.getElementById('notesKanbanView');
+            const pinned = document.getElementById('pinnedNotesSection');
+            const otherLabel = document.getElementById('otherNotesLabel');
+            const grid = document.getElementById('notesGrid');
+            const newBox = document.getElementById('newNoteBox');
+            const btnCards  = document.getElementById('btnNotesCards');
+            const btnKanban = document.getElementById('btnNotesKanban');
+            const isKanban = mode === 'kanban';
+
+            kanban.classList.toggle('hidden', !isKanban);
+            if (pinned)     pinned.classList.toggle('hidden', isKanban);
+            if (otherLabel) otherLabel.classList.toggle('hidden', isKanban);
+            if (grid)       grid.classList.toggle('hidden', isKanban);
+            if (newBox)     newBox.classList.toggle('hidden', isKanban);
+
+            btnCards.className  = !isKanban
+                ? 'px-3 py-2 text-xs font-medium text-sant-cyan bg-sant-cyan/10 transition-colors flex items-center gap-1'
+                : 'px-3 py-2 text-xs font-medium text-gray-400 hover:text-white transition-colors flex items-center gap-1';
+            btnKanban.className = isKanban
+                ? 'px-3 py-2 text-xs font-medium text-sant-cyan bg-sant-cyan/10 transition-colors flex items-center gap-1'
+                : 'px-3 py-2 text-xs font-medium text-gray-400 hover:text-white transition-colors flex items-center gap-1';
+
+            if (isKanban) renderNotesKanban();
+            else renderNotes();
+        }
+
+        function renderNotesKanban() {
+            const term = (document.getElementById('notesSearchInput')?.value || '').toLowerCase();
+            let filtered = notes.filter(n => !n.archived);
+            if (term) filtered = filtered.filter(n =>
+                (n.title||'').toLowerCase().includes(term) || (n.body||'').toLowerCase().includes(term));
+            if (notesActiveTagFilter) filtered = filtered.filter(n => n.tags && n.tags.includes(notesActiveTagFilter));
+
+            const cols = ['inbox','doing','done'];
+            cols.forEach(col => {
+                const colNotes = filtered.filter(n => (n.kanbanColumn || 'inbox') === col);
+                const countEl = document.getElementById('noteKanbanCount-' + col);
+                const cardsEl = document.getElementById('noteKanbanCards-' + col);
+                if (countEl) countEl.textContent = colNotes.length;
+                if (!cardsEl) return;
+                if (colNotes.length === 0) {
+                    cardsEl.innerHTML = `<div class="text-center py-6 text-gray-700 text-xs">Nenhuma nota</div>`;
+                    return;
+                }
+                cardsEl.innerHTML = colNotes.map(n => noteKanbanCardHtml(n)).join('');
+            });
+        }
+
+        function noteKanbanCardHtml(n) {
+            const c = getNoteColor(n.color);
+            const tagPills = (n.tags && n.tags.length > 0)
+                ? `<div class="flex flex-wrap gap-1 mt-1.5">${n.tags.map(t => `<span class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-purple/10 text-sant-purple border border-sant-purple/20">${t}</span>`).join('')}</div>` : '';
+            const colLabel = { inbox: 'Em andamento', doing: 'Concluído', done: 'Entrada' };
+            const colNext  = { inbox: 'doing', doing: 'done', done: 'inbox' };
+            const curCol   = n.kanbanColumn || 'inbox';
+            const snippet  = (n.body || '').slice(0, 120) + ((n.body||'').length > 120 ? '…' : '');
+            return `<div draggable="true"
+                ondragstart="noteKanbanDragId='${n.id}'; event.dataTransfer.effectAllowed='move';"
+                ondragend="document.querySelectorAll('[id^=noteKanbanCol]').forEach(el=>el.classList.remove('ring-1','ring-sant-cyan/40','ring-amber-400/40','ring-green-400/40'))"
+                class="${c.bg} ${c.border} border rounded-xl p-3 cursor-grab active:cursor-grabbing group">
+                <div class="flex items-start justify-between gap-2">
+                    ${n.title ? `<p class="text-sm font-bold text-white leading-snug break-words flex-1">${n.title}</p>` : '<div class="flex-1"></div>'}
+                    <div class="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onclick="event.stopPropagation(); moveNoteToColumn('${n.id}','${colNext[curCol]}')" class="text-gray-400 hover:text-sant-cyan p-0.5 text-xs" title="Mover para ${colLabel[curCol]}"><i class="ph ph-arrow-right"></i></button>
+                        <button onclick="event.stopPropagation(); startEditNote('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-0.5 text-xs" title="Editar"><i class="ph ph-pencil-simple"></i></button>
+                        <button onclick="event.stopPropagation(); deleteNote('${n.id}')" class="text-gray-400 hover:text-red-500 p-0.5 text-xs" title="Excluir"><i class="ph ph-trash"></i></button>
+                    </div>
+                </div>
+                ${snippet ? `<p class="text-xs text-gray-400 mt-1 break-words leading-relaxed">${snippet}</p>` : ''}
+                ${tagPills}
+                <p class="text-[10px] text-gray-600 mt-2">${formatNoteDate(n.updatedAt || n.createdAt)}</p>
+            </div>`;
+        }
+
+        function moveNoteToColumn(id, col) {
+            const n = notes.find(x => x.id === id);
+            if (!n) return;
+            n.kanbanColumn = col;
+            n.updatedAt = new Date().toISOString();
+            saveNotesToStorage();
+            renderNotesKanban();
+        }
+
+        function onNoteKanbanDrop(event, col) {
+            event.preventDefault();
+            document.querySelectorAll('[id^=noteKanbanCol]').forEach(el =>
+                el.classList.remove('ring-1','ring-sant-cyan/40','ring-amber-400/40','ring-green-400/40'));
+            if (noteKanbanDragId) { moveNoteToColumn(noteKanbanDragId, col); noteKanbanDragId = null; }
+        }
 
         function toggleNotesArchive() {
             notesShowArchived = !notesShowArchived;
