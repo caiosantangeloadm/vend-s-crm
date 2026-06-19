@@ -1953,6 +1953,11 @@
                     <input type="date" id="historyNextContact" onchange="setNextContact(this.value)" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-1.5 text-sm text-white outline-none">
                     <button id="historyNextContactClear" onclick="setNextContact('')" title="Remover lembrete" class="hidden text-gray-500 hover:text-red-500 transition-colors p-1"><i class="ph ph-x-circle"></i></button>
                 </div>
+                <!-- Histórico de follow-ups anteriores -->
+                <div id="followUpHistorySection" class="hidden pl-6">
+                    <p class="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-1.5">Histórico de follow-ups</p>
+                    <div id="followUpHistoryList" class="space-y-1"></div>
+                </div>
                 <div class="flex items-center gap-2 flex-wrap">
                     <i class="ph ph-arrows-clockwise text-sant-cyan shrink-0"></i>
                     <label class="text-xs font-bold text-gray-500 uppercase tracking-wider shrink-0">Frequência ideal</label>
@@ -4742,6 +4747,7 @@
                 quickNotes: existing ? (existing.quickNotes || []) : [],
                 nextContact: existing ? (existing.nextContact || '') : '',
                 contactFrequencyDays: existing ? (existing.contactFrequencyDays || 0) : 0,
+                followUpHistory: existing ? (existing.followUpHistory || []) : [],
                 changeLog: existing ? (existing.changeLog || []) : [],
                 createdAt: existing ? (existing.createdAt || new Date().toISOString()) : new Date().toISOString(),
                 code: existing ? existing.code : getNextContactCode()
@@ -8410,6 +8416,7 @@
 
             document.getElementById('historyNextContact').value = c.nextContact || '';
             document.getElementById('historyNextContactClear').classList.toggle('hidden', !c.nextContact);
+            renderFollowUpHistory(c);
             const freqInput = document.getElementById('historyFrequencyDays');
             if (freqInput) freqInput.value = c.contactFrequencyDays || '';
             const s = getFrequencyStatus(c);
@@ -8853,6 +8860,20 @@
             if (!currentHistoryContactId) return;
             const c = contacts.find(x => x.id === currentHistoryContactId);
             if (!c) return;
+
+            // Arquivar nextContact anterior antes de sobrescrever
+            if (c.nextContact) {
+                if (!c.followUpHistory) c.followUpHistory = [];
+                const todayStr = getSPTodayStr();
+                // Detectar resultado: houve interação na data do follow-up ou depois?
+                const hasInteraction = (c.interactions || []).some(i => i.date && i.date >= c.nextContact);
+                c.followUpHistory.unshift({
+                    date: c.nextContact,
+                    result: hasInteraction ? 'contacted' : 'not_contacted',
+                    setAt: new Date().toISOString()
+                });
+            }
+
             c.nextContact = value || '';
             if (!c.nextContact) {
                 const key = `vends_followup_notified_${c.id}_${getSPTodayStr()}`;
@@ -8860,7 +8881,27 @@
             }
             saveToStorage();
             document.getElementById('historyNextContactClear').classList.toggle('hidden', !c.nextContact);
+            renderFollowUpHistory(c);
             showToast(c.nextContact ? 'Lembrete de follow-up definido.' : 'Lembrete removido.');
+        }
+
+        function renderFollowUpHistory(c) {
+            const section = document.getElementById('followUpHistorySection');
+            const list    = document.getElementById('followUpHistoryList');
+            if (!section || !list) return;
+            const hist = (c.followUpHistory || []).slice(0, 10); // mostrar últimos 10
+            if (!hist.length) { section.classList.add('hidden'); return; }
+            section.classList.remove('hidden');
+            list.innerHTML = hist.map(h => {
+                const [y,m,d] = h.date.split('-');
+                const label = `${d}/${m}/${y}`;
+                const ok = h.result === 'contacted';
+                return `<div class="flex items-center gap-2 text-xs">
+                    <i class="ph ${ok ? 'ph-check-circle text-green-400' : 'ph-x-circle text-red-400'} shrink-0"></i>
+                    <span class="text-gray-400">${label}</span>
+                    <span class="${ok ? 'text-green-400' : 'text-red-400'} font-medium">${ok ? 'Contatou' : 'Não contatou'}</span>
+                </div>`;
+            }).join('');
         }
 
         function checkNoteReminders() {
