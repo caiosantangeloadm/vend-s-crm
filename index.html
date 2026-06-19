@@ -395,6 +395,26 @@
                     </div>
                 </div>
 
+                <!-- Card: Metas Semanais -->
+                <div class="bg-sant-surface border border-sant-border rounded-2xl p-6" id="dashGoalsCard">
+                    <div class="flex items-center justify-between mb-5">
+                        <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase flex items-center gap-2"><i class="ph ph-target text-sant-cyan"></i> Metas da Semana</p>
+                        <button onclick="toggleGoalsEdit()" id="dashGoalsEditBtn" class="text-xs text-gray-500 hover:text-sant-cyan transition-colors flex items-center gap-1"><i class="ph ph-pencil-simple"></i> Editar metas</button>
+                    </div>
+                    <div id="dashGoalsList" class="space-y-3"></div>
+                    <!-- Modo edição (oculto por padrão) -->
+                    <div id="dashGoalsEditPanel" class="hidden mt-5 pt-5 border-t border-sant-border">
+                        <p class="text-xs text-gray-500 mb-4">Defina sua meta semanal para cada indicador (0 = desativado):</p>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div><label class="text-xs text-gray-400 mb-1 block">Tarefas concluídas</label><input type="number" id="goalInputTasks" min="0" max="999" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none"></div>
+                            <div><label class="text-xs text-gray-400 mb-1 block">Interações registradas</label><input type="number" id="goalInputInteractions" min="0" max="999" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none"></div>
+                            <div><label class="text-xs text-gray-400 mb-1 block">Follow-ups realizados</label><input type="number" id="goalInputFollowups" min="0" max="999" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none"></div>
+                            <div><label class="text-xs text-gray-400 mb-1 block">Novos contatos</label><input type="number" id="goalInputNewContacts" min="0" max="999" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none"></div>
+                        </div>
+                        <button onclick="saveGoals()" class="mt-4 bg-sant-cyan text-sant-bg px-5 py-2 rounded-lg text-sm font-bold hover:bg-cyan-400 transition-colors">Salvar metas</button>
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 lg:col-span-2">
                         <p class="text-xs font-bold text-white tracking-wide uppercase flex items-center gap-2 mb-6"><i class="ph ph-chart-pie-slice text-sant-cyan text-lg"></i> Distribuição por Categoria</p>
@@ -2779,6 +2799,7 @@
             migrateContactCodes();
             migrateContactOrigins();
             loadEventTypeLabels();
+            loadWeeklyGoals();
         }
 
         // ── Códigos sequenciais de contato ──────────────────────────────────
@@ -3076,6 +3097,96 @@
             barEl.style.backgroundColor = color;
         }
 
+        // ── Metas Semanais ───────────────────────────────────────────────────
+        let weeklyGoals = {};
+        function loadWeeklyGoals() {
+            weeklyGoals = JSON.parse(localStorage.getItem('vends_weekly_goals') || '{"tasks":5,"interactions":10,"followups":3,"newContacts":2}');
+        }
+        function saveGoals() {
+            weeklyGoals.tasks       = parseInt(document.getElementById('goalInputTasks').value)       || 0;
+            weeklyGoals.interactions= parseInt(document.getElementById('goalInputInteractions').value) || 0;
+            weeklyGoals.followups   = parseInt(document.getElementById('goalInputFollowups').value)   || 0;
+            weeklyGoals.newContacts = parseInt(document.getElementById('goalInputNewContacts').value) || 0;
+            localStorage.setItem('vends_weekly_goals', JSON.stringify(weeklyGoals));
+            document.getElementById('dashGoalsEditPanel').classList.add('hidden');
+            document.getElementById('dashGoalsEditBtn').innerHTML = '<i class="ph ph-pencil-simple"></i> Editar metas';
+            renderDashboard();
+            showToast('Metas salvas!');
+        }
+        function toggleGoalsEdit() {
+            const panel = document.getElementById('dashGoalsEditPanel');
+            const btn   = document.getElementById('dashGoalsEditBtn');
+            const hidden = panel.classList.toggle('hidden');
+            btn.innerHTML = hidden
+                ? '<i class="ph ph-pencil-simple"></i> Editar metas'
+                : '<i class="ph ph-x"></i> Cancelar';
+            if (!hidden) {
+                document.getElementById('goalInputTasks').value       = weeklyGoals.tasks       || 0;
+                document.getElementById('goalInputInteractions').value = weeklyGoals.interactions|| 0;
+                document.getElementById('goalInputFollowups').value   = weeklyGoals.followups   || 0;
+                document.getElementById('goalInputNewContacts').value = weeklyGoals.newContacts || 0;
+            }
+        }
+        function renderGoals(todayStr, tasksDone, interactionsDone) {
+            const el = document.getElementById('dashGoalsList');
+            if (!el) return;
+
+            // Semana atual (segunda → hoje)
+            const [ty, tm, td] = todayStr.split('-').map(Number);
+            const today = new Date(ty, tm-1, td);
+            const dow = today.getDay();
+            const diffToMon = dow === 0 ? -6 : 1 - dow;
+            const weekStart = new Date(today);
+            weekStart.setDate(today.getDate() + diffToMon);
+            const weekStartStr = `${weekStart.getFullYear()}-${String(weekStart.getMonth()+1).padStart(2,'0')}-${String(weekStart.getDate()).padStart(2,'0')}`;
+
+            // Follow-ups realizados: nextContact venceu esta semana E tem interação >= nextContact
+            const followupsDone = contacts.filter(c => {
+                if (!c.nextContact || c.nextContact < weekStartStr || c.nextContact > todayStr) return false;
+                return (c.interactions || []).some(i => i.date >= c.nextContact);
+            }).length;
+
+            // Novos contatos adicionados esta semana
+            const newContacts = contacts.filter(c => c.createdAt && c.createdAt.substring(0,10) >= weekStartStr).length;
+
+            const metrics = [
+                { key:'tasks',       label:'Tarefas concluídas',    icon:'ph-check-square', color:'#5b8fa8', actual: tasksDone,        goal: weeklyGoals.tasks        || 0 },
+                { key:'interactions',label:'Interações registradas', icon:'ph-handshake',    color:'#fbbf24', actual: interactionsDone,  goal: weeklyGoals.interactions || 0 },
+                { key:'followups',   label:'Follow-ups realizados',  icon:'ph-arrow-counter-clockwise', color:'#a78bfa', actual: followupsDone, goal: weeklyGoals.followups    || 0 },
+                { key:'newContacts', label:'Novos contatos',         icon:'ph-user-plus',    color:'#34d399', actual: newContacts,       goal: weeklyGoals.newContacts  || 0 },
+            ];
+
+            el.innerHTML = metrics.map(m => {
+                if (!m.goal) return ''; // meta desativada (0)
+                const pct     = Math.min(Math.round((m.actual / m.goal) * 100), 100);
+                const over    = m.actual >= m.goal;
+                const half    = pct >= 50;
+                const barColor= over  ? '#4ade80'
+                              : half  ? '#fbbf24'
+                              :         '#f87171';
+                const badge   = over
+                    ? `<span class="text-[10px] font-bold text-green-400 bg-green-400/10 border border-green-400/20 rounded-full px-2 py-0.5">✓ Meta!</span>`
+                    : `<span class="text-[10px] text-gray-500">${m.actual}/${m.goal}</span>`;
+                return `<div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <div class="flex items-center gap-2">
+                            <i class="ph ${m.icon} text-sm" style="color:${m.color}"></i>
+                            <span class="text-xs text-gray-300">${m.label}</span>
+                        </div>
+                        <div class="flex items-center gap-2">${badge}<span class="text-xs font-bold text-white">${pct}%</span></div>
+                    </div>
+                    <div class="w-full bg-[#1f1f1f] rounded-full h-2">
+                        <div class="h-2 rounded-full transition-all duration-500" style="width:${pct}%;background:${barColor}"></div>
+                    </div>
+                </div>`;
+            }).join('');
+
+            // Se todas as metas estão desativadas
+            if (!el.innerHTML.trim()) {
+                el.innerHTML = `<p class="text-xs text-gray-600 italic text-center py-2">Nenhuma meta definida. Clique em "Editar metas" para começar.</p>`;
+            }
+        }
+
         function renderWeekStats(todayStr) {
             // Início da semana: segunda-feira
             const [ty, tm, td] = todayStr.split('-').map(Number);
@@ -3119,6 +3230,8 @@
             el('dashWeekTasksDone', tasksDone);
             el('dashWeekEventsDone', eventsDone);
             el('dashWeekInteractions', interactions);
+
+            renderGoals(todayStr, tasksDone, interactions);
         }
 
         // ── Saúde da Base ────────────────────────────────────────────────
