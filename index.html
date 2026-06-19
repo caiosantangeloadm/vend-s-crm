@@ -821,6 +821,7 @@
                     <button onclick="switchReportTab('directory')" id="tab-directory" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-address-book"></i> Diretório de Contatos</button>
                     <button onclick="switchReportTab('leads')" id="tab-leads" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-star"></i> Oportunidades</button>
                     <button onclick="switchReportTab('inactivity')" id="tab-inactivity" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-clock-countdown"></i> Inatividade</button>
+                    <button onclick="switchReportTab('geography')" id="tab-geography" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-map-pin"></i> Regiões</button>
                 </div>
 
                 <div id="report-birthdays" class="report-content flex flex-col">
@@ -957,6 +958,28 @@
                     <div id="inactRepSummary" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 shrink-0"></div>
                     <!-- Lista -->
                     <div id="inactRepList" class="space-y-2 pb-10"></div>
+                </div>
+
+                <!-- Relatório de Regiões -->
+                <div id="report-geography" class="report-content hidden flex flex-col">
+                    <!-- Controles -->
+                    <div class="flex flex-wrap items-center justify-between gap-3 mb-6 shrink-0">
+                        <div class="flex items-center gap-2">
+                            <button onclick="setGeoView('city')"  id="geoBtnCity"  class="px-4 py-2 rounded-lg text-sm font-medium bg-sant-purple text-white transition-colors">Por Cidade</button>
+                            <button onclick="setGeoView('state')" id="geoBtnState" class="px-4 py-2 rounded-lg text-sm font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-white transition-colors">Por Estado (UF)</button>
+                        </div>
+                        <button onclick="exportGeoCsv()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors shrink-0">
+                            <i class="ph ph-file-csv"></i> Exportar CSV
+                        </button>
+                    </div>
+                    <!-- Cards de sumário -->
+                    <div id="geoSummary" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 shrink-0"></div>
+                    <!-- Gráfico -->
+                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-5 mb-6 shrink-0" style="height:280px">
+                        <canvas id="geoChart"></canvas>
+                    </div>
+                    <!-- Lista ranqueada -->
+                    <div id="geoList" class="space-y-2 pb-10"></div>
                 </div>
             </div>
 
@@ -7101,6 +7124,7 @@
             if(tabId === 'directory') generateDirectoryReport();
             if(tabId === 'leads') generateLeadsReport();
             if(tabId === 'inactivity') generateInactivityReport();
+            if(tabId === 'geography')  generateGeographyReport();
             if(tabId === 'birthdays') {
                 const startInput = document.getElementById('repBirthStart');
                 const endInput = document.getElementById('repBirthEnd');
@@ -7495,6 +7519,150 @@
                 return [tempLabels[c.temperature] || c.temperature || '', fullName(c), jobStr, phone, email];
             });
         }
+        // ── Relatório de Regiões ─────────────────────────────────────────────
+        let geoView = 'city';
+        let geoChartInstance = null;
+
+        function setGeoView(mode) {
+            geoView = mode;
+            document.getElementById('geoBtnCity') .classList.toggle('bg-sant-purple', mode === 'city');
+            document.getElementById('geoBtnCity') .classList.toggle('text-white',      mode === 'city');
+            document.getElementById('geoBtnCity') .classList.toggle('bg-sant-surface', mode !== 'city');
+            document.getElementById('geoBtnCity') .classList.toggle('border',          mode !== 'city');
+            document.getElementById('geoBtnCity') .classList.toggle('border-sant-border', mode !== 'city');
+            document.getElementById('geoBtnCity') .classList.toggle('text-gray-400',   mode !== 'city');
+            document.getElementById('geoBtnState').classList.toggle('bg-sant-purple', mode === 'state');
+            document.getElementById('geoBtnState').classList.toggle('text-white',      mode === 'state');
+            document.getElementById('geoBtnState').classList.toggle('bg-sant-surface', mode !== 'state');
+            document.getElementById('geoBtnState').classList.toggle('border',          mode !== 'state');
+            document.getElementById('geoBtnState').classList.toggle('border-sant-border', mode !== 'state');
+            document.getElementById('geoBtnState').classList.toggle('text-gray-400',   mode !== 'state');
+            generateGeographyReport();
+        }
+
+        function generateGeographyReport() {
+            const withAddr = contacts.filter(c => c.addressCity || c.addressState);
+            const total    = contacts.length;
+
+            // Agrupa por cidade ou estado
+            const groups = {};
+            withAddr.forEach(c => {
+                const key = geoView === 'city'
+                    ? (c.addressCity || '').trim() || '(sem cidade)'
+                    : (c.addressState || '').trim().toUpperCase() || '(sem UF)';
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(c);
+            });
+
+            const sorted = Object.entries(groups).sort((a,b) => b[1].length - a[1].length);
+            const top10  = sorted.slice(0, 10);
+
+            // Sumário
+            const summaryEl = document.getElementById('geoSummary');
+            if (summaryEl) {
+                const topLabel = sorted[0] ? `${sorted[0][0]} (${sorted[0][1].length})` : '—';
+                summaryEl.innerHTML = `
+                    <div class="bg-sant-surface border border-sant-border rounded-xl p-4 text-center">
+                        <p class="text-3xl font-bold text-white">${total}</p>
+                        <p class="text-xs text-gray-500 mt-1">Total de contatos</p>
+                    </div>
+                    <div class="bg-sant-surface border border-sant-border rounded-xl p-4 text-center">
+                        <p class="text-3xl font-bold text-sant-cyan">${withAddr.length}</p>
+                        <p class="text-xs text-gray-500 mt-1">Com endereço</p>
+                    </div>
+                    <div class="bg-sant-surface border border-sant-border rounded-xl p-4 text-center">
+                        <p class="text-3xl font-bold text-sant-purple">${sorted.length}</p>
+                        <p class="text-xs text-gray-500 mt-1">${geoView === 'city' ? 'Cidades' : 'Estados'}</p>
+                    </div>
+                    <div class="bg-sant-surface border border-sant-border rounded-xl p-4 text-center">
+                        <p class="text-lg font-bold text-[#fbbf24] leading-tight mt-1">${topLabel}</p>
+                        <p class="text-xs text-gray-500 mt-1">Maior concentração</p>
+                    </div>`;
+            }
+
+            // Gráfico de barras horizontal (top 10)
+            const canvas = document.getElementById('geoChart');
+            if (canvas && typeof Chart !== 'undefined') {
+                if (geoChartInstance) geoChartInstance.destroy();
+                const labels = top10.map(([k]) => k);
+                const data   = top10.map(([,v]) => v.length);
+                geoChartInstance = new Chart(canvas, {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [{ label: 'Contatos', data,
+                            backgroundColor: 'rgba(91,143,168,0.35)',
+                            borderColor: '#5b8fa8', borderWidth: 1.5, borderRadius: 4 }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { beginAtZero: true, grid: { color: '#1f1f1f' }, ticks: { color: '#9ca3af', precision: 0 } },
+                            y: { grid: { color: '#1f1f1f' }, ticks: { color: '#e5e7eb', font: { size: 11 } } }
+                        }
+                    }
+                });
+            }
+
+            // Lista ranqueada completa
+            const listEl = document.getElementById('geoList');
+            if (!listEl) return;
+            if (!sorted.length) {
+                listEl.innerHTML = `<div class="text-center py-12 text-gray-500"><i class="ph ph-map-pin text-4xl block mb-3"></i><p>Nenhum contato com endereço cadastrado.</p><p class="text-xs mt-1">Preencha o campo Cidade/Estado nos contatos para ver o mapa de regiões.</p></div>`;
+                return;
+            }
+
+            const maxCount = sorted[0][1].length;
+            listEl.innerHTML = sorted.map(([key, cs], i) => {
+                const pct = Math.round((cs.length / withAddr.length) * 100);
+                const barW = Math.round((cs.length / maxCount) * 100);
+                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `<span class="text-gray-600 font-bold text-sm">${i+1}</span>`;
+                const cats = [...new Set(cs.map(c => c.category).filter(Boolean))].slice(0,3).map(c =>
+                    `<span class="px-1.5 py-0.5 rounded text-[9px] bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20">${c}</span>`
+                ).join('');
+                return `<div class="bg-sant-surface border border-sant-border rounded-xl px-4 py-3 hover:border-sant-cyan/40 transition-colors cursor-pointer"
+                    onclick="switchView('contacts'); clearAdvFilters(); activeFilters.${geoView === 'city' ? 'city' : 'state'}='${key.replace(/'/g,"\\'")}'; applyAdvFilters();">
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-8 text-center shrink-0">${medal}</div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <p class="text-sm font-semibold text-white">${key}</p>
+                                ${cats}
+                            </div>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <span class="text-lg font-bold text-sant-cyan">${cs.length}</span>
+                            <span class="text-xs text-gray-500 ml-1">${pct}%</span>
+                        </div>
+                    </div>
+                    <div class="ml-11 w-full bg-[#1f1f1f] rounded-full h-1.5">
+                        <div class="h-1.5 rounded-full bg-sant-cyan/60 transition-all" style="width:${barW}%"></div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function exportGeoCsv() {
+            const withAddr = contacts.filter(c => c.addressCity || c.addressState);
+            if (!withAddr.length) { showToast('Nenhum contato com endereço para exportar.', 'error'); return; }
+            const headers = ['#','Nome','Empresa','Categoria','Cidade','Estado','CEP','Telefone','E-mail'];
+            const rows = withAddr
+                .sort((a,b) => (a.addressState||'').localeCompare(b.addressState||'','pt-BR') || (a.addressCity||'').localeCompare(b.addressCity||'','pt-BR'))
+                .map(c => [c.code||'', fullName(c), c.company||'', c.category||'',
+                    c.addressCity||'', c.addressState||'', c.addressZip||'',
+                    c.phoneProf||c.phonePess||'', c.emailProf||c.emailPess||'']);
+            const csv = [headers,...rows].map(r => r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+            const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `vends_regioes_${getSPTodayStr()}.csv`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+            showToast(`${withAddr.length} contatos exportados!`);
+        }
+
         function generateInactivityReport() {
             const days    = parseInt(document.getElementById('inactRepDays')?.value || '60');
             const catFilt = document.getElementById('inactRepCategory')?.value || '';
