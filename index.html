@@ -4909,7 +4909,9 @@
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
             a.download = `vends_agenda_${getSPTodayStr()}.ics`;
+            document.body.appendChild(a);
             a.click();
+            document.body.removeChild(a);
             URL.revokeObjectURL(a.href);
             showToast(`${events.length} evento(s) exportados! Importe no Google Calendar ou Outlook.`);
         }
