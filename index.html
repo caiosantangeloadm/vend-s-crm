@@ -1096,9 +1096,7 @@
                                     <div class="flex-1"><label class="text-xs text-gray-500 mb-1 block">Início</label><input id="s-blk-start" type="time" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none"></div>
                                     <div class="flex-1"><label class="text-xs text-gray-500 mb-1 block">Fim</label><input id="s-blk-end" type="time" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none"></div>
                                 </div>
-                                <div class="flex gap-1" id="s-blk-days">
-                                    ${['D','S','T','Q','Q','S','S'].map((d,i) => `<button type="button" data-day="${i}" onclick="toggleSBlkDay(${i})" class="sBlkDayBtn flex-1 py-1.5 rounded text-xs font-bold border border-sant-border text-gray-400 hover:border-sant-cyan/40 transition-colors">${d}</button>`).join('')}
-                                </div>
+                                <div class="flex gap-1" id="s-blk-days"></div>
                                 <button onclick="addSettingsBlock()" class="bg-sant-cyan text-sant-bg py-2 rounded-lg text-sm font-bold hover:bg-cyan-400 transition-colors">Adicionar Bloqueio</button>
                             </div>
                         </div>
@@ -7547,6 +7545,13 @@
 
         // — Bloqueios —
         function renderSBlocks() {
+            // Renderiza botões de dias da semana
+            const daysEl = document.getElementById('s-blk-days');
+            if (daysEl && !daysEl.children.length) {
+                daysEl.innerHTML = ['D','S','T','Q','Q','S','S'].map((d,i) =>
+                    `<button type="button" data-day="${i}" onclick="toggleSBlkDay(${i})" class="sBlkDayBtn flex-1 py-1.5 rounded text-xs font-bold border border-sant-border text-gray-400 hover:border-sant-cyan/40 transition-colors">${d}</button>`
+                ).join('');
+            }
             const el = document.getElementById('s-blk-list');
             if (!el) return;
             if (!scheduleBlocks.length) { el.innerHTML = '<p class="text-xs text-gray-600 italic">Nenhum bloqueio cadastrado.</p>'; return; }
