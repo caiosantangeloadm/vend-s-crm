@@ -4810,110 +4810,82 @@
         }
 
         function exportCalendarIcs() {
-            if (events.length === 0) { showToast('Nenhum evento para exportar.', 'error'); return; }
+            try {
+                if (events.length === 0) { showToast('Nenhum evento para exportar.', 'error'); return; }
 
-            function icsEscape(s) {
-                return (s || '').replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
-            }
-            function icsDate(dateStr, timeStr) {
-                // dateStr: YYYY-MM-DD, timeStr: HH:MM or empty
-                const d = dateStr.replace(/-/g, '');
-                if (!timeStr) return `${d}`;           // all-day: DATE value
-                const t = timeStr.replace(':', '') + '00';
-                return `${d}T${t}`;
-            }
-            function icsEndDate(e) {
-                // For all-day events iCal end is exclusive (next day)
-                if (!e.startTime) {
-                    const end = e.endDate || e.startDate;
-                    const d = new Date(end + 'T00:00:00');
-                    d.setDate(d.getDate() + 1);
-                    return d.toISOString().substring(0,10).replace(/-/g,'');
-                }
-                if (e.endTime && e.endDate) return icsDate(e.endDate, e.endTime);
-                if (e.endTime) return icsDate(e.startDate, e.endTime);
-                // fallback: start + 1 hour
-                const [h, m] = (e.startTime).split(':').map(Number);
-                const end = new Date(e.startDate + 'T' + e.startTime + ':00');
-                end.setHours(end.getHours() + 1);
-                const pad = n => String(n).padStart(2,'0');
-                return `${e.startDate.replace(/-/g,'')}T${pad(end.getHours())}${pad(end.getMinutes())}00`;
-            }
+                const icsEscape = s => (s || '').replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
+                const toYMD    = s => (s || '').replace(/-/g,'');
+                const toHMS    = s => (s || '00:00').replace(':','') + '00';
 
-            const stamp = new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d+/,'') + 'Z';
+                const stamp = new Date().toISOString().replace(/[-:.Z]/g,'').substring(0,15) + 'Z';
 
-            const vevents = events.map(e => {
-                const allDay = !e.startTime;
-                const dtstart = allDay
-                    ? `DTSTART;VALUE=DATE:${icsDate(e.startDate, '')}`
-                    : `DTSTART:${icsDate(e.startDate, e.startTime)}`;
-                const dtend = allDay
-                    ? `DTEND;VALUE=DATE:${icsEndDate(e)}`
-                    : `DTEND:${icsEndDate(e)}`;
+                const vevents = events.filter(e => e.startDate).map(e => {
+                    const allDay = !e.startTime;
+                    const dtstart = allDay
+                        ? `DTSTART;VALUE=DATE:${toYMD(e.startDate)}`
+                        : `DTSTART:${toYMD(e.startDate)}T${toHMS(e.startTime)}`;
 
-                // Recurrence rule
-                let rrule = '';
-                if (e.recurrence && e.recurrence !== 'none') {
-                    const freqMap = { daily:'DAILY', weekly:'WEEKLY', monthly:'MONTHLY', yearly:'YEARLY' };
-                    const freq = freqMap[e.recurrence] || 'DAILY';
-                    const interval = (e.recurrenceInterval || 1) > 1 ? `;INTERVAL=${e.recurrenceInterval}` : '';
-                    let byDay = '';
-                    if (e.recurrence === 'weekly' && e.recurrenceWeekdays && e.recurrenceWeekdays.length) {
-                        const dayMap = ['SU','MO','TU','WE','TH','FR','SA'];
-                        byDay = `;BYDAY=${e.recurrenceWeekdays.map(d => dayMap[d]).join(',')}`;
+                    let dtend;
+                    if (allDay) {
+                        const d = new Date((e.endDate || e.startDate) + 'T00:00:00');
+                        d.setDate(d.getDate() + 1);
+                        dtend = `DTEND;VALUE=DATE:${d.toISOString().substring(0,10).replace(/-/g,'')}`;
+                    } else if (e.endTime) {
+                        dtend = `DTEND:${toYMD(e.endDate || e.startDate)}T${toHMS(e.endTime)}`;
+                    } else {
+                        const d = new Date(e.startDate + 'T' + e.startTime + ':00');
+                        d.setHours(d.getHours() + 1);
+                        const pad = n => String(n).padStart(2,'0');
+                        dtend = `DTEND:${toYMD(e.startDate)}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
                     }
-                    const until = e.recurrenceEndType === 'date' && e.recurrenceEndDate
-                        ? `;UNTIL=${e.recurrenceEndDate.replace(/-/g,'')}T235959Z` : '';
-                    rrule = `\r\nRRULE:FREQ=${freq}${interval}${byDay}${until}`;
-                }
 
-                // Excluded dates
-                let exdates = '';
-                if (e.excludedDates && e.excludedDates.length) {
-                    exdates = '\r\n' + e.excludedDates.map(d =>
-                        allDay ? `EXDATE;VALUE=DATE:${d.replace(/-/g,'')}` : `EXDATE:${d.replace(/-/g,'')}T${(e.startTime||'00:00').replace(':','')}00`
-                    ).join('\r\n');
-                }
+                    let rrule = '';
+                    if (e.recurrence && e.recurrence !== 'none') {
+                        const freq = { daily:'DAILY', weekly:'WEEKLY', monthly:'MONTHLY', yearly:'YEARLY' }[e.recurrence] || 'DAILY';
+                        const intv = (e.recurrenceInterval || 1) > 1 ? `;INTERVAL=${e.recurrenceInterval}` : '';
+                        const days = (e.recurrence === 'weekly' && e.recurrenceWeekdays && e.recurrenceWeekdays.length)
+                            ? `;BYDAY=${e.recurrenceWeekdays.map(d => ['SU','MO','TU','WE','TH','FR','SA'][d]).join(',')}` : '';
+                        const until = (e.recurrenceEndType === 'date' && e.recurrenceEndDate)
+                            ? `;UNTIL=${toYMD(e.recurrenceEndDate)}T235959Z` : '';
+                        rrule = `RRULE:FREQ=${freq}${intv}${days}${until}`;
+                    }
 
-                const linked = e.contactId ? contacts.find(c => c.id === e.contactId) : null;
-                const desc = [e.desc, linked ? `Contato: ${fullName(linked)}` : ''].filter(Boolean).join(' | ');
+                    const exdates = (e.excludedDates || []).map(d =>
+                        allDay ? `EXDATE;VALUE=DATE:${toYMD(d)}` : `EXDATE:${toYMD(d)}T${toHMS(e.startTime)}`
+                    );
 
-                return [
-                    'BEGIN:VEVENT',
-                    `UID:${e.id}@vends-crm`,
-                    `DTSTAMP:${stamp}`,
-                    dtstart,
-                    dtend,
-                    `SUMMARY:${icsEscape(e.title)}`,
-                    e.location ? `LOCATION:${icsEscape(e.location)}` : '',
-                    desc ? `DESCRIPTION:${icsEscape(desc)}` : '',
-                    rrule ? rrule.trim() : '',
-                    exdates ? exdates.trim() : '',
-                    'END:VEVENT'
-                ].filter(Boolean).join('\r\n');
-            }).join('\r\n');
+                    const linked = e.contactId ? contacts.find(c => c.id === e.contactId) : null;
+                    const desc = [e.desc, linked ? `Contato: ${fullName(linked)}` : ''].filter(Boolean).join(' | ');
 
-            const ics = [
-                'BEGIN:VCALENDAR',
-                'VERSION:2.0',
-                'PRODID:-//Vend-s Inteligência CRM//PT',
-                'CALSCALE:GREGORIAN',
-                'METHOD:PUBLISH',
-                'X-WR-CALNAME:Vend-s CRM',
-                'X-WR-TIMEZONE:America/Sao_Paulo',
-                vevents,
-                'END:VCALENDAR'
-            ].join('\r\n');
+                    return [
+                        'BEGIN:VEVENT',
+                        `UID:${e.id || crypto.randomUUID()}@vends-crm`,
+                        `DTSTAMP:${stamp}`,
+                        dtstart, dtend,
+                        `SUMMARY:${icsEscape(e.title || 'Sem título')}`,
+                        e.location ? `LOCATION:${icsEscape(e.location)}` : null,
+                        desc       ? `DESCRIPTION:${icsEscape(desc)}` : null,
+                        rrule      ? rrule : null,
+                        ...exdates,
+                        'END:VEVENT'
+                    ].filter(x => x !== null).join('\r\n');
+                }).join('\r\n');
 
-            const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `vends_agenda_${getSPTodayStr()}.ics`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(a.href);
-            showToast(`${events.length} evento(s) exportados! Importe no Google Calendar ou Outlook.`);
+                const ics = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Vend-s CRM//PT\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\nX-WR-CALNAME:Vend-s CRM\r\n' + vevents + '\r\nEND:VCALENDAR';
+
+                const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+                const url  = URL.createObjectURL(blob);
+                const a    = document.createElement('a');
+                a.href     = url;
+                a.download = `vends_agenda_${getSPTodayStr()}.ics`;
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 300);
+                showToast(`${events.length} evento(s) exportados! Importe no Google Calendar ou Outlook.`);
+            } catch(err) {
+                showToast('Erro ao exportar agenda: ' + err.message, 'error');
+            }
         }
 
         function exportAllContactsVcf() {
