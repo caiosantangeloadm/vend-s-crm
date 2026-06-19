@@ -202,26 +202,11 @@
                 <i class="ph ph-chart-bar text-2xl"></i>
             </button>
             
-            <div class="mt-auto border-t border-sant-border pt-4 relative group w-full flex justify-center pb-4">
-                <button title="Configurações" class="nav-item relative flex items-center justify-center w-full py-2 text-gray-500 hover:text-white transition-colors cursor-pointer">
+            <div class="mt-auto border-t border-sant-border pt-2 pb-2">
+                <button onclick="switchView('settings')" id="nav-settings" class="nav-item tooltip-nav relative flex items-center justify-center w-full py-4 text-gray-400 hover:text-white transition-colors" data-tip="Configurações">
                     <i class="ph ph-gear text-2xl"></i>
-                    <span id="backupGearDot" class="hidden absolute top-1 right-2 w-2 h-2 bg-amber-400 rounded-full" title="Faz tempo que você não exporta um backup"></span>
+                    <span id="backupGearDot" class="hidden absolute top-2 right-2 w-2 h-2 bg-amber-400 rounded-full" title="Faz tempo que você não exporta um backup"></span>
                 </button>
-                <div class="absolute bottom-4 left-14 hidden group-hover:block w-48 bg-[#141414] border border-sant-border rounded-lg shadow-xl overflow-hidden z-50">
-                    <div class="absolute -left-4 top-0 w-4 h-full bg-transparent"></div>
-                    <button onclick="openCategoryManager()" class="w-full text-left px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-[#1f1f1f] transition-colors">Gerenciar Categorias</button>
-                    <button onclick="openOriginManager()" class="w-full text-left px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-[#1f1f1f] transition-colors border-t border-sant-border">Gerenciar Origens</button>
-                    <button onclick="openEventTypeLabelsModal()" class="w-full text-left px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-[#1f1f1f] transition-colors border-t border-sant-border">Tipos de Evento</button>
-                    <button onclick="openTagsModal()" class="w-full text-left px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-[#1f1f1f] transition-colors border-t border-sant-border">Gerenciar Tags</button>
-                    <button onclick="openTemplatesManager()" class="w-full text-left px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-[#1f1f1f] transition-colors border-t border-sant-border">Modelos de Mensagem</button>
-                    <button onclick="exportData()" class="w-full text-left px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-[#1f1f1f] transition-colors border-t border-sant-border">Exportar Backup</button>
-                    <label class="w-full text-left px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-[#1f1f1f] transition-colors cursor-pointer flex border-t border-sant-border">
-                        Importar Backup <input type="file" id="importFile" accept=".json" class="hidden" onchange="importData(event)">
-                    </label>
-                    <button onclick="testNotification()" class="w-full text-left px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-[#1f1f1f] transition-colors border-t border-sant-border flex justify-between items-center">
-                        Testar Notificações <i class="ph ph-bell-ringing text-sant-cyan"></i>
-                    </button>
-                </div>
             </div>
         </nav>
     </aside>
@@ -1020,6 +1005,143 @@
                     <div id="notesGrid" class="notes-masonry"></div>
                 </div>
             </div>
+
+            <!-- ── VIEW CONFIGURAÇÕES ── -->
+            <div id="view-settings" class="hidden max-w-4xl mx-auto pb-12">
+                <div class="flex items-center gap-4 mb-8 shrink-0">
+                    <div class="w-12 h-12 rounded-xl bg-sant-cyan/10 text-sant-cyan flex items-center justify-center text-2xl border border-sant-cyan/20"><i class="ph ph-gear"></i></div>
+                    <div>
+                        <h2 class="text-2xl font-bold text-white">Configurações</h2>
+                        <p class="text-sm text-gray-500">Gerencie categorias, origens, templates e backups</p>
+                    </div>
+                </div>
+
+                <!-- Abas -->
+                <div class="flex gap-1 mb-8 border-b border-sant-border overflow-x-auto pb-0 shrink-0">
+                    <button onclick="switchSettingsTab('categories')" id="stab-categories" class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-sant-cyan text-sant-cyan">Categorias</button>
+                    <button onclick="switchSettingsTab('origins')"    id="stab-origins"    class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Origens</button>
+                    <button onclick="switchSettingsTab('eventtypes')" id="stab-eventtypes" class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Tipos de Evento</button>
+                    <button onclick="switchSettingsTab('tags')"       id="stab-tags"       class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Tags</button>
+                    <button onclick="switchSettingsTab('templates')"  id="stab-templates"  class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Templates</button>
+                    <button onclick="switchSettingsTab('blocks')"     id="stab-blocks"     class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Bloqueios de Horário</button>
+                    <button onclick="switchSettingsTab('backup')"     id="stab-backup"     class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Backup</button>
+                </div>
+
+                <!-- Painel: Categorias -->
+                <div id="spanel-categories" class="settings-panel">
+                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
+                        <p class="text-xs font-bold text-white uppercase tracking-wide mb-5 flex items-center gap-2"><i class="ph ph-tag text-sant-cyan"></i> Categorias de Contato</p>
+                        <div class="flex gap-2 mb-4">
+                            <input id="s-cat-input" type="text" placeholder="Nova categoria..." class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none transition-colors">
+                            <button onclick="addSettingsCategory()" class="bg-sant-cyan text-sant-bg px-4 py-2 rounded-lg text-sm font-bold hover:bg-cyan-400 transition-colors"><i class="ph ph-plus"></i></button>
+                        </div>
+                        <div id="s-cat-list" class="space-y-2"></div>
+                    </div>
+                </div>
+
+                <!-- Painel: Origens -->
+                <div id="spanel-origins" class="settings-panel hidden">
+                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
+                        <p class="text-xs font-bold text-white uppercase tracking-wide mb-5 flex items-center gap-2"><i class="ph ph-map-pin text-sant-cyan"></i> Como nos conhecemos</p>
+                        <div class="flex gap-2 mb-4">
+                            <input id="s-orig-input" type="text" placeholder="Nova origem..." class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none transition-colors">
+                            <button onclick="addSettingsOrigin()" class="bg-sant-cyan text-sant-bg px-4 py-2 rounded-lg text-sm font-bold hover:bg-cyan-400 transition-colors"><i class="ph ph-plus"></i></button>
+                        </div>
+                        <div id="s-orig-list" class="space-y-2"></div>
+                    </div>
+                </div>
+
+                <!-- Painel: Tipos de Evento -->
+                <div id="spanel-eventtypes" class="settings-panel hidden">
+                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
+                        <p class="text-xs font-bold text-white uppercase tracking-wide mb-2 flex items-center gap-2"><i class="ph ph-calendar-blank text-sant-cyan"></i> Tipos de Evento</p>
+                        <p class="text-xs text-gray-500 mb-5">Personalize os nomes exibidos. O botão <i class="ph ph-arrow-counter-clockwise"></i> restaura o padrão.</p>
+                        <div id="s-evt-body" class="space-y-3"></div>
+                    </div>
+                </div>
+
+                <!-- Painel: Tags -->
+                <div id="spanel-tags" class="settings-panel hidden">
+                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
+                        <p class="text-xs font-bold text-white uppercase tracking-wide mb-5 flex items-center gap-2"><i class="ph ph-hash text-sant-cyan"></i> Etiquetas (Tags)</p>
+                        <div class="flex gap-2 mb-4">
+                            <input id="s-tag-input" type="text" placeholder="Nova etiqueta..." class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none transition-colors">
+                            <button onclick="addSettingsTag()" class="bg-sant-cyan text-sant-bg px-4 py-2 rounded-lg text-sm font-bold hover:bg-cyan-400 transition-colors"><i class="ph ph-plus"></i></button>
+                        </div>
+                        <div id="s-tag-list" class="flex flex-wrap gap-2"></div>
+                    </div>
+                </div>
+
+                <!-- Painel: Templates -->
+                <div id="spanel-templates" class="settings-panel hidden">
+                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
+                        <div class="flex items-center justify-between mb-5">
+                            <p class="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-2"><i class="ph ph-chat-text text-sant-cyan"></i> Modelos de Mensagem</p>
+                            <button onclick="openTemplatesManager()" class="text-xs text-sant-cyan border border-sant-cyan/30 hover:bg-sant-cyan/10 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"><i class="ph ph-plus"></i> Novo template</button>
+                        </div>
+                        <div id="s-tpl-list" class="space-y-3"></div>
+                    </div>
+                </div>
+
+                <!-- Painel: Bloqueios de Horário -->
+                <div id="spanel-blocks" class="settings-panel hidden">
+                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
+                        <p class="text-xs font-bold text-white uppercase tracking-wide mb-5 flex items-center gap-2"><i class="ph ph-lock-simple text-sant-cyan"></i> Bloqueios de Horário Fixos</p>
+                        <div id="s-blk-list" class="space-y-2 mb-5"></div>
+                        <div class="border-t border-sant-border pt-5">
+                            <p class="text-xs text-gray-500 mb-3 font-medium uppercase tracking-wide">Adicionar bloqueio</p>
+                            <div class="flex flex-col gap-3">
+                                <input id="s-blk-title" type="text" placeholder="Título (ex: Almoço)" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none transition-colors">
+                                <div class="flex gap-3">
+                                    <div class="flex-1"><label class="text-xs text-gray-500 mb-1 block">Início</label><input id="s-blk-start" type="time" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none"></div>
+                                    <div class="flex-1"><label class="text-xs text-gray-500 mb-1 block">Fim</label><input id="s-blk-end" type="time" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none"></div>
+                                </div>
+                                <div class="flex gap-1" id="s-blk-days">
+                                    ${['D','S','T','Q','Q','S','S'].map((d,i) => `<button type="button" data-day="${i}" onclick="toggleSBlkDay(${i})" class="sBlkDayBtn flex-1 py-1.5 rounded text-xs font-bold border border-sant-border text-gray-400 hover:border-sant-cyan/40 transition-colors">${d}</button>`).join('')}
+                                </div>
+                                <button onclick="addSettingsBlock()" class="bg-sant-cyan text-sant-bg py-2 rounded-lg text-sm font-bold hover:bg-cyan-400 transition-colors">Adicionar Bloqueio</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Painel: Backup -->
+                <div id="spanel-backup" class="settings-panel hidden">
+                    <div class="space-y-4">
+                        <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
+                            <p class="text-xs font-bold text-white uppercase tracking-wide mb-2 flex items-center gap-2"><i class="ph ph-database text-sant-cyan"></i> Backup dos Dados</p>
+                            <p id="s-backup-status" class="text-xs text-gray-500 mb-5"></p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <button onclick="exportAllData()" class="bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-4 py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-download-simple"></i> Exportar tudo (.json)</button>
+                                <label class="bg-[#141414] border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-4 py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer"><i class="ph ph-upload-simple"></i> Importar backup (.json)<input type="file" accept=".json" class="hidden" onchange="importData(event)"></label>
+                                <button onclick="exportAllContactsVcf()" class="bg-[#141414] border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-4 py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-address-book"></i> Exportar contatos (.vcf)</button>
+                                <button onclick="exportCalendarIcs()" class="bg-[#141414] border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-4 py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-calendar"></i> Exportar agenda (.ics)</button>
+                            </div>
+                        </div>
+                        <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
+                            <p class="text-xs font-bold text-white uppercase tracking-wide mb-5 flex items-center gap-2"><i class="ph ph-sliders text-sant-cyan"></i> Preferências</p>
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <div><p class="text-sm text-white">Aviso de aniversário</p><p class="text-xs text-gray-500">Quantos dias antes de avisar</p></div>
+                                    <select onchange="localStorage.setItem('vends_bday_advance', this.value); showToast('Preferência salva!')" id="s-bday-advance" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                                        <option value="0">No dia</option><option value="1">1 dia antes</option><option value="2">2 dias antes</option><option value="3">3 dias antes</option><option value="5">5 dias antes</option><option value="7">7 dias antes</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <div><p class="text-sm text-white">Alerta de inatividade</p><p class="text-xs text-gray-500">Destacar contatos sem interação há</p></div>
+                                    <select onchange="saveInactivityDays(this.value)" id="s-inact-days" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                                        <option value="0">Desativado</option><option value="30">30 dias</option><option value="60">60 dias</option><option value="90">90 dias</option><option value="180">180 dias</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <div><p class="text-sm text-white">Notificações</p><p class="text-xs text-gray-500">Testar se as notificações estão ativas</p></div>
+                                    <button onclick="testNotification()" class="text-sm text-sant-cyan border border-sant-cyan/30 hover:bg-sant-cyan/10 px-4 py-2 rounded-lg transition-colors flex items-center gap-2"><i class="ph ph-bell-ringing"></i> Testar</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div><!-- /view-settings -->
 
         </div>
     </main>
@@ -3466,6 +3588,7 @@
             if(viewId === 'calendar') renderCalendar();
             if(viewId === 'tasks') _refreshCurrentTaskView();
             if(viewId === 'notes') renderNotes();
+            if(viewId === 'settings') renderSettingsView();
             if(viewId === 'reports') {
                 if(!document.getElementById('repBirthStart').value) {
                     const todayStr = getSPTodayStr();
@@ -7259,6 +7382,241 @@
             });
         }
         
+        // ── Painel de Configurações Unificado ────────────────────────────────
+        let currentSettingsTab = 'categories';
+        let sBlkDays = [];
+
+        function switchSettingsTab(tab) {
+            currentSettingsTab = tab;
+            document.querySelectorAll('.settings-tab').forEach(b => {
+                b.classList.remove('border-sant-cyan','text-sant-cyan');
+                b.classList.add('border-transparent','text-gray-400');
+            });
+            const active = document.getElementById('stab-' + tab);
+            if (active) { active.classList.add('border-sant-cyan','text-sant-cyan'); active.classList.remove('border-transparent','text-gray-400'); }
+            document.querySelectorAll('.settings-panel').forEach(p => p.classList.add('hidden'));
+            const panel = document.getElementById('spanel-' + tab);
+            if (panel) panel.classList.remove('hidden');
+            renderSettingsTabContent(tab);
+        }
+
+        function renderSettingsView() {
+            switchSettingsTab(currentSettingsTab);
+        }
+
+        function renderSettingsTabContent(tab) {
+            if (tab === 'categories')  renderSCategories();
+            if (tab === 'origins')     renderSOrigins();
+            if (tab === 'eventtypes')  renderSEventTypes();
+            if (tab === 'tags')        renderSTags();
+            if (tab === 'templates')   renderSTemplates();
+            if (tab === 'blocks')      renderSBlocks();
+            if (tab === 'backup')      renderSBackup();
+        }
+
+        // — Categorias —
+        function renderSCategories() {
+            const el = document.getElementById('s-cat-list');
+            if (!el) return;
+            if (!categories.length) { el.innerHTML = '<p class="text-xs text-gray-600 italic">Nenhuma categoria cadastrada.</p>'; return; }
+            el.innerHTML = [...categories].sort((a,b) => a.localeCompare(b,'pt-BR')).map(c =>
+                `<div class="flex items-center justify-between bg-[#141414] border border-sant-border rounded-lg px-4 py-2.5">
+                    <span class="text-sm text-white">${c}</span>
+                    <button onclick="deleteSCategory('${c.replace(/'/g,"\\'")}')}" class="text-gray-500 hover:text-red-500 transition-colors"><i class="ph ph-trash text-sm"></i></button>
+                </div>`
+            ).join('');
+        }
+        function addSettingsCategory() {
+            const inp = document.getElementById('s-cat-input');
+            const v = inp.value.trim();
+            if (!v) return;
+            if (categories.includes(v)) { showToast('Categoria já existe.','error'); return; }
+            const idx = categories.findIndex(c => c.localeCompare(v,'pt-BR') > 0);
+            idx === -1 ? categories.push(v) : categories.splice(idx, 0, v);
+            localStorage.setItem('sant_crm_categories', JSON.stringify(categories));
+            inp.value = '';
+            renderSCategories();
+            updateCategorySelects && updateCategorySelects();
+            showToast('Categoria adicionada!');
+        }
+        function deleteSCategory(name) {
+            showConfirm(`Excluir categoria "${name}"?`, '', () => {
+                categories = categories.filter(c => c !== name);
+                localStorage.setItem('sant_crm_categories', JSON.stringify(categories));
+                renderSCategories();
+                updateCategorySelects && updateCategorySelects();
+                showToast('Categoria excluída.');
+            });
+        }
+
+        // — Origens —
+        function renderSOrigins() {
+            const el = document.getElementById('s-orig-list');
+            if (!el) return;
+            if (!origins.length) { el.innerHTML = '<p class="text-xs text-gray-600 italic">Nenhuma origem cadastrada.</p>'; return; }
+            el.innerHTML = origins.map(o =>
+                `<div class="flex items-center justify-between bg-[#141414] border border-sant-border rounded-lg px-4 py-2.5">
+                    <span class="text-sm text-white">${o}</span>
+                    <button onclick="deleteSOrigin('${o.replace(/'/g,"\\'")}')}" class="text-gray-500 hover:text-red-500 transition-colors"><i class="ph ph-trash text-sm"></i></button>
+                </div>`
+            ).join('');
+        }
+        function addSettingsOrigin() {
+            const inp = document.getElementById('s-orig-input');
+            const v = inp.value.trim();
+            if (!v) return;
+            if (origins.includes(v)) { showToast('Origem já existe.','error'); return; }
+            origins.push(v);
+            saveOriginsToStorage();
+            inp.value = '';
+            renderSOrigins();
+            updateOriginSelects && updateOriginSelects();
+            showToast('Origem adicionada!');
+        }
+        function deleteSOrigin(name) {
+            showConfirm(`Excluir origem "${name}"?`, '', () => {
+                origins = origins.filter(o => o !== name);
+                saveOriginsToStorage();
+                renderSOrigins();
+                updateOriginSelects && updateOriginSelects();
+                showToast('Origem excluída.');
+            });
+        }
+
+        // — Tipos de Evento —
+        function renderSEventTypes() {
+            const el = document.getElementById('s-evt-body');
+            if (!el) return;
+            el.innerHTML = Object.keys(eventTypeDefaultLabels).map(k => `
+                <div class="flex items-center gap-3">
+                    <span class="text-xs text-gray-500 w-20 shrink-0">${eventTypeDefaultLabels[k]}<br><span class="text-gray-700">(padrão)</span></span>
+                    <input type="text" value="${eventTypeMeta[k].label}" oninput="eventTypeLabels['${k}']=this.value; eventTypeMeta['${k}'].label=this.value; saveEventTypeLabels(); fillEventTypeSelect(); renderCalFilterBar && renderCalFilterBar();"
+                        class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none transition-colors">
+                    <button onclick="eventTypeLabels['${k}']=''; eventTypeMeta['${k}'].label=eventTypeDefaultLabels['${k}']; saveEventTypeLabels(); fillEventTypeSelect(); renderSEventTypes(); renderCalFilterBar && renderCalFilterBar();"
+                        class="text-gray-500 hover:text-sant-cyan transition-colors p-1" title="Restaurar padrão"><i class="ph ph-arrow-counter-clockwise"></i></button>
+                </div>`).join('');
+        }
+
+        // — Tags —
+        function renderSTags() {
+            const el = document.getElementById('s-tag-list');
+            if (!el) return;
+            if (!tags.length) { el.innerHTML = '<p class="text-xs text-gray-600 italic w-full">Nenhuma etiqueta cadastrada.</p>'; return; }
+            el.innerHTML = tags.map(t =>
+                `<div class="flex items-center gap-1 bg-sant-purple/10 border border-sant-purple/20 rounded-full px-3 py-1">
+                    <span class="text-xs text-sant-purple font-medium">${t}</span>
+                    <button onclick="deleteSTag('${t.replace(/'/g,"\\'")}')}" class="text-sant-purple/50 hover:text-red-500 ml-1 transition-colors"><i class="ph ph-x text-[10px]"></i></button>
+                </div>`
+            ).join('');
+        }
+        function addSettingsTag() {
+            const inp = document.getElementById('s-tag-input');
+            const v = inp.value.trim();
+            if (!v) return;
+            if (tags.includes(v)) { showToast('Tag já existe.','error'); return; }
+            tags.push(v);
+            localStorage.setItem('sant_crm_tags', JSON.stringify(tags));
+            inp.value = '';
+            renderSTags();
+            showToast('Tag adicionada!');
+        }
+        function deleteSTag(name) {
+            tags = tags.filter(t => t !== name);
+            localStorage.setItem('sant_crm_tags', JSON.stringify(tags));
+            renderSTags();
+            showToast('Tag removida.');
+        }
+
+        // — Templates —
+        function renderSTemplates() {
+            const el = document.getElementById('s-tpl-list');
+            if (!el) return;
+            if (!messageTemplates.length) { el.innerHTML = '<p class="text-xs text-gray-600 italic">Nenhum template cadastrado.</p>'; return; }
+            const chIco = { whatsapp:'ph-whatsapp-logo', email:'ph-envelope' };
+            el.innerHTML = messageTemplates.map(t =>
+                `<div class="flex items-start gap-3 bg-[#141414] border border-sant-border rounded-lg px-4 py-3">
+                    <i class="ph ${chIco[t.channel]||'ph-chat'} text-lg text-sant-cyan mt-0.5 shrink-0"></i>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-white">${t.name||t.subject||'Sem título'}</p>
+                        <p class="text-xs text-gray-500 truncate mt-0.5">${(t.body||'').substring(0,80)}…</p>
+                    </div>
+                    <button onclick="openTemplatesManager()" class="text-gray-500 hover:text-sant-cyan transition-colors p-1 shrink-0"><i class="ph ph-pencil-simple text-sm"></i></button>
+                </div>`
+            ).join('');
+        }
+
+        // — Bloqueios —
+        function renderSBlocks() {
+            const el = document.getElementById('s-blk-list');
+            if (!el) return;
+            if (!scheduleBlocks.length) { el.innerHTML = '<p class="text-xs text-gray-600 italic">Nenhum bloqueio cadastrado.</p>'; return; }
+            const dl = ['D','S','T','Q','Q','S','S'];
+            el.innerHTML = scheduleBlocks.map(b =>
+                `<div class="flex items-center justify-between gap-2 bg-[#141414] border border-sant-border rounded-lg px-3 py-2">
+                    <div class="min-w-0">
+                        <p class="text-sm text-white font-medium truncate">${b.title}</p>
+                        <p class="text-[10px] text-gray-500">${b.startTime||''}${b.endTime?' – '+b.endTime:''} · ${b.days.map(d=>dl[d]).join(' ')}</p>
+                    </div>
+                    <button onclick="deleteSBlock('${b.id}')" class="text-gray-400 hover:text-red-500 px-2 shrink-0"><i class="ph ph-trash"></i></button>
+                </div>`
+            ).join('');
+        }
+        function toggleSBlkDay(i) {
+            const idx = sBlkDays.indexOf(i);
+            idx === -1 ? sBlkDays.push(i) : sBlkDays.splice(idx, 1);
+            document.querySelectorAll('.sBlkDayBtn').forEach(btn => {
+                const d = parseInt(btn.dataset.day);
+                btn.className = sBlkDays.includes(d)
+                    ? 'sBlkDayBtn flex-1 py-1.5 rounded text-xs font-bold border border-sant-cyan bg-sant-cyan/10 text-sant-cyan transition-colors'
+                    : 'sBlkDayBtn flex-1 py-1.5 rounded text-xs font-bold border border-sant-border text-gray-400 hover:border-sant-cyan/40 transition-colors';
+            });
+        }
+        function addSettingsBlock() {
+            const title = document.getElementById('s-blk-title').value.trim();
+            const startTime = document.getElementById('s-blk-start').value;
+            const endTime = document.getElementById('s-blk-end').value;
+            if (!title || !sBlkDays.length) { showToast('Informe título e selecione ao menos um dia.','error'); return; }
+            scheduleBlocks.push({ id: crypto.randomUUID(), title, startTime, endTime, days: [...sBlkDays].sort() });
+            saveScheduleBlocksToStorage();
+            document.getElementById('s-blk-title').value = '';
+            document.getElementById('s-blk-start').value = '';
+            document.getElementById('s-blk-end').value = '';
+            sBlkDays = [];
+            document.querySelectorAll('.sBlkDayBtn').forEach(btn => {
+                btn.className = 'sBlkDayBtn flex-1 py-1.5 rounded text-xs font-bold border border-sant-border text-gray-400 hover:border-sant-cyan/40 transition-colors';
+            });
+            renderSBlocks();
+            renderCalendar();
+            showToast('Bloqueio adicionado!');
+        }
+        function deleteSBlock(id) {
+            showConfirm('Excluir este bloqueio?', '', () => {
+                scheduleBlocks = scheduleBlocks.filter(b => b.id !== id);
+                saveScheduleBlocksToStorage();
+                renderSBlocks();
+                renderCalendar();
+                showToast('Bloqueio excluído.');
+            });
+        }
+
+        // — Backup —
+        function renderSBackup() {
+            const el = document.getElementById('s-backup-status');
+            if (el) {
+                const last = localStorage.getItem('sant_crm_last_export');
+                if (!last) { el.innerHTML = '<i class="ph ph-warning text-amber-400"></i> Nenhum backup realizado ainda.'; return; }
+                const days = Math.floor((Date.now() - new Date(last).getTime()) / 86400000);
+                const txt = days <= 0 ? 'Último backup: hoje.' : days === 1 ? 'Último backup: ontem.' : `Último backup: há ${days} dias.`;
+                const cls = days > 7 ? 'text-amber-400' : 'text-green-400';
+                el.innerHTML = `<span class="${cls}">${txt}</span>`;
+            }
+            const bdayEl = document.getElementById('s-bday-advance');
+            if (bdayEl) bdayEl.value = localStorage.getItem('vends_bday_advance') || '3';
+            const inactEl = document.getElementById('s-inact-days');
+            if (inactEl) inactEl.value = localStorage.getItem('vends_inactivity_days') || '60';
+        }
+        // ── fim Painel de Configurações ──────────────────────────────────────
+
         function openCategoryManager() {
             document.getElementById('categoryModal').classList.remove('hidden');
             renderCategoryManager();
