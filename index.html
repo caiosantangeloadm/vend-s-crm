@@ -145,6 +145,12 @@
         .cal-event-chip.cal-dragging { opacity: 0.35; }
         .cal-day-cell.cal-drop-over { outline: 2px solid #5b8fa8; background: rgba(91,143,168,0.08); }
 
+        /* Markdown nas Notas */
+        .note-md-body strong { color: #fff; font-weight: 700; }
+        .note-md-body em { font-style: italic; color: #d1d5db; }
+        .note-md-body ul { list-style-type: disc; padding-left: 1rem; margin: 0.25rem 0; }
+        .note-md-body li { margin-bottom: 0.125rem; }
+
         /* Modo Apresentação/Foco */
         body.focus-mode aside,
         body.focus-mode header { display: none !important; }
@@ -3485,6 +3491,26 @@
         ];
         function getNoteColor(key) { return noteColors.find(c => c.key === key) || noteColors[0]; }
 
+        function mdToHtml(text) {
+            if (!text) return '';
+            // Escape HTML first to prevent XSS
+            let s = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            // Block: unordered list (lines starting with - or *)
+            s = s.replace(/^[ \t]*[-*] (.+)$/gm, '<li>$1</li>');
+            s = s.replace(/(<li>.*<\/li>(\n|$))+/g, m => `<ul class="list-disc pl-4 my-1 space-y-0.5">${m}</ul>`);
+            // Inline: bold **text** or __text__
+            s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            s = s.replace(/__(.+?)__/g, '<strong>$1</strong>');
+            // Inline: italic *text* or _text_
+            s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
+            s = s.replace(/_(.+?)_/g, '<em>$1</em>');
+            // Line breaks (preserve newlines outside list items)
+            s = s.replace(/\n/g, '<br>');
+            // Clean up <br> inside <ul> tags
+            s = s.replace(/<ul([^>]*)>(.*?)<\/ul>/gs, (m, attr, inner) => `<ul${attr}>${inner.replace(/<br>/g,'')}</ul>`);
+            return s;
+        }
+
         function formatNoteDate(iso) {
             const d = new Date(iso);
             const meses = ['jan.','fev.','mar.','abr.','mai.','jun.','jul.','ago.','set.','out.','nov.','dez.'];
@@ -3808,7 +3834,7 @@
                 ${contactBadge}
                 ${dueBadge}
                 ${tagPills}
-                ${n.body ? `<p class="text-sm text-gray-300 whitespace-pre-wrap break-words mb-3 cursor-text" onclick="startEditNote('${n.id}')">${n.body}</p>` : `<div class="flex-1 cursor-text" onclick="startEditNote('${n.id}')"></div>`}
+                ${n.body ? `<div class="text-sm text-gray-300 break-words mb-3 cursor-text leading-relaxed note-md-body" onclick="startEditNote('${n.id}')">${mdToHtml(n.body)}</div>` : `<div class="flex-1 cursor-text" onclick="startEditNote('${n.id}')"></div>`}
                 <div class="mt-auto pt-2 flex items-center justify-between">
                     <span class="text-[10px] text-gray-500 whitespace-nowrap">${formatNoteDate(n.updatedAt || n.createdAt)}</span>
                     <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -3997,7 +4023,7 @@
                         <button onclick="event.stopPropagation(); deleteNote('${n.id}')" class="text-gray-400 hover:text-red-500 p-0.5 text-xs" title="Excluir"><i class="ph ph-trash"></i></button>
                     </div>
                 </div>
-                ${snippet ? `<p class="text-xs text-gray-400 mt-1 break-words leading-relaxed">${snippet}</p>` : ''}
+                ${snippet ? `<div class="text-xs text-gray-400 mt-1 break-words leading-relaxed note-md-body">${mdToHtml(snippet)}</div>` : ''}
                 ${tagPills}
                 <p class="text-[10px] text-gray-600 mt-2">${formatNoteDate(n.updatedAt || n.createdAt)}</p>
             </div>`;
