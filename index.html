@@ -533,7 +533,7 @@
                 <div id="recentContactsBar" class="hidden mb-5"></div>
                 <!-- Painel de Filtros Avançados -->
                 <div id="advFiltersPanel" class="hidden mb-5 p-4 bg-sant-surface border border-sant-cyan/30 rounded-xl">
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                         <div>
                             <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1.5">Categoria</label>
                             <select id="filterCategory" onchange="applyAdvFilters()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none appearance-none">
@@ -561,6 +561,18 @@
                             <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1.5">Tag</label>
                             <select id="filterTag" onchange="applyAdvFilters()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none appearance-none">
                                 <option value="">Todas</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1.5">Cidade</label>
+                            <select id="filterCity" onchange="applyAdvFilters()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none appearance-none">
+                                <option value="">Todas</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1.5">Estado (UF)</label>
+                            <select id="filterState" onchange="applyAdvFilters()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none appearance-none">
+                                <option value="">Todos</option>
                             </select>
                         </div>
                     </div>
@@ -2246,7 +2258,7 @@
         let messageTemplates = [];
         let sendMsgContactId = null;
         let editingTemplateId = null;
-        let activeFilters = { category: '', isLead: '', temperature: '', tag: '' };
+        let activeFilters = { category: '', isLead: '', temperature: '', tag: '', city: '', state: '' };
         let currentContactTags = [];
         let currentContactCustomFields = [];
         let currentChecklist = [];
@@ -4429,7 +4441,9 @@
             if (activeFilters.isLead === 'yes') filtered = filtered.filter(c => c.isLead);
             if (activeFilters.isLead === 'no') filtered = filtered.filter(c => !c.isLead);
             if (activeFilters.temperature) filtered = filtered.filter(c => c.isLead && c.temperature === activeFilters.temperature);
-            if (activeFilters.tag) filtered = filtered.filter(c => c.tags && c.tags.includes(activeFilters.tag));
+            if (activeFilters.tag)   filtered = filtered.filter(c => c.tags && c.tags.includes(activeFilters.tag));
+            if (activeFilters.city)  filtered = filtered.filter(c => (c.addressCity  || '').trim().toLowerCase() === activeFilters.city.toLowerCase());
+            if (activeFilters.state) filtered = filtered.filter(c => (c.addressState || '').trim().toUpperCase()  === activeFilters.state.toUpperCase());
 
             const countEl = document.getElementById('filterResultCount');
             if (countEl) countEl.innerText = hasActiveFilters() ? `${filtered.length} contato(s) encontrado(s)` : '';
@@ -8503,7 +8517,24 @@
 
         // ── FILTROS AVANÇADOS ──────────────────────────────────────────────
         function hasActiveFilters() {
-            return activeFilters.category || activeFilters.isLead || activeFilters.temperature || activeFilters.tag;
+            return activeFilters.category || activeFilters.isLead || activeFilters.temperature || activeFilters.tag || activeFilters.city || activeFilters.state;
+        }
+
+        function fillLocationFilters() {
+            const cities  = [...new Set(contacts.map(c => (c.addressCity  || '').trim()).filter(Boolean))].sort((a,b) => a.localeCompare(b,'pt-BR'));
+            const states  = [...new Set(contacts.map(c => (c.addressState || '').trim().toUpperCase()).filter(Boolean))].sort();
+            const cityEl  = document.getElementById('filterCity');
+            const stateEl = document.getElementById('filterState');
+            if (cityEl) {
+                const cur = cityEl.value;
+                cityEl.innerHTML  = '<option value="">Todas</option>' + cities.map(c => `<option value="${c}">${c}</option>`).join('');
+                if (cur) cityEl.value = cur;
+            }
+            if (stateEl) {
+                const cur = stateEl.value;
+                stateEl.innerHTML = '<option value="">Todos</option>' + states.map(s => `<option value="${s}">${s}</option>`).join('');
+                if (cur) stateEl.value = cur;
+            }
         }
 
         function toggleAdvFilters() {
@@ -8513,7 +8544,7 @@
             panel.classList.toggle('hidden', isOpen);
             btn.classList.toggle('text-sant-cyan', !isOpen);
             btn.classList.toggle('border-sant-cyan', !isOpen);
-            if (!isOpen) updateCategorySelects();
+            if (!isOpen) { updateCategorySelects(); fillLocationFilters(); }
         }
 
         function applyAdvFilters() {
@@ -8521,13 +8552,15 @@
             activeFilters.isLead      = document.getElementById('filterLead').value;
             activeFilters.temperature = document.getElementById('filterTemp').value;
             activeFilters.tag         = document.getElementById('filterTag').value;
+            activeFilters.city        = document.getElementById('filterCity')?.value  || '';
+            activeFilters.state       = document.getElementById('filterState')?.value || '';
             const search = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
             renderContacts(search);
         }
 
         function clearAdvFilters() {
-            activeFilters = { category: '', isLead: '', temperature: '', tag: '' };
-            ['filterCategory','filterLead','filterTemp','filterTag'].forEach(id => {
+            activeFilters = { category: '', isLead: '', temperature: '', tag: '', city: '', state: '' };
+            ['filterCategory','filterLead','filterTemp','filterTag','filterCity','filterState'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.value = '';
             });
