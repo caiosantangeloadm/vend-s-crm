@@ -788,6 +788,7 @@
                     <button onclick="switchReportTab('charts')" id="tab-charts" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-chart-bar"></i> Gráficos</button>
                     <button onclick="switchReportTab('directory')" id="tab-directory" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-address-book"></i> Diretório de Contatos</button>
                     <button onclick="switchReportTab('leads')" id="tab-leads" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-star"></i> Oportunidades</button>
+                    <button onclick="switchReportTab('inactivity')" id="tab-inactivity" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-clock-countdown"></i> Inatividade</button>
                 </div>
 
                 <div id="report-birthdays" class="report-content flex flex-col">
@@ -896,6 +897,34 @@
                     </div>
                     <div id="leadsSummaryCards" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 shrink-0"></div>
                     <div id="leadsDetailedLists" class="space-y-8 pb-10 pr-2"></div>
+                </div>
+
+                <!-- Relatório de Inatividade -->
+                <div id="report-inactivity" class="report-content hidden flex flex-col">
+                    <!-- Controles -->
+                    <div class="flex flex-wrap items-center justify-between gap-3 mb-6 shrink-0">
+                        <div class="flex items-center gap-3 flex-wrap">
+                            <label class="text-xs text-gray-500 font-medium">Sem interação há mais de</label>
+                            <select id="inactRepDays" onchange="generateInactivityReport()" class="bg-sant-surface border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                                <option value="30">30 dias</option>
+                                <option value="60" selected>60 dias</option>
+                                <option value="90">90 dias</option>
+                                <option value="120">120 dias</option>
+                                <option value="180">180 dias</option>
+                                <option value="365">365 dias</option>
+                            </select>
+                            <select id="inactRepCategory" onchange="generateInactivityReport()" class="bg-sant-surface border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                                <option value="">Todas as categorias</option>
+                            </select>
+                        </div>
+                        <button onclick="exportInactivityCsv()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors shrink-0">
+                            <i class="ph ph-file-csv"></i> Exportar CSV
+                        </button>
+                    </div>
+                    <!-- Sumário -->
+                    <div id="inactRepSummary" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 shrink-0"></div>
+                    <!-- Lista -->
+                    <div id="inactRepList" class="space-y-2 pb-10"></div>
                 </div>
             </div>
 
@@ -6943,6 +6972,7 @@
             if(tabId === 'charts') generateChartsReport();
             if(tabId === 'directory') generateDirectoryReport();
             if(tabId === 'leads') generateLeadsReport();
+            if(tabId === 'inactivity') generateInactivityReport();
             if(tabId === 'birthdays') {
                 const startInput = document.getElementById('repBirthStart');
                 const endInput = document.getElementById('repBirthEnd');
@@ -7337,6 +7367,121 @@
                 return [tempLabels[c.temperature] || c.temperature || '', fullName(c), jobStr, phone, email];
             });
         }
+        function generateInactivityReport() {
+            const days    = parseInt(document.getElementById('inactRepDays')?.value || '60');
+            const catFilt = document.getElementById('inactRepCategory')?.value || '';
+            const todayStr = getSPTodayStr();
+
+            // Preenche select de categorias na primeira chamada
+            const catSel = document.getElementById('inactRepCategory');
+            if (catSel && catSel.options.length <= 1) {
+                [...categories].sort((a,b) => a.localeCompare(b,'pt-BR')).forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c; opt.textContent = c;
+                    catSel.appendChild(opt);
+                });
+                if (catFilt) catSel.value = catFilt;
+            }
+
+            // Filtra contatos inativos
+            const inactive = contacts.filter(c => {
+                if (catFilt && c.category !== catFilt) return false;
+                const d = getInactivityDays(c);
+                return d !== null && d >= days;
+            }).sort((a, b) => (getInactivityDays(b) || 0) - (getInactivityDays(a) || 0));
+
+            // Sumário
+            const buckets = [
+                { label: `${days}–${days*2-1}d`, min: days,      max: days*2-1,   color: 'text-amber-400',  bg: 'bg-amber-400/10', border: 'border-amber-400/20' },
+                { label: `${days*2}–${days*3-1}d`, min: days*2,  max: days*3-1,   color: 'text-orange-400', bg: 'bg-orange-400/10', border: 'border-orange-400/20' },
+                { label: `${days*3}d+`,           min: days*3,   max: Infinity,   color: 'text-red-400',    bg: 'bg-red-400/10',    border: 'border-red-400/20' },
+            ];
+            const summaryEl = document.getElementById('inactRepSummary');
+            if (summaryEl) {
+                summaryEl.innerHTML = `
+                    <div class="bg-sant-surface border border-sant-border rounded-xl p-4 text-center">
+                        <p class="text-3xl font-bold text-white">${inactive.length}</p>
+                        <p class="text-xs text-gray-500 mt-1">Total inativos</p>
+                    </div>` +
+                buckets.map(b => {
+                    const cnt = inactive.filter(c => { const d = getInactivityDays(c); return d >= b.min && d <= b.max; }).length;
+                    return `<div class="bg-sant-surface border ${b.border} rounded-xl p-4 text-center">
+                        <p class="text-3xl font-bold ${b.color}">${cnt}</p>
+                        <p class="text-xs text-gray-500 mt-1">${b.label} sem contato</p>
+                    </div>`;
+                }).join('');
+            }
+
+            // Lista
+            const listEl = document.getElementById('inactRepList');
+            if (!listEl) return;
+            if (!inactive.length) {
+                listEl.innerHTML = `<div class="text-center py-16 text-gray-500"><i class="ph ph-check-circle text-4xl text-green-400 block mb-3"></i><p class="font-medium text-white">Nenhum contato inativo!</p><p class="text-sm mt-1">Todos têm interação nos últimos ${days} dias.</p></div>`;
+                return;
+            }
+
+            listEl.innerHTML = inactive.map(c => {
+                const d = getInactivityDays(c);
+                const lastDate = getLastActivityDateStr(c);
+                const lastFmt  = lastDate ? lastDate.split('-').reverse().join('/') : '—';
+                const urgency  = d >= days*3 ? 'text-red-400 border-red-400/30 bg-red-400/5'
+                               : d >= days*2 ? 'text-orange-400 border-orange-400/30 bg-orange-400/5'
+                               :               'text-amber-400 border-amber-400/30 bg-amber-400/5';
+                const catBadge = c.category ? `<span class="px-2 py-0.5 rounded-full text-[10px] bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20">${c.category}</span>` : '';
+                const leadBadge = c.isLead ? `<span class="px-2 py-0.5 rounded-full text-[10px] bg-sant-purple/10 text-sant-purple border border-sant-purple/20">Lead</span>` : '';
+                const phone = c.phoneProf || c.phonePess || '';
+                return `<div class="flex items-center gap-4 bg-sant-surface border ${urgency} rounded-xl px-4 py-3 hover:brightness-110 transition-all cursor-pointer" onclick="openHistoryModal('${c.id}')">
+                    ${contactAvatarHtml(c, 'w-9 h-9 text-xs shrink-0')}
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <p class="text-sm font-semibold text-white">${fullName(c)}</p>
+                            ${catBadge}${leadBadge}
+                        </div>
+                        <p class="text-xs text-gray-500 mt-0.5">${c.company ? c.company + ' · ' : ''}${phone ? phone + ' · ' : ''}Última interação: ${lastFmt}</p>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <p class="text-lg font-bold ${urgency.split(' ')[0]}">${d}d</p>
+                        <p class="text-[10px] text-gray-600">sem contato</p>
+                    </div>
+                    <button onclick="event.stopPropagation(); openHistoryModal('${c.id}')" class="shrink-0 text-gray-500 hover:text-sant-cyan transition-colors p-1" title="Abrir histórico"><i class="ph ph-arrow-right text-sm"></i></button>
+                </div>`;
+            }).join('');
+        }
+
+        function exportInactivityCsv() {
+            const days    = parseInt(document.getElementById('inactRepDays')?.value || '60');
+            const catFilt = document.getElementById('inactRepCategory')?.value || '';
+            const inactive = contacts.filter(c => {
+                if (catFilt && c.category !== catFilt) return false;
+                const d = getInactivityDays(c);
+                return d !== null && d >= days;
+            }).sort((a, b) => (getInactivityDays(b) || 0) - (getInactivityDays(a) || 0));
+
+            if (!inactive.length) { showToast('Nenhum contato inativo para exportar.', 'error'); return; }
+
+            const headers = ['#','Nome','Sobrenome','Empresa','Categoria','Telefone','E-mail','Dias sem contato','Última interação'];
+            const rows = inactive.map(c => [
+                c.code || '',
+                c.name || '',
+                c.lastName || '',
+                c.company || '',
+                c.category || '',
+                c.phoneProf || c.phonePess || '',
+                c.emailProf || c.emailPess || '',
+                getInactivityDays(c) || '',
+                getLastActivityDateStr(c) || ''
+            ]);
+
+            const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+            const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `vends_inatividade_${days}d_${getSPTodayStr()}.csv`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+            showToast(`${inactive.length} contatos exportados!`);
+        }
+
         function exportLeadsCsv() {
             downloadReportCsv(`oportunidades_${getSPTodayStr()}.csv`, ['Temperatura', 'Nome', 'Empresa/Cargo', 'Telefone', 'E-mail'], getLeadsReportRows());
         }
