@@ -2016,7 +2016,7 @@
 
     <!-- MODAL DE HISTÓRICO DE INTERAÇÕES -->
     <div id="historyModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4">
-        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-2xl max-h-[95vh] overflow-hidden flex flex-col shadow-2xl">
             <div class="flex justify-between items-center p-5 border-b border-sant-border shrink-0">
                 <div class="flex items-center gap-4">
                     <div id="historyContactAvatar" class="shrink-0"></div>
@@ -2063,22 +2063,29 @@
                     <span id="historyFrequencyStatus" class="text-[10px] font-semibold ml-1"></span>
                 </div>
             </div>
-            <div class="p-4 border-b border-sant-border bg-[#0a0a0a] shrink-0">
-                <div class="grid grid-cols-2 gap-3 mb-3">
-                    <select id="interactionType" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
-                        <option value="Ligação">📞 Ligação</option>
-                        <option value="Reunião">🤝 Reunião</option>
-                        <option value="E-mail">✉️ E-mail</option>
-                        <option value="WhatsApp">💬 WhatsApp</option>
-                        <option value="Visita">🏢 Visita</option>
-                        <option value="Outro">📌 Outro</option>
-                    </select>
-                    <input type="date" id="interactionDate" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
-                </div>
-                <textarea id="interactionNotes" rows="2" placeholder="Resumo da interação, próximos passos..." class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none resize-none mb-3"></textarea>
-                <button onclick="logInteraction()" class="w-full bg-sant-cyan hover:bg-cyan-400 text-sant-bg py-2 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2">
-                    <i class="ph ph-plus"></i> Registrar Interação
+            <div class="border-b border-sant-border bg-[#0a0a0a] shrink-0">
+                <button onclick="toggleInteractionForm()" id="interactionFormToggle"
+                    class="w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold text-gray-400 hover:text-sant-cyan transition-colors">
+                    <span class="flex items-center gap-2"><i class="ph ph-plus-circle text-sant-cyan"></i> Registrar Interação</span>
+                    <i id="interactionFormChevron" class="ph ph-caret-down text-gray-600 transition-transform"></i>
                 </button>
+                <div id="interactionFormBody" class="hidden px-4 pb-4">
+                    <div class="grid grid-cols-2 gap-3 mb-3">
+                        <select id="interactionType" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                            <option value="Ligação">📞 Ligação</option>
+                            <option value="Reunião">🤝 Reunião</option>
+                            <option value="E-mail">✉️ E-mail</option>
+                            <option value="WhatsApp">💬 WhatsApp</option>
+                            <option value="Visita">🏢 Visita</option>
+                            <option value="Outro">📌 Outro</option>
+                        </select>
+                        <input type="date" id="interactionDate" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                    </div>
+                    <textarea id="interactionNotes" rows="2" placeholder="Resumo da interação, próximos passos..." class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none resize-none mb-3"></textarea>
+                    <button onclick="logInteraction()" class="w-full bg-sant-cyan hover:bg-cyan-400 text-sant-bg py-2 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2">
+                        <i class="ph ph-plus"></i> Confirmar
+                    </button>
+                </div>
             </div>
             <!-- Abas: Detalhes / Timeline -->
             <div class="flex border-b border-sant-border shrink-0 bg-[#0a0a0a]">
@@ -9316,6 +9323,17 @@
                     `🔁 ${fullName(c)} deveria ser contatado a cada ${s.freq} dia(s). Último contato: ${s.lastDate.split('-').reverse().join('/')} (há ${d + s.freq} dias).`);
                 localStorage.setItem(notifKey, '1');
             });
+        }
+
+        function toggleInteractionForm() {
+            const body    = document.getElementById('interactionFormBody');
+            const chevron = document.getElementById('interactionFormChevron');
+            const open    = body.classList.toggle('hidden') === false;
+            chevron.style.transform = open ? 'rotate(180deg)' : '';
+            if (open) {
+                const dateEl = document.getElementById('interactionDate');
+                if (dateEl && !dateEl.value) dateEl.value = getSPTodayStr();
+            }
         }
 
         function setNextContact(value) {
