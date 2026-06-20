@@ -3217,40 +3217,68 @@
             const el = document.getElementById('dashGoalsList');
             if (!el) return;
 
-            // Semana atual (segunda → hoje)
+            // ── Semana atual ────────────────────────────────────────────────
             const [ty, tm, td] = todayStr.split('-').map(Number);
             const today = new Date(ty, tm-1, td);
             const dow = today.getDay();
             const diffToMon = dow === 0 ? -6 : 1 - dow;
             const weekStart = new Date(today);
             weekStart.setDate(today.getDate() + diffToMon);
-            const weekStartStr = `${weekStart.getFullYear()}-${String(weekStart.getMonth()+1).padStart(2,'0')}-${String(weekStart.getDate()).padStart(2,'0')}`;
+            const toDateStr = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            const weekStartStr = toDateStr(weekStart);
 
-            // Follow-ups realizados: nextContact venceu esta semana E tem interação >= nextContact
-            const followupsDone = contacts.filter(c => {
-                if (!c.nextContact || c.nextContact < weekStartStr || c.nextContact > todayStr) return false;
-                return (c.interactions || []).some(i => i.date >= c.nextContact);
+            // ── Semana anterior (segunda → domingo passados) ─────────────────
+            const prevWeekEnd   = new Date(weekStart); prevWeekEnd.setDate(weekStart.getDate() - 1);
+            const prevWeekStart = new Date(weekStart); prevWeekStart.setDate(weekStart.getDate() - 7);
+            const prevStartStr  = toDateStr(prevWeekStart);
+            const prevEndStr    = toDateStr(prevWeekEnd);
+
+            // Métricas da semana anterior
+            const prevTasks = tasks.filter(t => {
+                if (!t.completed) return false;
+                const ref = t.completedAt ? t.completedAt.substring(0,10) : (t.date||'');
+                return ref >= prevStartStr && ref <= prevEndStr;
+            }).length;
+            const prevInteractions = contacts.reduce((acc, c) =>
+                acc + (c.interactions||[]).filter(i => i.date >= prevStartStr && i.date <= prevEndStr).length, 0);
+            const prevFollowups = contacts.filter(c => {
+                if (!c.nextContact || c.nextContact < prevStartStr || c.nextContact > prevEndStr) return false;
+                return (c.interactions||[]).some(i => i.date >= c.nextContact);
+            }).length;
+            const prevNewContacts = contacts.filter(c => {
+                const d = c.createdAt ? c.createdAt.substring(0,10) : '';
+                return d >= prevStartStr && d <= prevEndStr;
             }).length;
 
-            // Novos contatos adicionados esta semana
+            // ── Métricas desta semana ────────────────────────────────────────
+            const followupsDone = contacts.filter(c => {
+                if (!c.nextContact || c.nextContact < weekStartStr || c.nextContact > todayStr) return false;
+                return (c.interactions||[]).some(i => i.date >= c.nextContact);
+            }).length;
             const newContacts = contacts.filter(c => c.createdAt && c.createdAt.substring(0,10) >= weekStartStr).length;
 
+            // Helper: badge de delta vs semana anterior
+            const deltaBadge = (cur, prev) => {
+                const d = cur - prev;
+                if (d > 0) return `<span class="text-[10px] font-bold text-green-400 flex items-center gap-0.5" title="vs semana passada (${prev})"><i class="ph ph-trend-up"></i>+${d}</span>`;
+                if (d < 0) return `<span class="text-[10px] font-bold text-red-400 flex items-center gap-0.5" title="vs semana passada (${prev})"><i class="ph ph-trend-down"></i>${d}</span>`;
+                return `<span class="text-[10px] text-gray-600 flex items-center gap-0.5" title="vs semana passada (${prev})"><i class="ph ph-equals"></i></span>`;
+            };
+
             const metrics = [
-                { key:'tasks',       label:'Tarefas concluídas',    icon:'ph-check-square', color:'#5b8fa8', actual: tasksDone,        goal: weeklyGoals.tasks        || 0 },
-                { key:'interactions',label:'Interações registradas', icon:'ph-handshake',    color:'#fbbf24', actual: interactionsDone,  goal: weeklyGoals.interactions || 0 },
-                { key:'followups',   label:'Follow-ups realizados',  icon:'ph-arrow-counter-clockwise', color:'#a78bfa', actual: followupsDone, goal: weeklyGoals.followups    || 0 },
-                { key:'newContacts', label:'Novos contatos',         icon:'ph-user-plus',    color:'#34d399', actual: newContacts,       goal: weeklyGoals.newContacts  || 0 },
+                { key:'tasks',       label:'Tarefas concluídas',    icon:'ph-check-square',           color:'#5b8fa8', actual: tasksDone,       prev: prevTasks,        goal: weeklyGoals.tasks        || 0 },
+                { key:'interactions',label:'Interações registradas', icon:'ph-handshake',              color:'#fbbf24', actual: interactionsDone, prev: prevInteractions,  goal: weeklyGoals.interactions || 0 },
+                { key:'followups',   label:'Follow-ups realizados',  icon:'ph-arrow-counter-clockwise',color:'#a78bfa', actual: followupsDone,    prev: prevFollowups,     goal: weeklyGoals.followups    || 0 },
+                { key:'newContacts', label:'Novos contatos',         icon:'ph-user-plus',              color:'#34d399', actual: newContacts,      prev: prevNewContacts,   goal: weeklyGoals.newContacts  || 0 },
             ];
 
             el.innerHTML = metrics.map(m => {
-                if (!m.goal) return ''; // meta desativada (0)
-                const pct     = Math.min(Math.round((m.actual / m.goal) * 100), 100);
-                const over    = m.actual >= m.goal;
-                const half    = pct >= 50;
-                const barColor= over  ? '#4ade80'
-                              : half  ? '#fbbf24'
-                              :         '#f87171';
-                const badge   = over
+                if (!m.goal) return '';
+                const pct      = Math.min(Math.round((m.actual / m.goal) * 100), 100);
+                const over     = m.actual >= m.goal;
+                const half     = pct >= 50;
+                const barColor = over ? '#4ade80' : half ? '#fbbf24' : '#f87171';
+                const badge    = over
                     ? `<span class="text-[10px] font-bold text-green-400 bg-green-400/10 border border-green-400/20 rounded-full px-2 py-0.5">✓ Meta!</span>`
                     : `<span class="text-[10px] text-gray-500">${m.actual}/${m.goal}</span>`;
                 return `<div>
@@ -3259,7 +3287,11 @@
                             <i class="ph ${m.icon} text-sm" style="color:${m.color}"></i>
                             <span class="text-xs text-gray-300">${m.label}</span>
                         </div>
-                        <div class="flex items-center gap-2">${badge}<span class="text-xs font-bold text-white">${pct}%</span></div>
+                        <div class="flex items-center gap-2">
+                            ${deltaBadge(m.actual, m.prev)}
+                            ${badge}
+                            <span class="text-xs font-bold text-white">${pct}%</span>
+                        </div>
                     </div>
                     <div class="w-full bg-[#1f1f1f] rounded-full h-2">
                         <div class="h-2 rounded-full transition-all duration-500" style="width:${pct}%;background:${barColor}"></div>
@@ -3267,7 +3299,6 @@
                 </div>`;
             }).join('');
 
-            // Se todas as metas estão desativadas
             if (!el.innerHTML.trim()) {
                 el.innerHTML = `<p class="text-xs text-gray-600 italic text-center py-2">Nenhuma meta definida. Clique em "Editar metas" para começar.</p>`;
             }
