@@ -2150,6 +2150,7 @@
                         <p class="text-[10px] text-gray-500 mb-2 font-medium">Tipos de interação</p>
                         <div id="relationshipTypeBars" class="space-y-1.5"></div>
                     </div>
+                    <div id="nextContactSuggestion" class="hidden mt-3 pt-3 border-t border-sant-border"></div>
                 </div>
                 <div id="linkedItemsSection" class="px-4 pt-4">
                     <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 mb-2">
@@ -9802,6 +9803,58 @@
             } else {
                 barSection.classList.add('hidden');
             }
+
+            // ── Sugestão de próximo contato ──────────────────────────────────
+            const suggEl = document.getElementById('nextContactSuggestion');
+            if (!suggEl) return;
+
+            // Usa frequência do usuário se definida, senão a média calculada
+            const freqDays = c.contactFrequencyDays > 0 ? c.contactFrequencyDays : avgFreq;
+
+            if (!freqDays || !lastDate) { suggEl.classList.add('hidden'); return; }
+
+            // Data sugerida = última interação + frequência
+            const [ly, lm, ld] = lastDate.split('-').map(Number);
+            const suggested = new Date(ly, lm - 1, ld);
+            suggested.setDate(suggested.getDate() + freqDays);
+            const suggestedStr = `${suggested.getFullYear()}-${String(suggested.getMonth()+1).padStart(2,'0')}-${String(suggested.getDate()).padStart(2,'0')}`;
+            const suggestedFmt = `${String(suggested.getDate()).padStart(2,'0')}/${String(suggested.getMonth()+1).padStart(2,'0')}/${suggested.getFullYear()}`;
+
+            const todayStr = getSPTodayStr();
+            const diffMs   = suggested - new Date(todayStr + 'T00:00:00');
+            const diffDays = Math.round(diffMs / 86400000);
+
+            const alreadySet  = c.nextContact && c.nextContact === suggestedStr;
+            const hasCustom   = c.nextContact && c.nextContact !== suggestedStr;
+
+            let urgencyColor, urgencyLabel;
+            if (diffDays < 0)       { urgencyColor = 'text-red-400';   urgencyLabel = `atrasado ${Math.abs(diffDays)}d`; }
+            else if (diffDays === 0){ urgencyColor = 'text-amber-400'; urgencyLabel = 'hoje'; }
+            else if (diffDays <= 3) { urgencyColor = 'text-amber-400'; urgencyLabel = `em ${diffDays}d`; }
+            else                    { urgencyColor = 'text-green-400'; urgencyLabel = `em ${diffDays}d`; }
+
+            const source = c.contactFrequencyDays > 0
+                ? `frequência definida (${c.contactFrequencyDays}d)`
+                : `frequência média (${freqDays}d)`;
+
+            suggEl.classList.remove('hidden');
+            suggEl.innerHTML = `
+                <p class="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <i class="ph ph-sparkle text-sant-cyan"></i> Sugestão de próximo contato
+                </p>
+                <div class="flex items-center justify-between gap-3">
+                    <div>
+                        <p class="text-sm font-bold text-white">${suggestedFmt} <span class="text-[11px] font-normal ${urgencyColor}">(${urgencyLabel})</span></p>
+                        <p class="text-[10px] text-gray-600 mt-0.5">Baseado na ${source}</p>
+                        ${hasCustom ? `<p class="text-[10px] text-amber-400/70 mt-0.5"><i class="ph ph-warning"></i> Você já tem ${c.nextContact.split('-').reverse().join('/')} definido</p>` : ''}
+                    </div>
+                    ${alreadySet
+                        ? `<span class="text-[10px] text-green-400 flex items-center gap-1 shrink-0"><i class="ph ph-check-circle"></i> Definido</span>`
+                        : `<button onclick="setNextContact('${suggestedStr}')" class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan text-xs font-bold transition-colors">
+                            <i class="ph ph-calendar-plus"></i> Aplicar
+                           </button>`
+                    }
+                </div>`;
         }
 
         function renderFollowUpHistory(c) {
