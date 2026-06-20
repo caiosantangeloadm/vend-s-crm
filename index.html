@@ -1999,6 +1999,10 @@
                     <span class="text-sm text-gray-300">Modo apresentação/foco (oculta menu e cabeçalho)</span>
                     <span class="flex gap-1"><kbd class="kbd-key">F</kbd></span>
                 </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-gray-300">Registrar interação rápida no último contato aberto</span>
+                    <span class="flex gap-1"><kbd class="kbd-key">R</kbd></span>
+                </div>
             </div>
         </div>
     </div>
@@ -2293,6 +2297,7 @@
             { id: 'done',  label: 'Concluído'    },
         ];
         let currentHistoryContactId = null;
+        let lastContactId = null; // persiste após fechar o modal — usado pelo atalho R
         let messageTemplates = [];
         let sendMsgContactId = null;
         let editingTemplateId = null;
@@ -4834,6 +4839,7 @@
         function openQuickInteraction(contactId) {
             const c = contacts.find(x => x.id === contactId);
             if (!c) return;
+            lastContactId = contactId;
             document.getElementById('quickInteractionContactId').value = contactId;
             document.getElementById('quickInteractionName').textContent = fullName(c);
             document.getElementById('quickInteractionType').value = 'Ligação';
@@ -8880,6 +8886,7 @@
         // ── HISTÓRICO DE INTERAÇÕES ────────────────────────────────────────
         function openHistoryModal(contactId) {
             currentHistoryContactId = contactId;
+            lastContactId = contactId;
             const c = contacts.find(x => x.id === contactId);
             if (!c) return;
             addRecentContact(contactId);
@@ -9573,6 +9580,15 @@
                 // F alterna modo apresentação/foco
                 if (!isTyping && (e.key === 'f' || e.key === 'F')) {
                     toggleFocusMode();
+                }
+
+                // R abre interação rápida com o último contato aberto
+                if (!isTyping && (e.key === 'r' || e.key === 'R')) {
+                    if (lastContactId) {
+                        openQuickInteraction(lastContactId);
+                    } else {
+                        showToast('Abra o histórico de um contato primeiro.', 'error');
+                    }
                 }
             });
 
