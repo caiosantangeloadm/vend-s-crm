@@ -1245,6 +1245,15 @@
                                     </select>
                                 </div>
                                 <div class="flex items-center justify-between">
+                                    <div><p class="text-sm text-white">Máx. de contatos fixados</p><p class="text-xs text-gray-500">Limite de pins simultâneos na lista</p></div>
+                                    <select onchange="localStorage.setItem('vends_max_pinned', this.value); showToast('Preferência salva!')" id="s-max-pinned" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                                        <option value="5">5 contatos</option>
+                                        <option value="10" selected>10 contatos</option>
+                                        <option value="15">15 contatos</option>
+                                        <option value="20">20 contatos</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center justify-between">
                                     <div><p class="text-sm text-white">Notificações</p><p class="text-xs text-gray-500">Testar se as notificações estão ativas</p></div>
                                     <button onclick="testNotification()" class="text-sm text-sant-cyan border border-sant-cyan/30 hover:bg-sant-cyan/10 px-4 py-2 rounded-lg transition-colors flex items-center gap-2"><i class="ph ph-bell-ringing"></i> Testar</button>
                                 </div>
@@ -4502,6 +4511,14 @@
         function togglePin(id) {
             const c = contacts.find(x => x.id === id);
             if (!c) return;
+            if (!c.pinned) {
+                const maxPinned = parseInt(localStorage.getItem('vends_max_pinned') || '10');
+                const currentPinned = contacts.filter(x => x.pinned).length;
+                if (currentPinned >= maxPinned) {
+                    showToast(`Limite de ${maxPinned} fixados atingido. Desafixe um antes de adicionar outro.`, 'error');
+                    return;
+                }
+            }
             c.pinned = !c.pinned;
             saveToStorage();
             renderContacts(document.getElementById('searchInput')?.value || '');
@@ -4621,8 +4638,9 @@
             // Separador de fixados
             const pinned   = filtered.filter(c => c.pinned);
             const unpinned = filtered.filter(c => !c.pinned);
+            const maxPinned = parseInt(localStorage.getItem('vends_max_pinned') || '10');
             const pinnedSep = pinned.length
-                ? `<div class="flex items-center gap-2 mb-3 mt-1"><i class="ph ph-push-pin-fill text-amber-400 text-xs"></i><span class="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Fixados</span><div class="flex-1 h-px bg-amber-400/20"></div></div>`
+                ? `<div class="flex items-center gap-2 mb-3 mt-1"><i class="ph ph-push-pin-fill text-amber-400 text-xs"></i><span class="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Fixados</span><span class="text-[10px] text-amber-400/60">${pinned.length}/${maxPinned}</span><div class="flex-1 h-px bg-amber-400/20"></div></div>`
                 : '';
             const restSep = (pinned.length && unpinned.length)
                 ? `<div class="flex items-center gap-2 mb-3 mt-4"><span class="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Demais contatos</span><div class="flex-1 h-px bg-sant-border"></div></div>`
@@ -8317,6 +8335,8 @@
             if (bdayEl) bdayEl.value = localStorage.getItem('vends_bday_advance') || '3';
             const inactEl = document.getElementById('s-inact-days');
             if (inactEl) inactEl.value = localStorage.getItem('vends_inactivity_days') || '60';
+            const pinEl = document.getElementById('s-max-pinned');
+            if (pinEl) pinEl.value = localStorage.getItem('vends_max_pinned') || '10';
         }
         // ── fim Painel de Configurações ──────────────────────────────────────
 
