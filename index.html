@@ -4499,28 +4499,39 @@
             renderContacts(document.getElementById('searchInput') ? document.getElementById('searchInput').value : '');
         }
 
+        function togglePin(id) {
+            const c = contacts.find(x => x.id === id);
+            if (!c) return;
+            c.pinned = !c.pinned;
+            saveToStorage();
+            renderContacts(document.getElementById('searchInput')?.value || '');
+            showToast(c.pinned ? `"${fullName(c)}" fixado no topo.` : `"${fullName(c)}" desfixado.`);
+        }
+
         function sortContacts(arr) {
             const copy = [...arr];
             switch (currentContactSort) {
                 case 'code':
-                    return copy.sort((a, b) => (a.code || 9999) - (b.code || 9999));
+                    copy.sort((a, b) => (a.code || 9999) - (b.code || 9999)); break;
                 case 'createdAt':
-                    return copy.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+                    copy.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')); break;
                 case 'lastInteraction':
-                    return copy.sort((a, b) => {
+                    copy.sort((a, b) => {
                         const lastDate = c => (c.interactions && c.interactions.length)
                             ? [...c.interactions].sort((x,y) => (y.date||'').localeCompare(x.date||''))[0].date || ''
                             : '';
                         return lastDate(b).localeCompare(lastDate(a));
-                    });
+                    }); break;
                 case 'category':
-                    return copy.sort((a, b) => {
+                    copy.sort((a, b) => {
                         const ca = (a.category || '').localeCompare(b.category || '', 'pt-BR');
                         return ca !== 0 ? ca : fullName(a).localeCompare(fullName(b), 'pt-BR');
-                    });
+                    }); break;
                 default:
-                    return copy.sort((a, b) => fullName(a).localeCompare(fullName(b), 'pt-BR'));
+                    copy.sort((a, b) => fullName(a).localeCompare(fullName(b), 'pt-BR'));
             }
+            // Pinados sempre no topo, independente da ordenação
+            return copy.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
         }
 
         function scrollToContactSection(letter) {
@@ -4607,13 +4618,27 @@
                 return;
             }
 
+            // Separador de fixados
+            const pinned   = filtered.filter(c => c.pinned);
+            const unpinned = filtered.filter(c => !c.pinned);
+            const pinnedSep = pinned.length
+                ? `<div class="flex items-center gap-2 mb-3 mt-1"><i class="ph ph-push-pin-fill text-amber-400 text-xs"></i><span class="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Fixados</span><div class="flex-1 h-px bg-amber-400/20"></div></div>`
+                : '';
+            const restSep = (pinned.length && unpinned.length)
+                ? `<div class="flex items-center gap-2 mb-3 mt-4"><span class="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Demais contatos</span><div class="flex-1 h-px bg-sant-border"></div></div>`
+                : '';
+
             if (currentViewMode === 'grid') {
-                container.className = 'flex-1 overflow-y-auto pb-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 auto-rows-max';
-                container.innerHTML = filtered.map(c => contactCardHtml(c, 'grid', currentDensity)).join('');
+                container.className = 'flex-1 overflow-y-auto pb-10';
+                container.innerHTML =
+                    (pinned.length ? pinnedSep + `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 auto-rows-max mb-2">${pinned.map(c => contactCardHtml(c,'grid',currentDensity)).join('')}</div>` : '') +
+                    (unpinned.length ? restSep + `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 auto-rows-max">${unpinned.map(c => contactCardHtml(c,'grid',currentDensity)).join('')}</div>` : '');
             } else {
                 const compact = currentDensity === 'compact';
-                container.className = `flex-1 overflow-y-auto pb-10 flex flex-col ${compact ? 'gap-1' : 'gap-2'}`;
-                container.innerHTML = filtered.map(c => contactCardHtml(c, 'list', currentDensity)).join('');
+                container.className = 'flex-1 overflow-y-auto pb-10';
+                container.innerHTML =
+                    (pinned.length ? pinnedSep + `<div class="flex flex-col ${compact?'gap-1':'gap-2'} mb-2">${pinned.map(c => contactCardHtml(c,'list',currentDensity)).join('')}</div>` : '') +
+                    (unpinned.length ? restSep + `<div class="flex flex-col ${compact?'gap-1':'gap-2'}">${unpinned.map(c => contactCardHtml(c,'list',currentDensity)).join('')}</div>` : '');
             }
         }
 
@@ -4686,11 +4711,13 @@
                 const tagsHtml = (c.tags && c.tags.length > 0)
                     ? `<div class="flex flex-wrap gap-1 mt-2">${c.tags.slice(0,4).map(t=>`<span class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20">${t}</span>`).join('')}${c.tags.length>4?`<span class="text-[9px] text-gray-500">+${c.tags.length-4}</span>`:''}</div>` : '';
                 return `
-                <div id="ccard-${c.id}" class="relative bg-sant-surface border ${selectedContactIds.has(c.id)?'border-sant-cyan bg-sant-cyan/5':'border-sant-border'} rounded-xl p-5 hover:border-sant-cyan/50 transition-all group flex flex-col h-full min-w-0">
+                <div id="ccard-${c.id}" class="relative bg-sant-surface border ${selectedContactIds.has(c.id)?'border-sant-cyan bg-sant-cyan/5':c.pinned?'border-amber-400/40':'border-sant-border'} rounded-xl p-5 hover:border-sant-cyan/50 transition-all group flex flex-col h-full min-w-0">
+                    ${c.pinned ? `<div class="absolute top-2 left-2 z-10"><i class="ph ph-push-pin-fill text-amber-400 text-xs" title="Fixado"></i></div>` : ''}
                     <div class="absolute top-3 left-3 z-20 ${bulkMode?'flex':'hidden'} items-center">
                         <input type="checkbox" onclick="event.stopPropagation();toggleContactSelect('${c.id}')" ${selectedContactIds.has(c.id)?'checked':''} class="w-4 h-4 accent-sant-cyan cursor-pointer rounded">
                     </div>
                     <div class="absolute top-3 right-3 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-sant-surface/95 rounded-lg p-1 z-10 shadow-lg">
+                        <button onclick="event.stopPropagation();togglePin('${c.id}')" class="p-1 ${c.pinned?'text-amber-400':'text-gray-400 hover:text-amber-400'} transition-colors" title="${c.pinned?'Desafixar':'Fixar no topo'}"><i class="ph ${c.pinned?'ph-push-pin-fill':'ph-push-pin'}"></i></button>
                         <button onclick="openQuickInteraction('${c.id}')" class="text-gray-400 hover:text-[#fbbf24] p-1" title="Registrar interação rápida"><i class="ph ph-plus-circle"></i></button>
                         <button onclick="openHistoryModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 relative" title="Histórico">${histCount}<i class="ph ph-clock-clockwise"></i></button>
                         <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Exportar vCard"><i class="ph ph-address-book"></i></button>
@@ -4730,8 +4757,9 @@
                 ? c.tags.slice(0,3).map(t=>`<span class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20">${t}</span>`).join('') : '';
             if (compact) {
                 return `
-                <div id="ccard-${c.id}" class="bg-sant-surface border ${selectedContactIds.has(c.id)?'border-sant-cyan bg-sant-cyan/5':'border-sant-border'} rounded-lg px-3 py-1.5 hover:border-sant-cyan/50 transition-all group flex items-center gap-3 min-w-0">
+                <div id="ccard-${c.id}" class="bg-sant-surface border ${selectedContactIds.has(c.id)?'border-sant-cyan bg-sant-cyan/5':c.pinned?'border-amber-400/40':'border-sant-border'} rounded-lg px-3 py-1.5 hover:border-sant-cyan/50 transition-all group flex items-center gap-3 min-w-0">
                     ${bulkMode?`<input type="checkbox" onclick="event.stopPropagation();toggleContactSelect('${c.id}')" ${selectedContactIds.has(c.id)?'checked':''} class="w-4 h-4 accent-sant-cyan cursor-pointer shrink-0 rounded">`:''}
+                    ${c.pinned&&!bulkMode?`<i class="ph ph-push-pin-fill text-amber-400 text-[10px] shrink-0" title="Fixado"></i>`:''}
                     ${contactAvatarHtml(c, 'w-6 h-6 text-[10px]')}
                     <div class="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4 items-center min-w-0">
                         <div class="min-w-0 flex items-center gap-1.5">
@@ -4746,6 +4774,7 @@
                     <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                         ${waUrl?`<a href="${waUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="text-green-400 hover:text-green-300 p-1 bg-[#141414] rounded" title="WhatsApp"><i class="ph ph-whatsapp-logo text-xs"></i></a>`:''}
                         ${dispEmail?`<a href="mailto:${dispEmail}" onclick="event.stopPropagation()" class="text-sant-cyan hover:text-[#7aafc8] p-1 bg-[#141414] rounded" title="E-mail"><i class="ph ph-envelope-simple text-xs"></i></a>`:''}
+                        <button onclick="event.stopPropagation();togglePin('${c.id}')" class="p-1 bg-[#141414] rounded ${c.pinned?'text-amber-400':'text-gray-400 hover:text-amber-400'} transition-colors" title="${c.pinned?'Desafixar':'Fixar no topo'}"><i class="ph ${c.pinned?'ph-push-pin-fill':'ph-push-pin'} text-xs"></i></button>
                         <button onclick="openQuickInteraction('${c.id}')" class="text-gray-400 hover:text-[#fbbf24] p-1 bg-[#141414] rounded" title="Registrar interação rápida"><i class="ph ph-plus-circle text-xs"></i></button>
                         <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 bg-[#141414] rounded" title="Exportar vCard"><i class="ph ph-address-book text-xs"></i></button>
                         <button onclick="openMergeModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 bg-[#141414] rounded" title="Mesclar com outro contato"><i class="ph ph-git-merge text-xs"></i></button>
@@ -4756,8 +4785,9 @@
                 </div>`;
             }
             return `
-            <div id="ccard-${c.id}" class="bg-sant-surface border ${selectedContactIds.has(c.id)?'border-sant-cyan bg-sant-cyan/5':'border-sant-border'} rounded-lg p-3 hover:border-sant-cyan/50 transition-all group flex items-center gap-4 min-w-0">
+            <div id="ccard-${c.id}" class="bg-sant-surface border ${selectedContactIds.has(c.id)?'border-sant-cyan bg-sant-cyan/5':c.pinned?'border-amber-400/40':'border-sant-border'} rounded-lg p-3 hover:border-sant-cyan/50 transition-all group flex items-center gap-4 min-w-0">
                 ${bulkMode?`<input type="checkbox" onclick="event.stopPropagation();toggleContactSelect('${c.id}')" ${selectedContactIds.has(c.id)?'checked':''} class="w-4 h-4 accent-sant-cyan cursor-pointer shrink-0 rounded">`:''}
+                ${c.pinned&&!bulkMode?`<i class="ph ph-push-pin-fill text-amber-400 text-xs shrink-0" title="Fixado"></i>`:''}
                 ${contactAvatarHtml(c, 'w-8 h-8 text-xs')}
                 <div class="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4 items-center min-w-0">
                     <div class="min-w-0">
@@ -4774,6 +4804,7 @@
                 <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                     ${waUrl?`<a href="${waUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="text-green-400 hover:text-green-300 p-1.5 bg-[#141414] rounded" title="WhatsApp"><i class="ph ph-whatsapp-logo"></i></a>`:''}
                     ${dispEmail?`<a href="mailto:${dispEmail}" onclick="event.stopPropagation()" class="text-sant-cyan hover:text-[#7aafc8] p-1.5 bg-[#141414] rounded" title="E-mail"><i class="ph ph-envelope-simple"></i></a>`:''}
+                    <button onclick="event.stopPropagation();togglePin('${c.id}')" class="p-1.5 bg-[#141414] rounded ${c.pinned?'text-amber-400':'text-gray-400 hover:text-amber-400'} transition-colors" title="${c.pinned?'Desafixar':'Fixar no topo'}"><i class="ph ${c.pinned?'ph-push-pin-fill':'ph-push-pin'}"></i></button>
                     <button onclick="openQuickInteraction('${c.id}')" class="text-gray-400 hover:text-[#fbbf24] p-1.5 bg-[#141414] rounded" title="Registrar interação rápida"><i class="ph ph-plus-circle"></i></button>
                     <button onclick="openHistoryModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded relative" title="Histórico">${c.interactions&&c.interactions.length?`<span class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-sant-cyan text-sant-bg text-[8px] font-bold rounded-full flex items-center justify-center">${c.interactions.length}</span>`:''}<i class="ph ph-clock-clockwise"></i></button>
                     <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Exportar vCard"><i class="ph ph-address-book"></i></button>
@@ -5019,6 +5050,7 @@
                 nextContact: existing ? (existing.nextContact || '') : '',
                 contactFrequencyDays: existing ? (existing.contactFrequencyDays || 0) : 0,
                 followUpHistory: existing ? (existing.followUpHistory || []) : [],
+                pinned: existing ? (existing.pinned || false) : false,
                 changeLog: existing ? (existing.changeLog || []) : [],
                 createdAt: existing ? (existing.createdAt || new Date().toISOString()) : new Date().toISOString(),
                 code: existing ? existing.code : getNextContactCode()
