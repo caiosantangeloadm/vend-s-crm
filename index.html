@@ -4595,43 +4595,61 @@
 
             // ── Índice A–Z (só quando sort=name, sem busca ativa, sem filtros) ──
             const showAZ = currentContactSort === 'name' && !searchTerm && !hasActiveFilters();
-            const azBar = document.getElementById('recentContactsBar');
             if (showAZ && filtered.length > 0) {
-                const letters = [...new Set(filtered.map(c => {
+                // Separa fixados do restante antes de agrupar por letra
+                const azPinned   = filtered.filter(c => c.pinned);
+                const azUnpinned = filtered.filter(c => !c.pinned);
+                const maxP = parseInt(localStorage.getItem('vends_max_pinned') || '10');
+
+                const pinnedBlock = azPinned.length ? (() => {
+                    const sep = `<div class="flex items-center gap-2 mb-3">
+                        <i class="ph ph-push-pin-fill text-amber-400 text-xs"></i>
+                        <span class="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Fixados</span>
+                        <span class="text-[10px] text-amber-400/60">${azPinned.length}/${maxP}</span>
+                        <div class="flex-1 h-px bg-amber-400/20"></div>
+                    </div>`;
+                    const cards = currentViewMode === 'grid'
+                        ? `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">${azPinned.map(c => contactCardHtml(c,'grid',currentDensity)).join('')}</div>`
+                        : `<div class="flex flex-col ${currentDensity==='compact'?'gap-1':'gap-2'}">${azPinned.map(c => contactCardHtml(c,'list',currentDensity)).join('')}</div>`;
+                    return sep + cards;
+                })() : '';
+
+                const divider = azPinned.length && azUnpinned.length
+                    ? `<div class="flex items-center gap-3 my-5">
+                        <div class="flex-1 h-px bg-sant-border"></div>
+                        <span class="text-[10px] font-bold text-gray-600 uppercase tracking-widest px-2">Demais contatos</span>
+                        <div class="flex-1 h-px bg-sant-border"></div>
+                      </div>`
+                    : '';
+
+                const letters = [...new Set(azUnpinned.map(c => {
                     const l = fullName(c).trim()[0] || '#';
                     return /[A-Za-zÀ-ú]/.test(l) ? l.toUpperCase() : '#';
                 }))].sort((a,b) => a === '#' ? 1 : b === '#' ? -1 : a.localeCompare(b,'pt-BR'));
-                const jumpBar = `<div class="flex flex-wrap gap-1 mb-4 mt-1">
+
+                const jumpBar = letters.length ? `<div class="flex flex-wrap gap-1 mb-4 mt-1">
                     ${letters.map(l => `<button onclick="scrollToContactSection('${l}')" class="w-7 h-7 rounded-lg text-xs font-bold border border-sant-border text-gray-400 hover:border-sant-cyan hover:text-sant-cyan transition-colors">${l}</button>`).join('')}
-                </div>`;
-                container.className = 'pb-10';
-                container.innerHTML = jumpBar + filtered.reduce((html, c, i) => {
-                    const letter = (() => { const l = fullName(c).trim()[0] || '#'; return /[A-Za-zÀ-ú]/.test(l) ? l.toUpperCase() : '#'; })();
-                    const prevLetter = i > 0 ? (() => { const l = fullName(filtered[i-1]).trim()[0] || '#'; return /[A-Za-zÀ-ú]/.test(l) ? l.toUpperCase() : '#'; })() : null;
-                    const header = (letter !== prevLetter)
-                        ? `<div id="contact-section-${letter}" class="flex items-center gap-3 mt-4 mb-2 scroll-mt-4"><span class="text-lg font-black text-sant-cyan w-8 shrink-0">${letter}</span><div class="flex-1 h-px bg-sant-border"></div><span class="text-[10px] text-gray-600 font-bold">${filtered.filter(x => { const l2 = fullName(x).trim()[0]||'#'; return (/[A-Za-zÀ-ú]/.test(l2)?l2.toUpperCase():'#') === letter; }).length}</span></div>`
-                        : '';
-                    return html + header + contactCardHtml(c, currentViewMode, currentDensity);
-                }, '');
-                if (currentViewMode === 'grid') {
-                    // wrap grid sections
-                    container.innerHTML = jumpBar + letters.map(letter => {
-                        const group = filtered.filter(c => { const l = fullName(c).trim()[0]||'#'; return (/[A-Za-zÀ-ú]/.test(l)?l.toUpperCase():'#') === letter; });
+                </div>` : '';
+
+                const azBlock = currentViewMode === 'grid'
+                    ? jumpBar + letters.map(letter => {
+                        const group = azUnpinned.filter(c => { const l = fullName(c).trim()[0]||'#'; return (/[A-Za-zÀ-ú]/.test(l)?l.toUpperCase():'#') === letter; });
                         return `<div id="contact-section-${letter}" class="scroll-mt-4 mb-4">
                             <div class="flex items-center gap-3 mb-3"><span class="text-lg font-black text-sant-cyan w-8 shrink-0">${letter}</span><div class="flex-1 h-px bg-sant-border"></div><span class="text-[10px] text-gray-600 font-bold">${group.length}</span></div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">${group.map(c => contactCardHtml(c, 'grid', currentDensity)).join('')}</div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">${group.map(c => contactCardHtml(c,'grid',currentDensity)).join('')}</div>
                         </div>`;
-                    }).join('');
-                } else {
-                    const compact = currentDensity === 'compact';
-                    container.innerHTML = jumpBar + letters.map(letter => {
-                        const group = filtered.filter(c => { const l = fullName(c).trim()[0]||'#'; return (/[A-Za-zÀ-ú]/.test(l)?l.toUpperCase():'#') === letter; });
+                    }).join('')
+                    : jumpBar + letters.map(letter => {
+                        const compact = currentDensity === 'compact';
+                        const group = azUnpinned.filter(c => { const l = fullName(c).trim()[0]||'#'; return (/[A-Za-zÀ-ú]/.test(l)?l.toUpperCase():'#') === letter; });
                         return `<div id="contact-section-${letter}" class="scroll-mt-4 mb-4">
                             <div class="flex items-center gap-3 mb-2"><span class="text-lg font-black text-sant-cyan w-8 shrink-0">${letter}</span><div class="flex-1 h-px bg-sant-border"></div><span class="text-[10px] text-gray-600 font-bold">${group.length}</span></div>
-                            <div class="flex flex-col ${compact ? 'gap-1' : 'gap-2'}">${group.map(c => contactCardHtml(c, 'list', currentDensity)).join('')}</div>
+                            <div class="flex flex-col ${compact?'gap-1':'gap-2'}">${group.map(c => contactCardHtml(c,'list',currentDensity)).join('')}</div>
                         </div>`;
                     }).join('');
-                }
+
+                container.className = 'pb-10';
+                container.innerHTML = pinnedBlock + divider + azBlock;
                 return;
             }
 
