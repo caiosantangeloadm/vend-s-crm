@@ -522,6 +522,9 @@
                             </select>
                             <i class="ph ph-sort-ascending absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"></i>
                         </div>
+                        <button onclick="enterBulkMode()" id="btnBulkSelect" title="Seleção múltipla" class="p-2.5 bg-sant-surface border border-sant-border rounded-lg text-gray-500 hover:text-sant-cyan hover:border-sant-cyan transition-colors shrink-0">
+                            <i class="ph ph-checks text-lg"></i>
+                        </button>
                         <button onclick="toggleAdvFilters()" id="btnAdvFilters" title="Filtros Avançados" class="p-2.5 bg-sant-surface border border-sant-border rounded-lg text-gray-500 hover:text-sant-cyan hover:border-sant-cyan transition-colors shrink-0">
                             <i class="ph ph-funnel text-lg"></i>
                         </button>
@@ -530,6 +533,23 @@
                         </button>
                     </div>
                 </div>
+                <!-- Barra de Seleção Múltipla -->
+                <div id="bulkActionBar" class="hidden mb-4 px-4 py-3 bg-sant-cyan/10 border border-sant-cyan/30 rounded-xl flex flex-wrap items-center gap-3">
+                    <span id="bulkCount" class="text-sm font-bold text-sant-cyan">0 selecionados</span>
+                    <button onclick="selectAllVisible()" class="text-xs text-gray-400 hover:text-sant-cyan transition-colors underline">Selecionar todos</button>
+                    <div class="flex-1"></div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <button onclick="bulkExportVcf()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-300 hover:text-sant-cyan text-xs font-medium transition-colors"><i class="ph ph-address-book"></i> Exportar .vcf</button>
+                        <button onclick="bulkExportCsv()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-300 hover:text-sant-cyan text-xs font-medium transition-colors"><i class="ph ph-file-csv"></i> Exportar CSV</button>
+                        <div class="relative" id="bulkCatWrap">
+                            <button onclick="toggleBulkCatMenu()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-300 hover:text-sant-cyan text-xs font-medium transition-colors"><i class="ph ph-tag"></i> Mover categoria <i class="ph ph-caret-down text-[10px]"></i></button>
+                            <div id="bulkCatMenu" class="hidden absolute right-0 mt-1 w-48 bg-[#141414] border border-sant-border rounded-xl shadow-2xl z-30 overflow-hidden max-h-56 overflow-y-auto"></div>
+                        </div>
+                        <button onclick="bulkDelete()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-400 text-xs font-medium transition-colors"><i class="ph ph-trash"></i> Excluir</button>
+                        <button onclick="exitBulkMode()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sant-surface border border-sant-border text-gray-500 hover:text-white text-xs font-medium transition-colors"><i class="ph ph-x"></i> Cancelar</button>
+                    </div>
+                </div>
+
                 <div id="recentContactsBar" class="hidden mb-5"></div>
                 <!-- Painel de Filtros Avançados -->
                 <div id="advFiltersPanel" class="hidden mb-5 p-4 bg-sant-surface border border-sant-cyan/30 rounded-xl">
@@ -2279,6 +2299,8 @@
         let noteKanbanDragId = null;
         let currentNotesSort = 'newest';
         let currentViewMode = localStorage.getItem('sant_crm_view_mode') || 'grid';
+        let bulkMode = false;
+        let selectedContactIds = new Set();
         let currentDensity = localStorage.getItem('sant_crm_density') || 'comfortable';
         const defaultCategories = ['Família', 'Alunos Universidade', 'Amigos', 'Conhecidos', 'Potenciais Clientes', 'Clientes', 'Ex Clientes'];
         const defaultOrigins = ['Indicação', 'Evento', 'Site', 'Redes Sociais', 'Anúncio/Mídia Paga', 'Prospecção Ativa', 'Outro'];
@@ -4633,7 +4655,10 @@
                 const tagsHtml = (c.tags && c.tags.length > 0)
                     ? `<div class="flex flex-wrap gap-1 mt-2">${c.tags.slice(0,4).map(t=>`<span class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20">${t}</span>`).join('')}${c.tags.length>4?`<span class="text-[9px] text-gray-500">+${c.tags.length-4}</span>`:''}</div>` : '';
                 return `
-                <div class="relative bg-sant-surface border border-sant-border rounded-xl p-5 hover:border-sant-cyan/50 transition-all group flex flex-col h-full min-w-0">
+                <div id="ccard-${c.id}" class="relative bg-sant-surface border ${selectedContactIds.has(c.id)?'border-sant-cyan bg-sant-cyan/5':'border-sant-border'} rounded-xl p-5 hover:border-sant-cyan/50 transition-all group flex flex-col h-full min-w-0">
+                    <div class="absolute top-3 left-3 z-20 ${bulkMode?'flex':'hidden'} items-center">
+                        <input type="checkbox" onclick="event.stopPropagation();toggleContactSelect('${c.id}')" ${selectedContactIds.has(c.id)?'checked':''} class="w-4 h-4 accent-sant-cyan cursor-pointer rounded">
+                    </div>
                     <div class="absolute top-3 right-3 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-sant-surface/95 rounded-lg p-1 z-10 shadow-lg">
                         <button onclick="openQuickInteraction('${c.id}')" class="text-gray-400 hover:text-[#fbbf24] p-1" title="Registrar interação rápida"><i class="ph ph-plus-circle"></i></button>
                         <button onclick="openHistoryModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 relative" title="Histórico">${histCount}<i class="ph ph-clock-clockwise"></i></button>
@@ -4674,7 +4699,8 @@
                 ? c.tags.slice(0,3).map(t=>`<span class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20">${t}</span>`).join('') : '';
             if (compact) {
                 return `
-                <div class="bg-sant-surface border border-sant-border rounded-lg px-3 py-1.5 hover:border-sant-cyan/50 transition-all group flex items-center gap-3 min-w-0">
+                <div id="ccard-${c.id}" class="bg-sant-surface border ${selectedContactIds.has(c.id)?'border-sant-cyan bg-sant-cyan/5':'border-sant-border'} rounded-lg px-3 py-1.5 hover:border-sant-cyan/50 transition-all group flex items-center gap-3 min-w-0">
+                    ${bulkMode?`<input type="checkbox" onclick="event.stopPropagation();toggleContactSelect('${c.id}')" ${selectedContactIds.has(c.id)?'checked':''} class="w-4 h-4 accent-sant-cyan cursor-pointer shrink-0 rounded">`:''}
                     ${contactAvatarHtml(c, 'w-6 h-6 text-[10px]')}
                     <div class="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4 items-center min-w-0">
                         <div class="min-w-0 flex items-center gap-1.5">
@@ -4699,7 +4725,8 @@
                 </div>`;
             }
             return `
-            <div class="bg-sant-surface border border-sant-border rounded-lg p-3 hover:border-sant-cyan/50 transition-all group flex items-center gap-4 min-w-0">
+            <div id="ccard-${c.id}" class="bg-sant-surface border ${selectedContactIds.has(c.id)?'border-sant-cyan bg-sant-cyan/5':'border-sant-border'} rounded-lg p-3 hover:border-sant-cyan/50 transition-all group flex items-center gap-4 min-w-0">
+                ${bulkMode?`<input type="checkbox" onclick="event.stopPropagation();toggleContactSelect('${c.id}')" ${selectedContactIds.has(c.id)?'checked':''} class="w-4 h-4 accent-sant-cyan cursor-pointer shrink-0 rounded">`:''}
                 ${contactAvatarHtml(c, 'w-8 h-8 text-xs')}
                 <div class="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4 items-center min-w-0">
                     <div class="min-w-0">
@@ -7776,6 +7803,128 @@
                 </div>`;
             }).join('');
         }
+
+        // ── Seleção Múltipla (Bulk Actions) ─────────────────────────────────
+        function enterBulkMode() {
+            bulkMode = true;
+            selectedContactIds.clear();
+            document.getElementById('bulkActionBar').classList.remove('hidden');
+            document.getElementById('btnBulkSelect').classList.add('text-sant-cyan','border-sant-cyan');
+            renderContacts(document.getElementById('searchInput')?.value || '');
+        }
+
+        function exitBulkMode() {
+            bulkMode = false;
+            selectedContactIds.clear();
+            document.getElementById('bulkActionBar').classList.add('hidden');
+            document.getElementById('bulkCatMenu').classList.add('hidden');
+            const btn = document.getElementById('btnBulkSelect');
+            btn.classList.remove('text-sant-cyan','border-sant-cyan');
+            renderContacts(document.getElementById('searchInput')?.value || '');
+        }
+
+        function toggleContactSelect(id) {
+            if (selectedContactIds.has(id)) selectedContactIds.delete(id);
+            else selectedContactIds.add(id);
+            // Atualiza visual do card sem re-renderizar tudo
+            const card = document.getElementById('ccard-' + id);
+            if (card) {
+                const sel = selectedContactIds.has(id);
+                card.classList.toggle('border-sant-cyan', sel);
+                card.classList.toggle('bg-sant-cyan/5', sel);
+                card.classList.toggle('border-sant-border', !sel);
+                const cb = card.querySelector('input[type=checkbox]');
+                if (cb) cb.checked = sel;
+            }
+            updateBulkBar();
+        }
+
+        function updateBulkBar() {
+            const n = selectedContactIds.size;
+            const el = document.getElementById('bulkCount');
+            if (el) el.textContent = `${n} selecionado${n !== 1 ? 's' : ''}`;
+        }
+
+        function selectAllVisible() {
+            // Seleciona todos os contatos atualmente visíveis nos cards
+            document.querySelectorAll('[id^="ccard-"]').forEach(card => {
+                const id = card.id.replace('ccard-', '');
+                selectedContactIds.add(id);
+                card.classList.add('border-sant-cyan', 'bg-sant-cyan/5');
+                card.classList.remove('border-sant-border');
+                const cb = card.querySelector('input[type=checkbox]');
+                if (cb) cb.checked = true;
+            });
+            updateBulkBar();
+        }
+
+        function toggleBulkCatMenu() {
+            const menu = document.getElementById('bulkCatMenu');
+            if (menu.classList.contains('hidden')) {
+                menu.innerHTML = categories.sort((a,b) => a.localeCompare(b,'pt-BR')).map(cat =>
+                    `<button onclick="bulkMoveCategory('${cat.replace(/'/g,"\\'")}')" class="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-[#1f1f1f] transition-colors">${cat}</button>`
+                ).join('') || '<p class="px-4 py-3 text-xs text-gray-600">Nenhuma categoria cadastrada.</p>';
+            }
+            menu.classList.toggle('hidden');
+        }
+
+        function bulkMoveCategory(cat) {
+            if (!selectedContactIds.size) { showToast('Selecione ao menos um contato.', 'error'); return; }
+            const n = selectedContactIds.size;
+            showConfirm(`Mover ${n} contato${n>1?'s':''} para a categoria "${cat}"?`, '', () => {
+                selectedContactIds.forEach(id => {
+                    const c = contacts.find(x => x.id === id);
+                    if (c) c.category = cat;
+                });
+                saveToStorage();
+                exitBulkMode();
+                showToast(`${n} contato${n>1?'s':''} movido${n>1?'s':''} para "${cat}"!`);
+            });
+            document.getElementById('bulkCatMenu').classList.add('hidden');
+        }
+
+        function bulkExportVcf() {
+            if (!selectedContactIds.size) { showToast('Selecione ao menos um contato.', 'error'); return; }
+            const sel = contacts.filter(c => selectedContactIds.has(c.id));
+            const content = sel.map(buildVcfEntry).join('\r\n');
+            downloadVcf(content, `vends_selecionados_${getSPTodayStr()}.vcf`);
+            showToast(`${sel.length} contato${sel.length>1?'s':''} exportado${sel.length>1?'s':''}!`);
+        }
+
+        function bulkExportCsv() {
+            if (!selectedContactIds.size) { showToast('Selecione ao menos um contato.', 'error'); return; }
+            const sel = contacts.filter(c => selectedContactIds.has(c.id));
+            const headers = ['#','Nome','Sobrenome','Empresa','Categoria','Telefone','E-mail','Origem','Tags','Cidade','Estado'];
+            const rows = sel.map(c => [
+                c.code||'', c.name||'', c.lastName||'', c.company||'',
+                c.category||'', c.phoneProf||c.phonePess||'',
+                c.emailProf||c.emailPess||'', c.origin||'',
+                (c.tags||[]).join('; '), c.addressCity||'', c.addressState||''
+            ]);
+            const csv = [headers,...rows].map(r => r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+            const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `vends_selecionados_${getSPTodayStr()}.csv`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+            showToast(`${sel.length} contato${sel.length>1?'s':''} exportado${sel.length>1?'s':''}!`);
+        }
+
+        function bulkDelete() {
+            if (!selectedContactIds.size) { showToast('Selecione ao menos um contato.', 'error'); return; }
+            const n = selectedContactIds.size;
+            showConfirm(`Excluir ${n} contato${n>1?'s':''} permanentemente?`, 'Esta ação não pode ser desfeita.', () => {
+                selectedContactIds.forEach(id => {
+                    const idx = contacts.findIndex(c => c.id === id);
+                    if (idx !== -1) contacts.splice(idx, 1);
+                });
+                saveToStorage();
+                exitBulkMode();
+                showToast(`${n} contato${n>1?'s':''} excluído${n>1?'s':''}!`);
+            });
+        }
+        // ── fim Bulk Actions ─────────────────────────────────────────────────
 
         function exportInactivityCsv() {
             const days    = parseInt(document.getElementById('inactRepDays')?.value || '60');
