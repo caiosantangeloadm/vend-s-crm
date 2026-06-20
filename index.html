@@ -5433,13 +5433,19 @@
         }
 
         function deleteContact(id) {
-            const c = contacts.find(x => x.id === id);
-            showConfirm(`Excluir "${c ? fullName(c) : 'contato'}"?`, 'O contato será removido permanentemente.', () => {
-                contacts = contacts.filter(c => c.id !== id);
+            const idx = contacts.findIndex(x => x.id === id);
+            if (idx === -1) return;
+            const snapshot = JSON.parse(JSON.stringify(contacts[idx])); // cópia profunda
+            const name = fullName(snapshot);
+            contacts.splice(idx, 1);
+            saveToStorage();
+            renderContacts();
+            if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
+            showUndoToast(`"${name}" excluído.`, () => {
+                contacts.splice(idx, 0, snapshot); // restaura na posição original
                 saveToStorage();
                 renderContacts();
-                showToast('Contato excluído.');
-                if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
+                showToast(`"${name}" restaurado!`);
             });
         }
 
@@ -8586,6 +8592,38 @@
                 <p class="text-sm font-medium text-gray-400">${title}</p>
                 ${sub ? `<p class="text-xs text-gray-600 mt-1 max-w-xs">${sub}</p>` : ''}
             </div>`;
+        }
+
+        function showUndoToast(msg, undoFn, seconds = 5) {
+            const toast = document.createElement('div');
+            toast.className = 'px-4 py-3 rounded-lg shadow-xl text-sm font-medium text-white flex items-center gap-3 transform translate-y-10 opacity-0 transition-all duration-300 z-50 bg-[#1f1f1f] border border-sant-border';
+            let remaining = seconds;
+            const render = () => {
+                toast.innerHTML = `
+                    <i class="ph ph-trash text-red-400 text-lg shrink-0"></i>
+                    <span class="flex-1">${msg}</span>
+                    <button id="undoBtn" class="px-3 py-1 rounded-md bg-sant-cyan text-sant-bg text-xs font-bold hover:bg-cyan-400 transition-colors shrink-0 flex items-center gap-1">
+                        <i class="ph ph-arrow-counter-clockwise"></i> Desfazer
+                    </button>
+                    <span class="text-gray-500 text-xs w-4 text-center shrink-0">${remaining}</span>`;
+                document.getElementById('undoBtn')?.addEventListener('click', () => {
+                    clearInterval(timer);
+                    toast.classList.add('translate-y-10', 'opacity-0');
+                    setTimeout(() => toast.remove(), 300);
+                    undoFn();
+                });
+            };
+            render();
+            document.getElementById('toastContainer').appendChild(toast);
+            setTimeout(() => toast.classList.remove('translate-y-10', 'opacity-0'), 10);
+            const timer = setInterval(() => {
+                remaining--;
+                if (remaining <= 0) {
+                    clearInterval(timer);
+                    toast.classList.add('translate-y-10', 'opacity-0');
+                    setTimeout(() => toast.remove(), 300);
+                } else { render(); }
+            }, 1000);
         }
 
         function showToast(msg, type='success') {
