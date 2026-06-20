@@ -2113,6 +2113,15 @@
                 <div id="contactTimelineSection" class="hidden p-4 space-y-1"></div>
                 <!-- Detalhe (layout original) -->
                 <div id="contactDetailSection">
+                <!-- Resumo do Relacionamento -->
+                <div id="relationshipSummary" class="mx-4 mt-4 mb-1 rounded-xl border border-sant-border bg-[#0d0d0d] p-4 hidden">
+                    <p class="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2"><i class="ph ph-chart-line-up text-sant-cyan"></i> Resumo do Relacionamento</p>
+                    <div id="relationshipSummaryBody" class="grid grid-cols-2 gap-3"></div>
+                    <div id="relationshipSummaryBar" class="mt-3 pt-3 border-t border-sant-border hidden">
+                        <p class="text-[10px] text-gray-500 mb-2 font-medium">Tipos de interação</p>
+                        <div id="relationshipTypeBars" class="space-y-1.5"></div>
+                    </div>
+                </div>
                 <div id="linkedItemsSection" class="px-4 pt-4">
                     <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 mb-2">
                         <i class="ph ph-link"></i> Compromissos &amp; Tarefas Vinculadas
@@ -8911,6 +8920,7 @@
             document.getElementById('historyNextContact').value = c.nextContact || '';
             document.getElementById('historyNextContactClear').classList.toggle('hidden', !c.nextContact);
             renderFollowUpHistory(c);
+            renderRelationshipSummary(c);
             const freqInput = document.getElementById('historyFrequencyDays');
             if (freqInput) freqInput.value = c.contactFrequencyDays || '';
             const s = getFrequencyStatus(c);
@@ -9409,6 +9419,101 @@
             document.getElementById('historyNextContactClear').classList.toggle('hidden', !c.nextContact);
             renderFollowUpHistory(c);
             showToast(c.nextContact ? 'Lembrete de follow-up definido.' : 'Lembrete removido.');
+        }
+
+        function renderRelationshipSummary(c) {
+            const card = document.getElementById('relationshipSummary');
+            const body = document.getElementById('relationshipSummaryBody');
+            const barSection = document.getElementById('relationshipSummaryBar');
+            const typeBars = document.getElementById('relationshipTypeBars');
+            if (!card || !body) return;
+
+            const ints = c.interactions || [];
+            if (ints.length === 0) { card.classList.add('hidden'); return; }
+            card.classList.remove('hidden');
+
+            // Métricas base
+            const total = ints.length;
+            const sorted = [...ints].sort((a,b) => (b.date||'').localeCompare(a.date||''));
+            const lastDate = sorted[0]?.date;
+            const firstDate = [...ints].sort((a,b) => (a.date||'').localeCompare(b.date||''))[0]?.date;
+
+            // Dias desde a última interação
+            let daysSinceLast = null;
+            if (lastDate) {
+                const [y,m,d] = lastDate.split('-').map(Number);
+                const todayStr = getSPTodayStr();
+                const [ty,tm,td] = todayStr.split('-').map(Number);
+                daysSinceLast = Math.round((new Date(ty,tm-1,td) - new Date(y,m-1,d)) / 86400000);
+            }
+
+            // Frequência média (dias entre interações)
+            let avgFreq = null;
+            if (total >= 2 && firstDate && lastDate && firstDate !== lastDate) {
+                const [fy,fm,fd] = firstDate.split('-').map(Number);
+                const [ly,lm,ld] = lastDate.split('-').map(Number);
+                const spanDays = Math.round((new Date(ly,lm-1,ld) - new Date(fy,fm-1,fd)) / 86400000);
+                avgFreq = Math.round(spanDays / (total - 1));
+            }
+
+            // Tipo mais frequente
+            const typeCounts = {};
+            ints.forEach(i => { const t = i.type || 'Outro'; typeCounts[t] = (typeCounts[t]||0)+1; });
+            const typesSorted = Object.entries(typeCounts).sort((a,b) => b[1]-a[1]);
+            const topType = typesSorted[0]?.[0] || '—';
+
+            // Formatações
+            const fmtDate = d => d ? d.split('-').reverse().join('/') : '—';
+            const lastLabel = daysSinceLast === 0 ? 'Hoje'
+                : daysSinceLast === 1 ? 'Ontem'
+                : daysSinceLast !== null ? `há ${daysSinceLast}d`
+                : '—';
+            const lastColor = daysSinceLast === null ? 'text-gray-400'
+                : daysSinceLast <= 7 ? 'text-green-400'
+                : daysSinceLast <= 30 ? 'text-amber-400'
+                : 'text-red-400';
+
+            // Relacionamento em anos/meses/dias
+            let durLabel = '—';
+            if (firstDate) {
+                const [fy,fm,fd] = firstDate.split('-').map(Number);
+                const todayStr = getSPTodayStr(); const [ty,tm,td] = todayStr.split('-').map(Number);
+                const totalDays = Math.round((new Date(ty,tm-1,td) - new Date(fy,fm-1,fd)) / 86400000);
+                if (totalDays >= 365) durLabel = `${Math.floor(totalDays/365)}a ${Math.floor((totalDays%365)/30)}m`;
+                else if (totalDays >= 30) durLabel = `${Math.floor(totalDays/30)} meses`;
+                else durLabel = `${totalDays} dias`;
+            }
+
+            body.innerHTML = [
+                { label: 'Total de interações', value: total, icon: 'ph-handshake', color: 'text-sant-cyan' },
+                { label: 'Última interação',   value: `${fmtDate(lastDate)} <span class="text-[10px] ${lastColor}">(${lastLabel})</span>`, icon: 'ph-clock-clockwise', color: lastColor },
+                { label: 'Frequência média',   value: avgFreq ? `a cada ${avgFreq}d` : total === 1 ? '1 interação' : '—', icon: 'ph-arrows-clockwise', color: 'text-[#fbbf24]' },
+                { label: 'Tipo preferido',     value: topType, icon: 'ph-star', color: 'text-sant-purple' },
+                { label: 'Duração do contato', value: durLabel, icon: 'ph-calendar-blank', color: 'text-gray-400' },
+                { label: 'Desde',              value: fmtDate(firstDate), icon: 'ph-flag', color: 'text-gray-400' },
+            ].map(m => `<div class="bg-sant-surface rounded-lg p-2.5 border border-sant-border">
+                <p class="text-[9px] text-gray-600 uppercase font-bold tracking-wider mb-1 flex items-center gap-1"><i class="ph ${m.icon} ${m.color}"></i>${m.label}</p>
+                <p class="text-sm font-bold ${m.color}">${m.value}</p>
+            </div>`).join('');
+
+            // Barras de tipo
+            if (typesSorted.length > 1) {
+                barSection.classList.remove('hidden');
+                const maxCount = typesSorted[0][1];
+                typeBars.innerHTML = typesSorted.slice(0,5).map(([type, count]) => {
+                    const pct = Math.round((count/maxCount)*100);
+                    const pctOfTotal = Math.round((count/total)*100);
+                    return `<div class="flex items-center gap-2">
+                        <span class="text-[10px] text-gray-400 w-20 shrink-0 truncate">${type}</span>
+                        <div class="flex-1 bg-[#1a1a1a] rounded-full h-1.5 overflow-hidden">
+                            <div class="h-1.5 rounded-full bg-sant-cyan/60 transition-all" style="width:${pct}%"></div>
+                        </div>
+                        <span class="text-[10px] text-gray-500 w-8 text-right shrink-0">${pctOfTotal}%</span>
+                    </div>`;
+                }).join('');
+            } else {
+                barSection.classList.add('hidden');
+            }
         }
 
         function renderFollowUpHistory(c) {
