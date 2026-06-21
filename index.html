@@ -337,10 +337,14 @@
                             <p id="dashTotalLeads" class="text-4xl font-bold text-white leading-none">0</p>
                             <span class="text-xs text-gray-500 mb-1 font-medium">oportunidades</span>
                         </div>
-                        <div class="flex gap-3 text-[10px] font-bold">
+                        <div class="flex gap-3 text-[10px] font-bold mb-2">
                             <span class="text-red-500 flex items-center gap-1"><i class="ph ph-fire"></i> <span id="dashLeadsHot">0</span></span>
                             <span class="text-[#fbbf24] flex items-center gap-1"><i class="ph ph-sun"></i> <span id="dashLeadsWarm">0</span></span>
                             <span class="text-blue-500 flex items-center gap-1"><i class="ph ph-snowflake"></i> <span id="dashLeadsCold">0</span></span>
+                        </div>
+                        <div id="dashPipelineValue" class="hidden border-t border-sant-border pt-2 mt-1">
+                            <p class="text-[10px] text-gray-600 uppercase font-bold tracking-wider mb-0.5">Valor em aberto</p>
+                            <p id="dashPipelineTotal" class="text-lg font-bold text-[#fbbf24]">R$ 0</p>
                         </div>
                     </div>
                 </div>
@@ -1409,21 +1413,31 @@
                                 <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#fbbf24]"></div>
                             </label>
                         </div>
-                        <div id="tempContainer" class="hidden pt-3 border-t border-[#fbbf24]/20">
-                            <label class="block text-[10px] font-semibold text-gray-400 uppercase mb-2">Temperatura do Lead</label>
-                            <div class="flex gap-3">
-                                <label class="flex-1 cursor-pointer">
-                                    <input type="radio" name="contactTemp" value="frio" class="peer sr-only">
-                                    <div class="text-center px-3 py-2 rounded-lg border border-gray-600 text-gray-400 peer-checked:border-blue-500 peer-checked:bg-blue-500/10 peer-checked:text-blue-500 transition-all text-xs font-bold">❄️ Frio</div>
-                                </label>
-                                <label class="flex-1 cursor-pointer">
-                                    <input type="radio" name="contactTemp" value="morno" class="peer sr-only">
-                                    <div class="text-center px-3 py-2 rounded-lg border border-gray-600 text-gray-400 peer-checked:border-[#fbbf24] peer-checked:bg-[#fbbf24]/10 peer-checked:text-[#fbbf24] transition-all text-xs font-bold">☀️ Morno</div>
-                                </label>
-                                <label class="flex-1 cursor-pointer">
-                                    <input type="radio" name="contactTemp" value="quente" class="peer sr-only">
-                                    <div class="text-center px-3 py-2 rounded-lg border border-gray-600 text-gray-400 peer-checked:border-red-500 peer-checked:bg-red-500/10 peer-checked:text-red-500 transition-all text-xs font-bold">🔥 Quente</div>
-                                </label>
+                        <div id="tempContainer" class="hidden pt-3 border-t border-[#fbbf24]/20 space-y-4">
+                            <div>
+                                <label class="block text-[10px] font-semibold text-gray-400 uppercase mb-2">Temperatura do Lead</label>
+                                <div class="flex gap-3">
+                                    <label class="flex-1 cursor-pointer">
+                                        <input type="radio" name="contactTemp" value="frio" class="peer sr-only">
+                                        <div class="text-center px-3 py-2 rounded-lg border border-gray-600 text-gray-400 peer-checked:border-blue-500 peer-checked:bg-blue-500/10 peer-checked:text-blue-500 transition-all text-xs font-bold">❄️ Frio</div>
+                                    </label>
+                                    <label class="flex-1 cursor-pointer">
+                                        <input type="radio" name="contactTemp" value="morno" class="peer sr-only">
+                                        <div class="text-center px-3 py-2 rounded-lg border border-gray-600 text-gray-400 peer-checked:border-[#fbbf24] peer-checked:bg-[#fbbf24]/10 peer-checked:text-[#fbbf24] transition-all text-xs font-bold">☀️ Morno</div>
+                                    </label>
+                                    <label class="flex-1 cursor-pointer">
+                                        <input type="radio" name="contactTemp" value="quente" class="peer sr-only">
+                                        <div class="text-center px-3 py-2 rounded-lg border border-gray-600 text-gray-400 peer-checked:border-red-500 peer-checked:bg-red-500/10 peer-checked:text-red-500 transition-all text-xs font-bold">🔥 Quente</div>
+                                    </label>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-gray-400 uppercase mb-2">Valor Potencial (R$)</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-medium">R$</span>
+                                    <input type="number" id="contactDealValue" min="0" step="100" placeholder="0,00"
+                                        class="w-full bg-[#141414] border border-sant-border rounded-lg pl-9 pr-4 py-2.5 text-sm text-white focus:border-[#fbbf24] outline-none transition-colors">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -3016,6 +3030,23 @@
             document.getElementById('dashLeadsHot').innerText = leads.filter(c => c.temperature === 'quente').length;
             document.getElementById('dashLeadsWarm').innerText = leads.filter(c => c.temperature === 'morno').length;
             document.getElementById('dashLeadsCold').innerText = leads.filter(c => c.temperature === 'frio').length;
+            // Pipeline financeiro
+            const pipelineTotal = leads.reduce((sum, c) => sum + (c.dealValue || 0), 0);
+            const pipelineEl  = document.getElementById('dashPipelineValue');
+            const pipelineTot = document.getElementById('dashPipelineTotal');
+            if (pipelineEl && pipelineTot) {
+                if (pipelineTotal > 0) {
+                    pipelineEl.classList.remove('hidden');
+                    const fmt = pipelineTotal >= 1000000
+                        ? `R$ ${(pipelineTotal/1000000).toFixed(1)}M`
+                        : pipelineTotal >= 1000
+                        ? `R$ ${(pipelineTotal/1000).toFixed(pipelineTotal%1000===0?0:1)}k`
+                        : `R$ ${pipelineTotal.toLocaleString('pt-BR')}`;
+                    pipelineTot.textContent = fmt;
+                } else {
+                    pipelineEl.classList.add('hidden');
+                }
+            }
 
             const catBars = document.getElementById('dashCategoryBars');
             if(contacts.length === 0) {
@@ -4887,6 +4918,9 @@
             const waUrl = contactWaUrl(c);
             const score = contactRelScore(c);
             const scoreBadge = score ? `<span class="${score.cls} text-[9px] font-semibold shrink-0" title="${score.title}">${score.dot} ${score.label}</span>` : '';
+            const dealBadge = (c.isLead && c.dealValue > 0)
+                ? `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#fbbf24]/10 text-[#fbbf24] border border-[#fbbf24]/25" title="Valor potencial">R$ ${c.dealValue >= 1000 ? (c.dealValue/1000).toFixed(c.dealValue%1000===0?0:1)+'k' : c.dealValue.toLocaleString('pt-BR')}</span>`
+                : '';
             if (mode === 'grid') {
                 const tagsHtml = (c.tags && c.tags.length > 0)
                     ? `<div class="flex flex-wrap gap-1 mt-2">${c.tags.slice(0,4).map(t=>`<span class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20">${t}</span>`).join('')}${c.tags.length>4?`<span class="text-[9px] text-gray-500">+${c.tags.length-4}</span>`:''}</div>` : '';
@@ -4912,7 +4946,7 @@
                             <h3 class="font-bold text-white text-sm leading-snug break-words">${fullName(c)} ${c.code?`<span class="text-gray-500 font-mono text-[10px] font-normal">#${c.code}</span>`:''}</h3>
                             <div class="flex flex-wrap items-center gap-1 mt-1">
                                 ${c.category?`<span class="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-sant-purple/20 text-sant-purple border border-sant-purple/30">${c.category}</span>`:''}
-                                ${leadTag} ${scoreBadge}
+                                ${leadTag} ${scoreBadge} ${dealBadge}
                                 ${inact?`<div>${inact}</div>`:''}
                                 ${bdayBadge?`<div>${bdayBadge}</div>`:''}
                             </div>
@@ -4945,7 +4979,7 @@
                         <div class="min-w-0 flex items-center gap-1.5">
                             <h3 class="font-bold text-white text-xs truncate" title="${fullName(c)}">${fullName(c)}</h3>
                             ${c.code?`<span class="text-gray-500 font-mono text-[9px] shrink-0">#${c.code}</span>`:''}
-                            ${leadTag} ${scoreBadge} ${inact} ${freqBadge} ${bdayBadge}
+                            ${leadTag} ${scoreBadge} ${dealBadge} ${inact} ${freqBadge} ${bdayBadge}
                         </div>
                         <div class="text-xs text-sant-cyan truncate hidden md:block">${dispJob||'-'}</div>
                         <div class="text-xs text-gray-400 truncate hidden md:block">${dispPhone||'-'}</div>
@@ -4974,7 +5008,7 @@
                         <h3 class="font-bold text-white text-sm truncate" title="${fullName(c)}">${fullName(c)} ${c.code?`<span class="text-gray-500 font-mono text-[10px] font-normal">#${c.code}</span>`:''}</h3>
                         <div class="flex flex-wrap items-center gap-1 mt-0.5">
                             ${c.category?`<span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-purple/20 text-sant-purple border border-sant-purple/30">${c.category}</span>`:''}
-                            ${leadTag} ${listTagsHtml} ${scoreBadge} ${inact} ${bdayBadge}
+                            ${leadTag} ${listTagsHtml} ${scoreBadge} ${dealBadge} ${inact} ${bdayBadge}
                         </div>
                     </div>
                     <div class="text-xs text-sant-cyan truncate">${dispJob||'-'}</div>
@@ -5221,6 +5255,7 @@
                 notes: document.getElementById('contactNotes').value,
                 isLead: document.getElementById('contactIsLead').checked,
                 temperature: document.querySelector('input[name="contactTemp"]:checked') ? document.querySelector('input[name="contactTemp"]:checked').value : 'frio',
+                dealValue: parseFloat(document.getElementById('contactDealValue').value) || 0,
                 photo: document.getElementById('contactPhoto').value.trim(),
                 tags: [...currentContactTags],
                 customFields: currentContactCustomFields.filter(f => f.label.trim() || f.value.trim()).map(f => ({ label: f.label.trim(), value: f.value.trim() })),
@@ -5231,6 +5266,7 @@
                 contactFrequencyDays: existing ? (existing.contactFrequencyDays || 0) : 0,
                 followUpHistory: existing ? (existing.followUpHistory || []) : [],
                 pinned: existing ? (existing.pinned || false) : false,
+                dealValue: parseFloat(document.getElementById('contactDealValue').value) || (existing ? existing.dealValue || 0 : 0),
                 changeLog: existing ? (existing.changeLog || []) : [],
                 createdAt: existing ? (existing.createdAt || new Date().toISOString()) : new Date().toISOString(),
                 code: existing ? existing.code : getNextContactCode()
@@ -5360,6 +5396,7 @@
 
             document.getElementById('contactIsLead').checked = contact.isLead || false;
             document.getElementById('tempContainer').classList.toggle('hidden', !contact.isLead);
+            document.getElementById('contactDealValue').value = contact.dealValue || '';
             if (contact.temperature) {
                 const tempRadio = document.querySelector(`input[name="contactTemp"][value="${contact.temperature}"]`);
                 if(tempRadio) tempRadio.checked = true;
