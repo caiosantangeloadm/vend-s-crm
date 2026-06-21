@@ -2151,6 +2151,20 @@
                         <div id="relationshipTypeBars" class="space-y-1.5"></div>
                     </div>
                     <div id="nextContactSuggestion" class="hidden mt-3 pt-3 border-t border-sant-border"></div>
+                    <!-- Heatmap de interações -->
+                    <div id="interactionHeatmap" class="hidden mt-3 pt-3 border-t border-sant-border">
+                        <p class="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5"><i class="ph ph-squares-four text-sant-cyan"></i> Frequência de interações — 12 meses</p>
+                        <div id="heatmapGrid" class="overflow-x-auto"></div>
+                        <div class="flex items-center justify-end gap-1.5 mt-2">
+                            <span class="text-[9px] text-gray-600">Menos</span>
+                            <div style="width:10px;height:10px;border-radius:2px;background:#1a1a1a"></div>
+                            <div style="width:10px;height:10px;border-radius:2px;background:#164e63"></div>
+                            <div style="width:10px;height:10px;border-radius:2px;background:#0e7490"></div>
+                            <div style="width:10px;height:10px;border-radius:2px;background:#5b8fa8"></div>
+                            <div style="width:10px;height:10px;border-radius:2px;background:#7aafc8"></div>
+                            <span class="text-[9px] text-gray-600">Mais</span>
+                        </div>
+                    </div>
                 </div>
                 <div id="linkedItemsSection" class="px-4 pt-4">
                     <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 mb-2">
@@ -9210,6 +9224,7 @@
             document.getElementById('historyNextContactClear').classList.toggle('hidden', !c.nextContact);
             renderFollowUpHistory(c);
             renderRelationshipSummary(c);
+            renderInteractionHeatmap(c);
             const freqInput = document.getElementById('historyFrequencyDays');
             if (freqInput) freqInput.value = c.contactFrequencyDays || '';
             const s = getFrequencyStatus(c);
@@ -9855,6 +9870,103 @@
                            </button>`
                     }
                 </div>`;
+        }
+
+        function renderInteractionHeatmap(c) {
+            const section = document.getElementById('interactionHeatmap');
+            const grid    = document.getElementById('heatmapGrid');
+            if (!section || !grid) return;
+
+            const ints = c.interactions || [];
+            if (ints.length === 0) { section.classList.add('hidden'); return; }
+            section.classList.remove('hidden');
+
+            // Mapa de data → contagem
+            const counts = {};
+            ints.forEach(i => { if (i.date) counts[i.date] = (counts[i.date] || 0) + 1; });
+
+            // Gerar as últimas 52 semanas a partir de hoje
+            const todayStr = getSPTodayStr();
+            const today = new Date(todayStr + 'T00:00:00');
+            // Começa na segunda-feira de 52 semanas atrás
+            const startDay = new Date(today);
+            startDay.setDate(today.getDate() - 7 * 52);
+            // Ajusta para segunda-feira
+            const dowStart = startDay.getDay(); // 0=dom
+            startDay.setDate(startDay.getDate() - (dowStart === 0 ? 6 : dowStart - 1));
+
+            const pad = n => String(n).padStart(2,'0');
+            const toStr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+            const toFmt = d => `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`;
+
+            // Cor por quantidade
+            const colorFor = n => {
+                if (n === 0) return '#1a1a1a';
+                if (n === 1) return '#164e63';
+                if (n <= 2)  return '#0e7490';
+                if (n <= 4)  return '#5b8fa8';
+                return '#7aafc8';
+            };
+
+            // Gerar semanas (colunas) × dias (linhas)
+            const weeks = [];
+            const monthLabels = {}; // colIdx → nome do mês
+            const cur = new Date(startDay);
+            let col = 0;
+            while (cur <= today) {
+                const week = [];
+                for (let dow = 0; dow < 7; dow++) {
+                    const ds  = toStr(cur);
+                    const cnt = counts[ds] || 0;
+                    const isFuture = cur > today;
+                    week.push({ ds, cnt, isFuture, fmt: toFmt(cur) });
+                    // Captura início do mês para label
+                    if (cur.getDate() <= 7 && !monthLabels[col]) {
+                        const monthNames = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+                        monthLabels[col] = monthNames[cur.getMonth()];
+                    }
+                    cur.setDate(cur.getDate() + 1);
+                }
+                weeks.push(week);
+                col++;
+            }
+
+            // Render SVG-like HTML
+            const CELL = 11, GAP = 2;
+            const cols  = weeks.length;
+            const width = cols * (CELL + GAP);
+
+            // Labels dos meses
+            let monthHtml = `<div style="display:flex;margin-left:18px;margin-bottom:2px;">`;
+            let prevMonth = '';
+            weeks.forEach((_, i) => {
+                const label = monthLabels[i] || '';
+                if (label && label !== prevMonth) {
+                    monthHtml += `<span style="font-size:9px;color:#6b7280;position:absolute;left:${18 + i*(CELL+GAP)}px;white-space:nowrap">${label}</span>`;
+                    prevMonth = label;
+                }
+            });
+            monthHtml += '</div>';
+
+            // Labels dos dias (Seg, Qua, Sex)
+            const dayLabels = ['','S','','Q','','S',''];
+
+            // Grid de células
+            let cellHtml = '';
+            for (let dow = 0; dow < 7; dow++) {
+                cellHtml += `<div style="display:flex;gap:${GAP}px;margin-bottom:${GAP}px;">
+                    <span style="font-size:9px;color:#4b5563;width:14px;text-align:right;line-height:${CELL}px;flex-shrink:0">${dayLabels[dow]}</span>`;
+                weeks.forEach(week => {
+                    const day = week[dow];
+                    if (!day) { cellHtml += `<div style="width:${CELL}px;height:${CELL}px"></div>`; return; }
+                    const bg = day.isFuture ? '#111' : colorFor(day.cnt);
+                    const title = `${day.fmt}: ${day.cnt} interação${day.cnt !== 1 ? 'ões' : ''}`;
+                    cellHtml += `<div title="${title}" style="width:${CELL}px;height:${CELL}px;border-radius:2px;background:${bg};flex-shrink:0;cursor:default"></div>`;
+                });
+                cellHtml += '</div>';
+            }
+
+            grid.innerHTML = `<div style="position:relative;min-width:${width+20}px">${monthHtml}<div style="display:flex;flex-direction:column">${cellHtml}</div></div>`;
         }
 
         function renderFollowUpHistory(c) {
