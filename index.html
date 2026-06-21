@@ -615,6 +615,34 @@
                             </select>
                         </div>
                     </div>
+                    <!-- Filtro por Interação -->
+                    <div class="mt-3 pt-3 border-t border-sant-border/50">
+                        <div class="flex flex-wrap items-end gap-3">
+                            <div class="shrink-0">
+                                <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1.5">Interação</label>
+                                <select id="filterIntType" onchange="applyAdvFilters()" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none appearance-none">
+                                    <option value="">Qualquer</option>
+                                    <option value="with">Com interação no período</option>
+                                    <option value="without">Sem interação no período</option>
+                                </select>
+                            </div>
+                            <div class="shrink-0">
+                                <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1.5">De</label>
+                                <input type="date" id="filterIntFrom" onchange="applyAdvFilters()" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan transition-colors">
+                            </div>
+                            <div class="shrink-0">
+                                <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1.5">Até</label>
+                                <input type="date" id="filterIntTo" onchange="applyAdvFilters()" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan transition-colors">
+                            </div>
+                            <div class="flex gap-1.5 flex-wrap pb-0.5">
+                                <button onclick="setIntPeriod('month')"  class="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors">Este mês</button>
+                                <button onclick="setIntPeriod('lastmonth')" class="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors">Mês passado</button>
+                                <button onclick="setIntPeriod('30')"    class="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors">Últimos 30d</button>
+                                <button onclick="setIntPeriod('90')"    class="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors">Últimos 90d</button>
+                                <button onclick="setIntPeriod('year')"  class="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors">Este ano</button>
+                            </div>
+                        </div>
+                    </div>
                     <div class="flex items-center justify-between mt-3">
                         <p id="filterResultCount" class="text-xs text-gray-500"></p>
                         <button onclick="clearAdvFilters()" class="text-xs text-gray-500 hover:text-red-400 transition-colors flex items-center gap-1">
@@ -2416,7 +2444,7 @@
         let messageTemplates = [];
         let sendMsgContactId = null;
         let editingTemplateId = null;
-        let activeFilters = { category: '', isLead: '', temperature: '', tag: '', origin: '', city: '', state: '' };
+        let activeFilters = { category: '', isLead: '', temperature: '', tag: '', origin: '', city: '', state: '', intType: '', intFrom: '', intTo: '' };
         let currentContactTags = [];
         let currentContactCustomFields = [];
         let currentChecklist = [];
@@ -4790,6 +4818,15 @@
             if (activeFilters.origin) filtered = filtered.filter(c => (c.origin || '') === activeFilters.origin);
             if (activeFilters.city)   filtered = filtered.filter(c => (c.addressCity  || '').trim().toLowerCase() === activeFilters.city.toLowerCase());
             if (activeFilters.state)  filtered = filtered.filter(c => (c.addressState || '').trim().toUpperCase()  === activeFilters.state.toUpperCase());
+            if (activeFilters.intType) {
+                const from = activeFilters.intFrom || '0000-00-00';
+                const to   = activeFilters.intTo   || '9999-99-99';
+                if (activeFilters.intType === 'with') {
+                    filtered = filtered.filter(c => (c.interactions||[]).some(i => i.date >= from && i.date <= to));
+                } else if (activeFilters.intType === 'without') {
+                    filtered = filtered.filter(c => !(c.interactions||[]).some(i => i.date >= from && i.date <= to));
+                }
+            }
 
             const countEl = document.getElementById('filterResultCount');
             if (countEl) countEl.innerText = hasActiveFilters() ? `${filtered.length} contato(s) encontrado(s)` : '';
@@ -9450,7 +9487,36 @@
 
         // ── FILTROS AVANÇADOS ──────────────────────────────────────────────
         function hasActiveFilters() {
-            return activeFilters.category || activeFilters.isLead || activeFilters.temperature || activeFilters.tag || activeFilters.origin || activeFilters.city || activeFilters.state;
+            return activeFilters.category || activeFilters.isLead || activeFilters.temperature || activeFilters.tag || activeFilters.origin || activeFilters.city || activeFilters.state || activeFilters.intType;
+        }
+
+        function setIntPeriod(preset) {
+            const todayStr = getSPTodayStr();
+            const [ty, tm] = todayStr.split('-').map(Number);
+            const pad = n => String(n).padStart(2,'0');
+            let from = '', to = todayStr;
+            if (preset === 'month') {
+                from = `${ty}-${pad(tm)}-01`;
+                to   = `${ty}-${pad(tm)}-${new Date(ty, tm, 0).getDate()}`;
+            } else if (preset === 'lastmonth') {
+                const pm = tm === 1 ? 12 : tm - 1, py = tm === 1 ? ty - 1 : ty;
+                from = `${py}-${pad(pm)}-01`;
+                to   = `${py}-${pad(pm)}-${new Date(py, pm, 0).getDate()}`;
+            } else if (preset === 'year') {
+                from = `${ty}-01-01`;
+                to   = `${ty}-12-31`;
+            } else {
+                const d = new Date(todayStr + 'T00:00:00');
+                d.setDate(d.getDate() - parseInt(preset));
+                from = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+            }
+            const fromEl = document.getElementById('filterIntFrom');
+            const toEl   = document.getElementById('filterIntTo');
+            const typeEl = document.getElementById('filterIntType');
+            if (fromEl) fromEl.value = from;
+            if (toEl)   toEl.value   = to;
+            if (typeEl && !typeEl.value) typeEl.value = 'with';
+            applyAdvFilters();
         }
 
         function fillLocationFilters() {
@@ -9493,16 +9559,19 @@
             activeFilters.isLead      = document.getElementById('filterLead').value;
             activeFilters.temperature = document.getElementById('filterTemp').value;
             activeFilters.tag         = document.getElementById('filterTag').value;
-            activeFilters.origin      = document.getElementById('filterOrigin')?.value || '';
-            activeFilters.city        = document.getElementById('filterCity')?.value  || '';
-            activeFilters.state       = document.getElementById('filterState')?.value || '';
+            activeFilters.origin      = document.getElementById('filterOrigin')?.value  || '';
+            activeFilters.city        = document.getElementById('filterCity')?.value    || '';
+            activeFilters.state       = document.getElementById('filterState')?.value   || '';
+            activeFilters.intType     = document.getElementById('filterIntType')?.value || '';
+            activeFilters.intFrom     = document.getElementById('filterIntFrom')?.value || '';
+            activeFilters.intTo       = document.getElementById('filterIntTo')?.value   || '';
             const search = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
             renderContacts(search);
         }
 
         function clearAdvFilters() {
-            activeFilters = { category: '', isLead: '', temperature: '', tag: '', origin: '', city: '', state: '' };
-            ['filterCategory','filterLead','filterTemp','filterTag','filterOrigin','filterCity','filterState'].forEach(id => {
+            activeFilters = { category: '', isLead: '', temperature: '', tag: '', origin: '', city: '', state: '', intType: '', intFrom: '', intTo: '' };
+            ['filterCategory','filterLead','filterTemp','filterTag','filterOrigin','filterCity','filterState','filterIntType','filterIntFrom','filterIntTo'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.value = '';
             });
