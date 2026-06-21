@@ -8054,16 +8054,13 @@
                 return (c.interactions || []).some(i => i.date >= c.nextContact);
             });
 
-            // Aniversariantes do mês
+            // Aniversariantes do mês — suporta MM-DD e YYYY-MM-DD
+            const getBirthMonth = b => { const p = b.split('-').map(Number); return p.length >= 3 ? p[1] : p[0]; };
+            const getBirthDay   = b => { const p = b.split('-').map(Number); return p.length >= 3 ? p[2] : p[1]; };
             const bdays = contacts.filter(c => {
                 if (!c.birth) return false;
-                const [bm] = c.birth.split('-').map(Number);
-                return bm === month;
-            }).sort((a, b) => {
-                const da = parseInt(a.birth.split('-')[1]);
-                const db = parseInt(b.birth.split('-')[1]);
-                return da - db;
-            });
+                return getBirthMonth(c.birth) === month;
+            }).sort((a, b) => getBirthDay(a.birth) - getBirthDay(b.birth));
 
             // Novos leads
             const newLeads = newContacts.filter(c => c.isLead);
@@ -8107,7 +8104,8 @@
                 </div>`).join('') || '<p class="text-xs text-gray-600 italic">Nenhum contato adicionado.</p>';
 
             const bdayRows = d.bdays.map(c => {
-                const [,bm,bd] = c.birth.split('-');
+                const bm = String(getBirthMonth(c.birth)).padStart(2,'0');
+                const bd = String(getBirthDay(c.birth)).padStart(2,'0');
                 return `<div class="flex items-center gap-3 py-1.5 border-b border-sant-border last:border-0">
                     ${contactAvatarHtml(c,'w-7 h-7 text-[10px]')}
                     <p class="flex-1 text-sm text-white">${fullName(c)}</p>
@@ -8176,7 +8174,7 @@
 
             const contactHtml = d.newContacts.map(c=>`<tr><td style="padding:5px 0;color:#fff;border-bottom:1px solid #1f1f1f">${fullName(c)}</td><td style="padding:5px 0;color:#9ca3af;border-bottom:1px solid #1f1f1f">${c.category||'—'}</td><td style="padding:5px 0;color:#6b7280;text-align:right;border-bottom:1px solid #1f1f1f">${fmtDate((c.createdAt||'').substring(0,10))}</td></tr>`).join('');
 
-            const bdayHtml = d.bdays.map(c=>{const[,bm,bd]=c.birth.split('-');return`<tr><td style="padding:5px 0;color:#fff;border-bottom:1px solid #1f1f1f">${fullName(c)}</td><td style="padding:5px 0;color:#ec4899;font-weight:700;text-align:right;border-bottom:1px solid #1f1f1f">🎂 ${bd}/${bm}</td></tr>`;}).join('');
+            const bdayHtml = d.bdays.map(c=>{const bm=String(getBirthMonth(c.birth)).padStart(2,'0');const bd=String(getBirthDay(c.birth)).padStart(2,'0');return`<tr><td style="padding:5px 0;color:#fff;border-bottom:1px solid #1f1f1f">${fullName(c)}</td><td style="padding:5px 0;color:#ec4899;font-weight:700;text-align:right;border-bottom:1px solid #1f1f1f">🎂 ${bd}/${bm}</td></tr>`;}).join('');
 
             const fuHtml = d.followupsHonored.map(c=>`<tr><td style="padding:5px 0;color:#fff;border-bottom:1px solid #1f1f1f">${fullName(c)}</td><td style="padding:5px 0;color:#4ade80;font-weight:700;text-align:right;border-bottom:1px solid #1f1f1f">✓ ${fmtDate(c.nextContact)}</td></tr>`).join('');
 
