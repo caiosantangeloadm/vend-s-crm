@@ -2194,6 +2194,13 @@
                         <p class="text-[10px] text-gray-500 mb-2 font-medium">Tipos de interação</p>
                         <div id="relationshipTypeBars" class="space-y-1.5"></div>
                     </div>
+                    <!-- Mini-gráfico de frequência mensal -->
+                    <div id="freqChartSection" class="hidden mt-3 pt-3 border-t border-sant-border">
+                        <p class="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5"><i class="ph ph-chart-bar text-sant-cyan"></i> Interações por mês — últimos 6 meses</p>
+                        <div style="height:110px;position:relative">
+                            <canvas id="freqChart"></canvas>
+                        </div>
+                    </div>
                     <div id="nextContactSuggestion" class="hidden mt-3 pt-3 border-t border-sant-border"></div>
                     <!-- Heatmap de interações -->
                     <div id="interactionHeatmap" class="hidden mt-3 pt-3 border-t border-sant-border">
@@ -9609,6 +9616,7 @@
             document.getElementById('historyNextContactClear').classList.toggle('hidden', !c.nextContact);
             renderFollowUpHistory(c);
             renderRelationshipSummary(c);
+            renderFrequencyChart(c);
             renderInteractionHeatmap(c);
             const freqInput = document.getElementById('historyFrequencyDays');
             if (freqInput) freqInput.value = c.contactFrequencyDays || '';
@@ -10265,6 +10273,56 @@
                            </button>`
                     }
                 </div>`;
+        }
+
+        let freqChartInstance = null;
+        function renderFrequencyChart(c) {
+            const section = document.getElementById('freqChartSection');
+            const canvas  = document.getElementById('freqChart');
+            if (!section || !canvas || typeof Chart === 'undefined') return;
+
+            const ints = c.interactions || [];
+            if (ints.length === 0) { section.classList.add('hidden'); return; }
+            section.classList.remove('hidden');
+
+            // Últimos 6 meses
+            const todayStr = getSPTodayStr();
+            const [ty, tm] = todayStr.split('-').map(Number);
+            const monthNames = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+            const labels = [], data = [];
+            for (let i = 5; i >= 0; i--) {
+                let m = tm - i, y = ty;
+                if (m <= 0) { m += 12; y--; }
+                const key = `${y}-${String(m).padStart(2,'0')}`;
+                const count = ints.filter(x => x.date && x.date.startsWith(key)).length;
+                labels.push(monthNames[m - 1]);
+                data.push(count);
+            }
+
+            if (freqChartInstance) freqChartInstance.destroy();
+            freqChartInstance = new Chart(canvas, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        data,
+                        backgroundColor: data.map(v => v === 0 ? 'rgba(91,143,168,0.12)' : 'rgba(91,143,168,0.45)'),
+                        borderColor:     data.map(v => v === 0 ? 'rgba(91,143,168,0.2)'  : '#5b8fa8'),
+                        borderWidth: 1.5,
+                        borderRadius: 4,
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false },
+                        tooltip: { callbacks: { label: ctx => `${ctx.raw} interaç${ctx.raw !== 1?'ões':'ão'}` } } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 10 } } },
+                        y: { beginAtZero: true, grid: { color: '#1a1a1a' },
+                             ticks: { color: '#6b7280', precision: 0, font: { size: 10 } } }
+                    }
+                }
+            });
         }
 
         function renderInteractionHeatmap(c) {
