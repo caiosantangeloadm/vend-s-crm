@@ -1284,13 +1284,31 @@
                         <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
                             <p class="text-xs font-bold text-white uppercase tracking-wide mb-2 flex items-center gap-2"><i class="ph ph-database text-sant-cyan"></i> Backup dos Dados</p>
                             <p id="s-backup-status" class="text-xs text-gray-500 mb-5"></p>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <button onclick="exportAllData()" class="bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-4 py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-download-simple"></i> Exportar tudo (.json)</button>
-                                <label class="bg-[#141414] border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-4 py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer"><i class="ph ph-upload-simple"></i> Importar backup (.json)<input type="file" accept=".json" class="hidden" onchange="importData(event)"></label>
-                                <button onclick="exportAllContactsVcf()" class="bg-[#141414] border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-4 py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-address-book"></i> Exportar contatos (.vcf)</button>
-                                <button onclick="exportCalendarIcs()" class="bg-[#141414] border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-4 py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-calendar"></i> Exportar agenda (.ics)</button>
-                                <label class="bg-[#141414] border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-4 py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer"><i class="ph ph-calendar-plus text-sant-cyan"></i> Importar agenda (.ics)<input type="file" accept=".ics" class="hidden" onchange="importCalendarIcs(event)"></label>
-                                <label class="bg-[#141414] border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-4 py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer col-span-2"><i class="ph ph-google-logo text-sant-cyan"></i> Importar contatos do Google (.csv)<input type="file" accept=".csv" class="hidden" onchange="importContactsCsv(event)"></label>
+                            <div class="space-y-3">
+                                <!-- Backup Completo -->
+                                <div>
+                                    <p class="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-2 flex items-center gap-1.5"><i class="ph ph-archive"></i> Backup Completo</p>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        <button onclick="exportAllData()" class="bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-4 py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-download-simple"></i> Exportar tudo (.json)</button>
+                                        <label class="bg-[#141414] border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-4 py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer"><i class="ph ph-upload-simple"></i> Restaurar backup (.json)<input type="file" accept=".json" class="hidden" onchange="importData(event)"></label>
+                                    </div>
+                                </div>
+                                <!-- Contatos -->
+                                <div class="pt-2 border-t border-sant-border">
+                                    <p class="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-2 flex items-center gap-1.5"><i class="ph ph-users"></i> Contatos</p>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        <button onclick="exportAllContactsVcf()" class="bg-[#141414] border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-4 py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-download-simple"></i> Exportar contatos (.vcf)</button>
+                                        <label class="bg-[#141414] border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-4 py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer"><i class="ph ph-google-logo text-sant-cyan"></i> Importar do Google (.csv)<input type="file" accept=".csv" class="hidden" onchange="importContactsCsv(event)"></label>
+                                    </div>
+                                </div>
+                                <!-- Agenda -->
+                                <div class="pt-2 border-t border-sant-border">
+                                    <p class="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-2 flex items-center gap-1.5"><i class="ph ph-calendar"></i> Agenda</p>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        <button onclick="exportCalendarIcs()" class="bg-[#141414] border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-4 py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-download-simple"></i> Exportar agenda (.ics)</button>
+                                        <label class="bg-[#141414] border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-4 py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer"><i class="ph ph-upload-simple"></i> Importar agenda (.ics)<input type="file" accept=".ics" class="hidden" onchange="importCalendarIcs(event)"></label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
