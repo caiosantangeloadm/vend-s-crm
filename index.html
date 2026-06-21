@@ -3133,7 +3133,7 @@
         function saveNotesToStorage() { localStorage.setItem('sant_crm_notes', JSON.stringify(notes)); }
 
         function exportData() {
-            const data = { contacts, categories, origins, tasks, events, tags, notes, notifications, messageTemplates, scheduleBlocks, eventTypeLabels };
+            const data = { contacts, categories, origins, tasks, events, tags, notes, notifications, messageTemplates, scheduleBlocks, eventTypeLabels, eventTypeIcons };
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -3166,7 +3166,9 @@
                     if (data.notifications) notifications = data.notifications;
                     if (data.messageTemplates) messageTemplates = data.messageTemplates;
                     if (data.scheduleBlocks) scheduleBlocks = data.scheduleBlocks;
-                    if (data.eventTypeLabels) { eventTypeLabels = data.eventTypeLabels; localStorage.setItem('vends_event_type_labels', JSON.stringify(eventTypeLabels)); loadEventTypeLabels(); }
+                    if (data.eventTypeLabels) { eventTypeLabels = data.eventTypeLabels; localStorage.setItem('vends_event_type_labels', JSON.stringify(eventTypeLabels)); }
+                    if (data.eventTypeIcons)  { eventTypeIcons  = data.eventTypeIcons;  localStorage.setItem('vends_event_type_icons',  JSON.stringify(eventTypeIcons));  }
+                    if (data.eventTypeLabels || data.eventTypeIcons) loadEventTypeLabels();
                     saveToStorage(); saveCategoriesToStorage(); saveOriginsToStorage(); saveTasksToStorage(); saveEventsToStorage(); saveTagsToStorage(); saveNotesToStorage(); saveMessageTemplatesToStorage(); saveScheduleBlocksToStorage();
                     localStorage.setItem('vends_notifications', JSON.stringify(notifications));
                     init();
@@ -6603,16 +6605,47 @@
             birthday: { label: 'Aniversário', icon: 'ph-cake',         dot: '#ec4899', bg: 'bg-pink-500/10',    text: 'text-pink-500',    border: 'border-pink-500/20' }
         };
         const eventTypeDefaultLabels = { meeting: 'Reunião', call: 'Ligação', visit: 'Visita', other: 'Outro' };
+        const eventTypeDefaultIcons  = { meeting: 'ph-users-three', call: 'ph-phone', visit: 'ph-map-pin', other: 'ph-calendar' };
+        const eventTypeIconOptions = [
+            { icon: 'ph-briefcase',           label: 'Maleta' },
+            { icon: 'ph-users-three',         label: 'Reunião' },
+            { icon: 'ph-handshake',           label: 'Aperto de mão' },
+            { icon: 'ph-presentation-chart',  label: 'Apresentação' },
+            { icon: 'ph-phone',               label: 'Telefone' },
+            { icon: 'ph-chat-circle',         label: 'Chat' },
+            { icon: 'ph-envelope',            label: 'E-mail' },
+            { icon: 'ph-video-camera',        label: 'Vídeo' },
+            { icon: 'ph-heartbeat',           label: 'Saúde' },
+            { icon: 'ph-bicycle',             label: 'Bicicleta' },
+            { icon: 'ph-lightning',           label: 'Raio' },
+            { icon: 'ph-person-simple-run',   label: 'Corrida' },
+            { icon: 'ph-barbell',             label: 'Halter' },
+            { icon: 'ph-coffee',              label: 'Café' },
+            { icon: 'ph-pause-circle',        label: 'Pausa' },
+            { icon: 'ph-sun',                 label: 'Sol' },
+            { icon: 'ph-moon',                label: 'Lua' },
+            { icon: 'ph-map-pin',             label: 'Mapa' },
+            { icon: 'ph-car',                 label: 'Carro' },
+            { icon: 'ph-airplane',            label: 'Avião' },
+            { icon: 'ph-star',                label: 'Estrela' },
+            { icon: 'ph-calendar',            label: 'Calendário' },
+            { icon: 'ph-note',                label: 'Nota' },
+            { icon: 'ph-pushpin',             label: 'Pin' },
+        ];
         let eventTypeLabels = {};
+        let eventTypeIcons  = {};
         function loadEventTypeLabels() {
             eventTypeLabels = JSON.parse(localStorage.getItem('vends_event_type_labels') || '{}');
+            eventTypeIcons  = JSON.parse(localStorage.getItem('vends_event_type_icons')  || '{}');
             Object.keys(eventTypeDefaultLabels).forEach(k => {
                 eventTypeMeta[k].label = eventTypeLabels[k] || eventTypeDefaultLabels[k];
+                eventTypeMeta[k].icon  = eventTypeIcons[k]  || eventTypeDefaultIcons[k];
             });
             fillEventTypeSelect();
         }
         function saveEventTypeLabels() {
             localStorage.setItem('vends_event_type_labels', JSON.stringify(eventTypeLabels));
+            localStorage.setItem('vends_event_type_icons',  JSON.stringify(eventTypeIcons));
             fillEventTypeSelect();
         }
         function fillEventTypeSelect() {
@@ -9146,13 +9179,28 @@
         function renderSEventTypes() {
             const el = document.getElementById('s-evt-body');
             if (!el) return;
+            const iconOpts = eventTypeIconOptions.map(o =>
+                `<option value="${o.icon}">${o.label}</option>`).join('');
             el.innerHTML = Object.keys(eventTypeDefaultLabels).map(k => `
-                <div class="flex items-center gap-3">
-                    <span class="text-xs text-gray-500 w-20 shrink-0">${eventTypeDefaultLabels[k]}<br><span class="text-gray-700">(padrão)</span></span>
-                    <input type="text" value="${eventTypeMeta[k].label}" oninput="eventTypeLabels['${k}']=this.value; eventTypeMeta['${k}'].label=this.value; saveEventTypeLabels(); fillEventTypeSelect(); renderCalFilterBar && renderCalFilterBar();"
-                        class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none transition-colors">
-                    <button onclick="eventTypeLabels['${k}']=''; eventTypeMeta['${k}'].label=eventTypeDefaultLabels['${k}']; saveEventTypeLabels(); fillEventTypeSelect(); renderSEventTypes(); renderCalFilterBar && renderCalFilterBar();"
-                        class="text-gray-500 hover:text-sant-cyan transition-colors p-1" title="Restaurar padrão"><i class="ph ph-arrow-counter-clockwise"></i></button>
+                <div class="space-y-2 pb-3 border-b border-sant-border last:border-0 last:pb-0">
+                    <div class="flex items-center gap-2">
+                        <i class="ph ${eventTypeMeta[k].icon} text-lg shrink-0" id="sevt-icon-preview-${k}" style="color:${eventTypeMeta[k].dot};width:24px;text-align:center"></i>
+                        <span class="text-xs text-gray-500 w-16 shrink-0">${eventTypeDefaultLabels[k]}</span>
+                        <input type="text" value="${eventTypeMeta[k].label}"
+                            oninput="eventTypeLabels['${k}']=this.value||'${eventTypeDefaultLabels[k]}'; eventTypeMeta['${k}'].label=eventTypeLabels['${k}']; saveEventTypeLabels(); renderCalFilterBar&&renderCalFilterBar();"
+                            class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-1.5 text-sm text-white focus:border-sant-cyan outline-none transition-colors" placeholder="${eventTypeDefaultLabels[k]}">
+                        <button onclick="eventTypeLabels['${k}']=''; eventTypeIcons['${k}']=''; eventTypeMeta['${k}'].label=eventTypeDefaultLabels['${k}']; eventTypeMeta['${k}'].icon=eventTypeDefaultIcons['${k}']; saveEventTypeLabels(); renderSEventTypes(); renderCalFilterBar&&renderCalFilterBar();"
+                            class="text-gray-500 hover:text-sant-cyan transition-colors p-1 shrink-0" title="Restaurar padrão"><i class="ph ph-arrow-counter-clockwise"></i></button>
+                    </div>
+                    <div class="flex items-center gap-2 pl-8">
+                        <span class="text-[10px] text-gray-600 shrink-0">Ícone:</span>
+                        <select onchange="eventTypeIcons['${k}']=this.value; eventTypeMeta['${k}'].icon=this.value; saveEventTypeLabels(); document.getElementById('sevt-icon-preview-${k}').className='ph '+this.value+' text-lg shrink-0'; renderCalFilterBar&&renderCalFilterBar();"
+                            class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-2 py-1 text-xs text-white outline-none">
+                            ${eventTypeIconOptions.map(o =>
+                                `<option value="${o.icon}" ${eventTypeMeta[k].icon===o.icon?'selected':''}>${o.label}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
                 </div>`).join('');
         }
 
