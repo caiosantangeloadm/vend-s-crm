@@ -345,6 +345,15 @@
                     </div>
                 </div>
 
+                <!-- Card: Hoje Preciso de Atenção -->
+                <div id="dashAttentionCard" class="hidden bg-sant-surface border border-red-500/20 rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <p class="text-[10px] font-bold tracking-wider uppercase flex items-center gap-2 text-red-400"><i class="ph ph-bell-ringing text-base"></i> Hoje preciso de atenção</p>
+                        <span id="dashAttentionCount" class="text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 rounded-full px-2 py-0.5"></span>
+                    </div>
+                    <div id="dashAttentionList" class="space-y-2"></div>
+                </div>
+
                 <!-- Card: Próximas Ações Prioritárias -->
                 <div id="dashPriorityCard" class="hidden bg-sant-surface border border-red-500/30 rounded-2xl p-6">
                     <p class="text-[10px] font-bold tracking-wider uppercase mb-4 flex items-center gap-2" style="color:#f87171"><i class="ph ph-warning-circle text-base"></i> Próximas Ações Prioritárias</p>
@@ -3157,6 +3166,7 @@
                 }).join('');
             }
 
+            renderAttentionFeed(todayStr);
             renderUpcomingWeek(todayStr);
             renderMonthBirthdays(todayStr);
             renderPriorityActions(todayStr);
@@ -3420,6 +3430,125 @@
         }
 
         // ── Evolução de Contatos (Dashboard) ─────────────────────────────
+        function renderAttentionFeed(todayStr) {
+            const card = document.getElementById('dashAttentionCard');
+            const list = document.getElementById('dashAttentionList');
+            const badge = document.getElementById('dashAttentionCount');
+            if (!card || !list) return;
+
+            const inactDays = parseInt(localStorage.getItem('vends_inactivity_days') || '60');
+            const bdayAdv   = parseInt(localStorage.getItem('vends_bday_advance') || '3');
+            const items = [];
+
+            // ── 1. Follow-ups atrasados ─────────────────────────────────────
+            contacts.filter(c => c.nextContact && c.nextContact < todayStr).forEach(c => {
+                const diff = Math.round((new Date(todayStr) - new Date(c.nextContact + 'T00:00:00')) / 86400000);
+                items.push({
+                    priority: 1,
+                    icon: 'ph-bell-ringing', color: '#f87171', bg: 'bg-red-500/10', border: 'border-red-500/20',
+                    label: `Follow-up atrasado há ${diff}d`,
+                    name: fullName(c),
+                    action: `openHistoryModal('${c.id}')`,
+                    actionLabel: 'Histórico'
+                });
+            });
+
+            // ── 2. Follow-up vence hoje ─────────────────────────────────────
+            contacts.filter(c => c.nextContact === todayStr).forEach(c => {
+                items.push({
+                    priority: 2,
+                    icon: 'ph-bell', color: '#fbbf24', bg: 'bg-amber-500/10', border: 'border-amber-500/20',
+                    label: 'Follow-up para hoje',
+                    name: fullName(c),
+                    action: `openHistoryModal('${c.id}')`,
+                    actionLabel: 'Registrar'
+                });
+            });
+
+            // ── 3. Tarefas urgentes vencidas ────────────────────────────────
+            tasks.filter(t => !t.completed && t.priority === 'urgent' && t.date && t.date < todayStr).forEach(t => {
+                items.push({
+                    priority: 1,
+                    icon: 'ph-lightning', color: '#f87171', bg: 'bg-red-500/10', border: 'border-red-500/20',
+                    label: 'Tarefa urgente vencida',
+                    name: t.title,
+                    action: `switchView('tasks')`,
+                    actionLabel: 'Ver tarefa'
+                });
+            });
+
+            // ── 4. Tarefas urgentes de hoje ─────────────────────────────────
+            tasks.filter(t => !t.completed && t.priority === 'urgent' && t.date === todayStr).forEach(t => {
+                items.push({
+                    priority: 2,
+                    icon: 'ph-lightning', color: '#fbbf24', bg: 'bg-amber-500/10', border: 'border-amber-500/20',
+                    label: 'Tarefa urgente hoje',
+                    name: t.title,
+                    action: `switchView('tasks')`,
+                    actionLabel: 'Ver tarefa'
+                });
+            });
+
+            // ── 5. Aniversários hoje / amanhã ───────────────────────────────
+            const [ty, tm, td] = todayStr.split('-').map(Number);
+            contacts.forEach(c => {
+                if (!c.birth) return;
+                const [bm, bd] = c.birth.split('-').map(Number);
+                let bday = new Date(ty, bm-1, bd);
+                if (bday < new Date(ty, tm-1, td)) bday = new Date(ty+1, bm-1, bd);
+                const diff = Math.round((bday - new Date(todayStr + 'T00:00:00')) / 86400000);
+                if (diff === 0) {
+                    items.push({ priority: 2, icon: 'ph-cake', color: '#ec4899', bg: 'bg-pink-500/10', border: 'border-pink-500/20',
+                        label: '🎂 Aniversário hoje!', name: fullName(c), action: `openHistoryModal('${c.id}')`, actionLabel: 'Parabenizar' });
+                } else if (diff === 1) {
+                    items.push({ priority: 3, icon: 'ph-cake', color: '#ec4899', bg: 'bg-pink-500/10', border: 'border-pink-500/20',
+                        label: '🎂 Aniversário amanhã', name: fullName(c), action: `openHistoryModal('${c.id}')`, actionLabel: 'Ver contato' });
+                } else if (diff <= bdayAdv) {
+                    items.push({ priority: 4, icon: 'ph-cake', color: '#a78bfa', bg: 'bg-purple-500/10', border: 'border-purple-500/20',
+                        label: `🎂 Aniversário em ${diff}d`, name: fullName(c), action: `openHistoryModal('${c.id}')`, actionLabel: 'Ver contato' });
+                }
+            });
+
+            // ── 6. Contatos inativos (acima do limite) ──────────────────────
+            if (inactDays > 0) {
+                contacts
+                    .filter(c => (getInactivityDays(c) || 0) >= inactDays * 1.5) // 1.5× o limite = crítico
+                    .sort((a,b) => (getInactivityDays(b)||0) - (getInactivityDays(a)||0))
+                    .slice(0, 3)
+                    .forEach(c => {
+                        const d = getInactivityDays(c);
+                        items.push({ priority: 4, icon: 'ph-clock-countdown', color: '#6b7280', bg: 'bg-gray-500/10', border: 'border-gray-500/20',
+                            label: `Inativo há ${d} dias`, name: fullName(c), action: `openHistoryModal('${c.id}')`, actionLabel: 'Contatar' });
+                    });
+            }
+
+            if (!items.length) {
+                card.classList.add('hidden');
+                return;
+            }
+
+            card.classList.remove('hidden');
+            items.sort((a,b) => a.priority - b.priority);
+            const MAX = 7;
+            const shown = items.slice(0, MAX);
+            const extra = items.length - MAX;
+
+            badge.textContent = `${items.length} item${items.length !== 1 ? 'ns' : ''}`;
+
+            list.innerHTML = shown.map(item => `
+                <div class="flex items-center gap-3 ${item.bg} border ${item.border} rounded-xl px-3 py-2.5">
+                    <i class="ph ${item.icon} text-base shrink-0" style="color:${item.color}"></i>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[10px] font-bold uppercase tracking-wider" style="color:${item.color}">${item.label}</p>
+                        <p class="text-sm text-white font-medium truncate">${item.name}</p>
+                    </div>
+                    <button onclick="${item.action}" class="shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors hover:opacity-80" style="color:${item.color};border-color:${item.color}40;background:${item.color}15">
+                        ${item.actionLabel} →
+                    </button>
+                </div>`).join('') +
+                (extra > 0 ? `<p class="text-[11px] text-gray-600 text-center pt-1">+${extra} item${extra !== 1 ? 'ns' : ''} adicionais — resolva os acima primeiro.</p>` : '');
+        }
+
         function renderPriorityActions(todayStr) {
             const card = document.getElementById('dashPriorityCard');
             const list = document.getElementById('dashPriorityList');
