@@ -861,6 +861,7 @@
                     <button onclick="switchReportTab('leads')" id="tab-leads" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-star"></i> Oportunidades</button>
                     <button onclick="switchReportTab('inactivity')" id="tab-inactivity" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-clock-countdown"></i> Inatividade</button>
                     <button onclick="switchReportTab('geography')" id="tab-geography" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-map-pin"></i> Regiões</button>
+                    <button onclick="switchReportTab('monthly')" id="tab-monthly" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-file-pdf"></i> Relatório Mensal</button>
                 </div>
 
                 <div id="report-birthdays" class="report-content flex flex-col">
@@ -1021,6 +1022,26 @@
                     </div>
                     <!-- Lista ranqueada -->
                     <div id="geoList" class="space-y-2 pb-10"></div>
+                <!-- Relatório Mensal -->
+                <div id="report-monthly" class="report-content hidden flex flex-col">
+                    <div class="flex flex-wrap items-center justify-between gap-3 mb-6 shrink-0">
+                        <div class="flex items-center gap-3">
+                            <select id="monthlyRepMonth" onchange="generateMonthlyReport()" class="bg-sant-surface border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                                <option value="1">Janeiro</option><option value="2">Fevereiro</option>
+                                <option value="3">Março</option><option value="4">Abril</option>
+                                <option value="5">Maio</option><option value="6">Junho</option>
+                                <option value="7">Julho</option><option value="8">Agosto</option>
+                                <option value="9">Setembro</option><option value="10">Outubro</option>
+                                <option value="11">Novembro</option><option value="12">Dezembro</option>
+                            </select>
+                            <select id="monthlyRepYear" onchange="generateMonthlyReport()" class="bg-sant-surface border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none"></select>
+                        </div>
+                        <button onclick="exportMonthlyPdf()" class="flex items-center gap-2 bg-sant-purple hover:bg-purple-800 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">
+                            <i class="ph ph-file-pdf"></i> Exportar PDF
+                        </button>
+                    </div>
+                    <div id="monthlyRepBody" class="space-y-6 pb-10"></div>
+                </div>
                 </div>
             </div>
 
@@ -7471,6 +7492,7 @@
             if(tabId === 'leads') generateLeadsReport();
             if(tabId === 'inactivity') generateInactivityReport();
             if(tabId === 'geography')  generateGeographyReport();
+            if(tabId === 'monthly')   initMonthlyReport();
             if(tabId === 'birthdays') {
                 const startInput = document.getElementById('repBirthStart');
                 const endInput = document.getElementById('repBirthEnd');
@@ -7989,6 +8011,203 @@
                 </div>`;
             }).join('');
         }
+
+        // ── Relatório Mensal ─────────────────────────────────────────────────
+        function initMonthlyReport() {
+            const yearSel = document.getElementById('monthlyRepYear');
+            if (yearSel && !yearSel.options.length) {
+                const curYear = new Date().getFullYear();
+                for (let y = curYear; y >= curYear - 3; y--) {
+                    yearSel.innerHTML += `<option value="${y}">${y}</option>`;
+                }
+            }
+            const todayStr = getSPTodayStr();
+            const [cy, cm] = todayStr.split('-').map(Number);
+            const monthSel = document.getElementById('monthlyRepMonth');
+            if (monthSel) monthSel.value = cm;
+            if (yearSel)  yearSel.value  = cy;
+            generateMonthlyReport();
+        }
+
+        function getMonthlyData(year, month) {
+            const pad   = n => String(n).padStart(2,'0');
+            const start = `${year}-${pad(month)}-01`;
+            const end   = `${year}-${pad(month)}-${new Date(year, month, 0).getDate()}`;
+
+            // Interações do mês
+            const allInts = [];
+            contacts.forEach(c => {
+                (c.interactions || []).forEach(i => {
+                    if (i.date >= start && i.date <= end) allInts.push({ ...i, contact: c });
+                });
+            });
+
+            // Contatos adicionados
+            const newContacts = contacts.filter(c => {
+                const d = (c.createdAt || '').substring(0, 10);
+                return d >= start && d <= end;
+            });
+
+            // Follow-ups honrados (nextContact no mês com interação >= nextContact)
+            const followupsHonored = contacts.filter(c => {
+                if (!c.nextContact || c.nextContact < start || c.nextContact > end) return false;
+                return (c.interactions || []).some(i => i.date >= c.nextContact);
+            });
+
+            // Aniversariantes do mês
+            const bdays = contacts.filter(c => {
+                if (!c.birth) return false;
+                const [bm] = c.birth.split('-').map(Number);
+                return bm === month;
+            }).sort((a, b) => {
+                const da = parseInt(a.birth.split('-')[1]);
+                const db = parseInt(b.birth.split('-')[1]);
+                return da - db;
+            });
+
+            // Novos leads
+            const newLeads = newContacts.filter(c => c.isLead);
+
+            // Tipos de interação
+            const typeCounts = {};
+            allInts.forEach(i => { typeCounts[i.type||'Outro'] = (typeCounts[i.type||'Outro']||0)+1; });
+
+            return { start, end, allInts, newContacts, followupsHonored, bdays, newLeads, typeCounts };
+        }
+
+        function generateMonthlyReport() {
+            const month = parseInt(document.getElementById('monthlyRepMonth')?.value || new Date().getMonth()+1);
+            const year  = parseInt(document.getElementById('monthlyRepYear')?.value  || new Date().getFullYear());
+            const body  = document.getElementById('monthlyRepBody');
+            if (!body) return;
+
+            const d = getMonthlyData(year, month);
+            const monthNames = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+            const fmtDate = s => s ? s.split('-').reverse().join('/') : '—';
+
+            // KPIs
+            const kpis = [
+                { label: 'Interações realizadas', value: d.allInts.length, icon: 'ph-handshake', color: '#5b8fa8' },
+                { label: 'Contatos adicionados',  value: d.newContacts.length, icon: 'ph-user-plus', color: '#34d399' },
+                { label: 'Follow-ups honrados',   value: d.followupsHonored.length, icon: 'ph-check-circle', color: '#a78bfa' },
+                { label: 'Aniversariantes',       value: d.bdays.length, icon: 'ph-cake', color: '#ec4899' },
+                { label: 'Novos leads',           value: d.newLeads.length, icon: 'ph-star', color: '#fbbf24' },
+            ];
+
+            const typeRows = Object.entries(d.typeCounts).sort((a,b) => b[1]-a[1])
+                .map(([t,n]) => `<div class="flex justify-between items-center text-sm py-1 border-b border-sant-border last:border-0">
+                    <span class="text-gray-400">${t}</span>
+                    <span class="font-bold text-white">${n}</span></div>`).join('') || '<p class="text-xs text-gray-600 italic">Nenhuma interação registrada.</p>';
+
+            const contactRows = d.newContacts.slice(0,10).map(c =>
+                `<div class="flex items-center gap-3 py-1.5 border-b border-sant-border last:border-0">
+                    ${contactAvatarHtml(c,'w-7 h-7 text-[10px]')}
+                    <div class="flex-1 min-w-0"><p class="text-sm text-white truncate">${fullName(c)}</p><p class="text-[11px] text-gray-500">${c.category||'Sem categoria'}</p></div>
+                    <span class="text-[11px] text-gray-600">${fmtDate((c.createdAt||'').substring(0,10))}</span>
+                </div>`).join('') || '<p class="text-xs text-gray-600 italic">Nenhum contato adicionado.</p>';
+
+            const bdayRows = d.bdays.map(c => {
+                const [,bm,bd] = c.birth.split('-');
+                return `<div class="flex items-center gap-3 py-1.5 border-b border-sant-border last:border-0">
+                    ${contactAvatarHtml(c,'w-7 h-7 text-[10px]')}
+                    <p class="flex-1 text-sm text-white">${fullName(c)}</p>
+                    <span class="text-[11px] text-pink-400 font-bold">🎂 ${bd}/${bm}</span>
+                </div>`;
+            }).join('') || '<p class="text-xs text-gray-600 italic">Nenhum aniversariante.</p>';
+
+            body.innerHTML = `
+                <div>
+                    <h3 class="text-lg font-bold text-white mb-4">${monthNames[month-1]} ${year}</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+                        ${kpis.map(k => `<div class="bg-sant-surface border border-sant-border rounded-xl p-4 text-center">
+                            <i class="ph ${k.icon} text-2xl mb-2 block" style="color:${k.color}"></i>
+                            <p class="text-3xl font-bold text-white">${k.value}</p>
+                            <p class="text-[10px] text-gray-500 mt-1 leading-tight">${k.label}</p>
+                        </div>`).join('')}
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-5">
+                        <p class="text-xs font-bold text-white uppercase tracking-wide mb-4 flex items-center gap-2"><i class="ph ph-chart-pie-slice text-sant-cyan"></i> Interações por tipo</p>
+                        ${typeRows}
+                    </div>
+                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-5">
+                        <p class="text-xs font-bold text-white uppercase tracking-wide mb-4 flex items-center gap-2"><i class="ph ph-user-plus text-green-400"></i> Novos contatos</p>
+                        ${contactRows}
+                        ${d.newContacts.length > 10 ? `<p class="text-[11px] text-gray-600 mt-2">+${d.newContacts.length-10} mais</p>` : ''}
+                    </div>
+                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-5">
+                        <p class="text-xs font-bold text-white uppercase tracking-wide mb-4 flex items-center gap-2"><i class="ph ph-cake text-pink-400"></i> Aniversariantes do mês</p>
+                        ${bdayRows}
+                    </div>
+                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-5">
+                        <p class="text-xs font-bold text-white uppercase tracking-wide mb-4 flex items-center gap-2"><i class="ph ph-check-circle text-sant-purple"></i> Follow-ups honrados</p>
+                        ${d.followupsHonored.length
+                            ? d.followupsHonored.map(c => `<div class="flex items-center gap-3 py-1.5 border-b border-sant-border last:border-0">
+                                ${contactAvatarHtml(c,'w-7 h-7 text-[10px]')}
+                                <p class="flex-1 text-sm text-white">${fullName(c)}</p>
+                                <span class="text-[11px] text-green-400 font-bold">✓ ${fmtDate(c.nextContact)}</span>
+                              </div>`).join('')
+                            : '<p class="text-xs text-gray-600 italic">Nenhum follow-up honrado.</p>'}
+                    </div>
+                </div>`;
+        }
+
+        function exportMonthlyPdf() {
+            const month = parseInt(document.getElementById('monthlyRepMonth')?.value || new Date().getMonth()+1);
+            const year  = parseInt(document.getElementById('monthlyRepYear')?.value  || new Date().getFullYear());
+            const d = getMonthlyData(year, month);
+            const monthNames = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+            const fmtDate = s => s ? s.split('-').reverse().join('/') : '—';
+            const genDate = new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'});
+
+            const kpiHtml = [
+                ['Interações realizadas', d.allInts.length, '#5b8fa8'],
+                ['Contatos adicionados',  d.newContacts.length, '#34d399'],
+                ['Follow-ups honrados',   d.followupsHonored.length, '#a78bfa'],
+                ['Aniversariantes',       d.bdays.length, '#ec4899'],
+                ['Novos leads',           d.newLeads.length, '#fbbf24'],
+            ].map(([l,v,c]) => `<div style="background:#111;border:1px solid #1f1f1f;border-radius:12px;padding:16px;text-align:center">
+                <div style="font-size:32px;font-weight:900;color:${c}">${v}</div>
+                <div style="font-size:11px;color:#9ca3af;margin-top:4px">${l}</div></div>`).join('');
+
+            const typeHtml = Object.entries(d.typeCounts).sort((a,b)=>b[1]-a[1])
+                .map(([t,n])=>`<tr><td style="padding:6px 0;color:#d1d5db;border-bottom:1px solid #1f1f1f">${t}</td><td style="padding:6px 0;font-weight:700;color:#fff;text-align:right;border-bottom:1px solid #1f1f1f">${n}</td></tr>`).join('');
+
+            const contactHtml = d.newContacts.map(c=>`<tr><td style="padding:5px 0;color:#fff;border-bottom:1px solid #1f1f1f">${fullName(c)}</td><td style="padding:5px 0;color:#9ca3af;border-bottom:1px solid #1f1f1f">${c.category||'—'}</td><td style="padding:5px 0;color:#6b7280;text-align:right;border-bottom:1px solid #1f1f1f">${fmtDate((c.createdAt||'').substring(0,10))}</td></tr>`).join('');
+
+            const bdayHtml = d.bdays.map(c=>{const[,bm,bd]=c.birth.split('-');return`<tr><td style="padding:5px 0;color:#fff;border-bottom:1px solid #1f1f1f">${fullName(c)}</td><td style="padding:5px 0;color:#ec4899;font-weight:700;text-align:right;border-bottom:1px solid #1f1f1f">🎂 ${bd}/${bm}</td></tr>`;}).join('');
+
+            const fuHtml = d.followupsHonored.map(c=>`<tr><td style="padding:5px 0;color:#fff;border-bottom:1px solid #1f1f1f">${fullName(c)}</td><td style="padding:5px 0;color:#4ade80;font-weight:700;text-align:right;border-bottom:1px solid #1f1f1f">✓ ${fmtDate(c.nextContact)}</td></tr>`).join('');
+
+            const section = (title, color, content) => `
+                <div style="background:#0a0a0a;border:1px solid #1f1f1f;border-radius:12px;padding:20px;margin-bottom:16px">
+                    <h3 style="font-size:12px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:0.1em;margin:0 0 12px">${title}</h3>
+                    ${content}
+                </div>`;
+
+            const win = window.open('','_blank');
+            win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Relatório ${monthNames[month-1]} ${year}</title>
+            <style>*{margin:0;padding:0;box-sizing:border-box}body{background:#030303;color:#fff;font-family:Inter,sans-serif;padding:32px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+            @media print{body{padding:20px}}</style></head><body>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;padding-bottom:20px;border-bottom:1px solid #1f1f1f">
+                <div>
+                    <div style="font-size:22px;font-weight:900;color:#5b8fa8">Vend-s Inteligência CRM</div>
+                    <div style="font-size:28px;font-weight:900;color:#fff;margin-top:4px">Relatório — ${monthNames[month-1]} ${year}</div>
+                    <div style="font-size:12px;color:#6b7280;margin-top:6px">Gerado em ${genDate}</div>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px">${kpiHtml}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                ${section('Interações por tipo','#5b8fa8',`<table style="width:100%;border-collapse:collapse">${typeHtml||'<tr><td style="color:#6b7280;padding:6px 0">Nenhuma interação</td></tr>'}</table>`)}
+                ${section('Novos contatos','#34d399',`<table style="width:100%;border-collapse:collapse">${contactHtml||'<tr><td style="color:#6b7280;padding:6px 0">Nenhum contato adicionado</td></tr>'}</table>`)}
+                ${section('Aniversariantes','#ec4899',`<table style="width:100%;border-collapse:collapse">${bdayHtml||'<tr><td style="color:#6b7280;padding:6px 0">Nenhum aniversariante</td></tr>'}</table>`)}
+                ${section('Follow-ups honrados','#a78bfa',`<table style="width:100%;border-collapse:collapse">${fuHtml||'<tr><td style="color:#6b7280;padding:6px 0">Nenhum follow-up honrado</td></tr>'}</table>`)}
+            </div>
+            <script>window.onload=()=>{window.print()}<\/script></body></html>`);
+            win.document.close();
+        }
+        // ── fim Relatório Mensal ─────────────────────────────────────────────
 
         function exportGeoCsv() {
             const withAddr = contacts.filter(c => c.addressCity || c.addressState);
