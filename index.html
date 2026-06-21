@@ -2060,6 +2060,36 @@
     </div>
 
     <!-- MODAL DE ATALHOS DE TECLADO -->
+
+    <!-- Modal: Revisão Semanal Guiada -->
+    <div id="weeklyReviewModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeWeeklyReview()">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg shadow-2xl modalPop flex flex-col" style="max-height:90vh">
+            <!-- Header -->
+            <div class="px-6 py-4 border-b border-sant-border flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-sant-cyan/10 border border-sant-cyan/20 flex items-center justify-center"><i class="ph ph-calendar-check text-sant-cyan text-sm"></i></div>
+                    <div>
+                        <h3 class="text-sm font-bold text-white">Revisão Semanal</h3>
+                        <p id="wrSubtitle" class="text-[10px] text-gray-500"></p>
+                    </div>
+                </div>
+                <button onclick="closeWeeklyReview()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <!-- Step indicator -->
+            <div class="px-6 pt-4 shrink-0">
+                <div class="flex gap-1.5" id="wrStepDots"></div>
+            </div>
+            <!-- Content -->
+            <div id="wrContent" class="flex-1 overflow-y-auto px-6 py-4 custom-scrollbar"></div>
+            <!-- Footer -->
+            <div class="px-6 py-4 border-t border-sant-border flex items-center justify-between shrink-0">
+                <button id="wrPrevBtn" onclick="wrNav(-1)" class="flex items-center gap-2 px-4 py-2 rounded-lg border border-sant-border text-gray-400 hover:text-white text-sm transition-colors hidden"><i class="ph ph-caret-left"></i> Anterior</button>
+                <div class="flex-1"></div>
+                <button id="wrNextBtn" onclick="wrNav(1)" class="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-colors" style="background:#5b8fa8;color:#030303">Próximo <i class="ph ph-caret-right"></i></button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: Mesclar Contatos -->
     <div id="mergeContactModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeMergeModal()">
         <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg shadow-2xl modalPop flex flex-col max-h-[90vh]">
@@ -2171,6 +2201,10 @@
                 <div class="flex items-center justify-between">
                     <span class="text-sm text-gray-300">Abrir última nota criada ou editada</span>
                     <span class="flex gap-1"><kbd class="kbd-key">Q</kbd></span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-gray-300">Revisão Semanal Guiada</span>
+                    <span class="flex gap-1"><kbd class="kbd-key">W</kbd></span>
                 </div>
             </div>
         </div>
@@ -9577,6 +9611,183 @@
             }
         }
 
+        // ── Revisão Semanal Guiada ───────────────────────────────────────────
+        let wrStep = 0;
+        let wrSteps = [];
+
+        function openWeeklyReview() {
+            wrStep = 0;
+            wrSteps = buildWeeklyReviewSteps();
+            document.getElementById('weeklyReviewModal').classList.remove('hidden');
+            renderWrStep();
+        }
+
+        function closeWeeklyReview() {
+            document.getElementById('weeklyReviewModal').classList.add('hidden');
+        }
+
+        function wrNav(dir) {
+            wrStep = Math.max(0, Math.min(wrStep + dir, wrSteps.length - 1));
+            renderWrStep();
+        }
+
+        function renderWrStep() {
+            const step = wrSteps[wrStep];
+            const total = wrSteps.length;
+            const isLast = wrStep === total - 1;
+
+            document.getElementById('wrSubtitle').textContent = `Passo ${wrStep + 1} de ${total} — ${step.title}`;
+            document.getElementById('wrContent').innerHTML = step.html;
+            document.getElementById('wrPrevBtn').classList.toggle('hidden', wrStep === 0);
+            const nextBtn = document.getElementById('wrNextBtn');
+            nextBtn.innerHTML = isLast
+                ? '<i class="ph ph-check-circle"></i> Concluir'
+                : 'Próximo <i class="ph ph-caret-right"></i>';
+            if (isLast) nextBtn.onclick = closeWeeklyReview;
+            else nextBtn.onclick = () => wrNav(1);
+
+            // Dots
+            document.getElementById('wrStepDots').innerHTML = wrSteps.map((_, i) =>
+                `<div class="h-1.5 rounded-full transition-all flex-1" style="background:${i === wrStep ? '#5b8fa8' : i < wrStep ? '#5b8fa830' : '#1f1f1f'}"></div>`
+            ).join('');
+        }
+
+        function buildWeeklyReviewSteps() {
+            const todayStr = getSPTodayStr();
+            const [ty, tm, td] = todayStr.split('-').map(Number);
+            const today = new Date(ty, tm-1, td);
+            const dow = today.getDay();
+            const diffToMon = dow === 0 ? -6 : 1 - dow;
+            const weekStart = new Date(today); weekStart.setDate(today.getDate() + diffToMon);
+            const pad = n => String(n).padStart(2,'0');
+            const ws  = `${weekStart.getFullYear()}-${pad(weekStart.getMonth()+1)}-${pad(weekStart.getDate())}`;
+            const fmtD = s => s ? s.split('-').reverse().join('/') : '—';
+
+            // ── Dados ──
+            const tasksDone  = tasks.filter(t => t.completed && ((t.completedAt||t.date||'').substring(0,10) >= ws));
+            const tasksPend  = tasks.filter(t => !t.completed && t.date && t.date <= todayStr);
+            const intsDone   = contacts.reduce((acc,c) => acc + (c.interactions||[]).filter(i=>i.date>=ws&&i.date<=todayStr).length,0);
+            const fuPending  = contacts.filter(c => c.nextContact && c.nextContact <= todayStr);
+            const fuHonored  = fuPending.filter(c => (c.interactions||[]).some(i=>i.date>=c.nextContact));
+            const bdays      = (() => {
+                const res = [];
+                contacts.forEach(c => {
+                    if (!c.birth) return;
+                    const bm = getBirthMonth(c.birth), bd = getBirthDay(c.birth);
+                    let bday = new Date(ty, bm-1, bd);
+                    if (bday < today) bday = new Date(ty+1, bm-1, bd);
+                    const diff = Math.round((bday - today) / 86400000);
+                    if (diff >= 0 && diff <= 7) res.push({ c, diff, bday: `${pad(bd)}/${pad(bm)}` });
+                });
+                return res.sort((a,b) => a.diff - b.diff);
+            })();
+            const inactDays = parseInt(localStorage.getItem('vends_inactivity_days')||'60');
+            const inactives = inactDays > 0
+                ? contacts.filter(c => (getInactivityDays(c)||0) >= inactDays).sort((a,b)=>(getInactivityDays(b)||0)-(getInactivityDays(a)||0)).slice(0,5)
+                : [];
+            const scoreHist = JSON.parse(localStorage.getItem('vends_score_history')||'{}');
+            const scoreKeys = Object.keys(scoreHist).sort();
+            const curScore  = scoreHist[ws] ?? null;
+
+            const item = (icon, color, label, sub, action) =>
+                `<div class="flex items-center gap-3 py-2.5 border-b border-sant-border/50 last:border-0">
+                    <i class="ph ${icon} text-base shrink-0" style="color:${color}"></i>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm text-white font-medium">${label}</p>
+                        ${sub ? `<p class="text-[11px] text-gray-500 mt-0.5">${sub}</p>` : ''}
+                    </div>
+                    ${action ? `<button onclick="${action}" class="shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors hover:opacity-80" style="color:${color};border-color:${color}40;background:${color}15">${action.includes('History')||action.includes('History')?'Histórico':'Ver →'}</button>` : ''}
+                </div>`;
+
+            const empty = msg => `<p class="text-sm text-gray-600 italic text-center py-6">${msg}</p>`;
+
+            const steps = [];
+
+            // 1 — Resumo da semana
+            const scoreColor = curScore === null ? '#9ca3af' : curScore >= 80 ? '#4ade80' : curScore >= 50 ? '#fbbf24' : '#f87171';
+            steps.push({ title: 'Resumo', html: `
+                <p class="text-lg font-bold text-white mb-1">Como foi sua semana?</p>
+                <p class="text-xs text-gray-500 mb-5">A partir de ${fmtD(ws)} até hoje</p>
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    ${[
+                        ['ph-handshake','#5b8fa8','Interações',intsDone],
+                        ['ph-check-square','#34d399','Tarefas concluídas',tasksDone.length],
+                        ['ph-bell-ringing','#fbbf24','Follow-ups pendentes',fuPending.length - fuHonored.length],
+                        ['ph-cake','#ec4899','Aniversários próximos',bdays.length],
+                    ].map(([ic,cl,lb,v]) => `<div class="bg-[#0d0d0d] border border-sant-border rounded-xl p-3 text-center">
+                        <i class="ph ${ic} text-xl mb-1 block" style="color:${cl}"></i>
+                        <p class="text-2xl font-bold text-white">${v}</p>
+                        <p class="text-[10px] text-gray-500 mt-0.5">${lb}</p>
+                    </div>`).join('')}
+                </div>
+                ${curScore !== null ? `<div class="flex items-center gap-3 bg-[#0d0d0d] border border-sant-border rounded-xl p-4">
+                    <p class="text-4xl font-black" style="color:${scoreColor}">${curScore}</p>
+                    <div><p class="text-sm font-bold text-white">Score de Produtividade</p>
+                    <p class="text-xs text-gray-500">${curScore>=80?'Semana excelente! 🏆':curScore>=50?'No caminho certo 👍':'Semana desafiadora — siga em frente 💪'}</p></div>
+                </div>` : `<p class="text-xs text-gray-600 italic text-center">Defina metas no Dashboard para ver o score.</p>`}
+            `});
+
+            // 2 — Follow-ups
+            const fuOpen = fuPending.filter(c => !(c.interactions||[]).some(i=>i.date>=c.nextContact));
+            steps.push({ title: 'Follow-ups', html: `
+                <p class="text-sm font-bold text-white mb-1">Follow-ups com prazo vencido</p>
+                <p class="text-xs text-gray-500 mb-4">${fuHonored.length} honrado${fuHonored.length!==1?'s':''} · ${fuOpen.length} pendente${fuOpen.length!==1?'s':''}</p>
+                <div>${fuOpen.length ? fuOpen.slice(0,6).map(c => item('ph-arrow-counter-clockwise','#fbbf24',fullName(c),`Prazo: ${fmtD(c.nextContact)}`,`closeWeeklyReview();openHistoryModal('${c.id}')`)).join('') : empty('Todos os follow-ups honrados esta semana! 🎉')}
+                ${fuOpen.length > 6 ? `<p class="text-[11px] text-gray-600 text-center pt-2">+${fuOpen.length-6} mais</p>` : ''}</div>
+            `});
+
+            // 3 — Tarefas em atraso
+            steps.push({ title: 'Tarefas atrasadas', html: `
+                <p class="text-sm font-bold text-white mb-1">Tarefas não concluídas no prazo</p>
+                <p class="text-xs text-gray-500 mb-4">${tasksPend.length} tarefa${tasksPend.length!==1?'s':''} atrasada${tasksPend.length!==1?'s':''}</p>
+                <div>${tasksPend.length ? tasksPend.slice(0,6).map(t => {
+                    const pColors={'urgent':'#f87171','high':'#fb923c','medium':'#fbbf24','low':'#9ca3af'};
+                    return item('ph-check-square',pColors[t.priority]||'#9ca3af',t.title,`Prazo: ${fmtD(t.date)}`,`closeWeeklyReview();switchView('tasks')`);
+                }).join('') : empty('Nenhuma tarefa atrasada — parabéns! ✅')}
+                ${tasksPend.length > 6 ? `<p class="text-[11px] text-gray-600 text-center pt-2">+${tasksPend.length-6} mais</p>` : ''}</div>
+            `});
+
+            // 4 — Aniversários
+            steps.push({ title: 'Aniversários', html: `
+                <p class="text-sm font-bold text-white mb-1">Aniversários nos próximos 7 dias</p>
+                <p class="text-xs text-gray-500 mb-4">${bdays.length} aniversariante${bdays.length!==1?'s':''} chegando</p>
+                <div>${bdays.length ? bdays.map(({c,diff,bday}) => item('ph-cake','#ec4899',fullName(c),
+                    diff===0?`🎂 Hoje! (${bday})`:diff===1?`Amanhã (${bday})`:`Em ${diff} dias — ${bday}`,
+                    `closeWeeklyReview();openHistoryModal('${c.id}')`)).join('') : empty('Nenhum aniversário nos próximos 7 dias.')}
+                </div>
+            `});
+
+            // 5 — Contatos inativos
+            steps.push({ title: 'Contatos inativos', html: `
+                <p class="text-sm font-bold text-white mb-1">Contatos sem interação há mais tempo</p>
+                <p class="text-xs text-gray-500 mb-4">${inactDays > 0 ? `Limite configurado: ${inactDays} dias` : 'Configure em Configurações → Backup → Preferências'}</p>
+                <div>${inactives.length ? inactives.map(c => {
+                    const d = getInactivityDays(c)||0;
+                    const cl = d >= inactDays*2 ? '#f87171' : d >= inactDays*1.5 ? '#fbbf24' : '#9ca3af';
+                    return item('ph-clock-countdown',cl,fullName(c),`${d} dias sem interação`,`closeWeeklyReview();openHistoryModal('${c.id}')`);
+                }).join('') : empty(inactDays > 0 ? 'Nenhum contato inativo acima do limite! 🙌' : 'Limite de inatividade não configurado.')}
+                </div>
+            `});
+
+            // 6 — Próximas ações
+            const nextTasks = tasks.filter(t=>!t.completed&&t.date&&t.date>todayStr).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,3);
+            steps.push({ title: 'Próximas ações', html: `
+                <p class="text-lg font-bold text-white mb-1">Ótimo trabalho! 🚀</p>
+                <p class="text-xs text-gray-500 mb-5">Revisão concluída. Aqui estão suas próximas prioridades:</p>
+                ${nextTasks.length ? `<div class="mb-4">
+                    <p class="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Próximas tarefas</p>
+                    ${nextTasks.map(t => item('ph-check-square','#5b8fa8',t.title,fmtD(t.date),`closeWeeklyReview();switchView('tasks')`)).join('')}
+                </div>` : ''}
+                <div class="grid grid-cols-2 gap-2 mt-4">
+                    <button onclick="closeWeeklyReview();switchView('tasks')" class="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-300 hover:text-sant-cyan text-xs font-medium transition-colors"><i class="ph ph-squares-four"></i> Ver Tarefas</button>
+                    <button onclick="closeWeeklyReview();switchView('contacts')" class="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-300 hover:text-sant-cyan text-xs font-medium transition-colors"><i class="ph ph-users"></i> Ver Contatos</button>
+                </div>
+            `});
+
+            return steps;
+        }
+        // ── fim Revisão Semanal ───────────────────────────────────────────────
+
         function openShortcutsModal() { document.getElementById('shortcutsModal').classList.remove('hidden'); }
         function closeShortcutsModal() { document.getElementById('shortcutsModal').classList.add('hidden'); }
 
@@ -11153,6 +11364,11 @@
                 if (!isTyping && e.key === '?') {
                     e.preventDefault();
                     openShortcutsModal();
+                }
+
+                // W abre a revisão semanal guiada
+                if (!isTyping && (e.key === 'w' || e.key === 'W')) {
+                    openWeeklyReview();
                 }
 
                 // Q abre a última nota criada/editada
