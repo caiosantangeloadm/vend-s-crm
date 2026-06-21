@@ -9733,8 +9733,18 @@
             if (!card || !body) return;
 
             const ints = c.interactions || [];
-            if (ints.length === 0) { card.classList.add('hidden'); return; }
             card.classList.remove('hidden');
+            if (ints.length === 0) {
+                body.innerHTML = `<div class="col-span-2 py-3 text-center">
+                    <i class="ph ph-handshake text-2xl text-gray-700 block mb-2"></i>
+                    <p class="text-xs text-gray-500">Nenhuma interação registrada ainda.</p>
+                    <p class="text-[11px] text-gray-600 mt-1">Registre a primeira interação com <strong class="text-sant-cyan">${fullName(c)}</strong> para ver o resumo do relacionamento aqui.</p>
+                </div>`;
+                if (barSection) barSection.classList.add('hidden');
+                const suggEl = document.getElementById('nextContactSuggestion');
+                if (suggEl) suggEl.classList.add('hidden');
+                return;
+            }
 
             // Métricas base
             const total = ints.length;
@@ -9878,8 +9888,11 @@
             if (!section || !grid) return;
 
             const ints = c.interactions || [];
-            if (ints.length === 0) { section.classList.add('hidden'); return; }
             section.classList.remove('hidden');
+            if (ints.length === 0) {
+                grid.innerHTML = `<p class="text-[11px] text-gray-600 italic py-1">O heatmap aparecerá após a primeira interação registrada.</p>`;
+                return;
+            }
 
             // Mapa de data → contagem
             const counts = {};
