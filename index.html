@@ -910,6 +910,7 @@
                     <button onclick="switchReportTab('inactivity')" id="tab-inactivity" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-clock-countdown"></i> Inatividade</button>
                     <button onclick="switchReportTab('geography')" id="tab-geography" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-map-pin"></i> Regiões</button>
                     <button onclick="switchReportTab('monthly')" id="tab-monthly" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-file-pdf"></i> Relatório Mensal</button>
+                    <button onclick="switchReportTab('origins')" id="tab-origins" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-funnel"></i> Origens</button>
                 </div>
 
                 <div id="report-birthdays" class="report-content flex flex-col">
@@ -1090,6 +1091,27 @@
                         </button>
                     </div>
                     <div id="monthlyRepBody" class="space-y-6 pb-10"></div>
+                </div>
+
+                <!-- Relatório de Origens -->
+                <div id="report-origins" class="report-content hidden flex flex-col">
+                    <div class="flex justify-end mb-4 shrink-0">
+                        <button onclick="exportOriginsCsv()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors">
+                            <i class="ph ph-file-csv"></i> Exportar CSV
+                        </button>
+                    </div>
+                    <div id="originsRepSummary" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 shrink-0"></div>
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6 shrink-0">
+                        <div class="bg-sant-surface border border-sant-border rounded-2xl p-5">
+                            <p class="text-xs font-bold text-white uppercase tracking-wide mb-4 flex items-center gap-2"><i class="ph ph-chart-bar text-sant-cyan"></i> Contatos por Origem</p>
+                            <div style="height:240px;position:relative"><canvas id="originsChart"></canvas></div>
+                        </div>
+                        <div class="bg-sant-surface border border-sant-border rounded-2xl p-5">
+                            <p class="text-xs font-bold text-white uppercase tracking-wide mb-4 flex items-center gap-2"><i class="ph ph-trend-up text-[#fbbf24]"></i> Taxa de Conversão por Origem</p>
+                            <div style="height:240px;position:relative"><canvas id="conversionChart"></canvas></div>
+                        </div>
+                    </div>
+                    <div id="originsRepTable" class="pb-10"></div>
                 </div>
             </div>
 
@@ -7815,6 +7837,7 @@
             if(tabId === 'inactivity') generateInactivityReport();
             if(tabId === 'geography')  generateGeographyReport();
             if(tabId === 'monthly')   initMonthlyReport();
+            if(tabId === 'origins')   generateOriginsReport();
             if(tabId === 'birthdays') {
                 const startInput = document.getElementById('repBirthStart');
                 const endInput = document.getElementById('repBirthEnd');
@@ -8530,6 +8553,147 @@
             win.document.close();
         }
         // ── fim Relatório Mensal ─────────────────────────────────────────────
+
+        // ── Relatório de Origens ─────────────────────────────────────────────
+        let originsChartInst = null, conversionChartInst = null;
+
+        function generateOriginsReport() {
+            const total = contacts.length;
+            const semEl = document.getElementById('originsRepSummary');
+            const tblEl = document.getElementById('originsRepTable');
+            if (!semEl || !tblEl) return;
+
+            // Agrupa por origem
+            const grouped = {};
+            contacts.forEach(c => {
+                const orig = c.origin || 'Não informado';
+                if (!grouped[orig]) grouped[orig] = { total: 0, leads: 0, hot: 0, warm: 0, cold: 0 };
+                grouped[orig].total++;
+                if (c.isLead) {
+                    grouped[orig].leads++;
+                    if (c.temperature === 'quente') grouped[orig].hot++;
+                    else if (c.temperature === 'morno') grouped[orig].warm++;
+                    else grouped[orig].cold++;
+                }
+            });
+
+            const sorted = Object.entries(grouped).sort((a,b) => b[1].total - a[1].total);
+            const totalLeads = contacts.filter(c => c.isLead).length;
+            const topOrig = sorted[0];
+            const bestConv = sorted.reduce((best, [k,v]) =>
+                v.total >= 3 && (v.leads/v.total) > ((best[1]?.leads||0)/(best[1]?.total||1)) ? [k,v] : best, ['—',null]);
+
+            // Sumário
+            semEl.innerHTML = [
+                { label: 'Total de origens', value: sorted.length, color: 'text-sant-cyan' },
+                { label: 'Maior base', value: topOrig ? topOrig[0] : '—', color: 'text-white', small: true },
+                { label: 'Total de leads', value: totalLeads, color: 'text-[#fbbf24]' },
+                { label: 'Melhor conversão', value: bestConv[0], color: 'text-green-400', sub: bestConv[1] ? `${Math.round(bestConv[1].leads/bestConv[1].total*100)}%` : '' },
+            ].map(k => `<div class="bg-sant-surface border border-sant-border rounded-xl p-4 text-center">
+                <p class="text-2xl font-bold ${k.color} ${k.small?'text-base leading-snug mt-1':''}">${k.value}</p>
+                ${k.sub ? `<p class="text-xs font-bold text-green-400">${k.sub} conversão</p>` : ''}
+                <p class="text-[10px] text-gray-500 mt-1">${k.label}</p>
+            </div>`).join('');
+
+            const labels = sorted.map(([k]) => k.length > 16 ? k.slice(0,14)+'…' : k);
+            const fullLabels = sorted.map(([k]) => k);
+            const totals = sorted.map(([,v]) => v.total);
+            const convRates = sorted.map(([,v]) => v.total > 0 ? Math.round(v.leads/v.total*100) : 0);
+
+            // Gráfico barras — contatos por origem
+            const c1 = document.getElementById('originsChart');
+            if (c1 && typeof Chart !== 'undefined') {
+                if (originsChartInst) originsChartInst.destroy();
+                originsChartInst = new Chart(c1, {
+                    type: 'bar',
+                    data: { labels, datasets: [{
+                        label: 'Contatos', data: totals,
+                        backgroundColor: 'rgba(91,143,168,0.4)', borderColor: '#5b8fa8',
+                        borderWidth: 1.5, borderRadius: 4
+                    }]},
+                    options: { responsive:true, maintainAspectRatio:false,
+                        plugins:{ legend:{ display:false } },
+                        scales:{ x:{ grid:{ display:false }, ticks:{ color:'#9ca3af', font:{ size:10 } } },
+                                 y:{ beginAtZero:true, grid:{ color:'#1f1f1f' }, ticks:{ color:'#9ca3af', precision:0 } } } }
+                });
+            }
+
+            // Gráfico barras — taxa de conversão
+            const c2 = document.getElementById('conversionChart');
+            if (c2 && typeof Chart !== 'undefined') {
+                if (conversionChartInst) conversionChartInst.destroy();
+                conversionChartInst = new Chart(c2, {
+                    type: 'bar',
+                    data: { labels, datasets: [{
+                        label: '% leads', data: convRates,
+                        backgroundColor: convRates.map(v => v >= 50 ? 'rgba(74,222,128,0.35)' : v >= 20 ? 'rgba(251,191,36,0.35)' : 'rgba(248,113,113,0.25)'),
+                        borderColor:     convRates.map(v => v >= 50 ? '#4ade80' : v >= 20 ? '#fbbf24' : '#f87171'),
+                        borderWidth: 1.5, borderRadius: 4
+                    }]},
+                    options: { responsive:true, maintainAspectRatio:false,
+                        plugins:{ legend:{ display:false },
+                            tooltip:{ callbacks:{ label: ctx => `${ctx.raw}% conversão` } } },
+                        scales:{ x:{ grid:{ display:false }, ticks:{ color:'#9ca3af', font:{ size:10 } } },
+                                 y:{ beginAtZero:true, max:100, grid:{ color:'#1f1f1f' }, ticks:{ color:'#9ca3af', callback: v => v+'%' } } } }
+                });
+            }
+
+            // Tabela detalhada
+            tblEl.innerHTML = `<div class="bg-sant-surface border border-sant-border rounded-2xl overflow-hidden">
+                <table class="w-full text-sm">
+                    <thead><tr class="border-b border-sant-border bg-[#0d0d0d]">
+                        <th class="text-left px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Origem</th>
+                        <th class="text-center px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Contatos</th>
+                        <th class="text-center px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Leads</th>
+                        <th class="text-center px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Conversão</th>
+                        <th class="text-center px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">🔥 Quentes</th>
+                        <th class="text-center px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">% do total</th>
+                    </tr></thead>
+                    <tbody>${sorted.map(([orig, v], i) => {
+                        const conv = v.total > 0 ? Math.round(v.leads/v.total*100) : 0;
+                        const convColor = conv >= 50 ? 'text-green-400' : conv >= 20 ? 'text-amber-400' : 'text-red-400';
+                        const pctTotal = Math.round(v.total/total*100);
+                        return `<tr class="border-b border-sant-border/50 hover:bg-white/3 transition-colors">
+                            <td class="px-4 py-3 font-medium text-white">${orig}</td>
+                            <td class="px-3 py-3 text-center text-white font-bold">${v.total}</td>
+                            <td class="px-3 py-3 text-center text-[#fbbf24] font-bold">${v.leads}</td>
+                            <td class="px-3 py-3 text-center font-bold ${convColor}">${conv}%</td>
+                            <td class="px-3 py-3 text-center text-red-400 font-bold">${v.hot}</td>
+                            <td class="px-3 py-3 text-center">
+                                <div class="flex items-center gap-2">
+                                    <div class="flex-1 bg-[#1f1f1f] rounded-full h-1.5 overflow-hidden">
+                                        <div class="h-1.5 rounded-full bg-sant-cyan/60" style="width:${pctTotal}%"></div>
+                                    </div>
+                                    <span class="text-[11px] text-gray-500 w-8 text-right">${pctTotal}%</span>
+                                </div>
+                            </td>
+                        </tr>`;
+                    }).join('')}</tbody>
+                </table>
+            </div>`;
+        }
+
+        function exportOriginsCsv() {
+            const grouped = {};
+            contacts.forEach(c => {
+                const orig = c.origin || 'Não informado';
+                if (!grouped[orig]) grouped[orig] = { total:0, leads:0, hot:0 };
+                grouped[orig].total++;
+                if (c.isLead) { grouped[orig].leads++; if (c.temperature==='quente') grouped[orig].hot++; }
+            });
+            const rows = Object.entries(grouped).sort((a,b)=>b[1].total-a[1].total)
+                .map(([o,v]) => [o, v.total, v.leads, v.total>0?Math.round(v.leads/v.total*100)+'%':'0%', v.hot]);
+            const csv = [['Origem','Contatos','Leads','Conversão','Leads Quentes'],...rows]
+                .map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+            const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `vends_origens_${getSPTodayStr()}.csv`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+            showToast('CSV de origens exportado!');
+        }
+        // ── fim Relatório de Origens ──────────────────────────────────────────
 
         function exportGeoCsv() {
             const withAddr = contacts.filter(c => c.addressCity || c.addressState);
