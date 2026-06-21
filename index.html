@@ -2168,6 +2168,10 @@
                     <span class="text-sm text-gray-300">Registrar interação rápida no último contato aberto</span>
                     <span class="flex gap-1"><kbd class="kbd-key">R</kbd></span>
                 </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-gray-300">Abrir última nota criada ou editada</span>
+                    <span class="flex gap-1"><kbd class="kbd-key">Q</kbd></span>
+                </div>
             </div>
         </div>
     </div>
@@ -2469,6 +2473,7 @@
         let notesActiveTagFilter = '';
         let notesShowArchived = false;
         let notesViewMode = 'cards';
+        let lastNoteId = null;
         let noteKanbanDragId = null;
         let currentNotesSort = 'newest';
         let currentViewMode = localStorage.getItem('sant_crm_view_mode') || 'grid';
@@ -4455,6 +4460,7 @@
                 createdAt: now,
                 updatedAt: now
             });
+            lastNoteId = newId;
             saveNotesToStorage();
             collapseNewNote();
             renderNotes();
@@ -4522,6 +4528,7 @@
         function startEditNote(id) {
             const n = notes.find(x => x.id === id);
             if (!n) return;
+            lastNoteId = id;
             editNoteTagsTemp[id] = [...(n.tags || [])];
             const card = document.getElementById('note-' + id);
             card.innerHTML = `
@@ -11146,6 +11153,14 @@
                 if (!isTyping && e.key === '?') {
                     e.preventDefault();
                     openShortcutsModal();
+                }
+
+                // Q abre a última nota criada/editada
+                if (!isTyping && (e.key === 'q' || e.key === 'Q')) {
+                    const targetId = lastNoteId || (notes.length ? notes[0].id : null);
+                    if (!targetId) { showToast('Nenhuma nota criada ainda.', 'error'); return; }
+                    if (currentView !== 'notes') switchView('notes');
+                    setTimeout(() => startEditNote(targetId), currentView !== 'notes' ? 150 : 0);
                 }
 
                 // F alterna modo apresentação/foco
