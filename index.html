@@ -2255,11 +2255,16 @@
                     <div id="contactNotesList" class="space-y-2 mb-2"></div>
                 </div>
                 <div id="historyList" class="p-4 space-y-3"></div>
-                <div class="px-4 pb-4" id="changeLogSection">
-                    <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 mb-2">
-                        <i class="ph ph-clock-counter-clockwise"></i> Histórico de Alterações
-                    </h4>
-                    <div id="contactChangeLog" class="space-y-1.5"></div>
+                <div class="px-4 pb-6" id="changeLogSection">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                            <i class="ph ph-clock-counter-clockwise text-sant-cyan"></i> Histórico de Alterações
+                        </h4>
+                        <span id="changeLogBadge" class="text-[10px] font-bold text-gray-600 bg-sant-surface border border-sant-border rounded-full px-2 py-0.5"></span>
+                    </div>
+                    <div id="contactChangeLog" class="space-y-0 relative">
+                        <div class="absolute left-3.5 top-0 bottom-0 w-px bg-sant-border"></div>
+                    </div>
                 </div>
                 </div><!-- /contactDetailSection -->
             </div>
@@ -9785,11 +9790,25 @@
                 });
             });
 
+            // Edições do changelog
+            const fieldIcons = { 'Nome':'ph-user', 'Etiquetas':'ph-hash', 'Categoria':'ph-tag',
+                'Telefone':'ph-phone', 'E-mail':'ph-envelope', 'Empresa':'ph-buildings',
+                'Site':'ph-globe', 'Mesclagem':'ph-git-merge', 'Cargo':'ph-briefcase' };
+            (c.changeLog || []).forEach(entry => {
+                if (!entry.date) return;
+                items.push({ date: entry.date, sortKey: entry.date + 'Z', type: 'edit',
+                    icon: fieldIcons[entry.field] || 'ph-pencil-simple',
+                    color: '#9ca3af',
+                    label: `Editado: ${entry.field}`,
+                    text: entry.to ? `${entry.from || '—'} → ${entry.to}` : entry.from || '',
+                });
+            });
+
             if (items.length === 0) {
                 box.innerHTML = `<div class="text-center py-10 text-gray-600">
                     <i class="ph ph-clock text-3xl block mb-2"></i>
                     <p class="text-sm">Nenhum registro ainda.</p>
-                    <p class="text-xs mt-1">Interações, notas, tarefas e eventos aparecerão aqui.</p>
+                    <p class="text-xs mt-1">Interações, notas, tarefas, eventos e edições aparecerão aqui.</p>
                 </div>`;
                 return;
             }
@@ -9842,28 +9861,59 @@
         }
 
         function renderChangeLog() {
-            const box = document.getElementById('contactChangeLog');
+            const box     = document.getElementById('contactChangeLog');
             const section = document.getElementById('changeLogSection');
+            const badge   = document.getElementById('changeLogBadge');
             if (!box || !currentHistoryContactId) return;
-            const c = contacts.find(x => x.id === currentHistoryContactId);
+            const c   = contacts.find(x => x.id === currentHistoryContactId);
             const log = (c && c.changeLog || []).slice().reverse();
             if (log.length === 0) { section.classList.add('hidden'); return; }
             section.classList.remove('hidden');
-            box.innerHTML = log.map(entry => {
-                const [y,m,d] = entry.date.split('-');
-                const dateStr = `${d}/${m}/${y}`;
-                return `<div class="flex items-start gap-2 text-[11px] text-gray-400 py-1.5 border-b border-sant-border/40 last:border-0">
-                    <i class="ph ph-pencil-simple text-sant-cyan shrink-0 mt-0.5"></i>
-                    <div class="flex-1 min-w-0">
-                        <span class="font-bold text-gray-300">${entry.field}</span>
-                        <span class="text-gray-600"> · </span>
-                        <span class="line-through text-gray-600 truncate">${entry.from}</span>
-                        <span class="text-sant-cyan mx-1">→</span>
-                        <span class="text-white">${entry.to}</span>
-                    </div>
-                    <span class="text-gray-600 shrink-0">${dateStr}</span>
-                </div>`;
-            }).join('');
+            if (badge) badge.textContent = `${log.length} alteraç${log.length !== 1 ? 'ões' : 'ão'}`;
+
+            const fieldMeta = {
+                'Nome':       { icon: 'ph-user',          color: '#5b8fa8' },
+                'Etiquetas':  { icon: 'ph-hash',          color: '#a78bfa' },
+                'Categoria':  { icon: 'ph-tag',           color: '#fbbf24' },
+                'Telefone':   { icon: 'ph-phone',         color: '#34d399' },
+                'E-mail':     { icon: 'ph-envelope',      color: '#34d399' },
+                'Empresa':    { icon: 'ph-buildings',     color: '#5b8fa8' },
+                'Cargo':      { icon: 'ph-briefcase',     color: '#9ca3af' },
+                'Site':       { icon: 'ph-globe',         color: '#9ca3af' },
+                'Mesclagem':  { icon: 'ph-git-merge',     color: '#ec4899' },
+            };
+            const def = { icon: 'ph-pencil-simple', color: '#9ca3af' };
+
+            // Agrupa por data
+            const byDate = {};
+            log.forEach(e => { (byDate[e.date] = byDate[e.date] || []).push(e); });
+
+            box.innerHTML = '<div class="absolute left-3.5 top-0 bottom-0 w-px bg-sant-border pointer-events-none"></div>' +
+                Object.entries(byDate).map(([date, entries]) => {
+                    const [y,m,d] = date.split('-');
+                    const dateLabel = `${d}/${m}/${y}`;
+                    const rows = entries.map(entry => {
+                        const meta = fieldMeta[entry.field] || def;
+                        const fromVal = entry.from ? `<span class="line-through text-gray-600 max-w-[100px] truncate inline-block align-bottom">${entry.from}</span><i class="ph ph-arrow-right text-[10px] mx-1" style="color:${meta.color}"></i>` : '';
+                        const toVal   = entry.to   ? `<span class="font-medium text-white max-w-[120px] truncate inline-block align-bottom">${entry.to}</span>` : '';
+                        return `<div class="relative flex items-start gap-3 pb-3 pl-8">
+                            <div class="absolute left-0 w-7 h-7 rounded-full flex items-center justify-center shrink-0 border border-sant-border bg-sant-bg" style="color:${meta.color}">
+                                <i class="ph ${meta.icon} text-xs"></i>
+                            </div>
+                            <div class="flex-1 min-w-0 pt-0.5">
+                                <p class="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">${entry.field}</p>
+                                <p class="text-xs text-gray-300 flex items-center flex-wrap gap-0.5">${fromVal}${toVal}</p>
+                            </div>
+                        </div>`;
+                    }).join('');
+                    return `<div class="mb-1">
+                        <div class="relative flex items-center gap-2 mb-2 pl-8">
+                            <div class="absolute left-0 w-7 flex justify-center"><div class="w-2 h-2 rounded-full bg-sant-border border-2 border-sant-bg"></div></div>
+                            <span class="text-[10px] font-bold text-gray-600 uppercase tracking-wider">${dateLabel}</span>
+                        </div>
+                        ${rows}
+                    </div>`;
+                }).join('');
         }
 
         // ── Notas (Keep) vinculadas ao contato ───────────────────────────
