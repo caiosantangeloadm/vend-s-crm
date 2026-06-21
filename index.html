@@ -2034,7 +2034,10 @@
                     </div>
                 </div>
                 <div>
-                    <label class="block text-[10px] text-gray-500 uppercase font-bold mb-1.5">Notas <span class="text-gray-600 normal-case font-normal">(opcional)</span></label>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="text-[10px] text-gray-500 uppercase font-bold">Notas <span class="text-gray-600 normal-case font-normal">(opcional)</span></label>
+                        <div id="quickTplChips" class="flex gap-1 flex-wrap justify-end"></div>
+                    </div>
                     <textarea id="quickInteractionNotes" rows="3" placeholder="O que foi discutido? Qual o próximo passo?" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan transition-colors resize-none placeholder-gray-600"></textarea>
                 </div>
                 <div class="flex gap-3 pt-1">
@@ -2164,6 +2167,7 @@
                         </select>
                         <input type="date" id="interactionDate" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
                     </div>
+                    <div id="histTplChips" class="flex gap-1 flex-wrap mb-1.5"></div>
                     <textarea id="interactionNotes" rows="2" placeholder="Resumo da interação, próximos passos..." class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none resize-none mb-3"></textarea>
                     <button onclick="logInteraction()" class="w-full bg-sant-cyan hover:bg-cyan-400 text-sant-bg py-2 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2">
                         <i class="ph ph-plus"></i> Confirmar
@@ -5185,8 +5189,36 @@
             document.getElementById('quickInteractionType').value = 'Ligação';
             document.getElementById('quickInteractionDate').value = getSPTodayStr();
             document.getElementById('quickInteractionNotes').value = '';
+            renderTemplateChips('quickTplChips', 'quickInteractionNotes');
             document.getElementById('quickInteractionModal').classList.remove('hidden');
             setTimeout(() => document.getElementById('quickInteractionNotes').focus(), 80);
+        }
+
+        // ── Templates de Notas de Interação ──────────────────────────────────
+        const INTERACTION_TEMPLATES = {
+            'Reunião':  'Objetivo: \nResultado: \nPróximo passo: ',
+            'Ligação':  'Assunto: \nCombinado: \nPróxima ação: ',
+            'WhatsApp': 'Mensagem enviada: \nResposta: \nStatus: ',
+            'E-mail':   'Assunto: \nConteúdo resumido: \nAguardando: ',
+            'Visita':   'Local: \nPontos discutidos: \nAcordos: ',
+            'Outro':    'Contexto: \nCombinado: \nPróxima ação: ',
+        };
+
+        function applyInteractionTemplate(key, textareaId) {
+            const ta = document.getElementById(textareaId);
+            if (!ta || !INTERACTION_TEMPLATES[key]) return;
+            ta.value = INTERACTION_TEMPLATES[key];
+            ta.focus();
+            ta.setSelectionRange(ta.value.indexOf(':') + 2, ta.value.indexOf(':') + 2);
+        }
+
+        function renderTemplateChips(containerId, textareaId) {
+            const el = document.getElementById(containerId);
+            if (!el) return;
+            el.innerHTML = Object.keys(INTERACTION_TEMPLATES).map(k =>
+                `<button type="button" onclick="applyInteractionTemplate('${k}','${textareaId}')"
+                    class="px-2 py-0.5 rounded text-[10px] font-medium bg-sant-surface border border-sant-border hover:border-sant-cyan hover:text-sant-cyan text-gray-500 transition-colors whitespace-nowrap">${k}</button>`
+            ).join('');
         }
 
         function closeQuickInteraction() {
@@ -10086,6 +10118,7 @@
             if (open) {
                 const dateEl = document.getElementById('interactionDate');
                 if (dateEl && !dateEl.value) dateEl.value = getSPTodayStr();
+                renderTemplateChips('histTplChips', 'interactionNotes');
             }
         }
 
