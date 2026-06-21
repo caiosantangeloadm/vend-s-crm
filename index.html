@@ -8013,6 +8013,10 @@
         }
 
         // ── Relatório Mensal ─────────────────────────────────────────────────
+        // Helpers: suportam MM-DD e YYYY-MM-DD
+        function getBirthMonth(b) { const p = b.split('-').map(Number); return p.length >= 3 ? p[1] : p[0]; }
+        function getBirthDay(b)   { const p = b.split('-').map(Number); return p.length >= 3 ? p[2] : p[1]; }
+
         function initMonthlyReport() {
             const yearSel = document.getElementById('monthlyRepYear');
             if (yearSel && !yearSel.options.length) {
@@ -8055,8 +8059,6 @@
             });
 
             // Aniversariantes do mês — suporta MM-DD e YYYY-MM-DD
-            const getBirthMonth = b => { const p = b.split('-').map(Number); return p.length >= 3 ? p[1] : p[0]; };
-            const getBirthDay   = b => { const p = b.split('-').map(Number); return p.length >= 3 ? p[2] : p[1]; };
             const bdays = contacts.filter(c => {
                 if (!c.birth) return false;
                 return getBirthMonth(c.birth) === month;
