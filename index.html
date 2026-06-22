@@ -9376,7 +9376,8 @@
                 notes: JSON.parse(localStorage.getItem('sant_crm_notes') || '[]'),
                 notifications: JSON.parse(localStorage.getItem('vends_notifications') || '[]'),
                 messageTemplates: JSON.parse(localStorage.getItem('sant_crm_message_templates') || '[]'),
-                eventTypeLabels: JSON.parse(localStorage.getItem('vends_event_type_labels') || '{}')
+                eventTypeLabels: JSON.parse(localStorage.getItem('vends_event_type_labels') || '{}'),
+                eventTypeIcons:  JSON.parse(localStorage.getItem('vends_event_type_icons')  || '{}')
             };
             const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
