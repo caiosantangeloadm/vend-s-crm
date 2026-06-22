@@ -1434,8 +1434,12 @@
                                     </select>
                                 </div>
                                 <div class="flex items-center justify-between">
-                                    <div><p class="text-sm text-white">Notificações</p><p class="text-xs text-gray-500">Testar se as notificações estão ativas</p></div>
+                                    <div><p class="text-sm text-white">Notificações do sistema</p><p class="text-xs text-gray-500">Testar o som e a notificação in-app</p></div>
                                     <button onclick="testNotification()" class="text-sm text-sant-cyan border border-sant-cyan/30 hover:bg-sant-cyan/10 px-4 py-2 rounded-lg transition-colors flex items-center gap-2"><i class="ph ph-bell-ringing"></i> Testar</button>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <div><p class="text-sm text-white">Notificações push (browser)</p><p class="text-xs text-gray-500" id="pushPermStatus">Receber alertas mesmo com a aba em segundo plano</p></div>
+                                    <button onclick="requestPushPermission()" id="pushPermBtn" class="text-sm border px-4 py-2 rounded-lg transition-colors flex items-center gap-2 border-sant-border text-gray-400 hover:border-sant-cyan hover:text-sant-cyan"><i class="ph ph-bell-slash"></i> Ativar</button>
                                 </div>
                             </div>
                         </div>
@@ -2689,6 +2693,7 @@
                 }
 
                 addNotification('birthday', `Aniversário: ${fullName(c)}`, msg);
+                showPushNotification(`🎂 ${fullName(c)}`, msg, `bday-${c.id}`);
                 localStorage.setItem(notifKey, '1');
             });
         }
@@ -3229,6 +3234,52 @@
             }
         }
 
+        // ── Notificações Push (Web Notification API) ─────────────────────────
+        function initPushNotifications() {
+            if (!('Notification' in window)) return;
+            const btn = document.getElementById('pushPermBtn');
+            const status = document.getElementById('pushPermStatus');
+            if (Notification.permission === 'granted') {
+                if (btn)    { btn.innerHTML = '<i class="ph ph-bell"></i> Ativada'; btn.className = btn.className.replace('text-gray-400','text-green-400').replace('border-sant-border','border-green-400/30'); }
+                if (status) status.textContent = '✓ Notificações ativas — você receberá alertas em segundo plano';
+            } else if (Notification.permission === 'denied') {
+                if (btn)    { btn.innerHTML = '<i class="ph ph-bell-slash"></i> Bloqueada'; btn.disabled = true; }
+                if (status) status.textContent = 'Bloqueada no browser. Desbloqueie em Configurações do site.';
+            }
+        }
+
+        function requestPushPermission() {
+            if (!('Notification' in window)) { showToast('Seu browser não suporta notificações push.', 'error'); return; }
+            if (Notification.permission === 'granted') { showToast('Notificações push já estão ativas!'); return; }
+            Notification.requestPermission().then(permission => {
+                initPushNotifications();
+                if (permission === 'granted') {
+                    showPushNotification('🔔 Vend-s CRM', 'Notificações push ativadas! Você receberá lembretes de follow-ups, aniversários e tarefas.', 'welcome');
+                    showToast('Notificações push ativadas!');
+                } else {
+                    showToast('Permissão negada. Ative nas configurações do browser.', 'error');
+                }
+            });
+        }
+
+        function showPushNotification(title, body, tag) {
+            if (!('Notification' in window) || Notification.permission !== 'granted') return;
+            // Usa Service Worker se disponível (melhor suporte a clique)
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.ready.then(reg => {
+                    reg.showNotification(title, {
+                        body, tag: tag || 'vends-crm',
+                        icon: './icon.svg',
+                        badge: './icon.svg',
+                        data: { url: window.location.href }
+                    });
+                }).catch(() => new Notification(title, { body, tag: tag || 'vends-crm', icon: './icon.svg' }));
+            } else {
+                new Notification(title, { body, tag: tag || 'vends-crm', icon: './icon.svg' });
+            }
+        }
+        // ── fim Push ──────────────────────────────────────────────────────────
+
         function testNotification() {
             if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
                 Notification.requestPermission().then(permission => {
@@ -3257,6 +3308,7 @@
             loadEventTypeLabels();
             loadWeeklyGoals();
             checkStreak();
+            initPushNotifications();
         }
 
         // ── Códigos sequenciais de contato ──────────────────────────────────
@@ -11383,8 +11435,9 @@
                 const notifKey = `vends_freq_notified_${c.id}_${todayStr}`;
                 if (localStorage.getItem(notifKey)) return;
                 const d = Math.abs(s.diffDays);
-                addNotification('followup', `Frequência vencida: ${fullName(c)}`,
-                    `🔁 ${fullName(c)} deveria ser contatado a cada ${s.freq} dia(s). Último contato: ${s.lastDate.split('-').reverse().join('/')} (há ${d + s.freq} dias).`);
+                const freqMsg = `🔁 ${fullName(c)} deveria ser contatado a cada ${s.freq} dia(s). Último contato: ${s.lastDate.split('-').reverse().join('/')} (há ${d + s.freq} dias).`;
+                addNotification('followup', `Frequência vencida: ${fullName(c)}`, freqMsg);
+                showPushNotification(`🔁 Frequência vencida`, `${fullName(c)} — ${freqMsg}`, `freq-${c.id}`);
                 localStorage.setItem(notifKey, '1');
             });
         }
@@ -11783,6 +11836,7 @@
                     ? `📝 Lembrete de hoje: "${noteTitle}"`
                     : `⏰ Nota vencida em ${label}: "${noteTitle}"`;
                 addNotification('task', `Lembrete de nota`, msg);
+                showPushNotification('📝 Lembrete de nota', msg, `note-${n.id}`);
                 localStorage.setItem(notifKey, '1');
             });
         }
@@ -11802,6 +11856,7 @@
                     : `⏰ Follow-up com ${fullName(c)} venceu em ${dateLabel}.`;
 
                 addNotification('followup', `Follow-up: ${fullName(c)}`, msg);
+                showPushNotification(`🔔 Follow-up: ${fullName(c)}`, msg, `followup-${c.id}`);
                 localStorage.setItem(notifKey, '1');
             });
         }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sant-crm-cache-v1';
+const CACHE_NAME = 'sant-crm-cache-v2';
 const CORE_ASSETS = [
     './',
     './index.html',
@@ -22,8 +22,7 @@ self.addEventListener('activate', (event) => {
     self.clients.claim();
 });
 
-// Estratégia: network-first para o HTML principal (sempre pega a versão mais nova quando online),
-// cache-first para os demais arquivos (ícones, manifest).
+// Estratégia: network-first para o HTML principal, cache-first para demais.
 self.addEventListener('fetch', (event) => {
     const req = event.request;
     if (req.method !== 'GET') return;
@@ -43,5 +42,21 @@ self.addEventListener('fetch', (event) => {
 
     event.respondWith(
         caches.match(req).then((cached) => cached || fetch(req))
+    );
+});
+
+// Clique na notificação push: abre/foca a aba do app
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    const url = event.notification.data?.url || './';
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+            for (const client of clientList) {
+                if (client.url.includes('vend-s-crm') && 'focus' in client) {
+                    return client.focus();
+                }
+            }
+            return clients.openWindow(url);
+        })
     );
 });
