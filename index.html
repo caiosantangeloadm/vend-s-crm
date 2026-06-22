@@ -369,6 +369,17 @@
                     <div id="dashPriorityList" class="space-y-2"></div>
                 </div>
 
+                <!-- Card: Evolução de Leads -->
+                <div id="dashLeadsEvolutionCard" class="hidden bg-sant-surface border border-sant-border rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase flex items-center gap-2"><i class="ph ph-trend-up text-[#fbbf24]"></i> Evolução de Leads — Últimas 8 Semanas</p>
+                        <span id="dashLeadsEvolutionTotal" class="text-[11px] text-gray-500"></span>
+                    </div>
+                    <div style="height:140px;position:relative">
+                        <canvas id="dashLeadsEvolutionChart"></canvas>
+                    </div>
+                </div>
+
                 <!-- Card: Taxa de Follow-up -->
                 <div id="dashFollowupCard" class="bg-sant-surface border border-sant-border rounded-2xl p-6">
                     <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase mb-5 flex items-center gap-2"><i class="ph ph-arrow-counter-clockwise text-sant-cyan"></i> Taxa de Resposta — Follow-ups</p>
@@ -3429,6 +3440,7 @@
             renderInteractionsChart();
             renderProductivityChart();
             renderInteractionDonut();
+            renderLeadsEvolution();
             renderHealthDashboard();
             renderWeekStats(todayStr);
             renderFollowupRate(todayStr);
@@ -4094,6 +4106,93 @@
                     scales: {
                         x: { grid: { color: '#1f1f1f' }, ticks: { color: '#9ca3af' } },
                         y: { beginAtZero: true, grid: { color: '#1f1f1f' }, ticks: { color: '#9ca3af', precision: 0 } }
+                    }
+                }
+            });
+        }
+
+        let leadsEvolutionChartInstance = null;
+        function renderLeadsEvolution() {
+            const card    = document.getElementById('dashLeadsEvolutionCard');
+            const canvas  = document.getElementById('dashLeadsEvolutionChart');
+            const totalEl = document.getElementById('dashLeadsEvolutionTotal');
+            if (!card || !canvas || typeof Chart === 'undefined') return;
+
+            const leads = contacts.filter(c => c.isLead && c.createdAt);
+            if (!leads.length) { card.classList.add('hidden'); return; }
+            card.classList.remove('hidden');
+
+            // Últimas 8 semanas (segunda → domingo de cada semana)
+            const todayStr = getSPTodayStr();
+            const [ty, tm, td] = todayStr.split('-').map(Number);
+            const today = new Date(ty, tm-1, td);
+            const dow = today.getDay();
+            const diffToMon = dow === 0 ? -6 : 1 - dow;
+            const thisMonday = new Date(today);
+            thisMonday.setDate(today.getDate() + diffToMon);
+
+            const pad = n => String(n).padStart(2,'0');
+            const toStr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+
+            const weeks = [];
+            for (let i = 7; i >= 0; i--) {
+                const mon = new Date(thisMonday);
+                mon.setDate(thisMonday.getDate() - i * 7);
+                const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+                const monStr = toStr(mon), sunStr = toStr(sun);
+                const count = leads.filter(c => {
+                    const d = c.createdAt.substring(0, 10);
+                    return d >= monStr && d <= sunStr;
+                }).length;
+                const label = `${pad(mon.getDate())}/${pad(mon.getMonth()+1)}`;
+                weeks.push({ label, count, monStr });
+            }
+
+            const totalNew = weeks.reduce((s, w) => s + w.count, 0);
+            if (totalEl) totalEl.textContent = totalNew > 0 ? `+${totalNew} leads nas últimas 8 semanas` : 'Nenhum lead novo nas últimas 8 semanas';
+
+            // Linha acumulada de leads totais
+            let running = leads.filter(c => c.createdAt.substring(0,10) < weeks[0].monStr).length;
+            const cumulative = weeks.map(w => { running += w.count; return running; });
+
+            if (leadsEvolutionChartInstance) leadsEvolutionChartInstance.destroy();
+            leadsEvolutionChartInstance = new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: weeks.map(w => w.label),
+                    datasets: [
+                        {
+                            label: 'Novos leads',
+                            data: weeks.map(w => w.count),
+                            backgroundColor: 'rgba(251,191,36,0.15)',
+                            borderColor: '#fbbf24',
+                            borderWidth: 2,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#fbbf24',
+                            tension: 0.3,
+                            yAxisID: 'y',
+                        },
+                        {
+                            label: 'Total acumulado',
+                            data: cumulative,
+                            borderColor: 'rgba(91,143,168,0.6)',
+                            borderWidth: 1.5,
+                            borderDash: [4,3],
+                            pointRadius: 0,
+                            tension: 0.3,
+                            yAxisID: 'y2',
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: true, labels: { color: '#9ca3af', font: { size: 10 }, boxWidth: 12, padding: 12 } }
+                    },
+                    scales: {
+                        x:  { grid: { color: '#1f1f1f' }, ticks: { color: '#9ca3af', font: { size: 10 } } },
+                        y:  { beginAtZero: true, position: 'left',  grid: { color: '#1f1f1f' }, ticks: { color: '#fbbf24', precision: 0, font: { size: 10 } } },
+                        y2: { beginAtZero: false, position: 'right', grid: { display: false }, ticks: { color: '#5b8fa8', precision: 0, font: { size: 10 } } }
                     }
                 }
             });
