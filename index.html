@@ -523,6 +523,25 @@
                     </div>
                 </div>
 
+                <!-- Grid: Donut + Produtividade lado a lado -->
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 flex flex-col h-[320px]">
+                    <div class="flex justify-between items-center mb-4 shrink-0">
+                        <p class="text-xs font-bold text-white tracking-wide uppercase flex items-center gap-2"><i class="ph ph-chart-donut text-sant-purple text-lg"></i> Tipos de Interação</p>
+                        <select id="dashDonutMonth" onchange="renderInteractionDonut()" class="text-[11px] bg-[#141414] border border-sant-border rounded-lg px-2 py-1 text-gray-400 outline-none"></select>
+                    </div>
+                    <div class="flex-1 flex items-center gap-4 min-h-0">
+                        <div class="relative shrink-0" style="width:140px;height:140px">
+                            <canvas id="dashInteractionDonut"></canvas>
+                            <div id="dashDonutCenter" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                <p id="dashDonutTotal" class="text-2xl font-black text-white leading-none"></p>
+                                <p class="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">interações</p>
+                            </div>
+                        </div>
+                        <div id="dashDonutLegend" class="flex-1 space-y-2 overflow-y-auto"></div>
+                    </div>
+                </div>
+
                 <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 flex flex-col h-[320px]">
                     <div class="flex justify-between items-center mb-4 shrink-0">
                         <p class="text-xs font-bold text-white tracking-wide uppercase flex items-center gap-2"><i class="ph ph-chart-bar text-sant-cyan text-lg"></i> Produtividade — Últimos 7 Dias</p>
@@ -532,6 +551,7 @@
                         <canvas id="dashProductivityChart"></canvas>
                     </div>
                 </div>
+                </div><!-- /grid donut+produtividade -->
 
                 <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 flex flex-col">
                     <div class="flex justify-between items-center mb-6 shrink-0">
@@ -3408,6 +3428,7 @@
             renderContactsGrowthChart();
             renderInteractionsChart();
             renderProductivityChart();
+            renderInteractionDonut();
             renderHealthDashboard();
             renderWeekStats(todayStr);
             renderFollowupRate(todayStr);
@@ -4076,6 +4097,85 @@
                     }
                 }
             });
+        }
+
+        let interactionDonutInstance = null;
+        function renderInteractionDonut() {
+            const canvas  = document.getElementById('dashInteractionDonut');
+            const legend  = document.getElementById('dashDonutLegend');
+            const totalEl = document.getElementById('dashDonutTotal');
+            const sel     = document.getElementById('dashDonutMonth');
+            if (!canvas || typeof Chart === 'undefined') return;
+
+            // Preencher select de meses se vazio
+            if (sel && !sel.options.length) {
+                const todayStr = getSPTodayStr();
+                const [ty, tm] = todayStr.split('-').map(Number);
+                const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+                for (let i = 0; i < 6; i++) {
+                    let m = tm - i, y = ty;
+                    if (m <= 0) { m += 12; y--; }
+                    const val = `${y}-${String(m).padStart(2,'0')}`;
+                    const opt = document.createElement('option');
+                    opt.value = val;
+                    opt.textContent = `${months[m-1]}/${y}`;
+                    sel.appendChild(opt);
+                }
+            }
+
+            const period = sel?.value || getSPTodayStr().substring(0,7);
+
+            // Conta interações do período por tipo
+            const counts = {};
+            contacts.forEach(c => {
+                (c.interactions||[]).forEach(i => {
+                    if (!i.date || !i.date.startsWith(period)) return;
+                    const t = i.type || 'Outro';
+                    counts[t] = (counts[t]||0) + 1;
+                });
+            });
+
+            const total = Object.values(counts).reduce((s,v) => s+v, 0);
+
+            if (totalEl) totalEl.textContent = total || '0';
+
+            if (!total) {
+                if (legend) legend.innerHTML = '<p class="text-xs text-gray-600 italic">Nenhuma interação neste mês.</p>';
+                if (interactionDonutInstance) { interactionDonutInstance.destroy(); interactionDonutInstance = null; }
+                canvas.style.opacity = '0.2';
+                return;
+            }
+            canvas.style.opacity = '1';
+
+            const palette = ['#5b8fa8','#fbbf24','#a78bfa','#34d399','#f87171','#fb923c','#e879f9','#38bdf8'];
+            const sorted  = Object.entries(counts).sort((a,b) => b[1]-a[1]);
+            const labels  = sorted.map(([k]) => k);
+            const data    = sorted.map(([,v]) => v);
+            const colors  = sorted.map((_,i) => palette[i % palette.length]);
+
+            if (interactionDonutInstance) interactionDonutInstance.destroy();
+            interactionDonutInstance = new Chart(canvas, {
+                type: 'doughnut',
+                data: { labels, datasets: [{ data, backgroundColor: colors, borderColor: '#0a0a0a', borderWidth: 2, hoverOffset: 6 }] },
+                options: {
+                    responsive: true, maintainAspectRatio: false, cutout: '68%',
+                    plugins: { legend: { display: false }, tooltip: { callbacks: {
+                        label: ctx => ` ${ctx.label}: ${ctx.raw} (${Math.round(ctx.raw/total*100)}%)`
+                    }}}
+                }
+            });
+
+            if (legend) {
+                legend.innerHTML = sorted.map(([type, count], i) => {
+                    const pct = Math.round(count/total*100);
+                    return `<div class="flex items-center gap-2">
+                        <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${colors[i]}"></div>
+                        <span class="text-xs text-gray-300 flex-1 truncate">${type}</span>
+                        <span class="text-xs font-bold text-white shrink-0">${pct}%</span>
+                        <span class="text-[10px] text-gray-600 shrink-0 w-5 text-right">${count}</span>
+                    </div>`;
+                }).join('');
+            }
         }
 
         let productivityChartInstance = null;
