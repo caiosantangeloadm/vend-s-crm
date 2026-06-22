@@ -242,6 +242,11 @@
                     <div id="globalSearchResults" class="hidden absolute right-0 top-12 w-96 max-h-[70vh] overflow-y-auto rounded-2xl border border-sant-border shadow-2xl z-50" style="background:#0d0d0d;">
                     </div>
                 </div>
+                <!-- Streak de uso -->
+                <button onclick="switchView('dashboard')" id="streakBadge" class="hidden items-center gap-1 px-2.5 py-1.5 rounded-lg border border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/20 transition-colors" title="Streak de uso consecutivo">
+                    <span class="text-base leading-none">🔥</span>
+                    <span id="streakCount" class="text-sm font-black text-orange-400 leading-none"></span>
+                </button>
                 <!-- Botão atalhos de teclado -->
                 <button onclick="openShortcutsModal()" class="relative w-10 h-10 rounded-xl flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-sant-border" title="Atalhos de teclado (?)">
                     <i class="ph ph-question text-xl"></i>
@@ -406,6 +411,26 @@
                             <p class="text-[11px] text-gray-500 mt-2 leading-tight">interações<br>registradas</p>
                         </div>
                     </div>
+                </div>
+
+                <!-- Card: Streak de Uso -->
+                <div id="dashStreakCard" class="hidden bg-sant-surface border border-orange-500/20 rounded-2xl p-6">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="text-4xl leading-none" id="dashStreakEmoji">🔥</div>
+                            <div>
+                                <p class="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-0.5">Streak de uso</p>
+                                <p id="dashStreakLabel" class="text-lg font-black text-white"></p>
+                                <p id="dashStreakSub" class="text-xs text-gray-500 mt-0.5"></p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[10px] text-gray-600 uppercase tracking-wider mb-0.5">Recorde</p>
+                            <p id="dashStreakBest" class="text-2xl font-black text-orange-400"></p>
+                            <p class="text-[10px] text-gray-600">dias</p>
+                        </div>
+                    </div>
+                    <div id="dashStreakWeek" class="flex gap-1.5 mt-4"></div>
                 </div>
 
                 <!-- Card: Metas Semanais -->
@@ -3109,6 +3134,7 @@
             migrateContactOrigins();
             loadEventTypeLabels();
             loadWeeklyGoals();
+            checkStreak();
         }
 
         // ── Códigos sequenciais de contato ──────────────────────────────────
@@ -3385,6 +3411,11 @@
             renderHealthDashboard();
             renderWeekStats(todayStr);
             renderFollowupRate(todayStr);
+            // Refresh streak UI quando dashboard abre
+            const _sd = parseInt(localStorage.getItem('vends_streak_days')||'0');
+            const _sb = parseInt(localStorage.getItem('vends_streak_best')||'0');
+            const _sh = JSON.parse(localStorage.getItem('vends_streak_history')||'[]');
+            renderStreakUI(_sd, _sb, _sh, todayStr);
         }
 
         function renderFollowupRate(todayStr) {
@@ -3428,6 +3459,96 @@
 
         // ── Metas Semanais ───────────────────────────────────────────────────
         let weeklyGoals = {};
+        // ── Streak de Uso ────────────────────────────────────────────────────
+        function checkStreak() {
+            const todayStr  = getSPTodayStr();
+            const lastStr   = localStorage.getItem('vends_streak_last')  || '';
+            let   days      = parseInt(localStorage.getItem('vends_streak_days')  || '0');
+            let   best      = parseInt(localStorage.getItem('vends_streak_best')  || '0');
+            const history   = JSON.parse(localStorage.getItem('vends_streak_history') || '[]'); // últimos 7 dias
+
+            if (lastStr === todayStr) {
+                // já registrado hoje — só exibir
+            } else {
+                const yesterday = (() => {
+                    const [y,m,d] = todayStr.split('-').map(Number);
+                    const dt = new Date(y, m-1, d); dt.setDate(dt.getDate()-1);
+                    const pad = n => String(n).padStart(2,'0');
+                    return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`;
+                })();
+                days = (lastStr === yesterday) ? days + 1 : 1;
+                if (days > best) best = days;
+                // Histórico: array de datas (últimos 30 dias)
+                if (!history.includes(todayStr)) history.push(todayStr);
+                while (history.length > 30) history.shift();
+                localStorage.setItem('vends_streak_last',    todayStr);
+                localStorage.setItem('vends_streak_days',    String(days));
+                localStorage.setItem('vends_streak_best',    String(best));
+                localStorage.setItem('vends_streak_history', JSON.stringify(history));
+            }
+            renderStreakUI(days, best, history, todayStr);
+        }
+
+        function renderStreakUI(days, best, history, todayStr) {
+            // Header badge
+            const badge = document.getElementById('streakBadge');
+            const countEl = document.getElementById('streakCount');
+            if (badge && countEl) {
+                countEl.textContent = days;
+                badge.classList.remove('hidden');
+                badge.classList.add('flex');
+                if (days < 2) { badge.classList.add('hidden'); badge.classList.remove('flex'); }
+            }
+
+            // Dashboard card
+            const card = document.getElementById('dashStreakCard');
+            if (!card) return;
+            card.classList.remove('hidden');
+
+            const emoji   = days >= 30 ? '🏆' : days >= 14 ? '⚡' : days >= 7 ? '🔥' : days >= 3 ? '✨' : '📅';
+            const label   = days === 1 ? '1 dia — começando!' : `${days} dias consecutivos`;
+            const messages = [
+                [30, '🏆 Incrível! Você é imbatível.'],
+                [14, '⚡ Duas semanas! Hábito formado!'],
+                [7,  '🔥 Uma semana inteira! Continue!'],
+                [3,  '✨ Três dias seguidos — ótimo início!'],
+                [1,  '📅 Bem-vindo de volta! Hoje conta.'],
+            ];
+            const sub = (messages.find(([t]) => days >= t) || messages[messages.length-1])[1];
+
+            document.getElementById('dashStreakEmoji').textContent = emoji;
+            document.getElementById('dashStreakLabel').textContent = label;
+            document.getElementById('dashStreakSub').textContent   = sub;
+            document.getElementById('dashStreakBest').textContent  = best;
+
+            // Mini calendário últimos 7 dias
+            const weekEl = document.getElementById('dashStreakWeek');
+            if (weekEl) {
+                const [ty,tm,td] = todayStr.split('-').map(Number);
+                const pad = n => String(n).padStart(2,'0');
+                const last7 = Array.from({length:7}, (_,i) => {
+                    const dt = new Date(ty,tm-1,td); dt.setDate(td-6+i);
+                    return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`;
+                });
+                const days_pt = ['D','S','T','Q','Q','S','S'];
+                weekEl.innerHTML = last7.map(d => {
+                    const dt  = new Date(d+'T12:00:00');
+                    const dow = dt.getDay();
+                    const active = history.includes(d);
+                    const isToday = d === todayStr;
+                    return `<div class="flex-1 flex flex-col items-center gap-1" title="${d}">
+                        <span class="text-[9px] text-gray-600">${days_pt[dow]}</span>
+                        <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all
+                            ${isToday ? 'ring-2 ring-orange-400 ring-offset-1 ring-offset-sant-surface' : ''}
+                            ${active ? 'bg-orange-500/80 text-white' : 'bg-[#1a1a1a] text-gray-700'}">
+                            ${active ? '🔥' : dt.getDate()}
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+        }
+        // ── fim Streak ────────────────────────────────────────────────────────
+
         function loadWeeklyGoals() {
             weeklyGoals = JSON.parse(localStorage.getItem('vends_weekly_goals') || '{"tasks":5,"interactions":10,"followups":3,"newContacts":2}');
         }
