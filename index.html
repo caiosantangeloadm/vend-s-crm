@@ -551,6 +551,7 @@
                                 <option value="createdAt">Mais recentes</option>
                                 <option value="lastInteraction">Última interação</option>
                                 <option value="category">Categoria</option>
+                                <option value="company">Por Empresa</option>
                             </select>
                             <i class="ph ph-sort-ascending absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"></i>
                         </div>
@@ -4981,6 +4982,11 @@
                         const ca = (a.category || '').localeCompare(b.category || '', 'pt-BR');
                         return ca !== 0 ? ca : fullName(a).localeCompare(fullName(b), 'pt-BR');
                     }); break;
+                case 'company':
+                    copy.sort((a, b) => {
+                        const ca = (a.company || 'zzz').localeCompare(b.company || 'zzz', 'pt-BR');
+                        return ca !== 0 ? ca : fullName(a).localeCompare(fullName(b), 'pt-BR');
+                    }); break;
                 default:
                     copy.sort((a, b) => fullName(a).localeCompare(fullName(b), 'pt-BR'));
             }
@@ -5096,6 +5102,58 @@
 
                 container.className = 'pb-10';
                 container.innerHTML = pinnedBlock + divider + azBlock;
+                return;
+            }
+
+            // ── Agrupamento por Empresa ──────────────────────────────────────
+            if (currentContactSort === 'company' && !searchTerm && !hasActiveFilters()) {
+                const groups = {};
+                filtered.forEach(c => {
+                    const key = (c.company || '').trim() || '__sem__';
+                    (groups[key] = groups[key] || []).push(c);
+                });
+                const sorted = Object.entries(groups).sort((a,b) => {
+                    if (a[0] === '__sem__') return 1;
+                    if (b[0] === '__sem__') return -1;
+                    return a[0].localeCompare(b[0], 'pt-BR');
+                });
+                const withCo  = sorted.filter(([k]) => k !== '__sem__');
+                const withoutCo = groups['__sem__'] || [];
+                const totalCo = withCo.length;
+
+                // Card sumário
+                const summary = `<div class="flex items-center gap-4 mb-5 px-1 flex-wrap">
+                    <div class="flex items-center gap-2 text-sm text-gray-400">
+                        <i class="ph ph-buildings text-sant-cyan"></i>
+                        <span><b class="text-white">${totalCo}</b> empresa${totalCo!==1?'s':''}</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-sm text-gray-400">
+                        <i class="ph ph-users text-gray-500"></i>
+                        <span><b class="text-white">${filtered.length - withoutCo.length}</b> com empresa · <b class="text-white">${withoutCo.length}</b> sem</span>
+                    </div>
+                </div>`;
+
+                const renderGroup = ([companyName, contacts]) => {
+                    const isNone = companyName === '__sem__';
+                    const label  = isNone ? 'Sem empresa' : companyName;
+                    const icon   = isNone ? 'ph-user' : 'ph-buildings';
+                    const color  = isNone ? 'text-gray-600' : 'text-sant-cyan';
+                    const cards  = currentViewMode === 'grid'
+                        ? `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">${contacts.map(c => contactCardHtml(c,'grid',currentDensity)).join('')}</div>`
+                        : `<div class="flex flex-col ${currentDensity==='compact'?'gap-1':'gap-2'}">${contacts.map(c => contactCardHtml(c,'list',currentDensity)).join('')}</div>`;
+                    return `<div class="mb-6">
+                        <div class="flex items-center gap-3 mb-3">
+                            <i class="ph ${icon} text-base ${color} shrink-0"></i>
+                            <span class="font-bold text-white text-sm">${label}</span>
+                            <div class="flex-1 h-px bg-sant-border"></div>
+                            <span class="text-[11px] text-gray-500 font-bold shrink-0">${contacts.length} contato${contacts.length!==1?'s':''}</span>
+                        </div>
+                        ${cards}
+                    </div>`;
+                };
+
+                container.className = 'pb-10';
+                container.innerHTML = summary + sorted.map(renderGroup).join('');
                 return;
             }
 
