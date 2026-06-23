@@ -16,6 +16,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
     
     <script>
@@ -2158,6 +2159,56 @@
                 <button id="wrPrevBtn" onclick="wrNav(-1)" class="flex items-center gap-2 px-4 py-2 rounded-lg border border-sant-border text-gray-400 hover:text-white text-sm transition-colors hidden"><i class="ph ph-caret-left"></i> Anterior</button>
                 <div class="flex-1"></div>
                 <button id="wrNextBtn" onclick="wrNav(1)" class="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-colors" style="background:#5b8fa8;color:#030303">Próximo <i class="ph ph-caret-right"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Cartão de Visita Digital -->
+    <div id="businessCardModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeBusinessCard()">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-sm shadow-2xl modalPop overflow-hidden">
+            <!-- Card visual -->
+            <div id="businessCardVisual" class="relative p-6" style="background:linear-gradient(135deg,#0a0a0a 0%,#0d1520 100%)">
+                <div class="absolute inset-0 opacity-5" style="background:repeating-linear-gradient(45deg,#5b8fa8 0,#5b8fa8 1px,transparent 0,transparent 50%) 0/10px 10px"></div>
+                <div class="relative">
+                    <!-- Header da empresa / marca -->
+                    <div class="flex items-center justify-between mb-5">
+                        <div class="flex items-center gap-1.5">
+                            <div class="w-5 h-5 rounded" style="background:#5b8fa8"></div>
+                            <span id="bcCompany" class="text-[11px] font-bold text-[#5b8fa8] uppercase tracking-widest truncate max-w-[160px]"></span>
+                        </div>
+                        <button onclick="closeBusinessCard()" class="text-gray-600 hover:text-white transition-colors text-lg"><i class="ph ph-x"></i></button>
+                    </div>
+                    <!-- Avatar + Nome -->
+                    <div class="flex items-start gap-4 mb-5">
+                        <div id="bcAvatar" class="shrink-0"></div>
+                        <div class="min-w-0 flex-1">
+                            <h2 id="bcName" class="text-xl font-black text-white leading-tight break-words"></h2>
+                            <p id="bcJob" class="text-xs text-[#5b8fa8] font-medium mt-0.5"></p>
+                            <div id="bcCategory" class="mt-2"></div>
+                        </div>
+                    </div>
+                    <!-- Dados de contato -->
+                    <div id="bcDetails" class="space-y-2 mb-5"></div>
+                    <!-- Linha divisória -->
+                    <div class="border-t border-white/10 pt-4 flex items-center justify-between gap-4">
+                        <!-- QR Code -->
+                        <div class="shrink-0">
+                            <canvas id="bcQrCanvas" class="rounded-lg" style="width:90px;height:90px"></canvas>
+                        </div>
+                        <!-- Próximo passo + tags -->
+                        <div class="flex-1 min-w-0">
+                            <p id="bcNextStep" class="text-[10px] text-[#fbbf24] font-medium mb-2 flex items-center gap-1 hidden"><i class="ph ph-arrow-circle-right"></i> <span></span></p>
+                            <div id="bcTags" class="flex flex-wrap gap-1"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Ações -->
+            <div class="px-5 py-4 border-t border-sant-border bg-[#0a0a0a] flex items-center gap-2 flex-wrap">
+                <button id="bcWhatsapp" class="hidden flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-green-500/15 border border-green-500/30 text-green-400 hover:bg-green-500/25 text-sm font-medium transition-colors"><i class="ph ph-whatsapp-logo"></i> WhatsApp</button>
+                <button id="bcEmail" class="hidden flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-sant-surface border border-sant-border text-gray-300 hover:border-sant-cyan hover:text-sant-cyan text-sm font-medium transition-colors"><i class="ph ph-envelope"></i> E-mail</button>
+                <button id="bcVcf" onclick="" class="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:border-sant-cyan hover:text-sant-cyan text-sm transition-colors" title="Baixar vCard"><i class="ph ph-address-book"></i></button>
+                <button id="bcShare" class="hidden items-center justify-center gap-2 px-3 py-2 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:border-sant-cyan hover:text-sant-cyan text-sm transition-colors" title="Compartilhar"><i class="ph ph-share-network"></i></button>
             </div>
         </div>
     </div>
@@ -5740,6 +5791,7 @@
                     <div class="absolute top-3 right-3 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-sant-surface/95 rounded-lg p-1 z-10 shadow-lg">
                         <button onclick="event.stopPropagation();togglePin('${c.id}')" class="p-1 ${c.pinned?'text-amber-400':'text-gray-400 hover:text-amber-400'} transition-colors" title="${c.pinned?'Desafixar':'Fixar no topo'}"><i class="ph ${c.pinned?'ph-push-pin-fill':'ph-push-pin'}"></i></button>
                         <button onclick="openQuickInteraction('${c.id}')" class="text-gray-400 hover:text-[#fbbf24] p-1" title="Registrar interação rápida"><i class="ph ph-plus-circle"></i></button>
+                        <button onclick="event.stopPropagation();openBusinessCard('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Cartão de visita"><i class="ph ph-identification-card"></i></button>
                         <button onclick="openHistoryModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 relative" title="Histórico">${histCount}<i class="ph ph-clock-clockwise"></i></button>
                         <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Exportar vCard"><i class="ph ph-address-book"></i></button>
                         <button onclick="openMergeModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Mesclar com outro contato"><i class="ph ph-git-merge"></i></button>
@@ -5828,6 +5880,7 @@
                     ${dispEmail?`<a href="mailto:${dispEmail}" onclick="event.stopPropagation()" class="text-sant-cyan hover:text-[#7aafc8] p-1.5 bg-[#141414] rounded" title="E-mail"><i class="ph ph-envelope-simple"></i></a>`:''}
                     <button onclick="event.stopPropagation();togglePin('${c.id}')" class="p-1.5 bg-[#141414] rounded ${c.pinned?'text-amber-400':'text-gray-400 hover:text-amber-400'} transition-colors" title="${c.pinned?'Desafixar':'Fixar no topo'}"><i class="ph ${c.pinned?'ph-push-pin-fill':'ph-push-pin'}"></i></button>
                     <button onclick="openQuickInteraction('${c.id}')" class="text-gray-400 hover:text-[#fbbf24] p-1.5 bg-[#141414] rounded" title="Registrar interação rápida"><i class="ph ph-plus-circle"></i></button>
+                    <button onclick="event.stopPropagation();openBusinessCard('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Cartão de visita"><i class="ph ph-identification-card"></i></button>
                     <button onclick="openHistoryModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded relative" title="Histórico">${c.interactions&&c.interactions.length?`<span class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-sant-cyan text-sant-bg text-[8px] font-bold rounded-full flex items-center justify-center">${c.interactions.length}</span>`:''}<i class="ph ph-clock-clockwise"></i></button>
                     <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Exportar vCard"><i class="ph ph-address-book"></i></button>
                     <button onclick="openMergeModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Mesclar com outro contato"><i class="ph ph-git-merge"></i></button>
@@ -10384,6 +10437,85 @@
             return steps;
         }
         // ── fim Revisão Semanal ───────────────────────────────────────────────
+
+        // ── Cartão de Visita Digital ─────────────────────────────────────────
+        function openBusinessCard(id) {
+            const c = contacts.find(x => x.id === id);
+            if (!c) return;
+
+            document.getElementById('businessCardModal').classList.remove('hidden');
+
+            // Nome e empresa
+            document.getElementById('bcName').textContent = fullName(c);
+            const jobStr = [c.job, c.company].filter(Boolean).join(' @ ');
+            document.getElementById('bcJob').textContent = jobStr;
+            document.getElementById('bcCompany').textContent = c.company || 'Vend-s CRM';
+
+            // Avatar
+            document.getElementById('bcAvatar').innerHTML = contactAvatarHtml(c, 'w-16 h-16 text-xl');
+
+            // Categoria
+            const catEl = document.getElementById('bcCategory');
+            catEl.innerHTML = c.category
+                ? `<span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-sant-purple/30 text-sant-purple border border-sant-purple/30">${c.category}</span>`
+                : '';
+
+            // Detalhes de contato
+            const phone = c.phoneProf || c.phonePess || '';
+            const email = c.emailProf || c.emailPess || '';
+            const details = [];
+            if (phone) details.push(`<div class="flex items-center gap-2 text-sm text-gray-300"><i class="ph ph-phone text-[#5b8fa8] shrink-0"></i>${phone}</div>`);
+            if (email) details.push(`<div class="flex items-center gap-2 text-sm text-gray-300"><i class="ph ph-envelope text-[#5b8fa8] shrink-0"></i>${email}</div>`);
+            if (c.site)  details.push(`<div class="flex items-center gap-2 text-sm text-gray-300"><i class="ph ph-globe text-[#5b8fa8] shrink-0"></i>${c.site}</div>`);
+            if (c.addressCity) details.push(`<div class="flex items-center gap-2 text-sm text-gray-300"><i class="ph ph-map-pin text-[#5b8fa8] shrink-0"></i>${[c.addressCity,c.addressState].filter(Boolean).join(', ')}</div>`);
+            document.getElementById('bcDetails').innerHTML = details.join('') || '<p class="text-xs text-gray-600 italic">Sem dados de contato</p>';
+
+            // Próximo passo
+            const nsEl = document.getElementById('bcNextStep');
+            if (c.nextStep) {
+                nsEl.classList.remove('hidden');
+                nsEl.querySelector('span').textContent = c.nextStep;
+            } else {
+                nsEl.classList.add('hidden');
+            }
+
+            // Tags
+            document.getElementById('bcTags').innerHTML = (c.tags||[]).slice(0,4).map(t =>
+                `<span class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20">${t}</span>`
+            ).join('');
+
+            // QR Code (codifica vCard simplificado)
+            const vcard = `BEGIN:VCARD\nVERSION:3.0\nFN:${fullName(c)}\nN:${c.lastName||''};${c.name||''};;;\n${c.company?'ORG:'+c.company+'\n':''}${c.job?'TITLE:'+c.job+'\n':''}${phone?'TEL;TYPE=CELL:'+phone+'\n':''}${email?'EMAIL:'+email+'\n':''}${c.site?'URL:'+c.site+'\n':''}END:VCARD`;
+
+            const canvas = document.getElementById('bcQrCanvas');
+            if (typeof QRCode !== 'undefined') {
+                QRCode.toCanvas(canvas, vcard, { width: 90, margin: 1, color: { dark: '#ffffff', light: '#0d0d0d' } }, () => {});
+            } else {
+                canvas.style.display = 'none';
+            }
+
+            // Botões de ação
+            const waBtn = document.getElementById('bcWhatsapp');
+            const emBtn = document.getElementById('bcEmail');
+            const vcfBtn = document.getElementById('bcVcf');
+            const shareBtn = document.getElementById('bcShare');
+
+            const waUrl = contactWaUrl(c);
+            if (waUrl) { waBtn.classList.remove('hidden'); waBtn.onclick = () => window.open(waUrl,'_blank'); }
+            else waBtn.classList.add('hidden');
+            if (email) { emBtn.classList.remove('hidden'); emBtn.onclick = () => window.open('mailto:'+email,'_blank'); }
+            else emBtn.classList.add('hidden');
+            vcfBtn.onclick = () => exportContactVcf(id);
+            if (navigator.share) {
+                shareBtn.classList.remove('hidden'); shareBtn.classList.add('flex');
+                shareBtn.onclick = () => navigator.share({ title: fullName(c), text: `${fullName(c)}${c.company?' · '+c.company:''}${phone?' · '+phone:''}`, url: window.location.href });
+            }
+        }
+
+        function closeBusinessCard() {
+            document.getElementById('businessCardModal').classList.add('hidden');
+        }
+        // ── fim Cartão de Visita ──────────────────────────────────────────────
 
         function openShortcutsModal() { document.getElementById('shortcutsModal').classList.remove('hidden'); }
         function closeShortcutsModal() { document.getElementById('shortcutsModal').classList.add('hidden'); }
