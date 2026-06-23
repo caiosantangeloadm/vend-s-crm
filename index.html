@@ -2569,6 +2569,20 @@
                     </div>
                 </div>
 
+                <!-- Observações Internas (privadas) -->
+                <div class="px-4 pt-3 pb-2">
+                    <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 mb-2">
+                        <i class="ph ph-lock-simple text-amber-500/70"></i>
+                        Observações Internas
+                        <span class="text-[9px] font-normal text-gray-700 normal-case">• privado, não exportado</span>
+                    </h4>
+                    <textarea id="privateNotesInput" rows="3" maxlength="1000"
+                        placeholder="Percepções pessoais, pontos de atenção, contexto estratégico..."
+                        onblur="savePrivateNotes(this.value)"
+                        class="w-full bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2 text-sm text-gray-300 outline-none focus:border-amber-500/40 resize-none placeholder-gray-700 transition-colors"></textarea>
+                    <p id="privateNotesCount" class="text-[9px] text-gray-700 text-right mt-0.5"></p>
+                </div>
+
                 <div class="px-4 pb-6" id="changeLogSection">
                     <div class="flex items-center justify-between mb-3">
                         <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
@@ -6311,6 +6325,7 @@
                 followUpHistory: existing ? (existing.followUpHistory || []) : [],
                 nextStep: existing ? (existing.nextStep || '') : '',
                 relationships: existing ? (existing.relationships || []) : [],
+                privateNotes: existing ? (existing.privateNotes || '') : '',
                 pinned: existing ? (existing.pinned || false) : false,
                 dealValue: parseFloat(document.getElementById('contactDealValue').value) || (existing ? existing.dealValue || 0 : 0),
                 changeLog: existing ? (existing.changeLog || []) : [],
@@ -11470,6 +11485,11 @@
             renderRelationshipSummary(c);
             renderFrequencyChart(c);
             renderRelationships(c);
+            // Observações internas
+            const pnInp = document.getElementById('privateNotesInput');
+            const pnCnt = document.getElementById('privateNotesCount');
+            if (pnInp) pnInp.value = c.privateNotes || '';
+            if (pnCnt) pnCnt.textContent = c.privateNotes?.length > 0 ? `${c.privateNotes.length}/1000 caracteres` : '';
             renderInteractionHeatmap(c);
             const freqInput = document.getElementById('historyFrequencyDays');
             if (freqInput) freqInput.value = c.contactFrequencyDays || '';
@@ -12000,6 +12020,16 @@
             if (inp)    inp.value = c.nextStep;
             if (clrBtn) clrBtn.classList.toggle('hidden', !c.nextStep);
             showToast(c.nextStep ? 'Próximo passo salvo.' : 'Próximo passo removido.');
+        }
+
+        function savePrivateNotes(value) {
+            if (!currentHistoryContactId) return;
+            const c = contacts.find(x => x.id === currentHistoryContactId);
+            if (!c) return;
+            c.privateNotes = value.trim();
+            saveToStorage();
+            const cnt = document.getElementById('privateNotesCount');
+            if (cnt) cnt.textContent = c.privateNotes.length > 0 ? `${c.privateNotes.length}/1000 caracteres` : '';
         }
 
         function setNextContact(value) {
