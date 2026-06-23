@@ -2163,6 +2163,31 @@
         </div>
     </div>
 
+    <!-- Quick Look Popover -->
+    <div id="quickLookPopover" class="hidden fixed z-[300] w-72 bg-[#111] border border-sant-border rounded-2xl shadow-2xl overflow-hidden" style="pointer-events:auto">
+        <div class="p-4">
+            <div class="flex items-start gap-3 mb-3">
+                <div id="qlAvatar" class="shrink-0"></div>
+                <div class="flex-1 min-w-0">
+                    <h3 id="qlName" class="font-bold text-white text-sm leading-snug break-words"></h3>
+                    <p id="qlJob" class="text-xs text-sant-cyan mt-0.5 truncate"></p>
+                    <div id="qlCategory" class="mt-1"></div>
+                </div>
+            </div>
+            <div id="qlDetails" class="space-y-1.5 mb-3 text-xs"></div>
+            <div id="qlNextStep" class="hidden mb-3 px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300 flex items-center gap-1.5">
+                <i class="ph ph-arrow-circle-right shrink-0"></i><span></span>
+            </div>
+            <div id="qlTags" class="flex flex-wrap gap-1 mb-3"></div>
+            <div id="qlLastInt" class="text-[10px] text-gray-600 mb-3"></div>
+        </div>
+        <div id="qlActions" class="flex border-t border-sant-border bg-[#0d0d0d]"></div>
+        <div class="px-3 py-1.5 border-t border-sant-border/50 bg-[#0a0a0a] flex items-center justify-between">
+            <span class="text-[9px] text-gray-700 flex items-center gap-1"><kbd class="text-gray-600 border border-gray-700 rounded px-1">Espaço</kbd> para fechar · <kbd class="text-gray-600 border border-gray-700 rounded px-1">H</kbd> histórico</span>
+            <button onclick="closeQuickLook()" class="text-gray-700 hover:text-white transition-colors"><i class="ph ph-x text-xs"></i></button>
+        </div>
+    </div>
+
     <!-- Modal: Cartão de Visita Digital -->
     <div id="businessCardModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeBusinessCard()">
         <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-sm shadow-2xl modalPop overflow-hidden">
@@ -2641,6 +2666,7 @@
         let notesShowArchived = false;
         let notesViewMode = 'cards';
         let lastNoteId = null;
+        let hoveredContactId = null;
         let noteKanbanDragId = null;
         let currentNotesSort = 'newest';
         let currentViewMode = localStorage.getItem('sant_crm_view_mode') || 'grid';
@@ -5046,6 +5072,11 @@
             if (menu && !menu.classList.contains('hidden') && !e.target.closest('#noteTemplateMenu') && !e.target.closest('[onclick="toggleNoteTemplateMenu()"]')) {
                 menu.classList.add('hidden');
             }
+            // Fechar Quick Look ao clicar fora
+            const ql = document.getElementById('quickLookPopover');
+            if (ql && !ql.classList.contains('hidden') && !e.target.closest('#quickLookPopover')) {
+                closeQuickLook();
+            }
         });
         function applyNoteTemplate(key) {
             const tpl = noteTemplates.find(t => t.key === key);
@@ -5873,7 +5904,8 @@
                 const tagsHtml = (c.tags && c.tags.length > 0)
                     ? `<div class="flex flex-wrap gap-1 mt-2">${c.tags.slice(0,4).map(t=>`<span class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20">${t}</span>`).join('')}${c.tags.length>4?`<span class="text-[9px] text-gray-500">+${c.tags.length-4}</span>`:''}</div>` : '';
                 return `
-                <div id="ccard-${c.id}" class="relative bg-sant-surface border ${selectedContactIds.has(c.id)?'border-sant-cyan bg-sant-cyan/5':c.pinned?'border-amber-400/40':'border-sant-border'} rounded-xl p-5 hover:border-sant-cyan/50 transition-all group flex flex-col h-full min-w-0">
+                <div id="ccard-${c.id}" class="relative bg-sant-surface border ${selectedContactIds.has(c.id)?'border-sant-cyan bg-sant-cyan/5':c.pinned?'border-amber-400/40':'border-sant-border'} rounded-xl p-5 hover:border-sant-cyan/50 transition-all group flex flex-col h-full min-w-0"
+                    onmouseenter="hoveredContactId='${c.id}'" onmouseleave="hoveredContactId=null">
                     ${c.pinned ? `<div class="absolute top-2 left-2 z-10"><i class="ph ph-push-pin-fill text-amber-400 text-xs" title="Fixado"></i></div>` : ''}
                     <div class="absolute top-3 left-3 z-20 ${bulkMode?'flex':'hidden'} items-center">
                         <input type="checkbox" onclick="event.stopPropagation();toggleContactSelect('${c.id}')" ${selectedContactIds.has(c.id)?'checked':''} class="w-4 h-4 accent-sant-cyan cursor-pointer rounded">
@@ -5921,7 +5953,8 @@
                 ? c.tags.slice(0,3).map(t=>`<span class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20">${t}</span>`).join('') : '';
             if (compact) {
                 return `
-                <div id="ccard-${c.id}" class="bg-sant-surface border ${selectedContactIds.has(c.id)?'border-sant-cyan bg-sant-cyan/5':c.pinned?'border-amber-400/40':'border-sant-border'} rounded-lg px-3 py-1.5 hover:border-sant-cyan/50 transition-all group flex items-center gap-3 min-w-0">
+                <div id="ccard-${c.id}" class="bg-sant-surface border ${selectedContactIds.has(c.id)?'border-sant-cyan bg-sant-cyan/5':c.pinned?'border-amber-400/40':'border-sant-border'} rounded-lg px-3 py-1.5 hover:border-sant-cyan/50 transition-all group flex items-center gap-3 min-w-0"
+                    onmouseenter="hoveredContactId='${c.id}'" onmouseleave="hoveredContactId=null">
                     ${bulkMode?`<input type="checkbox" onclick="event.stopPropagation();toggleContactSelect('${c.id}')" ${selectedContactIds.has(c.id)?'checked':''} class="w-4 h-4 accent-sant-cyan cursor-pointer shrink-0 rounded">`:''}
                     ${c.pinned&&!bulkMode?`<i class="ph ph-push-pin-fill text-amber-400 text-[10px] shrink-0" title="Fixado"></i>`:''}
                     ${contactAvatarHtml(c, 'w-6 h-6 text-[10px]')}
@@ -5949,7 +5982,8 @@
                 </div>`;
             }
             return `
-            <div id="ccard-${c.id}" class="bg-sant-surface border ${selectedContactIds.has(c.id)?'border-sant-cyan bg-sant-cyan/5':c.pinned?'border-amber-400/40':'border-sant-border'} rounded-lg p-3 hover:border-sant-cyan/50 transition-all group flex items-center gap-4 min-w-0">
+            <div id="ccard-${c.id}" class="bg-sant-surface border ${selectedContactIds.has(c.id)?'border-sant-cyan bg-sant-cyan/5':c.pinned?'border-amber-400/40':'border-sant-border'} rounded-lg p-3 hover:border-sant-cyan/50 transition-all group flex items-center gap-4 min-w-0"
+                onmouseenter="hoveredContactId='${c.id}'" onmouseleave="hoveredContactId=null">
                 ${bulkMode?`<input type="checkbox" onclick="event.stopPropagation();toggleContactSelect('${c.id}')" ${selectedContactIds.has(c.id)?'checked':''} class="w-4 h-4 accent-sant-cyan cursor-pointer shrink-0 rounded">`:''}
                 ${c.pinned&&!bulkMode?`<i class="ph ph-push-pin-fill text-amber-400 text-xs shrink-0" title="Fixado"></i>`:''}
                 ${contactAvatarHtml(c, 'w-8 h-8 text-xs')}
@@ -10528,6 +10562,81 @@
         }
         // ── fim Revisão Semanal ───────────────────────────────────────────────
 
+        // ── Quick Look (Espaço) ──────────────────────────────────────────────
+        function openQuickLook(id, cardEl) {
+            const c = contacts.find(x => x.id === id);
+            if (!c) return;
+            hoveredContactId = id;
+
+            const pop = document.getElementById('quickLookPopover');
+            pop.classList.remove('hidden');
+
+            // Avatar + nome
+            document.getElementById('qlAvatar').innerHTML = contactAvatarHtml(c, 'w-12 h-12');
+            document.getElementById('qlName').textContent = fullName(c);
+            document.getElementById('qlJob').textContent = [c.job, c.company].filter(Boolean).join(' @ ');
+            document.getElementById('qlCategory').innerHTML = c.category
+                ? `<span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-sant-purple/20 text-sant-purple border border-sant-purple/30">${c.category}</span>` : '';
+
+            // Dados
+            const phone = c.phoneProf || c.phonePess || '';
+            const email = c.emailProf || c.emailPess || '';
+            const det = [];
+            if (phone) det.push(`<div class="flex items-center gap-1.5 text-gray-300"><i class="ph ph-phone text-sant-cyan text-xs"></i>${phone}</div>`);
+            if (email) det.push(`<div class="flex items-center gap-1.5 text-gray-300"><i class="ph ph-envelope text-sant-cyan text-xs"></i><span class="truncate">${email}</span></div>`);
+            if (c.addressCity) det.push(`<div class="flex items-center gap-1.5 text-gray-500"><i class="ph ph-map-pin text-xs"></i>${[c.addressCity,c.addressState].filter(Boolean).join(', ')}</div>`);
+            document.getElementById('qlDetails').innerHTML = det.join('') || '<p class="text-gray-600 italic">Sem dados de contato</p>';
+
+            // Próximo passo
+            const nsEl = document.getElementById('qlNextStep');
+            if (c.nextStep) { nsEl.classList.remove('hidden'); nsEl.querySelector('span').textContent = c.nextStep; }
+            else nsEl.classList.add('hidden');
+
+            // Tags
+            document.getElementById('qlTags').innerHTML = (c.tags||[]).slice(0,5).map(t =>
+                `<span class="px-1.5 py-0.5 rounded text-[9px] bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20">${t}</span>`).join('');
+
+            // Última interação
+            const lastInt = c.interactions && c.interactions.length
+                ? [...c.interactions].sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0]
+                : null;
+            const intEl = document.getElementById('qlLastInt');
+            intEl.textContent = lastInt
+                ? `Última interação: ${lastInt.type||''} em ${(lastInt.date||'').split('-').reverse().join('/')}`
+                : 'Nenhuma interação registrada';
+
+            // Botões de ação
+            const waUrl = contactWaUrl(c);
+            const actions = [];
+            if (waUrl) actions.push(`<a href="${waUrl}" target="_blank" onclick="closeQuickLook()" class="flex-1 flex flex-col items-center gap-1 py-2.5 text-green-400 hover:bg-green-500/10 transition-colors text-[10px] font-medium"><i class="ph ph-whatsapp-logo text-base"></i>WhatsApp</a>`);
+            if (email)  actions.push(`<a href="mailto:${email}" onclick="closeQuickLook()" class="flex-1 flex flex-col items-center gap-1 py-2.5 text-sant-cyan hover:bg-sant-cyan/10 transition-colors text-[10px] font-medium"><i class="ph ph-envelope text-base"></i>E-mail</a>`);
+            actions.push(`<button onclick="closeQuickLook();openHistoryModal('${c.id}')" class="flex-1 flex flex-col items-center gap-1 py-2.5 text-gray-400 hover:bg-white/5 transition-colors text-[10px] font-medium"><i class="ph ph-clock-clockwise text-base"></i>Histórico</button>`);
+            actions.push(`<button onclick="closeQuickLook();openBusinessCard('${c.id}')" class="flex-1 flex flex-col items-center gap-1 py-2.5 text-gray-400 hover:bg-white/5 transition-colors text-[10px] font-medium"><i class="ph ph-identification-card text-base"></i>Cartão</button>`);
+            document.getElementById('qlActions').innerHTML = actions.join('<div class="w-px bg-sant-border"></div>');
+
+            // Posicionar popover
+            if (cardEl) {
+                const rect = cardEl.getBoundingClientRect();
+                const pw = 288, ph = 320;
+                let left = rect.right + 8;
+                let top  = rect.top;
+                if (left + pw > window.innerWidth - 16) left = rect.left - pw - 8;
+                if (top + ph  > window.innerHeight - 16) top = window.innerHeight - ph - 16;
+                if (left < 8) left = 8;
+                if (top  < 8) top  = 8;
+                pop.style.left = left + 'px';
+                pop.style.top  = top  + 'px';
+            } else {
+                pop.style.left = '50%'; pop.style.top = '50%';
+                pop.style.transform = 'translate(-50%,-50%)';
+            }
+        }
+
+        function closeQuickLook() {
+            document.getElementById('quickLookPopover').classList.add('hidden');
+        }
+        // ── fim Quick Look ────────────────────────────────────────────────────
+
         // ── Cartão de Visita Digital ─────────────────────────────────────────
         function openBusinessCard(id) {
             const c = contacts.find(x => x.id === id);
@@ -12251,6 +12360,8 @@
                 const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
 
                 if (e.key === 'Escape') {
+                    const ql = document.getElementById('quickLookPopover');
+                    if (ql && !ql.classList.contains('hidden')) { closeQuickLook(); return; }
                     if (!document.getElementById('contactModal').classList.contains('hidden')) { closeModal(); return; }
                     if (!document.getElementById('eventModal').classList.contains('hidden')) { closeEventModal(); return; }
                     if (!document.getElementById('taskModal').classList.contains('hidden')) { closeTaskModal(); return; }
@@ -12283,6 +12394,17 @@
                 if (!isTyping && e.key === '?') {
                     e.preventDefault();
                     openShortcutsModal();
+                }
+
+                // Espaço abre Quick Look do contato em hover
+                if (e.key === ' ' || e.key === 'Spacebar') {
+                    const ql = document.getElementById('quickLookPopover');
+                    if (!ql.classList.contains('hidden')) { e.preventDefault(); closeQuickLook(); return; }
+                    if (hoveredContactId && currentView === 'contacts') {
+                        e.preventDefault();
+                        const card = document.getElementById('ccard-' + hoveredContactId);
+                        openQuickLook(hoveredContactId, card);
+                    }
                 }
 
                 // W abre a revisão semanal guiada
