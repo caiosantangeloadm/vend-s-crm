@@ -639,6 +639,12 @@
                     </div>
                 </div>
 
+                <!-- Filtros Salvos -->
+                <div id="savedFiltersBar" class="hidden mb-3 flex flex-wrap gap-2 items-center">
+                    <span class="text-[10px] font-bold text-gray-600 uppercase tracking-wider shrink-0 flex items-center gap-1"><i class="ph ph-bookmark-simple"></i> Salvos:</span>
+                    <div id="savedFiltersChips" class="flex flex-wrap gap-1.5"></div>
+                </div>
+
                 <div id="recentContactsBar" class="hidden mb-5"></div>
                 <!-- Painel de Filtros Avançados -->
                 <div id="advFiltersPanel" class="hidden mb-5 p-4 bg-sant-surface border border-sant-cyan/30 rounded-xl">
@@ -721,9 +727,14 @@
                     </div>
                     <div class="flex items-center justify-between mt-3">
                         <p id="filterResultCount" class="text-xs text-gray-500"></p>
-                        <button onclick="clearAdvFilters()" class="text-xs text-gray-500 hover:text-red-400 transition-colors flex items-center gap-1">
-                            <i class="ph ph-x-circle"></i> Limpar Filtros
-                        </button>
+                        <div class="flex items-center gap-3">
+                            <button onclick="saveCurrentFilter()" id="btnSaveFilter" class="hidden text-xs text-sant-cyan hover:text-white transition-colors flex items-center gap-1">
+                                <i class="ph ph-bookmark-simple"></i> Salvar filtro
+                            </button>
+                            <button onclick="clearAdvFilters()" class="text-xs text-gray-500 hover:text-red-400 transition-colors flex items-center gap-1">
+                                <i class="ph ph-x-circle"></i> Limpar Filtros
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -3309,6 +3320,7 @@
             loadWeeklyGoals();
             checkStreak();
             initPushNotifications();
+            renderSavedFilters();
         }
 
         // ── Códigos sequenciais de contato ──────────────────────────────────
@@ -10694,6 +10706,80 @@
         }
 
         // ── FILTROS AVANÇADOS ──────────────────────────────────────────────
+        // ── Filtros Salvos ────────────────────────────────────────────────────
+        let savedFilters = JSON.parse(localStorage.getItem('vends_saved_filters') || '[]');
+
+        function saveSavedFilters() {
+            localStorage.setItem('vends_saved_filters', JSON.stringify(savedFilters));
+        }
+
+        function saveCurrentFilter() {
+            if (!hasActiveFilters()) { showToast('Aplique ao menos um filtro antes de salvar.', 'error'); return; }
+            const name = prompt('Nome para este filtro (ex: "Leads quentes SC"):');
+            if (!name || !name.trim()) return;
+            savedFilters.push({ id: crypto.randomUUID(), name: name.trim(), filters: { ...activeFilters } });
+            saveSavedFilters();
+            renderSavedFilters();
+            showToast(`Filtro "${name.trim()}" salvo!`);
+        }
+
+        function loadSavedFilter(id) {
+            const sf = savedFilters.find(f => f.id === id);
+            if (!sf) return;
+            // Aplicar filtros salvos
+            activeFilters = { ...sf.filters };
+            // Preencher os selects/inputs do painel
+            ['filterCategory','filterLead','filterTemp','filterTag','filterOrigin',
+             'filterCity','filterState','filterIntType','filterIntFrom','filterIntTo'].forEach(elId => {
+                const el = document.getElementById(elId);
+                if (el) el.value = activeFilters[elId.replace('filter','').charAt(0).toLowerCase() + elId.replace('filter','').slice(1)] || '';
+            });
+            // Mapeamento correto dos campos
+            const fieldMap = {
+                filterCategory: 'category', filterLead: 'isLead', filterTemp: 'temperature',
+                filterTag: 'tag', filterOrigin: 'origin', filterCity: 'city',
+                filterState: 'state', filterIntType: 'intType', filterIntFrom: 'intFrom', filterIntTo: 'intTo'
+            };
+            Object.entries(fieldMap).forEach(([elId, key]) => {
+                const el = document.getElementById(elId);
+                if (el) el.value = activeFilters[key] || '';
+            });
+            // Abrir painel se fechado
+            const panel = document.getElementById('advFiltersPanel');
+            if (panel && panel.classList.contains('hidden')) toggleAdvFilters();
+            renderContacts(document.getElementById('searchInput')?.value || '');
+            showToast(`Filtro "${sf.name}" aplicado.`);
+        }
+
+        function deleteSavedFilter(id) {
+            const sf = savedFilters.find(f => f.id === id);
+            if (!sf) return;
+            savedFilters = savedFilters.filter(f => f.id !== id);
+            saveSavedFilters();
+            renderSavedFilters();
+            showToast(`Filtro "${sf.name}" removido.`);
+        }
+
+        function renderSavedFilters() {
+            const bar   = document.getElementById('savedFiltersBar');
+            const chips = document.getElementById('savedFiltersChips');
+            if (!bar || !chips) return;
+            if (!savedFilters.length) { bar.classList.add('hidden'); return; }
+            bar.classList.remove('hidden');
+            chips.innerHTML = savedFilters.map(sf => `
+                <div class="group flex items-center gap-0 rounded-full border border-sant-border bg-sant-surface hover:border-sant-cyan/50 transition-colors overflow-hidden">
+                    <button onclick="loadSavedFilter('${sf.id}')"
+                        class="px-3 py-1 text-[11px] font-medium text-gray-300 hover:text-sant-cyan transition-colors">
+                        <i class="ph ph-bookmark-simple text-sant-cyan mr-1"></i>${sf.name}
+                    </button>
+                    <button onclick="deleteSavedFilter('${sf.id}')"
+                        class="px-2 py-1 text-gray-600 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 border-l border-sant-border">
+                        <i class="ph ph-x text-[10px]"></i>
+                    </button>
+                </div>`).join('');
+        }
+        // ── fim Filtros Salvos ────────────────────────────────────────────────
+
         function hasActiveFilters() {
             return activeFilters.category || activeFilters.isLead || activeFilters.temperature || activeFilters.tag || activeFilters.origin || activeFilters.city || activeFilters.state || activeFilters.intType;
         }
@@ -10762,6 +10848,11 @@
             if (!isOpen) { updateCategorySelects(); fillLocationFilters(); }
         }
 
+        function updateSaveFilterBtn() {
+            const btn = document.getElementById('btnSaveFilter');
+            if (btn) btn.classList.toggle('hidden', !hasActiveFilters());
+        }
+
         function applyAdvFilters() {
             activeFilters.category    = document.getElementById('filterCategory').value;
             activeFilters.isLead      = document.getElementById('filterLead').value;
@@ -10775,6 +10866,7 @@
             activeFilters.intTo       = document.getElementById('filterIntTo')?.value   || '';
             const search = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
             renderContacts(search);
+            updateSaveFilterBtn();
         }
 
         function clearAdvFilters() {
@@ -10785,6 +10877,7 @@
             });
             const search = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
             renderContacts(search);
+            updateSaveFilterBtn();
         }
 
         // ── TAGS DE CONTATO ────────────────────────────────────────────────
