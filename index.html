@@ -2193,7 +2193,7 @@
                     <div class="border-t border-white/10 pt-4 flex items-center justify-between gap-4">
                         <!-- QR Code -->
                         <div class="shrink-0">
-                            <canvas id="bcQrCanvas" class="rounded-lg" style="width:90px;height:90px"></canvas>
+                            <img id="bcQrImg" src="" alt="QR Code" class="rounded-lg" style="width:90px;height:90px;background:#0d0d0d">
                         </div>
                         <!-- Próximo passo + tags -->
                         <div class="flex-1 min-w-0">
@@ -10487,12 +10487,11 @@
             // QR Code (codifica vCard simplificado)
             const vcard = `BEGIN:VCARD\nVERSION:3.0\nFN:${fullName(c)}\nN:${c.lastName||''};${c.name||''};;;\n${c.company?'ORG:'+c.company+'\n':''}${c.job?'TITLE:'+c.job+'\n':''}${phone?'TEL;TYPE=CELL:'+phone+'\n':''}${email?'EMAIL:'+email+'\n':''}${c.site?'URL:'+c.site+'\n':''}END:VCARD`;
 
-            const canvas = document.getElementById('bcQrCanvas');
-            if (typeof QRCode !== 'undefined') {
-                QRCode.toCanvas(canvas, vcard, { width: 90, margin: 1, color: { dark: '#ffffff', light: '#0d0d0d' } }, () => {});
-            } else {
-                canvas.style.display = 'none';
-            }
+            // QR Code via serviço URL (confiável, sem dependência de CDN)
+            const qrData = encodeURIComponent(vcard);
+            const qrUrl  = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=6&color=ffffff&bgcolor=0d0d0d&data=${qrData}`;
+            const qrImg  = document.getElementById('bcQrImg');
+            if (qrImg) { qrImg.src = qrUrl; qrImg.onerror = () => { qrImg.style.display='none'; }; }
 
             // Botões de ação
             const waBtn = document.getElementById('bcWhatsapp');
