@@ -2390,6 +2390,7 @@
                     </div><!-- /info text -->
                 </div><!-- /avatar+info flex -->
                 <div class="flex items-center gap-3 shrink-0">
+                    <button onclick="exportContactPdf(currentHistoryContactId)" class="text-gray-400 hover:text-sant-cyan transition-colors" title="Exportar briefing PDF"><i class="ph ph-file-pdf text-lg"></i></button>
                     <button onclick="openSendMessageModal(currentHistoryContactId)" class="text-gray-400 hover:text-sant-cyan transition-colors" title="Enviar Mensagem"><i class="ph ph-paper-plane-tilt text-lg"></i></button>
                     <button onclick="closeHistoryModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
                 </div>
@@ -5942,6 +5943,7 @@
                         <button onclick="event.stopPropagation();togglePin('${c.id}')" class="p-1 ${c.pinned?'text-amber-400':'text-gray-400 hover:text-amber-400'} transition-colors" title="${c.pinned?'Desafixar':'Fixar no topo'}"><i class="ph ${c.pinned?'ph-push-pin-fill':'ph-push-pin'}"></i></button>
                         <button onclick="openQuickInteraction('${c.id}')" class="text-gray-400 hover:text-[#fbbf24] p-1" title="Registrar interação rápida"><i class="ph ph-plus-circle"></i></button>
                         <button onclick="event.stopPropagation();openBusinessCard('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Cartão de visita"><i class="ph ph-identification-card"></i></button>
+                        <button onclick="event.stopPropagation();exportContactPdf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Exportar briefing PDF"><i class="ph ph-file-pdf"></i></button>
                         <button onclick="openHistoryModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 relative" title="Histórico">${histCount}<i class="ph ph-clock-clockwise"></i></button>
                         <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Exportar vCard"><i class="ph ph-address-book"></i></button>
                         <button onclick="openMergeModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Mesclar com outro contato"><i class="ph ph-git-merge"></i></button>
@@ -6033,6 +6035,7 @@
                     <button onclick="event.stopPropagation();togglePin('${c.id}')" class="p-1.5 bg-[#141414] rounded ${c.pinned?'text-amber-400':'text-gray-400 hover:text-amber-400'} transition-colors" title="${c.pinned?'Desafixar':'Fixar no topo'}"><i class="ph ${c.pinned?'ph-push-pin-fill':'ph-push-pin'}"></i></button>
                     <button onclick="openQuickInteraction('${c.id}')" class="text-gray-400 hover:text-[#fbbf24] p-1.5 bg-[#141414] rounded" title="Registrar interação rápida"><i class="ph ph-plus-circle"></i></button>
                     <button onclick="event.stopPropagation();openBusinessCard('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Cartão de visita"><i class="ph ph-identification-card"></i></button>
+                    <button onclick="event.stopPropagation();exportContactPdf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Exportar briefing PDF"><i class="ph ph-file-pdf"></i></button>
                     <button onclick="openHistoryModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded relative" title="Histórico">${c.interactions&&c.interactions.length?`<span class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-sant-cyan text-sant-bg text-[8px] font-bold rounded-full flex items-center justify-center">${c.interactions.length}</span>`:''}<i class="ph ph-clock-clockwise"></i></button>
                     <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Exportar vCard"><i class="ph ph-address-book"></i></button>
                     <button onclick="openMergeModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Mesclar com outro contato"><i class="ph ph-git-merge"></i></button>
@@ -6490,6 +6493,85 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+        }
+
+        function exportContactPdf(id) {
+            const c = contacts.find(x => x.id === id);
+            if (!c) return;
+            const fmtDate = s => s ? s.split('-').reverse().join('/') : '—';
+            const genDate = new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'});
+            const phone   = c.phoneProf || c.phonePess || '';
+            const email   = c.emailProf || c.emailPess || '';
+            const job     = [c.job, c.company].filter(Boolean).join(' @ ');
+            const addr    = [c.addressStreet && `${c.addressStreet}${c.addressNumber?', '+c.addressNumber:''}`, c.addressNeighborhood, c.addressCity && `${c.addressCity}${c.addressState?' - '+c.addressState:''}`].filter(Boolean).join(', ');
+            const tempColors = { quente:'#f87171', morno:'#fbbf24', frio:'#60a5fa' };
+            const tempLabel  = { quente:'🔥 Quente', morno:'☀️ Morno', frio:'❄️ Frio' };
+
+            // Últimas 5 interações
+            const recentInts = [...(c.interactions||[])].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
+            const intHtml = recentInts.length
+                ? recentInts.map(i=>`<tr><td style="padding:6px 0;color:#d1d5db;border-bottom:1px solid #1f1f1f;width:80px">${fmtDate(i.date)}</td><td style="padding:6px 0;color:#9ca3af;border-bottom:1px solid #1f1f1f;width:90px">${i.type||'—'}</td><td style="padding:6px 0;color:#e5e7eb;border-bottom:1px solid #1f1f1f">${(i.notes||'').substring(0,80)||'—'}</td></tr>`).join('')
+                : '<tr><td colspan="3" style="padding:8px 0;color:#6b7280;font-style:italic">Nenhuma interação registrada</td></tr>';
+
+            // Notas rápidas
+            const notesHtml = (c.quickNotes||[]).slice(0,3).map(n=>`<div style="background:#111;border:1px solid #1f1f1f;border-radius:8px;padding:10px;margin-bottom:8px"><p style="color:#e5e7eb;font-size:13px;margin:0">${n.text}</p><p style="color:#6b7280;font-size:11px;margin:4px 0 0">${fmtDate((n.createdAt||'').substring(0,10))}</p></div>`).join('') || '<p style="color:#6b7280;font-style:italic;font-size:13px">Nenhuma nota rápida</p>';
+
+            // Relacionamentos
+            const relsHtml = (c.relationships||[]).slice(0,5).map(r=>{const t=contacts.find(x=>x.id===r.contactId);return t?`<span style="background:#1f1f1f;border:1px solid #374151;border-radius:20px;padding:4px 10px;font-size:11px;color:#d1d5db;margin-right:6px;display:inline-block;margin-bottom:6px">${r.type}: <b style="color:#fff">${fullName(t)}</b></span>`:''}).join('') || '<p style="color:#6b7280;font-style:italic;font-size:13px">Nenhum vínculo cadastrado</p>';
+
+            const section = (title, color, content) =>
+                `<div style="background:#0a0a0a;border:1px solid #1f1f1f;border-radius:12px;padding:20px;margin-bottom:16px">
+                    <h3 style="font-size:11px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:0.1em;margin:0 0 12px;display:flex;align-items:center;gap:6px">${title}</h3>
+                    ${content}
+                </div>`;
+
+            const win = window.open('','_blank');
+            win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+            <title>Briefing — ${fullName(c)}</title>
+            <style>*{margin:0;padding:0;box-sizing:border-box}body{background:#030303;color:#fff;font-family:Inter,sans-serif;padding:32px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+            @media print{body{padding:20px}}</style></head><body>
+            <!-- Cabeçalho -->
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid #1f1f1f">
+                <div><div style="font-size:12px;color:#5b8fa8;font-weight:700;letter-spacing:0.05em;text-transform:uppercase">Vend-s Inteligência CRM</div>
+                <div style="font-size:11px;color:#6b7280;margin-top:4px">Briefing gerado em ${genDate}</div></div>
+                ${c.nextContact?`<div style="background:#fbbf2415;border:1px solid #fbbf2440;border-radius:8px;padding:8px 14px;text-align:right"><div style="font-size:10px;color:#fbbf24;font-weight:700;text-transform:uppercase">Próximo contato</div><div style="font-size:14px;font-weight:900;color:#fbbf24">${fmtDate(c.nextContact)}</div></div>`:''}
+            </div>
+            <!-- Perfil -->
+            <div style="display:flex;gap:20px;align-items:flex-start;margin-bottom:20px">
+                ${c.photo?`<img src="${c.photo}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid #1f1f1f;flex-shrink:0">`:'<div style="width:80px;height:80px;border-radius:50%;background:#5b8fa820;border:2px solid #5b8fa840;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:#5b8fa8;flex-shrink:0">'+(c.name||'?')[0].toUpperCase()+(c.lastName?(c.lastName[0].toUpperCase()):(c.name||'?')[1]||'')+'</div>'}
+                <div style="flex:1">
+                    <h1 style="font-size:26px;font-weight:900;color:#fff;line-height:1.1">${fullName(c)}</h1>
+                    ${job?`<p style="font-size:14px;color:#5b8fa8;margin-top:4px">${job}</p>`:''}
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+                        ${c.category?`<span style="background:#a78bfa20;border:1px solid #a78bfa40;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;color:#a78bfa">${c.category}</span>`:''}
+                        ${c.isLead&&c.temperature?`<span style="background:${tempColors[c.temperature]}20;border:1px solid ${tempColors[c.temperature]}40;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;color:${tempColors[c.temperature]}">${tempLabel[c.temperature]}</span>`:''}
+                        ${c.origin?`<span style="background:#5b8fa820;border:1px solid #5b8fa840;border-radius:20px;padding:3px 10px;font-size:11px;color:#9ca3af">${c.origin}</span>`:''}
+                    </div>
+                </div>
+            </div>
+            <!-- Grid 2 colunas -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+                ${section('📞 Contato','#5b8fa8',`
+                    ${phone?`<div style="margin-bottom:8px"><span style="color:#6b7280;font-size:11px">Telefone</span><p style="color:#fff;font-size:14px;font-weight:600">${phone}</p></div>`:''}
+                    ${email?`<div style="margin-bottom:8px"><span style="color:#6b7280;font-size:11px">E-mail</span><p style="color:#5b8fa8;font-size:13px">${email}</p></div>`:''}
+                    ${c.site?`<div style="margin-bottom:8px"><span style="color:#6b7280;font-size:11px">Site</span><p style="color:#5b8fa8;font-size:13px">${c.site}</p></div>`:''}
+                    ${addr?`<div><span style="color:#6b7280;font-size:11px">Endereço</span><p style="color:#d1d5db;font-size:12px">${addr}</p></div>`:''}
+                    ${!phone&&!email&&!c.site&&!addr?'<p style="color:#6b7280;font-style:italic;font-size:13px">Sem dados de contato</p>':''}
+                `)}
+                ${section('📋 Próximos Passos','#fbbf24',`
+                    ${c.nextStep?`<div style="background:#fbbf2410;border:1px solid #fbbf2430;border-radius:8px;padding:10px;margin-bottom:10px"><p style="color:#fbbf24;font-size:13px;font-weight:600">${c.nextStep}</p></div>`:''}
+                    ${c.nextContact?`<p style="color:#6b7280;font-size:12px">Próximo contato: <b style="color:#fbbf24">${fmtDate(c.nextContact)}</b></p>`:''}
+                    ${c.dealValue>0?`<p style="color:#6b7280;font-size:12px;margin-top:6px">Valor potencial: <b style="color:#fbbf24">R$ ${c.dealValue.toLocaleString('pt-BR')}</b></p>`:''}
+                    ${!c.nextStep&&!c.nextContact?'<p style="color:#6b7280;font-style:italic;font-size:13px">Nenhum próximo passo definido</p>':''}
+                `)}
+            </div>
+            ${section('🤝 Histórico de Interações','#5b8fa8',`<table style="width:100%;border-collapse:collapse;font-size:13px">${intHtml}</table>`)}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                ${section('📝 Notas Rápidas','#a78bfa',notesHtml)}
+                ${section('🔗 Relacionamentos','#34d399',relsHtml)}
+            </div>
+            <script>window.onload=()=>{window.print()}<\/script></body></html>`);
+            win.document.close();
         }
 
         function exportContactVcf(id) {
