@@ -3273,7 +3273,7 @@
                 const label = labels[n.type] || '';
                 const ago   = _timeAgo(n.createdAt);
                 return `
-                <div class="notif-item ${n.read ? '' : 'unread'} flex items-start gap-3 px-4 py-3 border-b border-sant-border/50 cursor-pointer hover:bg-white/3 transition-colors"
+                <div class="notif-item ${n.read ? '' : 'unread'} flex items-start gap-3 px-4 py-3 border-b border-sant-border/50 transition-colors ${n.refId ? 'cursor-pointer hover:bg-white/5 group/notif' : 'cursor-default'}"
                      onclick="markNotifRead('${n.id}'); ${n.refId ? `navigateFromNotif('${n.type}','${n.refId}')` : ''}">
                     <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5" style="background:${color}18; border:1px solid ${color}30;">
                         <i class="ph ${icon} text-sm" style="color:${color};"></i>
@@ -3285,8 +3285,9 @@
                         </div>
                         <p class="text-sm text-white font-medium truncate">${n.title}</p>
                         <p class="text-xs text-gray-500 mt-0.5 leading-relaxed">${n.body}</p>
-                        <p class="text-[10px] text-gray-700 mt-1">${ago}</p>
+                        <p class="text-[10px] text-gray-700 mt-1">${ago}${n.refId ? ' · <span class="text-sant-cyan/60">toque para abrir</span>' : ''}</p>
                     </div>
+                    ${n.refId ? `<i class="ph ph-arrow-right text-gray-700 group-hover/notif:text-sant-cyan transition-colors shrink-0 mt-1 mr-1 text-sm"></i>` : ''}
                     <button onclick="event.stopPropagation(); deleteNotif('${n.id}')"
                             class="w-6 h-6 rounded flex items-center justify-center text-gray-700 hover:text-red-400 hover:bg-red-500/10 transition-all shrink-0 mt-0.5"
                             title="Remover">
