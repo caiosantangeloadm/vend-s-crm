@@ -3566,7 +3566,15 @@
         function saveNotesToStorage() { localStorage.setItem('sant_crm_notes', JSON.stringify(notes)); }
 
         function exportData() {
-            const data = { contacts, categories, origins, tasks, events, tags, notes, notifications, messageTemplates, scheduleBlocks, eventTypeLabels, eventTypeIcons };
+            const data = { contacts, categories, origins, tasks, events, tags, notes, notifications, messageTemplates, scheduleBlocks, eventTypeLabels, eventTypeIcons,
+                streakDays: parseInt(localStorage.getItem('vends_streak_days')||'0'),
+                streakBest: parseInt(localStorage.getItem('vends_streak_best')||'0'),
+                streakLast: localStorage.getItem('vends_streak_last')||'',
+                streakHistory: JSON.parse(localStorage.getItem('vends_streak_history')||'[]'),
+                savedFilters: JSON.parse(localStorage.getItem('vends_saved_filters')||'[]'),
+                searchHistory: JSON.parse(localStorage.getItem('vends_search_history')||'[]'),
+                weeklyGoals: JSON.parse(localStorage.getItem('vends_weekly_goals')||'{}'),
+            };
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -3602,6 +3610,13 @@
                     if (data.eventTypeLabels) { eventTypeLabels = data.eventTypeLabels; localStorage.setItem('vends_event_type_labels', JSON.stringify(eventTypeLabels)); }
                     if (data.eventTypeIcons)  { eventTypeIcons  = data.eventTypeIcons;  localStorage.setItem('vends_event_type_icons',  JSON.stringify(eventTypeIcons));  }
                     if (data.eventTypeLabels || data.eventTypeIcons) loadEventTypeLabels();
+                    if (data.streakDays    !== undefined) localStorage.setItem('vends_streak_days',    String(data.streakDays));
+                    if (data.streakBest    !== undefined) localStorage.setItem('vends_streak_best',    String(data.streakBest));
+                    if (data.streakLast)                 localStorage.setItem('vends_streak_last',    data.streakLast);
+                    if (data.streakHistory)              localStorage.setItem('vends_streak_history', JSON.stringify(data.streakHistory));
+                    if (data.savedFilters)               { savedFilters = data.savedFilters; localStorage.setItem('vends_saved_filters', JSON.stringify(savedFilters)); renderSavedFilters(); }
+                    if (data.searchHistory)              localStorage.setItem('vends_search_history', JSON.stringify(data.searchHistory));
+                    if (data.weeklyGoals)                { weeklyGoals  = data.weeklyGoals;  localStorage.setItem('vends_weekly_goals',  JSON.stringify(weeklyGoals)); }
                     saveToStorage(); saveCategoriesToStorage(); saveOriginsToStorage(); saveTasksToStorage(); saveEventsToStorage(); saveTagsToStorage(); saveNotesToStorage(); saveMessageTemplatesToStorage(); saveScheduleBlocksToStorage();
                     localStorage.setItem('vends_notifications', JSON.stringify(notifications));
                     init();
@@ -10213,7 +10228,14 @@
                 notifications: JSON.parse(localStorage.getItem('vends_notifications') || '[]'),
                 messageTemplates: JSON.parse(localStorage.getItem('sant_crm_message_templates') || '[]'),
                 eventTypeLabels: JSON.parse(localStorage.getItem('vends_event_type_labels') || '{}'),
-                eventTypeIcons:  JSON.parse(localStorage.getItem('vends_event_type_icons')  || '{}')
+                eventTypeIcons:  JSON.parse(localStorage.getItem('vends_event_type_icons')  || '{}'),
+                streakDays:    parseInt(localStorage.getItem('vends_streak_days')   ||'0'),
+                streakBest:    parseInt(localStorage.getItem('vends_streak_best')   ||'0'),
+                streakLast:    localStorage.getItem('vends_streak_last')            ||'',
+                streakHistory: JSON.parse(localStorage.getItem('vends_streak_history') ||'[]'),
+                savedFilters:  JSON.parse(localStorage.getItem('vends_saved_filters')  ||'[]'),
+                searchHistory: JSON.parse(localStorage.getItem('vends_search_history') ||'[]'),
+                weeklyGoals:   JSON.parse(localStorage.getItem('vends_weekly_goals')   ||'{}'),
             };
             const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
