@@ -3164,7 +3164,7 @@
                 });
 
                 // Verifica aniversários uma vez por hora (quando minuto === 0)
-                if (parseInt(mStr) === 0) { checkBirthdayReminders(); checkFollowupReminders(); checkNoteReminders(); checkFrequencyReminders(); }
+                if (parseInt(mStr) === 0) { checkBirthdayReminders(); checkFollowupReminders(); checkNoteReminders(); checkFrequencyReminders(); checkUrgentTaskReminders(); }
 
             }, 60000);
 
@@ -3173,6 +3173,30 @@
             checkFollowupReminders();
             checkNoteReminders();
             checkFrequencyReminders();
+            checkUrgentTaskReminders();
+        }
+
+        function checkUrgentTaskReminders() {
+            const todayStr = getSPTodayStr();
+            tasks.forEach(t => {
+                if (t.completed || !t.date) return;
+                if (t.priority !== 'urgent' && t.priority !== 'high') return;
+                const isOverdue = t.date < todayStr;
+                const isToday   = t.date === todayStr;
+                if (!isOverdue && !isToday) return;
+
+                const notifKey = `vends_task_notified_${t.id}_${todayStr}`;
+                if (localStorage.getItem(notifKey)) return;
+
+                const label = isToday ? 'para hoje' : `vencida em ${t.date.split('-').reverse().join('/')}`;
+                const prioLabel = t.priority === 'urgent' ? '🔴 Urgente' : '🟡 Alta';
+                const title = `${prioLabel}: ${t.title}`;
+                const body  = `Tarefa ${label}${t.desc ? ' — ' + t.desc.substring(0, 60) : ''}`;
+
+                addNotification('task', title, body);
+                showPushNotification(title, body, `task-${t.id}`);
+                localStorage.setItem(notifKey, '1');
+            });
         }
 
         // ── CENTRAL DE NOTIFICAÇÕES ────────────────────────────────────────────
