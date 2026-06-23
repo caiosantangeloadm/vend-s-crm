@@ -2754,7 +2754,7 @@
                     msg = `🎉 Aniversário de ${fullName(c)} em ${diffDays} dias (${String(bd).padStart(2,'0')}/${String(bm).padStart(2,'0')}).`;
                 }
 
-                addNotification('birthday', `Aniversário: ${fullName(c)}`, msg);
+                addNotification('birthday', `Aniversário: ${fullName(c)}`, msg, c.id);
                 showPushNotification(`🎂 ${fullName(c)}`, msg, `bday-${c.id}`);
                 localStorage.setItem(notifKey, '1');
             });
@@ -3193,7 +3193,7 @@
                 const title = `${prioLabel}: ${t.title}`;
                 const body  = `Tarefa ${label}${t.desc ? ' — ' + t.desc.substring(0, 60) : ''}`;
 
-                addNotification('task', title, body);
+                addNotification('task', title, body, t.id);
                 showPushNotification(title, body, `task-${t.id}`);
                 localStorage.setItem(notifKey, '1');
             });
@@ -3204,12 +3204,13 @@
 
         function saveNotifsToStorage() { localStorage.setItem('vends_notifications', JSON.stringify(notifications)); }
 
-        function addNotification(type, title, body) {
+        function addNotification(type, title, body, refId) {
             const notif = {
                 id: crypto.randomUUID(),
-                type,       // 'event' | 'task' | 'birthday'
+                type,       // 'event' | 'task' | 'birthday' | 'followup'
                 title,
                 body,
+                refId: refId || null,   // ID do contato, tarefa ou evento
                 createdAt: new Date().toISOString(),
                 read: false
             };
@@ -3217,6 +3218,20 @@
             saveNotifsToStorage();
             renderNotifications();
             updateNotifBadge();
+        }
+
+        function navigateFromNotif(type, refId) {
+            closeNotifPanel();
+            if (!refId) return;
+            if (type === 'birthday' || type === 'followup') {
+                openHistoryModal(refId);
+            } else if (type === 'task') {
+                switchView('tasks');
+                setTimeout(() => { const el = document.getElementById('task-'+refId); if (el) { el.scrollIntoView({behavior:'smooth',block:'center'}); el.classList.add('ring-2','ring-[#fbbf24]'); setTimeout(()=>el.classList.remove('ring-2','ring-[#fbbf24]'),2000); } }, 300);
+            } else if (type === 'event') {
+                const ev = events.find(x => x.id === refId);
+                if (ev) { switchView('calendar'); setTimeout(() => switchToDayView(ev.startDate), 200); }
+            }
         }
 
         function updateNotifBadge() {
@@ -3258,8 +3273,8 @@
                 const label = labels[n.type] || '';
                 const ago   = _timeAgo(n.createdAt);
                 return `
-                <div class="notif-item ${n.read ? '' : 'unread'} flex items-start gap-3 px-4 py-3 border-b border-sant-border/50 cursor-pointer"
-                     onclick="markNotifRead('${n.id}')">
+                <div class="notif-item ${n.read ? '' : 'unread'} flex items-start gap-3 px-4 py-3 border-b border-sant-border/50 cursor-pointer hover:bg-white/3 transition-colors"
+                     onclick="markNotifRead('${n.id}'); ${n.refId ? `navigateFromNotif('${n.type}','${n.refId}')` : ''}">
                     <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5" style="background:${color}18; border:1px solid ${color}30;">
                         <i class="ph ${icon} text-sm" style="color:${color};"></i>
                     </div>
@@ -3360,7 +3375,7 @@
 
             // Salva na Central de Notificações
             const notifType = ev._notifType || 'event';
-            addNotification(notifType, ev.title, body || 'Compromisso agendado');
+            addNotification(notifType, ev.title, body || 'Compromisso agendado', ev.id);
 
             if ("Notification" in window && Notification.permission === "granted") {
                 new Notification("Vend-s CRM - Lembrete", {
@@ -11734,7 +11749,7 @@
                 if (localStorage.getItem(notifKey)) return;
                 const d = Math.abs(s.diffDays);
                 const freqMsg = `🔁 ${fullName(c)} deveria ser contatado a cada ${s.freq} dia(s). Último contato: ${s.lastDate.split('-').reverse().join('/')} (há ${d + s.freq} dias).`;
-                addNotification('followup', `Frequência vencida: ${fullName(c)}`, freqMsg);
+                addNotification('followup', `Frequência vencida: ${fullName(c)}`, freqMsg, c.id);
                 showPushNotification(`🔁 Frequência vencida`, `${fullName(c)} — ${freqMsg}`, `freq-${c.id}`);
                 localStorage.setItem(notifKey, '1');
             });
@@ -12133,7 +12148,7 @@
                 const msg = isToday
                     ? `📝 Lembrete de hoje: "${noteTitle}"`
                     : `⏰ Nota vencida em ${label}: "${noteTitle}"`;
-                addNotification('task', `Lembrete de nota`, msg);
+                addNotification('task', `Lembrete de nota`, msg, n.id);
                 showPushNotification('📝 Lembrete de nota', msg, `note-${n.id}`);
                 localStorage.setItem(notifKey, '1');
             });
@@ -12153,7 +12168,7 @@
                     ? `📅 Follow-up com ${fullName(c)} agendado para hoje.`
                     : `⏰ Follow-up com ${fullName(c)} venceu em ${dateLabel}.`;
 
-                addNotification('followup', `Follow-up: ${fullName(c)}`, msg);
+                addNotification('followup', `Follow-up: ${fullName(c)}`, msg, c.id);
                 showPushNotification(`🔔 Follow-up: ${fullName(c)}`, msg, `followup-${c.id}`);
                 localStorage.setItem(notifKey, '1');
             });
