@@ -3901,7 +3901,8 @@
             // ── Lista compacta dos itens do dia ────────────────────────────
             const rows = [];
 
-            evToday.slice(0,3).forEach(e => {
+            // Eventos — todos do dia (é a agenda, deve aparecer completa)
+            evToday.forEach(e => {
                 const m = getEventTypeMeta(e);
                 rows.push(`<div class="flex items-center gap-2.5 py-1.5 border-b border-sant-border/40 last:border-0 cursor-pointer hover:bg-white/3 transition-colors rounded px-1" onclick="switchView('calendar');setTimeout(()=>switchToDayView('${e.startDate}'),200)">
                     <i class="ph ${m.icon} shrink-0 text-sm" style="color:${m.dot}"></i>
@@ -3911,7 +3912,8 @@
                 </div>`);
             });
 
-            tasksPend.slice(0,3).forEach(t => {
+            // Tarefas — até 5
+            tasksPend.slice(0,5).forEach(t => {
                 const pColors = {urgent:'#f87171',high:'#fbbf24',medium:'#9ca3af',low:'#6b7280'};
                 const pc = pColors[t.priority]||'#9ca3af';
                 rows.push(`<div class="flex items-center gap-2.5 py-1.5 border-b border-sant-border/40 last:border-0 cursor-pointer hover:bg-white/3 transition-colors rounded px-1" onclick="switchView('tasks')">
@@ -3921,7 +3923,8 @@
                 </div>`);
             });
 
-            bdayToday.slice(0,2).forEach(c => {
+            // Aniversários do dia
+            bdayToday.forEach(c => {
                 rows.push(`<div class="flex items-center gap-2.5 py-1.5 border-b border-sant-border/40 last:border-0 cursor-pointer hover:bg-white/3 transition-colors rounded px-1" onclick="openHistoryModal('${c.id}')">
                     <i class="ph ph-cake shrink-0 text-sm text-pink-400"></i>
                     <span class="text-xs text-white flex-1">🎂 ${fullName(c)}</span>
@@ -3929,9 +3932,7 @@
                 </div>`);
             });
 
-            const extra = (evToday.length > 3 ? evToday.length - 3 : 0) +
-                          (tasksPend.length > 3 ? tasksPend.length - 3 : 0) +
-                          (bdayToday.length > 2 ? bdayToday.length - 2 : 0);
+            const extra = tasksPend.length > 5 ? tasksPend.length - 5 : 0;
 
             itemsEl.innerHTML = rows.length
                 ? rows.join('') + (extra > 0 ? `<p class="text-[10px] text-gray-600 text-center pt-1">+${extra} item${extra>1?'s':''} adicionais</p>` : '')
