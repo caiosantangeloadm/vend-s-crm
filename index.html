@@ -2839,6 +2839,8 @@
         function showAppAfterLogin() {
             const ls = document.getElementById('loginScreen');
             if (ls) ls.style.display = 'none';
+            // Carrega dados após mostrar o app
+            if (typeof loadData === 'function') loadData();
         }
 
         async function doLogout() {
@@ -3324,7 +3326,8 @@
 
         function init() {
             // Verifica sessão Supabase antes de carregar o app
-            checkAuthSession().then(() => { if (currentUser) loadData(); });
+            // showAppAfterLogin() já chama loadData() — não chamar aqui novamente
+            checkAuthSession();
             if (!window.supabase) loadData(); // fallback se CDN não carregou
             updateCategorySelects();
             updateOriginSelects();
@@ -3710,7 +3713,7 @@
                     .select('*')
                     .order('"createdAt"', { ascending: true });
 
-                if (error || !data || !data.length) return;
+                if (error || !data || !data.length) return; // não substitui local por vazio
 
                 // Só atualiza se o Supabase tem mais registros ou dados diferentes
                 const cloudCount = data.length;
