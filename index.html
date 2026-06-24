@@ -1457,6 +1457,20 @@
                 <!-- Painel: Backup -->
                 <div id="spanel-backup" class="settings-panel hidden">
                     <div class="space-y-4">
+                        <!-- Sessão / Logout -->
+                        <div class="bg-sant-surface border border-sant-border rounded-2xl px-5 py-4 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <i class="ph ph-user-circle text-sant-cyan text-xl"></i>
+                                <div>
+                                    <p class="text-sm text-white font-medium" id="settingsUserEmail">Conectado</p>
+                                    <p class="text-[10px] text-gray-600">Sessão ativa no Supabase</p>
+                                </div>
+                            </div>
+                            <button onclick="doLogout()" class="flex items-center gap-2 px-4 py-2 rounded-lg border border-red-500/30 bg-red-500/5 hover:bg-red-500/15 text-red-400 text-sm font-bold transition-colors">
+                                <i class="ph ph-sign-out"></i> Sair
+                            </button>
+                        </div>
+
                         <!-- Sincronização com Supabase -->
                         <div class="bg-sant-surface border border-sant-cyan/20 rounded-2xl p-6">
                             <p class="text-xs font-bold text-white uppercase tracking-wide mb-2 flex items-center gap-2"><i class="ph ph-cloud text-sant-cyan"></i> Sincronização com a Nuvem</p>
@@ -10740,6 +10754,8 @@
             checkCloudSync();
             const ccEl = document.getElementById('cloudContactCount');
             if (ccEl) ccEl.textContent = contacts.length;
+            const emailEl = document.getElementById('settingsUserEmail');
+            if (emailEl && currentUser) emailEl.textContent = currentUser.email || 'Conectado';
             const el = document.getElementById('s-backup-status');
             if (el) {
                 const last = localStorage.getItem('sant_crm_last_export');
