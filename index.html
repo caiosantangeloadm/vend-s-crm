@@ -152,6 +152,11 @@
         .note-md-body ul { list-style-type: disc; padding-left: 1rem; margin: 0.25rem 0; }
         .note-md-body li { margin-bottom: 0.125rem; }
 
+        /* Dashboard — Modo Personalizar */
+        .dash-collapse-btn { display: none; }
+        body.dash-customize .dash-collapse-btn { display: flex; }
+        .dash-collapsed-bar { display: none; }
+
         /* Modo Apresentação/Foco */
         body.focus-mode aside,
         body.focus-mode header { display: none !important; }
@@ -312,6 +317,9 @@
                         <h2 class="text-2xl font-bold text-white">Dashboard</h2>
                         <p class="text-sm text-gray-500 mt-0.5">Visão geral da sua base de relacionamentos</p>
                     </div>
+                    <button onclick="toggleDashCustomize()" id="dashCustomizeBtn" class="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-sant-border text-gray-400 hover:text-white hover:border-sant-cyan transition-colors text-sm font-medium">
+                        <i class="ph ph-sliders-horizontal text-base"></i> Personalizar
+                    </button>
                     <button id="dashReportBtn" onclick="printDashboardPdf()" class="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-sant-border text-gray-400 hover:text-white hover:border-sant-cyan transition-colors text-sm font-medium">
                         <i class="ph ph-printer text-base"></i> Gerar Relatório
                     </button>
@@ -356,7 +364,7 @@
                 </div>
 
                 <!-- Card: Briefing de Hoje -->
-                <div id="dashTodayCard" class="bg-sant-surface border border-sant-border rounded-2xl p-6">
+                <div id="dashTodayCard" data-dash-title="Briefing de Hoje" class="bg-sant-surface border border-sant-border rounded-2xl p-6">
                     <div class="flex items-center justify-between mb-4">
                         <div>
                             <p id="dashTodayDate" class="text-[10px] text-gray-500 font-bold uppercase tracking-wider"></p>
@@ -387,7 +395,7 @@
                 </div>
 
                 <!-- Card: Evolução de Leads -->
-                <div id="dashLeadsEvolutionCard" class="hidden bg-sant-surface border border-sant-border rounded-2xl p-6">
+                <div id="dashLeadsEvolutionCard" data-dash-title="Evolução de Leads" class="hidden bg-sant-surface border border-sant-border rounded-2xl p-6">
                     <div class="flex items-center justify-between mb-4">
                         <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase flex items-center gap-2"><i class="ph ph-trend-up text-[#fbbf24]"></i> Evolução de Leads — Últimas 8 Semanas</p>
                         <span id="dashLeadsEvolutionTotal" class="text-[11px] text-gray-500"></span>
@@ -398,7 +406,7 @@
                 </div>
 
                 <!-- Card: Taxa de Follow-up -->
-                <div id="dashFollowupCard" class="bg-sant-surface border border-sant-border rounded-2xl p-6">
+                <div id="dashFollowupCard" data-dash-title="Taxa de Follow-ups" class="bg-sant-surface border border-sant-border rounded-2xl p-6">
                     <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase mb-5 flex items-center gap-2"><i class="ph ph-arrow-counter-clockwise text-sant-cyan"></i> Taxa de Resposta — Follow-ups</p>
                     <div class="flex items-center gap-6">
                         <div class="text-center shrink-0">
@@ -442,7 +450,7 @@
                 </div>
 
                 <!-- Card: Streak de Uso -->
-                <div id="dashStreakCard" class="hidden bg-sant-surface border border-orange-500/20 rounded-2xl p-6">
+                <div id="dashStreakCard" data-dash-title="Streak de Uso" class="hidden bg-sant-surface border border-orange-500/20 rounded-2xl p-6">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-4">
                             <div class="text-4xl leading-none" id="dashStreakEmoji">🔥</div>
@@ -462,7 +470,7 @@
                 </div>
 
                 <!-- Card: Metas Semanais -->
-                <div class="bg-sant-surface border border-sant-border rounded-2xl p-6" id="dashGoalsCard">
+                <div id="dashGoalsCard" data-dash-title="Metas da Semana" class="bg-sant-surface border border-sant-border rounded-2xl p-6">
                     <div class="flex items-center justify-between mb-4">
                         <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase flex items-center gap-2"><i class="ph ph-target text-sant-cyan"></i> Metas da Semana</p>
                         <button onclick="toggleGoalsEdit()" id="dashGoalsEditBtn" class="text-xs text-gray-500 hover:text-sant-cyan transition-colors flex items-center gap-1"><i class="ph ph-pencil-simple"></i> Editar metas</button>
@@ -3547,6 +3555,7 @@
             checkStreak();
             initPushNotifications();
             renderSavedFilters();
+            applyDashCollapsed();
         }
 
         // ── Códigos sequenciais de contato ──────────────────────────────────
@@ -3980,6 +3989,88 @@
 
         // ── Metas Semanais ───────────────────────────────────────────────────
         let weeklyGoals = {};
+        // ── Dashboard: Personalizar (colapsar cards) ─────────────────────────
+        let dashCustomizeMode = false;
+        let dashCollapsed = new Set(JSON.parse(localStorage.getItem('vends_dash_collapsed') || '[]'));
+
+        const DASH_CARDS = [
+            { id: 'dashTodayCard',          title: 'Briefing de Hoje' },
+            { id: 'dashAttentionCard',      title: 'Hoje Preciso de Atenção' },
+            { id: 'dashFollowupCard',       title: 'Taxa de Follow-ups' },
+            { id: 'dashLeadsEvolutionCard', title: 'Evolução de Leads' },
+            { id: 'dashStreakCard',          title: 'Streak de Uso' },
+            { id: 'dashGoalsCard',          title: 'Metas da Semana' },
+        ];
+
+        function toggleDashCustomize() {
+            dashCustomizeMode = !dashCustomizeMode;
+            document.body.classList.toggle('dash-customize', dashCustomizeMode);
+            const btn = document.getElementById('dashCustomizeBtn');
+            if (btn) {
+                btn.classList.toggle('text-sant-cyan', dashCustomizeMode);
+                btn.classList.toggle('border-sant-cyan', dashCustomizeMode);
+                btn.innerHTML = dashCustomizeMode
+                    ? '<i class="ph ph-check text-base"></i> Concluir'
+                    : '<i class="ph ph-sliders-horizontal text-base"></i> Personalizar';
+            }
+            // Adiciona/remove botões de colapso em cada card configurável
+            DASH_CARDS.forEach(({ id, title }) => {
+                const card = document.getElementById(id);
+                if (!card) return;
+                let colBtn = card.querySelector('.dash-collapse-btn');
+                if (!colBtn) {
+                    colBtn = document.createElement('button');
+                    colBtn.className = 'dash-collapse-btn absolute top-3 right-3 z-10 items-center gap-1 px-2 py-1 rounded-lg bg-[#1a1a1a] border border-sant-border text-[10px] text-gray-500 hover:text-red-400 hover:border-red-400/40 transition-colors';
+                    colBtn.innerHTML = '<i class="ph ph-eye-slash text-xs"></i> Ocultar';
+                    colBtn.onclick = (e) => { e.stopPropagation(); collapseDashCard(id); };
+                    card.style.position = 'relative';
+                    card.prepend(colBtn);
+                }
+            });
+        }
+
+        function collapseDashCard(id) {
+            dashCollapsed.add(id);
+            localStorage.setItem('vends_dash_collapsed', JSON.stringify([...dashCollapsed]));
+            applyDashCollapsed();
+        }
+
+        function expandDashCard(id) {
+            dashCollapsed.delete(id);
+            localStorage.setItem('vends_dash_collapsed', JSON.stringify([...dashCollapsed]));
+            applyDashCollapsed();
+        }
+
+        function applyDashCollapsed() {
+            // Remove todos os placeholders anteriores
+            document.querySelectorAll('.dash-collapsed-bar').forEach(el => el.remove());
+
+            DASH_CARDS.forEach(({ id, title }) => {
+                const card = document.getElementById(id);
+                if (!card) return;
+
+                if (dashCollapsed.has(id)) {
+                    // Oculta o card original (só se não for um card que começa hidden por lógica de negócio)
+                    card.dataset.dashWasHidden = card.classList.contains('hidden') ? '1' : '0';
+                    card.classList.add('hidden');
+                    // Insere barra colapsada
+                    const bar = document.createElement('div');
+                    bar.className = 'dash-collapsed-bar flex items-center justify-between px-4 py-2.5 bg-sant-surface border border-sant-border/40 rounded-xl';
+                    bar.style.display = 'flex';
+                    bar.dataset.forCard = id;
+                    bar.innerHTML = `<span class="text-xs text-gray-600 flex items-center gap-2"><i class="ph ph-eye-slash text-[10px]"></i> ${title}</span>
+                        <button onclick="expandDashCard('${id}')" class="text-[10px] text-sant-cyan hover:text-white transition-colors flex items-center gap-1"><i class="ph ph-eye"></i> Mostrar</button>`;
+                    card.parentNode.insertBefore(bar, card.nextSibling);
+                } else {
+                    // Restaura visibilidade (apenas se não é hidden por lógica de negócio)
+                    if (card.dataset.dashWasHidden !== '1') {
+                        card.classList.remove('hidden');
+                    }
+                }
+            });
+        }
+        // ── fim Dashboard Personalizar ────────────────────────────────────────
+
         // ── Streak de Uso ────────────────────────────────────────────────────
         function checkStreak() {
             const todayStr  = getSPTodayStr();
