@@ -3575,6 +3575,7 @@
         }
 
         function loadData() {
+            // 1️⃣ Carrega do localStorage imediatamente (app funciona offline)
             contacts = JSON.parse(localStorage.getItem('sant_crm_contacts') || '[]');
             recentContactIds = JSON.parse(localStorage.getItem('vends_recent_contacts') || '[]');
             currentContactSort = localStorage.getItem('sant_crm_contact_sort') || 'name';
@@ -3596,6 +3597,43 @@
             renderSavedFilters();
             applyDashCollapsed();
             checkCloudSync();
+
+            // 2️⃣ Busca do Supabase em background (atualiza se online)
+            loadContactsFromSupabase();
+        }
+
+        async function loadContactsFromSupabase() {
+            const sb = getSB();
+            if (!sb) return;
+            try {
+                const { data, error } = await sb
+                    .from('contacts')
+                    .select('*')
+                    .order('"createdAt"', { ascending: true });
+
+                if (error || !data || !data.length) return;
+
+                // Só atualiza se o Supabase tem mais registros ou dados diferentes
+                const cloudCount = data.length;
+                const localCount = contacts.length;
+                const hasNewer = data.some(row => {
+                    const local = contacts.find(c => c.id === row.id);
+                    return !local; // contato novo no cloud que não existe local
+                });
+
+                if (cloudCount !== localCount || hasNewer) {
+                    contacts = data;
+                    localStorage.setItem('sant_crm_contacts', JSON.stringify(contacts));
+                    migrateContactCodes();
+                    // Re-renderiza a view atual se for contatos ou dashboard
+                    if (currentView === 'contacts') renderContacts(document.getElementById('searchInput')?.value || '');
+                    if (currentView === 'dashboard') renderDashboard();
+                    showToast(`☁️ ${cloudCount} contatos sincronizados da nuvem.`);
+                }
+                checkCloudSync();
+            } catch(e) {
+                console.warn('Supabase load:', e.message);
+            }
         }
 
         // ── Códigos sequenciais de contato ──────────────────────────────────
