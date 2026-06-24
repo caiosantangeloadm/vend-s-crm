@@ -3865,11 +3865,9 @@
             greetEl.textContent = h < 12 ? 'Bom dia ☀️' : h < 18 ? 'Boa tarde 🌤️' : 'Boa noite 🌙';
 
             // ── Dados do dia ──────────────────────────────────────────────
-            const evToday  = events.filter(e => {
-                if (e.startDate === todayStr) return true;
-                if (e.recurrence && e.recurrence !== 'none') return isEventOnDate(e, todayStr);
-                return false;
-            }).filter(e => !e.isBirthday && !e.isBlock).sort((a,b) => (a.startTime||'').localeCompare(b.startTime||''));
+            const evToday  = events
+                .filter(e => isEventOnDate(e, todayStr) && !e.isBirthday && !e.isBlock)
+                .sort((a,b) => (a.startTime||'').localeCompare(b.startTime||''));
 
             const tasksPend = tasks.filter(t => !t.completed && t.date === todayStr)
                 .sort((a,b) => { const o={urgent:0,high:1,medium:2,low:3}; return (o[a.priority]||2)-(o[b.priority]||2); });
