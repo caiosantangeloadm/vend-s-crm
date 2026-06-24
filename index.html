@@ -633,6 +633,7 @@
                                 <option value="lastInteraction">Última interação</option>
                                 <option value="category">Categoria</option>
                                 <option value="company">Por Empresa</option>
+                                <option value="access">Menos acessados</option>
                             </select>
                             <i class="ph ph-sort-ascending absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"></i>
                         </div>
@@ -5906,6 +5907,8 @@
                         const ca = (a.company || 'zzz').localeCompare(b.company || 'zzz', 'pt-BR');
                         return ca !== 0 ? ca : fullName(a).localeCompare(fullName(b), 'pt-BR');
                     }); break;
+                case 'access':
+                    copy.sort((a, b) => (a.accessCount || 0) - (b.accessCount || 0)); break;
                 default:
                     copy.sort((a, b) => fullName(a).localeCompare(fullName(b), 'pt-BR'));
             }
@@ -6159,6 +6162,9 @@
             const inact = inactivityBadgeHtml(c);
             const freqBadge = frequencyBadgeHtml(c);
             const bdayBadge = birthdayBadgeHtml(c);
+            const accessBadge = (!c.accessCount || c.accessCount === 0) && c.nextContact
+                ? `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-gray-500/10 text-gray-500 border border-gray-500/20" title="Perfil nunca acessado — mas tem follow-up agendado"><i class="ph ph-eye-slash shrink-0"></i>Nunca acessado</span>`
+                : '';
             const nextStepBadge = c.nextStep
                 ? `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20 max-w-[140px] truncate" title="Próximo passo: ${c.nextStep}"><i class="ph ph-arrow-circle-right shrink-0"></i><span class="truncate">${c.nextStep}</span></span>`
                 : '';
@@ -6200,7 +6206,7 @@
                             <h3 class="font-bold text-white text-sm leading-snug break-words">${fullName(c)} ${c.code?`<span class="text-gray-500 font-mono text-[10px] font-normal">#${c.code}</span>`:''}</h3>
                             <div class="flex flex-wrap items-center gap-1 mt-1">
                                 ${c.category?`<span class="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-sant-purple/20 text-sant-purple border border-sant-purple/30">${c.category}</span>`:''}
-                                ${leadTag} ${scoreBadge} ${dealBadge}
+                                ${leadTag} ${scoreBadge} ${dealBadge} ${accessBadge}
                                 ${inact?`<div>${inact}</div>`:''}
                                 ${bdayBadge?`<div>${bdayBadge}</div>`:''}
                                 ${nextStepBadge?`<div class="w-full mt-0.5">${nextStepBadge}</div>`:''}
@@ -6235,7 +6241,7 @@
                         <div class="min-w-0 flex items-center gap-1.5">
                             <h3 class="font-bold text-white text-xs truncate" title="${fullName(c)}">${fullName(c)}</h3>
                             ${c.code?`<span class="text-gray-500 font-mono text-[9px] shrink-0">#${c.code}</span>`:''}
-                            ${leadTag} ${scoreBadge} ${dealBadge} ${inact} ${freqBadge} ${bdayBadge} ${nextStepBadge}
+                            ${leadTag} ${scoreBadge} ${dealBadge} ${accessBadge} ${inact} ${freqBadge} ${bdayBadge} ${nextStepBadge}
                         </div>
                         <div class="text-xs text-sant-cyan truncate hidden md:block">${dispJob||'-'}</div>
                         <div class="text-xs text-gray-400 truncate hidden md:block">${dispPhone||'-'}</div>
@@ -6265,7 +6271,7 @@
                         <h3 class="font-bold text-white text-sm truncate" title="${fullName(c)}">${fullName(c)} ${c.code?`<span class="text-gray-500 font-mono text-[10px] font-normal">#${c.code}</span>`:''}</h3>
                         <div class="flex flex-wrap items-center gap-1 mt-0.5">
                             ${c.category?`<span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-purple/20 text-sant-purple border border-sant-purple/30">${c.category}</span>`:''}
-                            ${leadTag} ${listTagsHtml} ${scoreBadge} ${dealBadge} ${inact} ${bdayBadge} ${nextStepBadge}
+                            ${leadTag} ${listTagsHtml} ${scoreBadge} ${dealBadge} ${accessBadge} ${inact} ${bdayBadge} ${nextStepBadge}
                         </div>
                     </div>
                     <div class="text-xs text-sant-cyan truncate">${dispJob||'-'}</div>
@@ -6553,6 +6559,8 @@
                 contactFrequencyDays: existing ? (existing.contactFrequencyDays || 0) : 0,
                 followUpHistory: existing ? (existing.followUpHistory || []) : [],
                 nextStep: existing ? (existing.nextStep || '') : '',
+                accessCount: existing ? (existing.accessCount || 0) : 0,
+                lastAccessed: existing ? (existing.lastAccessed || '') : '',
                 relationships: existing ? (existing.relationships || []) : [],
                 privateNotes: existing ? (existing.privateNotes || '') : '',
                 pinned: existing ? (existing.pinned || false) : false,
@@ -11715,6 +11723,10 @@
             lastContactId = contactId;
             const c = contacts.find(x => x.id === contactId);
             if (!c) return;
+            // Contador de acessos
+            c.accessCount = (c.accessCount || 0) + 1;
+            c.lastAccessed = getSPTodayStr();
+            saveToStorage();
             addRecentContact(contactId);
             document.getElementById('historyContactName').innerText = fullName(c);
             document.getElementById('historyContactAvatar').innerHTML = contactAvatarHtml(c, 'w-12 h-12');
@@ -11787,6 +11799,7 @@
                 let html = stat('ph-handshake', ints.length, `interaç${ints.length === 1 ? 'ão' : 'ões'}`);
                 if (daysSinceFirst !== null) html += stat('ph-calendar-blank', daysSinceFirst, `dia${daysSinceFirst === 1 ? '' : 's'} de relacionamento`);
                 if (avgDays !== null) html += stat('ph-clock-clockwise', `~${avgDays}d`, 'entre contatos');
+                html += stat('ph-eye', c.accessCount || 1, `acesso${(c.accessCount||1) === 1 ? '' : 's'} ao perfil`);
 
                 statsBar.innerHTML = html;
                 statsBar.classList.remove('hidden');
