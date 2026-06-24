@@ -182,6 +182,43 @@
     </style>
 </head>
 <body class="h-screen w-screen flex antialiased">
+
+    <!-- ── Tela de Login ── -->
+    <div id="loginScreen" class="fixed inset-0 z-[999] flex items-center justify-center" style="background:#030303">
+        <div class="w-full max-w-sm px-6">
+            <!-- Logo -->
+            <div class="flex flex-col items-center mb-8">
+                <img src="LOGO VEND-S.svg" alt="Vend-s" style="height:56px;object-fit:contain" class="mb-3">
+                <p class="text-sm text-gray-500">Inteligência CRM</p>
+            </div>
+            <!-- Card de login -->
+            <div class="bg-sant-surface border border-sant-border rounded-2xl p-8 shadow-2xl">
+                <h2 class="text-xl font-bold text-white mb-1">Bem-vindo de volta</h2>
+                <p class="text-xs text-gray-500 mb-6">Entre com sua conta para acessar o CRM</p>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">E-mail</label>
+                        <input type="email" id="loginEmail" placeholder="seu@email.com"
+                            class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-3 text-sm text-white outline-none focus:border-sant-cyan transition-colors"
+                            onkeydown="if(event.key==='Enter')doLogin()">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Senha</label>
+                        <input type="password" id="loginPassword" placeholder="••••••••"
+                            class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-3 text-sm text-white outline-none focus:border-sant-cyan transition-colors"
+                            onkeydown="if(event.key==='Enter')doLogin()">
+                    </div>
+                    <p id="loginError" class="hidden text-xs text-red-400 flex items-center gap-1.5"><i class="ph ph-warning-circle"></i> <span></span></p>
+                    <button onclick="doLogin()" id="loginBtn"
+                        class="w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2"
+                        style="background:#5b8fa8;color:#030303">
+                        <i class="ph ph-sign-in"></i> Entrar
+                    </button>
+                </div>
+            </div>
+            <p class="text-center text-[10px] text-gray-700 mt-4">Vend-s Inteligência CRM • Acesso restrito</p>
+        </div>
+    </div>
     
     <aside class="w-16 flex flex-col border-r border-sant-border bg-sant-bg z-20 shrink-0 transition-all duration-300">
         <div class="h-20 flex items-center justify-center border-b border-sant-border shrink-0 px-2">
@@ -213,6 +250,9 @@
                 <button onclick="switchView('settings')" id="nav-settings" class="nav-item tooltip-nav relative flex items-center justify-center w-full py-4 text-gray-400 hover:text-white transition-colors" data-tip="Configurações">
                     <i class="ph ph-gear text-2xl"></i>
                     <span id="backupGearDot" class="hidden absolute top-2 right-2 w-2 h-2 bg-amber-400 rounded-full" title="Faz tempo que você não exporta um backup"></span>
+                </button>
+                <button onclick="doLogout()" class="tooltip-nav flex items-center justify-center w-full py-3 text-gray-600 hover:text-red-400 transition-colors" data-tip="Sair" title="Sair da conta">
+                    <i class="ph ph-sign-out text-xl"></i>
                 </button>
             </div>
         </nav>
@@ -2747,11 +2787,68 @@
         const SUPABASE_URL = 'https://hjolrtpenlbtjoitiium.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_ypU0uZ5srI6qg6AzaKWkQQ_oE__osHl';
         let _sb = null;
+        let currentUser = null;
+
         function getSB() {
             if (!_sb && window.supabase) {
                 _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
             }
             return _sb;
+        }
+
+        async function checkAuthSession() {
+            const sb = getSB();
+            if (!sb) { showAppAfterLogin(); return; }
+            const { data: { session } } = await sb.auth.getSession();
+            if (session) {
+                currentUser = session.user;
+                showAppAfterLogin();
+            } else {
+                document.getElementById('loginScreen').style.display = 'flex';
+                setTimeout(() => document.getElementById('loginEmail')?.focus(), 100);
+            }
+        }
+
+        async function doLogin() {
+            const sb = getSB();
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const btn = document.getElementById('loginBtn');
+            const errEl = document.getElementById('loginError');
+            errEl.classList.add('hidden');
+            if (!email || !password) { showLoginError('Preencha e-mail e senha.'); return; }
+            btn.disabled = true;
+            btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Entrando...';
+            const { data, error } = await sb.auth.signInWithPassword({ email, password });
+            if (error) {
+                showLoginError('E-mail ou senha incorretos.');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="ph ph-sign-in"></i> Entrar';
+                return;
+            }
+            currentUser = data.user;
+            showAppAfterLogin();
+        }
+
+        function showLoginError(msg) {
+            const el = document.getElementById('loginError');
+            el.querySelector('span').textContent = msg;
+            el.classList.remove('hidden');
+        }
+
+        function showAppAfterLogin() {
+            const ls = document.getElementById('loginScreen');
+            if (ls) ls.style.display = 'none';
+        }
+
+        async function doLogout() {
+            const sb = getSB();
+            if (sb) await sb.auth.signOut();
+            currentUser = null;
+            document.getElementById('loginScreen').style.display = 'flex';
+            document.getElementById('loginEmail').value = '';
+            document.getElementById('loginPassword').value = '';
+            showToast('Sessão encerrada.');
         }
         // ─────────────────────────────────────────────────────────────────────
 
@@ -3226,7 +3323,9 @@
         // ─────────────────────────────────────────────────────────────
 
         function init() {
-            loadData();
+            // Verifica sessão Supabase antes de carregar o app
+            checkAuthSession().then(() => { if (currentUser) loadData(); });
+            if (!window.supabase) loadData(); // fallback se CDN não carregou
             updateCategorySelects();
             updateOriginSelects();
             updateBackupGearWarning();
@@ -3598,8 +3697,8 @@
             applyDashCollapsed();
             checkCloudSync();
 
-            // 2️⃣ Busca do Supabase em background (atualiza se online)
-            loadContactsFromSupabase();
+            // 2️⃣ Busca do Supabase em background (atualiza se online e autenticado)
+            if (currentUser) loadContactsFromSupabase();
         }
 
         async function loadContactsFromSupabase() {
@@ -9902,6 +10001,7 @@
         function contactToRow(c) {
             return {
                 id: c.id, code: c.code || null,
+                user_id: currentUser?.id || c.user_id || null,
                 name: c.name || '', "lastName": c.lastName || '',
                 phone: c.phone || '', "phoneProf": c.phoneProf || '', "phonePess": c.phonePess || '',
                 email: c.email || '', "emailProf": c.emailProf || '', "emailPess": c.emailPess || '',
