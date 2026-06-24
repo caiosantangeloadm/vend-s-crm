@@ -16,6 +16,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
     
@@ -1416,6 +1417,16 @@
                 <!-- Painel: Backup -->
                 <div id="spanel-backup" class="settings-panel hidden">
                     <div class="space-y-4">
+                        <!-- Sincronização com Supabase -->
+                        <div class="bg-sant-surface border border-sant-cyan/20 rounded-2xl p-6">
+                            <p class="text-xs font-bold text-white uppercase tracking-wide mb-2 flex items-center gap-2"><i class="ph ph-cloud text-sant-cyan"></i> Sincronização com a Nuvem</p>
+                            <p id="cloudSyncStatus" class="text-xs text-gray-500 mb-4 flex items-center gap-1.5"></p>
+                            <button id="btnMigrateCloud" onclick="migrateContactsToSupabase()" class="w-full flex items-center justify-center gap-2 bg-sant-cyan/10 border border-sant-cyan/40 hover:bg-sant-cyan/20 text-sant-cyan px-4 py-3 rounded-xl text-sm font-bold transition-colors">
+                                <i class="ph ph-cloud-arrow-up"></i> Migrar contatos para a nuvem (Supabase)
+                            </button>
+                            <p class="text-[10px] text-gray-600 mt-2 text-center">Envia seus <span class="text-white font-bold" id="cloudContactCount"></span> contatos para o banco de dados na nuvem. Pode ser repetido para atualizar.</p>
+                        </div>
+
                         <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
                             <p class="text-xs font-bold text-white uppercase tracking-wide mb-2 flex items-center gap-2"><i class="ph ph-database text-sant-cyan"></i> Backup dos Dados</p>
                             <p id="s-backup-status" class="text-xs text-gray-500 mb-5"></p>
@@ -2732,6 +2743,18 @@
     <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3"></div>
 
     <script>
+        // ── Supabase ──────────────────────────────────────────────────────────
+        const SUPABASE_URL = 'https://hjolrtpenlbtjoitiium.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_ypU0uZ5srI6qg6AzaKWkQQ_oE__osHl';
+        let _sb = null;
+        function getSB() {
+            if (!_sb && window.supabase) {
+                _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            }
+            return _sb;
+        }
+        // ─────────────────────────────────────────────────────────────────────
+
         let contacts = [];
         let recentContactIds = [];
         let currentContactSort = 'name';
@@ -3572,6 +3595,7 @@
             initPushNotifications();
             renderSavedFilters();
             applyDashCollapsed();
+            checkCloudSync();
         }
 
         // ── Códigos sequenciais de contato ──────────────────────────────────
@@ -9737,6 +9761,96 @@
             <script>window.onload=()=>{window.print()}<\/script></body></html>`);
             win.document.close();
         }
+        // ── Migração para Supabase ───────────────────────────────────────────
+        async function migrateContactsToSupabase() {
+            const sb = getSB();
+            if (!sb) { showToast('Biblioteca Supabase não carregada. Recarregue a página.', 'error'); return; }
+            if (!contacts.length) { showToast('Nenhum contato para migrar.', 'error'); return; }
+
+            const btn = document.getElementById('btnMigrateCloud');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Migrando...'; }
+
+            try {
+                // Prepara os contatos para o formato Supabase
+                const rows = contacts.map(c => ({
+                    id: c.id,
+                    code: c.code || null,
+                    name: c.name || '',
+                    "lastName": c.lastName || '',
+                    phone: c.phone || '',
+                    "phoneProf": c.phoneProf || '',
+                    "phonePess": c.phonePess || '',
+                    email: c.email || '',
+                    "emailProf": c.emailProf || '',
+                    "emailPess": c.emailPess || '',
+                    company: c.company || '',
+                    job: c.job || '',
+                    site: c.site || '',
+                    category: c.category || '',
+                    "isLead": c.isLead || false,
+                    temperature: c.temperature || 'frio',
+                    "dealValue": c.dealValue || 0,
+                    birth: c.birth || '',
+                    notes: c.notes || '',
+                    origin: c.origin || '',
+                    "nextContact": c.nextContact || '',
+                    "nextStep": c.nextStep || '',
+                    "contactFrequencyDays": c.contactFrequencyDays || 0,
+                    photo: c.photo || '',
+                    "addressStreet": c.addressStreet || '',
+                    "addressNumber": c.addressNumber || '',
+                    "addressNeighborhood": c.addressNeighborhood || '',
+                    "addressCity": c.addressCity || '',
+                    "addressState": c.addressState || '',
+                    "addressZip": c.addressZip || '',
+                    "privateNotes": c.privateNotes || '',
+                    "accessCount": c.accessCount || 0,
+                    "lastAccessed": c.lastAccessed || '',
+                    pinned: c.pinned || false,
+                    tags: c.tags || [],
+                    "customFields": c.customFields || [],
+                    links: c.links || [],
+                    "quickNotes": c.quickNotes || [],
+                    interactions: c.interactions || [],
+                    "changeLog": c.changeLog || [],
+                    "followUpHistory": c.followUpHistory || [],
+                    relationships: c.relationships || [],
+                    "createdAt": c.createdAt || new Date().toISOString(),
+                }));
+
+                // Upsert em lotes de 50 (evita timeout)
+                const BATCH = 50;
+                let migrated = 0;
+                for (let i = 0; i < rows.length; i += BATCH) {
+                    const batch = rows.slice(i, i + BATCH);
+                    const { error } = await sb.from('contacts').upsert(batch, { onConflict: 'id' });
+                    if (error) throw error;
+                    migrated += batch.length;
+                    if (btn) btn.innerHTML = `<i class="ph ph-cloud-arrow-up"></i> Migrando ${migrated}/${rows.length}...`;
+                }
+
+                localStorage.setItem('vends_cloud_migrated', new Date().toISOString());
+                showToast(`✅ ${migrated} contatos migrados para a nuvem com sucesso!`);
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ph ph-check-circle"></i> Migração concluída!'; btn.style.borderColor='#4ade80'; btn.style.color='#4ade80'; }
+            } catch(err) {
+                showToast('Erro na migração: ' + (err.message || err), 'error');
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ph ph-cloud-arrow-up"></i> Tentar novamente'; }
+            }
+        }
+
+        async function checkCloudSync() {
+            const migrated = localStorage.getItem('vends_cloud_migrated');
+            const el = document.getElementById('cloudSyncStatus');
+            if (!el) return;
+            if (migrated) {
+                const d = new Date(migrated).toLocaleDateString('pt-BR', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+                el.innerHTML = `<i class="ph ph-check-circle text-green-400"></i> <span class="text-green-400">Última sincronização: ${d}</span>`;
+            } else {
+                el.innerHTML = `<i class="ph ph-warning text-amber-400"></i> <span class="text-amber-400">Dados não sincronizados com a nuvem ainda</span>`;
+            }
+        }
+        // ── fim Migração Supabase ────────────────────────────────────────────
+
         // ── fim Relatório Mensal ─────────────────────────────────────────────
 
         // ── Relatório de Origens ─────────────────────────────────────────────
@@ -10426,6 +10540,9 @@
 
         // — Backup —
         function renderSBackup() {
+            checkCloudSync();
+            const ccEl = document.getElementById('cloudContactCount');
+            if (ccEl) ccEl.textContent = contacts.length;
             const el = document.getElementById('s-backup-status');
             if (el) {
                 const last = localStorage.getItem('sant_crm_last_export');
