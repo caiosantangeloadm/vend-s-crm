@@ -2708,6 +2708,13 @@
                         <button id="tplSaveBtn" onclick="saveTemplate()" class="bg-sant-purple hover:bg-purple-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">Adicionar</button>
                     </div>
                 </div>
+                <!-- Busca nos templates -->
+                <div class="relative">
+                    <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none"></i>
+                    <input type="text" id="tplSearchInput" placeholder="Buscar template por título, canal ou conteúdo..."
+                        oninput="filterTemplates(this.value)"
+                        class="w-full bg-[#141414] border border-sant-border rounded-lg pl-9 pr-3 py-2 text-sm text-white outline-none focus:border-sant-cyan transition-colors placeholder-gray-600">
+                </div>
                 <div id="templatesList" class="flex flex-col gap-2"></div>
             </div>
         </div>
@@ -7341,18 +7348,39 @@
             document.getElementById('tplSaveBtn').innerText = 'Adicionar';
         }
 
-        function renderTemplatesList() {
+        function renderTemplatesList(filtered) {
             const list = document.getElementById('templatesList');
-            list.innerHTML = messageTemplates.map(t => `
-                <div class="flex justify-between items-center bg-[#141414] border border-sant-border rounded-lg p-3 gap-2">
+            const items = filtered || messageTemplates;
+            if (!items.length) {
+                list.innerHTML = `<p class="text-xs text-gray-600 italic text-center py-4">${filtered ? 'Nenhum template encontrado.' : 'Nenhum modelo cadastrado ainda.'}</p>`;
+                return;
+            }
+            list.innerHTML = items.map(t => `
+                <div class="flex justify-between items-center bg-[#141414] border border-sant-border rounded-lg p-3 gap-2 hover:border-sant-border/80 transition-colors">
                     <div class="flex-1 min-w-0">
-                        <p class="text-sm text-gray-200 truncate">${t.title}</p>
-                        <p class="text-[10px] text-gray-500 uppercase">${channelLabel(t.channel)}</p>
+                        <p class="text-sm text-gray-200 truncate font-medium">${t.title}</p>
+                        <p class="text-[10px] text-gray-500 uppercase mt-0.5 flex items-center gap-1.5">
+                            <i class="ph ${t.channel==='whatsapp'?'ph-whatsapp-logo text-green-400':t.channel==='email'?'ph-envelope text-sant-cyan':'ph-chats-circle text-sant-purple'}"></i>
+                            ${channelLabel(t.channel)}
+                        </p>
+                        ${t.body ? `<p class="text-[11px] text-gray-600 truncate mt-1">${t.body.substring(0,60)}${t.body.length>60?'…':''}</p>` : ''}
                     </div>
-                    <button onclick="editTemplate('${t.id}')" class="text-gray-500 hover:text-sant-cyan transition-colors p-1"><i class="ph ph-pencil-simple"></i></button>
-                    <button onclick="deleteTemplate('${t.id}')" class="text-gray-500 hover:text-red-500 transition-colors p-1"><i class="ph ph-trash"></i></button>
+                    <button onclick="editTemplate('${t.id}')" class="text-gray-500 hover:text-sant-cyan transition-colors p-1 shrink-0"><i class="ph ph-pencil-simple"></i></button>
+                    <button onclick="deleteTemplate('${t.id}')" class="text-gray-500 hover:text-red-500 transition-colors p-1 shrink-0"><i class="ph ph-trash"></i></button>
                 </div>`
             ).join('');
+        }
+
+        function filterTemplates(q) {
+            const ql = q.trim().toLowerCase();
+            if (!ql) { renderTemplatesList(); return; }
+            const filtered = messageTemplates.filter(t =>
+                (t.title||'').toLowerCase().includes(ql) ||
+                (t.body||'').toLowerCase().includes(ql) ||
+                (t.channel||'').toLowerCase().includes(ql) ||
+                (t.subject||'').toLowerCase().includes(ql)
+            );
+            renderTemplatesList(filtered);
         }
 
         function editTemplate(id) {
@@ -7400,6 +7428,8 @@
 
         function openTemplatesManager() {
             resetTemplateForm();
+            const searchEl = document.getElementById('tplSearchInput');
+            if (searchEl) searchEl.value = '';
             document.getElementById('templatesModal').classList.remove('hidden');
             renderTemplatesList();
         }
