@@ -355,6 +355,22 @@
                     </div>
                 </div>
 
+                <!-- Card: Briefing de Hoje -->
+                <div id="dashTodayCard" class="bg-sant-surface border border-sant-border rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <p id="dashTodayDate" class="text-[10px] text-gray-500 font-bold uppercase tracking-wider"></p>
+                            <p id="dashTodayGreeting" class="text-lg font-bold text-white mt-0.5"></p>
+                        </div>
+                        <div id="dashTodayScore" class="text-right hidden">
+                            <p class="text-[10px] text-gray-600 uppercase tracking-wider">Dia</p>
+                            <p id="dashTodayScoreNum" class="text-2xl font-black"></p>
+                        </div>
+                    </div>
+                    <div id="dashTodaySections" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+                    <div id="dashTodayItems" class="mt-4 space-y-1.5"></div>
+                </div>
+
                 <!-- Card: Hoje Preciso de Atenção -->
                 <div id="dashAttentionCard" class="hidden bg-sant-surface border border-red-500/20 rounded-2xl p-6">
                     <div class="flex items-center justify-between mb-4">
@@ -3812,6 +3828,7 @@
                 }).join('');
             }
 
+            renderTodayCard(todayStr);
             renderAttentionFeed(todayStr);
             renderUpcomingWeek(todayStr);
             renderMonthBirthdays(todayStr);
@@ -3829,6 +3846,98 @@
             const _sb = parseInt(localStorage.getItem('vends_streak_best')||'0');
             const _sh = JSON.parse(localStorage.getItem('vends_streak_history')||'[]');
             renderStreakUI(_sd, _sb, _sh, todayStr);
+        }
+
+        function renderTodayCard(todayStr) {
+            const dateEl     = document.getElementById('dashTodayDate');
+            const greetEl    = document.getElementById('dashTodayGreeting');
+            const sectionsEl = document.getElementById('dashTodaySections');
+            const itemsEl    = document.getElementById('dashTodayItems');
+            if (!dateEl || !sectionsEl) return;
+
+            // Data formatada
+            const dt   = new Date(todayStr + 'T12:00:00');
+            const days = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'];
+            const mons = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+            dateEl.textContent = `${days[dt.getDay()]}, ${dt.getDate()} de ${mons[dt.getMonth()]}`;
+
+            const h = new Date().getHours();
+            greetEl.textContent = h < 12 ? 'Bom dia ☀️' : h < 18 ? 'Boa tarde 🌤️' : 'Boa noite 🌙';
+
+            // ── Dados do dia ──────────────────────────────────────────────
+            const evToday  = events.filter(e => {
+                if (e.startDate === todayStr) return true;
+                if (e.recurrence && e.recurrence !== 'none') return isEventOnDate(e, todayStr);
+                return false;
+            }).filter(e => !e.isBirthday && !e.isBlock).sort((a,b) => (a.startTime||'').localeCompare(b.startTime||''));
+
+            const tasksPend = tasks.filter(t => !t.completed && t.date === todayStr)
+                .sort((a,b) => { const o={urgent:0,high:1,medium:2,low:3}; return (o[a.priority]||2)-(o[b.priority]||2); });
+
+            const tasksLate = tasks.filter(t => !t.completed && t.date && t.date < todayStr);
+
+            const bdayToday = contacts.filter(c => {
+                if (!c.birth) return false;
+                const bm = getBirthMonth(c.birth), bd = getBirthDay(c.birth);
+                const [ty,tm,td] = todayStr.split('-').map(Number);
+                return bm === tm && bd === td;
+            });
+
+            const fuOverdue = contacts.filter(c => c.nextContact && c.nextContact <= todayStr
+                && !(c.interactions||[]).some(i => i.date >= c.nextContact));
+
+            // ── Cards de contagem ──────────────────────────────────────────
+            const stat = (icon, color, val, label, clickFn) =>
+                `<div onclick="${clickFn}" class="flex flex-col items-center gap-1 bg-[#0d0d0d] border border-sant-border rounded-xl p-3 cursor-pointer hover:border-sant-cyan/40 transition-colors text-center">
+                    <i class="ph ${icon} text-xl" style="color:${color}"></i>
+                    <p class="text-2xl font-black text-white">${val}</p>
+                    <p class="text-[10px] text-gray-500 leading-tight">${label}</p>
+                </div>`;
+
+            sectionsEl.innerHTML =
+                stat('ph-calendar-check','#5b8fa8', evToday.length,  'eventos<br>hoje',    `switchView('calendar')`) +
+                stat('ph-check-square',  '#34d399', tasksPend.length,'tarefas<br>pendentes',`switchView('tasks')`) +
+                stat('ph-cake',          '#ec4899', bdayToday.length,'aniversários<br>hoje',`switchView('contacts')`) +
+                stat('ph-bell-ringing',  '#fbbf24', fuOverdue.length,'follow-ups<br>vencidos',`switchView('contacts')`);
+
+            // ── Lista compacta dos itens do dia ────────────────────────────
+            const rows = [];
+
+            evToday.slice(0,3).forEach(e => {
+                const m = getEventTypeMeta(e);
+                rows.push(`<div class="flex items-center gap-2.5 py-1.5 border-b border-sant-border/40 last:border-0 cursor-pointer hover:bg-white/3 transition-colors rounded px-1" onclick="switchView('calendar');setTimeout(()=>switchToDayView('${e.startDate}'),200)">
+                    <i class="ph ${m.icon} shrink-0 text-sm" style="color:${m.dot}"></i>
+                    <span class="text-[11px] text-gray-400 shrink-0 w-10">${e.startTime||'—'}</span>
+                    <span class="text-xs text-white truncate flex-1">${e.title}</span>
+                    ${e.location?`<span class="text-[10px] text-gray-600 truncate max-w-[80px]">${e.location}</span>`:''}
+                </div>`);
+            });
+
+            tasksPend.slice(0,3).forEach(t => {
+                const pColors = {urgent:'#f87171',high:'#fbbf24',medium:'#9ca3af',low:'#6b7280'};
+                const pc = pColors[t.priority]||'#9ca3af';
+                rows.push(`<div class="flex items-center gap-2.5 py-1.5 border-b border-sant-border/40 last:border-0 cursor-pointer hover:bg-white/3 transition-colors rounded px-1" onclick="switchView('tasks')">
+                    <i class="ph ph-check-square shrink-0 text-sm" style="color:${pc}"></i>
+                    <span class="text-xs text-white truncate flex-1">${t.title}</span>
+                    ${t.time?`<span class="text-[10px] text-gray-600 shrink-0">${t.time}</span>`:''}
+                </div>`);
+            });
+
+            bdayToday.slice(0,2).forEach(c => {
+                rows.push(`<div class="flex items-center gap-2.5 py-1.5 border-b border-sant-border/40 last:border-0 cursor-pointer hover:bg-white/3 transition-colors rounded px-1" onclick="openHistoryModal('${c.id}')">
+                    <i class="ph ph-cake shrink-0 text-sm text-pink-400"></i>
+                    <span class="text-xs text-white flex-1">🎂 ${fullName(c)}</span>
+                    <span class="text-[10px] text-pink-400 font-bold shrink-0">Hoje!</span>
+                </div>`);
+            });
+
+            const extra = (evToday.length > 3 ? evToday.length - 3 : 0) +
+                          (tasksPend.length > 3 ? tasksPend.length - 3 : 0) +
+                          (bdayToday.length > 2 ? bdayToday.length - 2 : 0);
+
+            itemsEl.innerHTML = rows.length
+                ? rows.join('') + (extra > 0 ? `<p class="text-[10px] text-gray-600 text-center pt-1">+${extra} item${extra>1?'s':''} adicionais</p>` : '')
+                : `<p class="text-xs text-gray-600 italic text-center py-2">Dia livre! Nenhum evento ou tarefa para hoje. ✨</p>`;
         }
 
         function renderFollowupRate(todayStr) {
