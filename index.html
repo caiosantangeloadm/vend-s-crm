@@ -249,7 +249,7 @@
                     </div>
                 </div>
                 <!-- Streak de uso -->
-                <button onclick="switchView('dashboard')" id="streakBadge" class="hidden items-center gap-1 px-2.5 py-1.5 rounded-lg border border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/20 transition-colors" title="Streak de uso consecutivo">
+                <button onclick="switchView('dashboard');setTimeout(()=>{const el=document.getElementById('dashStreakCard');if(el&&!el.classList.contains('hidden')){el.scrollIntoView({behavior:'smooth',block:'center'});el.style.outline='2px solid #f97316';setTimeout(()=>el.style.outline='',1200);}},200);" id="streakBadge" class="hidden items-center gap-1 px-2.5 py-1.5 rounded-lg border border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/20 transition-colors" title="Streak de uso — clique para ver detalhes">
                     <span class="text-base leading-none">🔥</span>
                     <span id="streakCount" class="text-sm font-black text-orange-400 leading-none"></span>
                 </button>
