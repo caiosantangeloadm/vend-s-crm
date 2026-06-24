@@ -2853,8 +2853,8 @@
         function showAppAfterLogin() {
             const ls = document.getElementById('loginScreen');
             if (ls) ls.style.display = 'none';
-            // Carrega dados após mostrar o app
-            if (typeof loadData === 'function') loadData();
+            // Inicia o app completo após autenticação
+            if (typeof initApp === 'function') initApp();
         }
 
         async function doLogout() {
@@ -3338,11 +3338,16 @@
         }
         // ─────────────────────────────────────────────────────────────
 
-        function init() {
-            // Verifica sessão Supabase antes de carregar o app
-            // showAppAfterLogin() já chama loadData() — não chamar aqui novamente
-            checkAuthSession();
-            if (!window.supabase) loadData(); // fallback se CDN não carregou
+        async function init() {
+            if (window.supabase) {
+                await checkAuthSession();
+                if (!currentUser) return; // mostra tela de login e aguarda
+            }
+            initApp();
+        }
+
+        function initApp() {
+            loadData();
             updateCategorySelects();
             updateOriginSelects();
             updateBackupGearWarning();
