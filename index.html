@@ -2693,10 +2693,10 @@
                 <div>
                     <p class="text-[10px] text-gray-600 uppercase font-bold tracking-wider mb-1.5">Variáveis disponíveis — clique para copiar</p>
                     <div class="flex flex-wrap gap-1.5">
-                        ${['{{nome}}','{{sobrenome}}','{{nomeCompleto}}','{{empresa}}'].map(v=>
-                            `<button onclick="navigator.clipboard.writeText('${v}').then(()=>showToast('Copiado!'))"
-                             class="px-2 py-0.5 rounded text-[11px] font-mono bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/25 hover:bg-sant-cyan/20 transition-colors">${v}</button>`
-                        ).join('')}
+                        <button onclick="navigator.clipboard.writeText('{{nome}}').then(()=>showToast('Copiado!'))" class="px-2 py-0.5 rounded text-[11px] font-mono bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/25 hover:bg-sant-cyan/20 transition-colors">{{nome}}</button>
+                        <button onclick="navigator.clipboard.writeText('{{sobrenome}}').then(()=>showToast('Copiado!'))" class="px-2 py-0.5 rounded text-[11px] font-mono bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/25 hover:bg-sant-cyan/20 transition-colors">{{sobrenome}}</button>
+                        <button onclick="navigator.clipboard.writeText('{{nomeCompleto}}').then(()=>showToast('Copiado!'))" class="px-2 py-0.5 rounded text-[11px] font-mono bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/25 hover:bg-sant-cyan/20 transition-colors">{{nomeCompleto}}</button>
+                        <button onclick="navigator.clipboard.writeText('{{empresa}}').then(()=>showToast('Copiado!'))" class="px-2 py-0.5 rounded text-[11px] font-mono bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/25 hover:bg-sant-cyan/20 transition-colors">{{empresa}}</button>
                     </div>
                 </div>
                 <div class="bg-[#0a0a0a] border border-sant-border rounded-xl p-4 flex flex-col gap-3">
