@@ -2690,7 +2690,15 @@
                 <button onclick="closeTemplatesManager()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
             </div>
             <div class="p-5 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
-                <p class="text-[11px] text-gray-500">Variáveis disponíveis: <code class="text-sant-cyan">{{nome}}</code> <code class="text-sant-cyan">{{sobrenome}}</code> <code class="text-sant-cyan">{{nomeCompleto}}</code> <code class="text-sant-cyan">{{empresa}}</code></p>
+                <div>
+                    <p class="text-[10px] text-gray-600 uppercase font-bold tracking-wider mb-1.5">Variáveis disponíveis — clique para copiar</p>
+                    <div class="flex flex-wrap gap-1.5">
+                        ${['{{nome}}','{{sobrenome}}','{{nomeCompleto}}','{{empresa}}'].map(v=>
+                            `<button onclick="navigator.clipboard.writeText('${v}').then(()=>showToast('Copiado!'))"
+                             class="px-2 py-0.5 rounded text-[11px] font-mono bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/25 hover:bg-sant-cyan/20 transition-colors">${v}</button>`
+                        ).join('')}
+                    </div>
+                </div>
                 <div class="bg-[#0a0a0a] border border-sant-border rounded-xl p-4 flex flex-col gap-3">
                     <p id="tplFormTitle" class="text-sm font-bold text-white">Novo Modelo</p>
                     <input type="text" id="tplTitle" placeholder="Título do modelo (ex: Boas-vindas)" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
