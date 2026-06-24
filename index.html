@@ -3228,8 +3228,8 @@
                     const alertMin = eventMin - parseInt(ev.notification);
 
                     if (currentMin >= alertMin && currentMin < eventMin) {
-                        fireNotification({ title: ev.title, startTime: ev.startTime, location: ev.location });
-                        ev.notified = true; 
+                        fireNotification({ title: ev.title, startTime: ev.startTime, location: ev.location, id: ev.id });
+                        ev.notified = true;
                         saveEventsToStorage();
                     }
                 });
@@ -3242,7 +3242,7 @@
                     const alertMin = taskMin - parseInt(t.notification);
 
                     if (currentMin >= alertMin && currentMin < taskMin) {
-                        fireNotification({ title: t.title, startTime: t.time, location: 'Gestão de Tarefas' });
+                        fireNotification({ title: t.title, startTime: t.time, location: 'Gestão de Tarefas', id: t.id, _notifType: 'task' });
                         t.notified = true;
                         saveTasksToStorage();
                     }
