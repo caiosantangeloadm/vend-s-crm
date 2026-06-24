@@ -3610,7 +3610,15 @@
         function getNextContactCode() {
             return contacts.reduce((max, c) => c.code ? Math.max(max, c.code) : max, 0) + 1;
         }
-        function saveToStorage() { localStorage.setItem('sant_crm_contacts', JSON.stringify(contacts)); }
+        function saveToStorage(syncContactId) {
+            localStorage.setItem('sant_crm_contacts', JSON.stringify(contacts));
+            // Sync para Supabase: contato específico passado, ou o que está no histórico aberto
+            const idToSync = syncContactId || currentHistoryContactId;
+            if (idToSync) {
+                const c = contacts.find(x => x.id === idToSync);
+                if (c) cloudSyncContact(c);
+            }
+        }
         function saveCategoriesToStorage() { localStorage.setItem('sant_crm_categories', JSON.stringify(categories)); }
         function saveOriginsToStorage() { localStorage.setItem('sant_crm_origins', JSON.stringify(origins)); }
         function saveMessageTemplatesToStorage() { localStorage.setItem('sant_crm_message_templates', JSON.stringify(messageTemplates)); }
@@ -6661,6 +6669,7 @@
             }
 
             saveToStorage();
+            cloudSyncContact(contact); // sync background para Supabase
             renderContacts();
             delete modalSnapshots['contactModal'];
             closeModal();
@@ -7239,11 +7248,13 @@
             const name = fullName(snapshot);
             contacts.splice(idx, 1);
             saveToStorage();
+            cloudDeleteContact(id); // remove do Supabase em background
             renderContacts();
             if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
             showUndoToast(`"${name}" excluído.`, () => {
                 contacts.splice(idx, 0, snapshot); // restaura na posição original
                 saveToStorage();
+                cloudSyncContact(snapshot); // restaura no Supabase também
                 renderContacts();
                 showToast(`"${name}" restaurado!`);
             });
@@ -9848,6 +9859,51 @@
             } else {
                 el.innerHTML = `<i class="ph ph-warning text-amber-400"></i> <span class="text-amber-400">Dados não sincronizados com a nuvem ainda</span>`;
             }
+        }
+        // Prepara um contato para o formato Supabase
+        function contactToRow(c) {
+            return {
+                id: c.id, code: c.code || null,
+                name: c.name || '', "lastName": c.lastName || '',
+                phone: c.phone || '', "phoneProf": c.phoneProf || '', "phonePess": c.phonePess || '',
+                email: c.email || '', "emailProf": c.emailProf || '', "emailPess": c.emailPess || '',
+                company: c.company || '', job: c.job || '', site: c.site || '',
+                category: c.category || '', "isLead": c.isLead || false,
+                temperature: c.temperature || 'frio', "dealValue": c.dealValue || 0,
+                birth: c.birth || '', notes: c.notes || '', origin: c.origin || '',
+                "nextContact": c.nextContact || '', "nextStep": c.nextStep || '',
+                "contactFrequencyDays": c.contactFrequencyDays || 0,
+                photo: c.photo || '', "privateNotes": c.privateNotes || '',
+                "addressStreet": c.addressStreet || '', "addressNumber": c.addressNumber || '',
+                "addressNeighborhood": c.addressNeighborhood || '',
+                "addressCity": c.addressCity || '', "addressState": c.addressState || '',
+                "addressZip": c.addressZip || '',
+                "accessCount": c.accessCount || 0, "lastAccessed": c.lastAccessed || '',
+                pinned: c.pinned || false,
+                tags: c.tags || [], "customFields": c.customFields || [],
+                links: c.links || [], "quickNotes": c.quickNotes || [],
+                interactions: c.interactions || [], "changeLog": c.changeLog || [],
+                "followUpHistory": c.followUpHistory || [], relationships: c.relationships || [],
+                "createdAt": c.createdAt || new Date().toISOString(),
+            };
+        }
+
+        // Upsert de um único contato no Supabase (background, não bloqueia UI)
+        async function cloudSyncContact(c) {
+            const sb = getSB();
+            if (!sb) return;
+            try {
+                await sb.from('contacts').upsert(contactToRow(c), { onConflict: 'id' });
+            } catch(e) { console.warn('Supabase sync:', e.message); }
+        }
+
+        // Deleta um contato do Supabase
+        async function cloudDeleteContact(id) {
+            const sb = getSB();
+            if (!sb) return;
+            try {
+                await sb.from('contacts').delete().eq('id', id);
+            } catch(e) { console.warn('Supabase delete:', e.message); }
         }
         // ── fim Migração Supabase ────────────────────────────────────────────
 
