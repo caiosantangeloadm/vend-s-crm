@@ -1479,6 +1479,14 @@
                                 <i class="ph ph-cloud-arrow-up"></i> Migrar contatos para a nuvem (Supabase)
                             </button>
                             <p class="text-[10px] text-gray-600 mt-2 text-center">Envia seus <span class="text-white font-bold" id="cloudContactCount"></span> contatos para o banco de dados na nuvem. Pode ser repetido para atualizar.</p>
+                            <div class="grid grid-cols-2 gap-2 mt-3">
+                                <button id="btnMigrateTasks" onclick="migrateTasksToSupabase()" class="flex items-center justify-center gap-2 bg-[#141414] border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-3 py-2.5 rounded-xl text-xs font-medium transition-colors">
+                                    <i class="ph ph-list-checks text-sant-cyan"></i> Migrar tarefas
+                                </button>
+                                <button id="btnMigrateEvents" onclick="migrateEventsToSupabase()" class="flex items-center justify-center gap-2 bg-[#141414] border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-3 py-2.5 rounded-xl text-xs font-medium transition-colors">
+                                    <i class="ph ph-calendar text-sant-cyan"></i> Migrar agenda
+                                </button>
+                            </div>
                         </div>
 
                         <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
@@ -3720,7 +3728,11 @@
             checkCloudSync();
 
             // 2️⃣ Busca do Supabase em background (atualiza se online e autenticado)
-            if (currentUser) loadContactsFromSupabase();
+            if (currentUser) {
+                loadContactsFromSupabase();
+                loadTasksFromSupabase();
+                loadEventsFromSupabase();
+            }
         }
 
         async function loadContactsFromSupabase() {
@@ -3793,6 +3805,64 @@
         }
         function saveTasksToStorage() { localStorage.setItem('sant_crm_tasks', JSON.stringify(tasks)); }
         function saveEventsToStorage() { localStorage.setItem('sant_crm_events', JSON.stringify(events)); }
+
+        // ── Sync Tarefas/Eventos → Supabase ──────────────────────────────────
+        function taskToRow(t) {
+            return {
+                id: t.id, user_id: currentUser?.id || null,
+                title: t.title || '', "desc": t.desc || '',
+                date: t.date || '', time: t.time || '',
+                priority: t.priority || 'medium', completed: t.completed || false,
+                "completedAt": t.completedAt || '', "kanbanColumn": t.kanbanColumn || 'todo',
+                notification: t.notification || '0', recurrence: t.recurrence || 'none',
+                "recurrenceInterval": t.recurrenceInterval || 1,
+                "estimatedMinutes": t.estimatedMinutes || 0,
+                "contactId": t.contactId || '', tags: t.tags || [], checklist: t.checklist || [],
+                "createdAt": t.createdAt || new Date().toISOString(),
+            };
+        }
+
+        function eventToRow(e) {
+            return {
+                id: e.id, user_id: currentUser?.id || null,
+                title: e.title || '', type: e.type || 'other',
+                "startDate": e.startDate || '', "startTime": e.startTime || '',
+                "endDate": e.endDate || '', "endTime": e.endTime || '',
+                location: e.location || '', "contactId": e.contactId || '',
+                notification: e.notification || '0', "desc": e.desc || '',
+                recurrence: e.recurrence || 'none', "recurrenceInterval": e.recurrenceInterval || 1,
+                "recurrenceWeekdays": e.recurrenceWeekdays || [],
+                "recurrenceMonthlyMode": e.recurrenceMonthlyMode || 'date',
+                "recurrenceMonthlyNth": e.recurrenceMonthlyNth || 1,
+                "recurrenceMonthlyWeekday": e.recurrenceMonthlyWeekday || 0,
+                "recurrenceEndType": e.recurrenceEndType || 'never',
+                "recurrenceEndDate": e.recurrenceEndDate || '',
+                "excludedDates": e.excludedDates || [], uid: e.uid || '',
+                "createdAt": e.createdAt || new Date().toISOString(),
+            };
+        }
+
+        async function cloudSyncTask(t) {
+            const sb = getSB(); if (!sb || !currentUser) return;
+            try { await sb.from('tasks').upsert(taskToRow(t), { onConflict: 'id' }); }
+            catch(e) { console.warn('Task sync:', e.message); }
+        }
+        async function cloudDeleteTask(id) {
+            const sb = getSB(); if (!sb || !currentUser) return;
+            try { await sb.from('tasks').delete().eq('id', id); }
+            catch(e) { console.warn('Task delete:', e.message); }
+        }
+        async function cloudSyncEvent(e) {
+            const sb = getSB(); if (!sb || !currentUser) return;
+            try { await sb.from('events').upsert(eventToRow(e), { onConflict: 'id' }); }
+            catch(e) { console.warn('Event sync:', e.message); }
+        }
+        async function cloudDeleteEvent(id) {
+            const sb = getSB(); if (!sb || !currentUser) return;
+            try { await sb.from('events').delete().eq('id', id); }
+            catch(e) { console.warn('Event delete:', e.message); }
+        }
+        // ─────────────────────────────────────────────────────────────────────
         function saveScheduleBlocksToStorage() { localStorage.setItem('sant_crm_schedule_blocks', JSON.stringify(scheduleBlocks)); }
         function saveTagsToStorage() { localStorage.setItem('sant_crm_tags', JSON.stringify(tags)); }
         function saveNotesToStorage() { localStorage.setItem('sant_crm_notes', JSON.stringify(notes)); }
@@ -8608,6 +8678,7 @@
             }
 
             saveEventsToStorage();
+            cloudSyncEvent(event);
             renderCalendar();
             delete modalSnapshots['eventModal'];
             closeEventModal();
@@ -8692,6 +8763,7 @@
                 showConfirm(`Excluir "${ev.title}"?`, 'O evento será removido da agenda.', () => {
                     events = events.filter(e => e.id !== id);
                     saveEventsToStorage();
+                    cloudDeleteEvent(id);
                     renderCalendar();
                     showToast('Compromisso excluído.');
                     if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
@@ -9128,6 +9200,7 @@
             }
 
             saveTasksToStorage();
+            cloudSyncTask(task);
             _refreshCurrentTaskView();
             delete modalSnapshots['taskModal'];
             closeTaskModal();
@@ -9193,6 +9266,7 @@
             showConfirm(`Excluir "${t ? t.title : 'tarefa'}"?`, 'A tarefa será removida permanentemente.', () => {
                 tasks = tasks.filter(x => x.id !== id);
                 saveTasksToStorage();
+                cloudDeleteTask(id);
                 _refreshCurrentTaskView();
                 if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
             });
@@ -10064,6 +10138,75 @@
             try {
                 await sb.from('contacts').delete().eq('id', id);
             } catch(e) { console.warn('Supabase delete:', e.message); }
+        }
+        async function migrateTasksToSupabase() {
+            const sb = getSB();
+            if (!sb || !currentUser) { showToast('Faça login primeiro.', 'error'); return; }
+            if (!tasks.length) { showToast('Nenhuma tarefa para migrar.', 'error'); return; }
+            const btn = document.getElementById('btnMigrateTasks');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Migrando...'; }
+            try {
+                const rows = tasks.map(taskToRow);
+                const BATCH = 50;
+                for (let i = 0; i < rows.length; i += BATCH) {
+                    const { error } = await sb.from('tasks').upsert(rows.slice(i, i + BATCH), { onConflict: 'id' });
+                    if (error) throw error;
+                }
+                showToast(`✅ ${tasks.length} tarefas migradas!`);
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ph ph-check-circle"></i> Tarefas migradas!'; btn.style.color='#4ade80'; }
+            } catch(err) {
+                showToast('Erro: ' + err.message, 'error');
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ph ph-list-checks"></i> Migrar tarefas'; }
+            }
+        }
+
+        async function migrateEventsToSupabase() {
+            const sb = getSB();
+            if (!sb || !currentUser) { showToast('Faça login primeiro.', 'error'); return; }
+            if (!events.length) { showToast('Nenhum evento para migrar.', 'error'); return; }
+            const btn = document.getElementById('btnMigrateEvents');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Migrando...'; }
+            try {
+                const rows = events.map(eventToRow);
+                const BATCH = 50;
+                for (let i = 0; i < rows.length; i += BATCH) {
+                    const { error } = await sb.from('events').upsert(rows.slice(i, i + BATCH), { onConflict: 'id' });
+                    if (error) throw error;
+                }
+                showToast(`✅ ${events.length} eventos migrados!`);
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ph ph-check-circle"></i> Eventos migrados!'; btn.style.color='#4ade80'; }
+            } catch(err) {
+                showToast('Erro: ' + err.message, 'error');
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ph ph-calendar"></i> Migrar agenda'; }
+            }
+        }
+
+        async function loadTasksFromSupabase() {
+            const sb = getSB(); if (!sb || !currentUser) return;
+            try {
+                const { data, error } = await sb.from('tasks').select('*').order('"createdAt"', { ascending: true });
+                if (error || !data || !data.length) return;
+                if (data.length !== tasks.length || data.some(r => !tasks.find(t => t.id === r.id))) {
+                    tasks = data;
+                    localStorage.setItem('sant_crm_tasks', JSON.stringify(tasks));
+                    if (currentView === 'tasks') _refreshCurrentTaskView();
+                    if (currentView === 'dashboard') renderDashboard();
+                }
+            } catch(e) { console.warn('Tasks load:', e.message); }
+        }
+
+        async function loadEventsFromSupabase() {
+            const sb = getSB(); if (!sb || !currentUser) return;
+            try {
+                const { data, error } = await sb.from('events').select('*').order('"startDate"', { ascending: true });
+                if (error || !data || !data.length) return;
+                if (data.length !== events.length || data.some(r => !events.find(e => e.id === r.id))) {
+                    events = data;
+                    localStorage.setItem('sant_crm_events', JSON.stringify(events));
+                    if (currentView === 'calendar') renderCalendar();
+                    if (currentView === 'dashboard') renderDashboard();
+                }
+            } catch(e) { console.warn('Events load:', e.message); }
         }
         // ── fim Migração Supabase ────────────────────────────────────────────
 
