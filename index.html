@@ -1483,12 +1483,15 @@
                                 <i class="ph ph-cloud-arrow-up"></i> Migrar contatos para a nuvem (Supabase)
                             </button>
                             <p class="text-[10px] text-gray-600 mt-2 text-center">Envia seus <span class="text-white font-bold" id="cloudContactCount"></span> contatos para o banco de dados na nuvem. Pode ser repetido para atualizar.</p>
-                            <div class="grid grid-cols-2 gap-2 mt-3">
-                                <button id="btnMigrateTasks" onclick="migrateTasksToSupabase()" class="flex items-center justify-center gap-2 bg-[#141414] border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-3 py-2.5 rounded-xl text-xs font-medium transition-colors">
-                                    <i class="ph ph-list-checks text-sant-cyan"></i> Migrar tarefas
+                            <div class="grid grid-cols-3 gap-2 mt-3">
+                                <button id="btnMigrateTasks" onclick="migrateTasksToSupabase()" class="flex items-center justify-center gap-1.5 bg-[#141414] border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-2 py-2.5 rounded-xl text-xs font-medium transition-colors">
+                                    <i class="ph ph-list-checks text-sant-cyan"></i> Tarefas
                                 </button>
-                                <button id="btnMigrateEvents" onclick="migrateEventsToSupabase()" class="flex items-center justify-center gap-2 bg-[#141414] border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-3 py-2.5 rounded-xl text-xs font-medium transition-colors">
-                                    <i class="ph ph-calendar text-sant-cyan"></i> Migrar agenda
+                                <button id="btnMigrateEvents" onclick="migrateEventsToSupabase()" class="flex items-center justify-center gap-1.5 bg-[#141414] border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-2 py-2.5 rounded-xl text-xs font-medium transition-colors">
+                                    <i class="ph ph-calendar text-sant-cyan"></i> Agenda
+                                </button>
+                                <button id="btnMigrateNotes" onclick="migrateNotesToSupabase()" class="flex items-center justify-center gap-1.5 bg-[#141414] border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-2 py-2.5 rounded-xl text-xs font-medium transition-colors">
+                                    <i class="ph ph-note text-sant-cyan"></i> Notas
                                 </button>
                             </div>
                         </div>
@@ -3736,6 +3739,7 @@
                 loadContactsFromSupabase();
                 loadTasksFromSupabase();
                 loadEventsFromSupabase();
+                loadNotesFromSupabase();
             }
         }
 
@@ -3873,6 +3877,63 @@
         function saveScheduleBlocksToStorage() { localStorage.setItem('sant_crm_schedule_blocks', JSON.stringify(scheduleBlocks)); }
         function saveTagsToStorage() { localStorage.setItem('sant_crm_tags', JSON.stringify(tags)); }
         function saveNotesToStorage() { localStorage.setItem('sant_crm_notes', JSON.stringify(notes)); }
+
+        // ── Sync Notas → Supabase ─────────────────────────────────────────────
+        function noteToRow(n) {
+            return {
+                id: n.id, user_id: currentUser?.id || null,
+                title: n.title || '', body: n.body || '',
+                color: n.color || 'default', pinned: n.pinned || false,
+                archived: n.archived || false,
+                "contactId": n.contactId || '', "dueDate": n.dueDate || '',
+                "kanbanColumn": n.kanbanColumn || 'inbox',
+                tags: n.tags || [],
+                "createdAt": n.createdAt || new Date().toISOString(),
+                "updatedAt": n.updatedAt || new Date().toISOString(),
+            };
+        }
+        async function cloudSyncNote(n) {
+            const sb = getSB(); if (!sb || !currentUser) return;
+            try { await sb.from('notes').upsert(noteToRow(n), { onConflict: 'id' }); }
+            catch(e) { console.warn('Note sync:', e.message); }
+        }
+        async function cloudDeleteNote(id) {
+            const sb = getSB(); if (!sb || !currentUser) return;
+            try { await sb.from('notes').delete().eq('id', id); }
+            catch(e) { console.warn('Note delete:', e.message); }
+        }
+        async function migrateNotesToSupabase() {
+            const sb = getSB();
+            if (!sb || !currentUser) { showToast('Faça login primeiro.', 'error'); return; }
+            if (!notes.length) { showToast('Nenhuma nota para migrar.', 'error'); return; }
+            const btn = document.getElementById('btnMigrateNotes');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Migrando...'; }
+            try {
+                const rows = notes.map(noteToRow);
+                for (let i = 0; i < rows.length; i += 50) {
+                    const { error } = await sb.from('notes').upsert(rows.slice(i, i + 50), { onConflict: 'id' });
+                    if (error) throw error;
+                }
+                showToast(`✅ ${notes.length} notas migradas!`);
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ph ph-check-circle"></i> Notas migradas!'; btn.style.color='#4ade80'; }
+            } catch(err) {
+                showToast('Erro: ' + err.message, 'error');
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ph ph-note"></i> Migrar notas'; }
+            }
+        }
+        async function loadNotesFromSupabase() {
+            const sb = getSB(); if (!sb || !currentUser) return;
+            try {
+                const { data, error } = await sb.from('notes').select('*').order('"createdAt"', { ascending: false });
+                if (error || !data || !data.length) return;
+                if (data.length !== notes.length || data.some(r => !notes.find(n => n.id === r.id))) {
+                    notes = data;
+                    localStorage.setItem('sant_crm_notes', JSON.stringify(notes));
+                    if (currentView === 'notes') renderNotes();
+                }
+            } catch(e) { console.warn('Notes load:', e.message); }
+        }
+        // ─────────────────────────────────────────────────────────────────────
 
         function exportData() {
             const data = { contacts, categories, origins, tasks, events, tags, notes, notifications, messageTemplates, scheduleBlocks, eventTypeLabels, eventTypeIcons,
@@ -5697,6 +5758,7 @@
             });
             lastNoteId = newId;
             saveNotesToStorage();
+            cloudSyncNote(notes[0]);
             collapseNewNote();
             renderNotes();
             // Pulso no card recém-criado
@@ -5713,6 +5775,7 @@
             if (!confirm('Excluir esta nota permanentemente?')) return;
             notes = notes.filter(x => x.id !== id);
             saveNotesToStorage();
+            cloudDeleteNote(id);
             renderNotes();
         }
 
@@ -5806,6 +5869,7 @@
             delete editNoteTagsTemp[id];
             n.updatedAt = new Date().toISOString();
             saveNotesToStorage();
+            cloudSyncNote(n);
             renderNotes();
             // Pulso no card salvo
             requestAnimationFrame(() => {
