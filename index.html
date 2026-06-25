@@ -1483,7 +1483,7 @@
                                 <i class="ph ph-cloud-arrow-up"></i> Migrar contatos para a nuvem (Supabase)
                             </button>
                             <p class="text-[10px] text-gray-600 mt-2 text-center">Envia seus <span class="text-white font-bold" id="cloudContactCount"></span> contatos para o banco de dados na nuvem. Pode ser repetido para atualizar.</p>
-                            <div class="grid grid-cols-3 gap-2 mt-3">
+                            <div class="grid grid-cols-2 gap-2 mt-3">
                                 <button id="btnMigrateTasks" onclick="migrateTasksToSupabase()" class="flex items-center justify-center gap-1.5 bg-[#141414] border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-2 py-2.5 rounded-xl text-xs font-medium transition-colors">
                                     <i class="ph ph-list-checks text-sant-cyan"></i> Tarefas
                                 </button>
@@ -1492,6 +1492,9 @@
                                 </button>
                                 <button id="btnMigrateNotes" onclick="migrateNotesToSupabase()" class="flex items-center justify-center gap-1.5 bg-[#141414] border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-2 py-2.5 rounded-xl text-xs font-medium transition-colors">
                                     <i class="ph ph-note text-sant-cyan"></i> Notas
+                                </button>
+                                <button onclick="syncPreferencesToSupabase().then(()=>showToast('✅ Configurações sincronizadas!'))" class="flex items-center justify-center gap-1.5 bg-[#141414] border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-2 py-2.5 rounded-xl text-xs font-medium transition-colors">
+                                    <i class="ph ph-gear text-sant-cyan"></i> Configurações
                                 </button>
                             </div>
                         </div>
@@ -3740,6 +3743,7 @@
                 loadTasksFromSupabase();
                 loadEventsFromSupabase();
                 loadNotesFromSupabase();
+                loadPreferencesFromSupabase();
             }
         }
 
@@ -3798,9 +3802,9 @@
                 if (c) cloudSyncContact(c);
             }
         }
-        function saveCategoriesToStorage() { localStorage.setItem('sant_crm_categories', JSON.stringify(categories)); }
-        function saveOriginsToStorage() { localStorage.setItem('sant_crm_origins', JSON.stringify(origins)); }
-        function saveMessageTemplatesToStorage() { localStorage.setItem('sant_crm_message_templates', JSON.stringify(messageTemplates)); }
+        function saveCategoriesToStorage() { localStorage.setItem('sant_crm_categories', JSON.stringify(categories)); syncPreferencesToSupabase(); }
+        function saveOriginsToStorage() { localStorage.setItem('sant_crm_origins', JSON.stringify(origins)); syncPreferencesToSupabase(); }
+        function saveMessageTemplatesToStorage() { localStorage.setItem('sant_crm_message_templates', JSON.stringify(messageTemplates)); syncPreferencesToSupabase(); }
         function migrateContactOrigins() {
             let changed = false;
             contacts.forEach(c => {
@@ -3874,7 +3878,7 @@
             catch(e) { console.warn('Event delete:', e.message); }
         }
         // ─────────────────────────────────────────────────────────────────────
-        function saveScheduleBlocksToStorage() { localStorage.setItem('sant_crm_schedule_blocks', JSON.stringify(scheduleBlocks)); }
+        function saveScheduleBlocksToStorage() { localStorage.setItem('sant_crm_schedule_blocks', JSON.stringify(scheduleBlocks)); syncPreferencesToSupabase(); }
         function saveTagsToStorage() { localStorage.setItem('sant_crm_tags', JSON.stringify(tags)); }
         function saveNotesToStorage() { localStorage.setItem('sant_crm_notes', JSON.stringify(notes)); }
 
@@ -8093,6 +8097,7 @@
             localStorage.setItem('vends_event_type_labels', JSON.stringify(eventTypeLabels));
             localStorage.setItem('vends_event_type_icons',  JSON.stringify(eventTypeIcons));
             fillEventTypeSelect();
+            syncPreferencesToSupabase();
         }
         function fillEventTypeSelect() {
             const sel = document.getElementById('eventType');
@@ -10278,6 +10283,44 @@
                     if (currentView === 'dashboard') renderDashboard();
                 }
             } catch(e) { console.warn('Events load:', e.message); }
+        }
+        // ── Sync Configurações → Supabase ────────────────────────────────────
+        async function syncPreferencesToSupabase() {
+            const sb = getSB(); if (!sb || !currentUser) return;
+            try {
+                const row = {
+                    user_id: currentUser.id,
+                    categories, origins, tags,
+                    "messageTemplates": messageTemplates,
+                    "scheduleBlocks": scheduleBlocks,
+                    "eventTypeLabels": eventTypeLabels,
+                    "eventTypeIcons": eventTypeIcons,
+                    "weeklyGoals": weeklyGoals,
+                    "savedFilters": savedFilters,
+                };
+                await sb.from('user_preferences').upsert(row, { onConflict: 'user_id' });
+            } catch(e) { console.warn('Prefs sync:', e.message); }
+        }
+
+        async function loadPreferencesFromSupabase() {
+            const sb = getSB(); if (!sb || !currentUser) return;
+            try {
+                const { data, error } = await sb.from('user_preferences')
+                    .select('*').eq('user_id', currentUser.id).single();
+                if (error || !data) return;
+                if (data.categories?.length)        { categories = data.categories; localStorage.setItem('sant_crm_categories', JSON.stringify(categories)); }
+                if (data.origins?.length)           { origins = data.origins; localStorage.setItem('sant_crm_origins', JSON.stringify(origins)); }
+                if (data.tags?.length)              { tags = data.tags; localStorage.setItem('sant_crm_tags', JSON.stringify(tags)); }
+                if (data.messageTemplates?.length)  { messageTemplates = data.messageTemplates; localStorage.setItem('sant_crm_message_templates', JSON.stringify(messageTemplates)); }
+                if (data.scheduleBlocks?.length)    { scheduleBlocks = data.scheduleBlocks; localStorage.setItem('sant_crm_schedule_blocks', JSON.stringify(scheduleBlocks)); }
+                if (data.eventTypeLabels && Object.keys(data.eventTypeLabels).length) { eventTypeLabels = data.eventTypeLabels; localStorage.setItem('vends_event_type_labels', JSON.stringify(eventTypeLabels)); }
+                if (data.eventTypeIcons && Object.keys(data.eventTypeIcons).length)  { eventTypeIcons = data.eventTypeIcons;  localStorage.setItem('vends_event_type_icons',  JSON.stringify(eventTypeIcons)); }
+                if (data.weeklyGoals && Object.keys(data.weeklyGoals).length)        { weeklyGoals = data.weeklyGoals; localStorage.setItem('vends_weekly_goals', JSON.stringify(weeklyGoals)); }
+                if (data.savedFilters?.length)      { savedFilters = data.savedFilters; localStorage.setItem('vends_saved_filters', JSON.stringify(savedFilters)); renderSavedFilters(); }
+                loadEventTypeLabels();
+                updateCategorySelects();
+                updateOriginSelects();
+            } catch(e) { console.warn('Prefs load:', e.message); }
         }
         // ── fim Migração Supabase ────────────────────────────────────────────
 
