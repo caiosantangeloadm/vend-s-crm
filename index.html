@@ -3808,6 +3808,9 @@
 
         // ── Sync Tarefas/Eventos → Supabase ──────────────────────────────────
         function taskToRow(t) {
+            const toISO = v => !v ? new Date().toISOString()
+                : typeof v === 'number' ? new Date(v).toISOString()
+                : String(v);
             return {
                 id: t.id, user_id: currentUser?.id || null,
                 title: t.title || '', "desc": t.desc || '',
@@ -3818,7 +3821,7 @@
                 "recurrenceInterval": t.recurrenceInterval || 1,
                 "estimatedMinutes": t.estimatedMinutes || 0,
                 "contactId": t.contactId || '', tags: t.tags || [], checklist: t.checklist || [],
-                "createdAt": t.createdAt || new Date().toISOString(),
+                "createdAt": toISO(t.createdAt),
             };
         }
 
