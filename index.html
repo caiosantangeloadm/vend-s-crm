@@ -3759,23 +3759,13 @@
 
                 if (error || !data || !data.length) return; // não substitui local por vazio
 
-                // Só atualiza se o Supabase tem mais registros ou dados diferentes
+                // Sempre aplica dados do Supabase (fonte da verdade)
                 const cloudCount = data.length;
-                const localCount = contacts.length;
-                const hasNewer = data.some(row => {
-                    const local = contacts.find(c => c.id === row.id);
-                    return !local; // contato novo no cloud que não existe local
-                });
-
-                if (cloudCount !== localCount || hasNewer) {
-                    contacts = data;
-                    localStorage.setItem('sant_crm_contacts', JSON.stringify(contacts));
-                    migrateContactCodes();
-                    // Re-renderiza a view atual se for contatos ou dashboard
-                    if (currentView === 'contacts') renderContacts(document.getElementById('searchInput')?.value || '');
-                    if (currentView === 'dashboard') renderDashboard();
-                    showToast(`☁️ ${cloudCount} contatos sincronizados da nuvem.`);
-                }
+                contacts = data;
+                localStorage.setItem('sant_crm_contacts', JSON.stringify(contacts));
+                migrateContactCodes();
+                if (currentView === 'contacts') renderContacts(document.getElementById('searchInput')?.value || '');
+                if (currentView === 'dashboard') renderDashboard();
                 checkCloudSync();
             } catch(e) {
                 console.warn('Supabase load:', e.message);
@@ -3931,11 +3921,9 @@
             try {
                 const { data, error } = await sb.from('notes').select('*').order('"createdAt"', { ascending: false });
                 if (error || !data || !data.length) return;
-                if (data.length !== notes.length || data.some(r => !notes.find(n => n.id === r.id))) {
-                    notes = data;
-                    localStorage.setItem('sant_crm_notes', JSON.stringify(notes));
-                    if (currentView === 'notes') renderNotes();
-                }
+                notes = data;
+                localStorage.setItem('sant_crm_notes', JSON.stringify(notes));
+                if (currentView === 'notes') renderNotes();
             } catch(e) { console.warn('Notes load:', e.message); }
         }
         // ─────────────────────────────────────────────────────────────────────
@@ -10269,12 +10257,11 @@
             try {
                 const { data, error } = await sb.from('tasks').select('*').order('"createdAt"', { ascending: true });
                 if (error || !data || !data.length) return;
-                if (data.length !== tasks.length || data.some(r => !tasks.find(t => t.id === r.id))) {
-                    tasks = data;
-                    localStorage.setItem('sant_crm_tasks', JSON.stringify(tasks));
-                    if (currentView === 'tasks') _refreshCurrentTaskView();
-                    if (currentView === 'dashboard') renderDashboard();
-                }
+                // Sempre aplica dados do Supabase (fonte da verdade) — detecta completed, updatedAt, etc.
+                tasks = data;
+                localStorage.setItem('sant_crm_tasks', JSON.stringify(tasks));
+                if (currentView === 'tasks') _refreshCurrentTaskView();
+                if (currentView === 'dashboard') renderDashboard();
             } catch(e) { console.warn('Tasks load:', e.message); }
         }
 
@@ -10283,12 +10270,10 @@
             try {
                 const { data, error } = await sb.from('events').select('*').order('"startDate"', { ascending: true });
                 if (error || !data || !data.length) return;
-                if (data.length !== events.length || data.some(r => !events.find(e => e.id === r.id))) {
-                    events = data;
-                    localStorage.setItem('sant_crm_events', JSON.stringify(events));
-                    if (currentView === 'calendar') renderCalendar();
-                    if (currentView === 'dashboard') renderDashboard();
-                }
+                events = data;
+                localStorage.setItem('sant_crm_events', JSON.stringify(events));
+                if (currentView === 'calendar') renderCalendar();
+                if (currentView === 'dashboard') renderDashboard();
             } catch(e) { console.warn('Events load:', e.message); }
         }
         // ── Sync Configurações → Supabase ────────────────────────────────────
