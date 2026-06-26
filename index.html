@@ -293,6 +293,8 @@
                     <div id="globalSearchResults" class="hidden absolute right-0 top-12 w-96 max-h-[70vh] overflow-y-auto rounded-2xl border border-sant-border shadow-2xl z-50" style="background:#0d0d0d;">
                     </div>
                 </div>
+                <!-- Indicador Realtime -->
+                <div id="realtimeDot" class="hidden w-2 h-2 rounded-full bg-green-400 animate-pulse" title="Sync em tempo real ativo" style="box-shadow:0 0 6px #4ade80"></div>
                 <!-- Streak de uso -->
                 <button onclick="switchView('dashboard');setTimeout(()=>{const el=document.getElementById('dashStreakCard');if(el&&!el.classList.contains('hidden')){el.scrollIntoView({behavior:'smooth',block:'center'});el.style.outline='2px solid #f97316';setTimeout(()=>el.style.outline='',1200);}},200);" id="streakBadge" class="hidden items-center gap-1 px-2.5 py-1.5 rounded-lg border border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/20 transition-colors" title="Streak de uso — clique para ver detalhes">
                     <span class="text-base leading-none">🔥</span>
@@ -2873,6 +2875,8 @@
             if (ls) ls.style.display = 'none';
             // Inicia o app completo após autenticação
             if (typeof initApp === 'function') initApp();
+            // Inicia sync em tempo real
+            setTimeout(() => startRealtimeSync(), 1500);
         }
 
         async function doLogout() {
@@ -10338,6 +10342,91 @@
                 updateOriginSelects();
             } catch(e) { console.warn('Prefs load:', e.message); }
         }
+        // ── Supabase Realtime ────────────────────────────────────────────────
+        let realtimeChannel = null;
+
+        function startRealtimeSync() {
+            const sb = getSB();
+            if (!sb || !currentUser) return;
+            // Cancela canal anterior se existir
+            if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
+
+            const uid = currentUser.id;
+
+            realtimeChannel = sb.channel('vends-realtime-' + uid)
+
+                // ── Contatos ──────────────────────────────────────────────
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'contacts', filter: `user_id=eq.${uid}` }, ({ new: row }) => {
+                    if (!contacts.find(c => c.id === row.id)) {
+                        contacts.push(row);
+                        localStorage.setItem('sant_crm_contacts', JSON.stringify(contacts));
+                        if (currentView === 'contacts') renderContacts(document.getElementById('searchInput')?.value || '');
+                        if (currentView === 'dashboard') renderDashboard();
+                    }
+                })
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'contacts', filter: `user_id=eq.${uid}` }, ({ new: row }) => {
+                    const idx = contacts.findIndex(c => c.id === row.id);
+                    if (idx !== -1) { contacts[idx] = row; localStorage.setItem('sant_crm_contacts', JSON.stringify(contacts)); if (currentView === 'contacts') renderContacts(document.getElementById('searchInput')?.value || ''); if (currentView === 'dashboard') renderDashboard(); }
+                })
+                .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'contacts', filter: `user_id=eq.${uid}` }, ({ old: row }) => {
+                    contacts = contacts.filter(c => c.id !== row.id);
+                    localStorage.setItem('sant_crm_contacts', JSON.stringify(contacts));
+                    if (currentView === 'contacts') renderContacts(document.getElementById('searchInput')?.value || '');
+                    if (currentView === 'dashboard') renderDashboard();
+                })
+
+                // ── Tarefas ───────────────────────────────────────────────
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tasks', filter: `user_id=eq.${uid}` }, ({ new: row }) => {
+                    if (!tasks.find(t => t.id === row.id)) { tasks.push(row); localStorage.setItem('sant_crm_tasks', JSON.stringify(tasks)); if (currentView === 'tasks') _refreshCurrentTaskView(); if (currentView === 'dashboard') renderDashboard(); }
+                })
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks', filter: `user_id=eq.${uid}` }, ({ new: row }) => {
+                    const idx = tasks.findIndex(t => t.id === row.id);
+                    if (idx !== -1) { tasks[idx] = row; localStorage.setItem('sant_crm_tasks', JSON.stringify(tasks)); if (currentView === 'tasks') _refreshCurrentTaskView(); if (currentView === 'dashboard') renderDashboard(); }
+                })
+                .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tasks', filter: `user_id=eq.${uid}` }, ({ old: row }) => {
+                    tasks = tasks.filter(t => t.id !== row.id);
+                    localStorage.setItem('sant_crm_tasks', JSON.stringify(tasks));
+                    if (currentView === 'tasks') _refreshCurrentTaskView();
+                })
+
+                // ── Eventos ───────────────────────────────────────────────
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'events', filter: `user_id=eq.${uid}` }, ({ new: row }) => {
+                    if (!events.find(e => e.id === row.id)) { events.push(row); localStorage.setItem('sant_crm_events', JSON.stringify(events)); if (currentView === 'calendar') renderCalendar(); if (currentView === 'dashboard') renderDashboard(); }
+                })
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'events', filter: `user_id=eq.${uid}` }, ({ new: row }) => {
+                    const idx = events.findIndex(e => e.id === row.id);
+                    if (idx !== -1) { events[idx] = row; localStorage.setItem('sant_crm_events', JSON.stringify(events)); if (currentView === 'calendar') renderCalendar(); if (currentView === 'dashboard') renderDashboard(); }
+                })
+                .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'events', filter: `user_id=eq.${uid}` }, ({ old: row }) => {
+                    events = events.filter(e => e.id !== row.id);
+                    localStorage.setItem('sant_crm_events', JSON.stringify(events));
+                    if (currentView === 'calendar') renderCalendar();
+                })
+
+                // ── Notas ─────────────────────────────────────────────────
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notes', filter: `user_id=eq.${uid}` }, ({ new: row }) => {
+                    if (!notes.find(n => n.id === row.id)) { notes.unshift(row); localStorage.setItem('sant_crm_notes', JSON.stringify(notes)); if (currentView === 'notes') renderNotes(); }
+                })
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'notes', filter: `user_id=eq.${uid}` }, ({ new: row }) => {
+                    const idx = notes.findIndex(n => n.id === row.id);
+                    if (idx !== -1) { notes[idx] = row; localStorage.setItem('sant_crm_notes', JSON.stringify(notes)); if (currentView === 'notes') renderNotes(); }
+                })
+                .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'notes', filter: `user_id=eq.${uid}` }, ({ old: row }) => {
+                    notes = notes.filter(n => n.id !== row.id);
+                    localStorage.setItem('sant_crm_notes', JSON.stringify(notes));
+                    if (currentView === 'notes') renderNotes();
+                })
+
+                .subscribe((status) => {
+                    if (status === 'SUBSCRIBED') {
+                        console.log('✅ Realtime sync ativo');
+                        const dot = document.getElementById('realtimeDot');
+                        if (dot) { dot.classList.remove('hidden'); dot.title = 'Sync em tempo real ativo'; }
+                    }
+                });
+        }
+        // ── fim Supabase Realtime ────────────────────────────────────────────
+
         // ── fim Migração Supabase ────────────────────────────────────────────
 
         // ── fim Relatório Mensal ─────────────────────────────────────────────
