@@ -8940,6 +8940,12 @@
                 }
 
                 saveTasksToStorage();
+                cloudSyncTask(t); // sincroniza status com Supabase imediatamente
+                // Se criou tarefa recorrente, sincroniza ela também
+                if (t.completed && tasks.length > 0) {
+                    const newest = tasks[tasks.length - 1];
+                    if (newest.id !== t.id && !newest.completed) cloudSyncTask(newest);
+                }
                 _refreshCurrentTaskView();
                 if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
             }
