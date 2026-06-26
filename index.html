@@ -3732,6 +3732,7 @@
             loadEventTypeLabels();
             loadWeeklyGoals();
             checkStreak();
+            syncPreferencesToSupabase(); // sincroniza streak após checkStreak
             initPushNotifications();
             renderSavedFilters();
             applyDashCollapsed();
@@ -10297,6 +10298,10 @@
                     "eventTypeIcons": eventTypeIcons,
                     "weeklyGoals": weeklyGoals,
                     "savedFilters": savedFilters,
+                    "streakDays":    parseInt(localStorage.getItem('vends_streak_days')    || '0'),
+                    "streakBest":    parseInt(localStorage.getItem('vends_streak_best')    || '0'),
+                    "streakLast":    localStorage.getItem('vends_streak_last')             || '',
+                    "streakHistory": JSON.parse(localStorage.getItem('vends_streak_history') || '[]'),
                 };
                 await sb.from('user_preferences').upsert(row, { onConflict: 'user_id' });
             } catch(e) { console.warn('Prefs sync:', e.message); }
@@ -10317,6 +10322,26 @@
                 if (data.eventTypeIcons && Object.keys(data.eventTypeIcons).length)  { eventTypeIcons = data.eventTypeIcons;  localStorage.setItem('vends_event_type_icons',  JSON.stringify(eventTypeIcons)); }
                 if (data.weeklyGoals && Object.keys(data.weeklyGoals).length)        { weeklyGoals = data.weeklyGoals; localStorage.setItem('vends_weekly_goals', JSON.stringify(weeklyGoals)); }
                 if (data.savedFilters?.length)      { savedFilters = data.savedFilters; localStorage.setItem('vends_saved_filters', JSON.stringify(savedFilters)); renderSavedFilters(); }
+                // Streak — restaura do dispositivo com maior streak
+                if (data.streakDays > 0) {
+                    const localDays = parseInt(localStorage.getItem('vends_streak_days') || '0');
+                    const localLast = localStorage.getItem('vends_streak_last') || '';
+                    const todayStr  = getSPTodayStr();
+                    // Usa o Supabase se tiver streak maior OU se o local não foi marcado hoje
+                    if (data.streakDays > localDays || (localLast !== todayStr && data.streakLast === todayStr)) {
+                        localStorage.setItem('vends_streak_days',    String(data.streakDays));
+                        localStorage.setItem('vends_streak_best',    String(data.streakBest || data.streakDays));
+                        localStorage.setItem('vends_streak_last',    data.streakLast || '');
+                        localStorage.setItem('vends_streak_history', JSON.stringify(data.streakHistory || []));
+                        // Atualiza UI
+                        const _sd = data.streakDays, _sb = data.streakBest || data.streakDays;
+                        const _sh = data.streakHistory || [];
+                        renderStreakUI(_sd, _sb, _sh, todayStr);
+                        const badge = document.getElementById('streakBadge');
+                        const countEl = document.getElementById('streakCount');
+                        if (badge && countEl && _sd >= 2) { countEl.textContent = _sd; badge.classList.remove('hidden'); badge.classList.add('flex'); }
+                    }
+                }
                 loadEventTypeLabels();
                 updateCategorySelects();
                 updateOriginSelects();
