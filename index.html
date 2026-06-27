@@ -3736,7 +3736,8 @@
             loadEventTypeLabels();
             loadWeeklyGoals();
             checkStreak();
-            // Streak sincroniza APÓS carregar da nuvem (evita sobrescrever com valor menor)
+            // Sincroniza streak 3s após init — dá tempo do loadPreferencesFromSupabase restaurar o valor correto
+            setTimeout(() => { if (currentUser) syncPreferencesToSupabase(); }, 3000);
             initPushNotifications();
             renderSavedFilters();
             applyDashCollapsed();
