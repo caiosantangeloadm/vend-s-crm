@@ -8791,6 +8791,8 @@
                 events.push(single);
 
                 saveEventsToStorage();
+                cloudSyncEvent(original); // atualiza excludedDates no Supabase
+                cloudSyncEvent(single);   // cria evento avulso no Supabase
                 renderCalendar();
                 showToast('Alteração salva apenas para esta data — as demais permanecem.');
                 if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
@@ -8806,6 +8808,7 @@
             if (idx !== -1) events[idx] = pendingEventEdit;
 
             saveEventsToStorage();
+            cloudSyncEvent(pendingEventEdit); // sincroniza série completa no Supabase
             renderCalendar();
             showToast('Compromisso atualizado para toda a série!');
             if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
