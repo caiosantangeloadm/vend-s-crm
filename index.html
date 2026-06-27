@@ -3736,7 +3736,7 @@
             loadEventTypeLabels();
             loadWeeklyGoals();
             checkStreak();
-            syncPreferencesToSupabase(); // sincroniza streak após checkStreak
+            // Streak sincroniza APÓS carregar da nuvem (evita sobrescrever com valor menor)
             initPushNotifications();
             renderSavedFilters();
             applyDashCollapsed();
@@ -3874,7 +3874,7 @@
         }
         // ─────────────────────────────────────────────────────────────────────
         function saveScheduleBlocksToStorage() { localStorage.setItem('sant_crm_schedule_blocks', JSON.stringify(scheduleBlocks)); syncPreferencesToSupabase(); }
-        function saveTagsToStorage() { localStorage.setItem('sant_crm_tags', JSON.stringify(tags)); }
+        function saveTagsToStorage() { localStorage.setItem('sant_crm_tags', JSON.stringify(tags)); syncPreferencesToSupabase(); }
         function saveNotesToStorage() { localStorage.setItem('sant_crm_notes', JSON.stringify(notes)); }
 
         // ── Sync Notas → Supabase ─────────────────────────────────────────────
@@ -10340,6 +10340,8 @@
                 loadEventTypeLabels();
                 updateCategorySelects();
                 updateOriginSelects();
+                // Sincroniza de volta para garantir consistência (streak já foi restaurado do cloud)
+                syncPreferencesToSupabase();
             } catch(e) { console.warn('Prefs load:', e.message); }
         }
         // ── Supabase Realtime ────────────────────────────────────────────────
