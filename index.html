@@ -656,10 +656,14 @@
                 </div>
 
                 <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 flex flex-col">
-                    <div class="flex justify-between items-center mb-6 shrink-0">
-                        <p class="text-xs font-bold text-white tracking-wide uppercase flex items-center gap-2"><i class="ph ph-calendar-dots text-sant-cyan text-lg"></i> Próximos 3 Dias</p>
+                    <div class="flex justify-between items-center mb-4 shrink-0">
+                        <p class="text-xs font-bold text-white tracking-wide uppercase flex items-center gap-2"><i class="ph ph-calendar-dots text-sant-cyan text-lg"></i> Próximas 2 Semanas</p>
+                        <div class="flex items-center gap-2">
+                            <span id="dashUpcomingCount" class="text-[10px] text-gray-600"></span>
+                            <button id="dashUpcomingToggle" onclick="toggleUpcomingWeeks()" class="text-[10px] text-gray-500 hover:text-sant-cyan transition-colors">Ver menos ▲</button>
+                        </div>
                     </div>
-                    <div id="dashUpcomingWeek" class="space-y-3"></div>
+                    <div id="dashUpcomingWeek" class="space-y-1"></div>
                 </div>
 
                 <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 flex flex-col">
@@ -5525,24 +5529,40 @@
             return `${yy}-${mm}-${dd}`;
         }
 
+        let _upcomingExpanded = true;
+        function toggleUpcomingWeeks() {
+            _upcomingExpanded = !_upcomingExpanded;
+            document.getElementById('dashUpcomingWeek').classList.toggle('hidden', !_upcomingExpanded);
+            document.getElementById('dashUpcomingToggle').textContent = _upcomingExpanded ? 'Ver menos ▲' : 'Ver mais ▼';
+        }
+
         function renderUpcomingWeek(todayStr) {
             const container = document.getElementById('dashUpcomingWeek');
+            const DAYS = 14;
+            const endStr = addDaysToDateStr(todayStr, DAYS);
             const tomorrowStr = addDaysToDateStr(todayStr, 1);
-            const endStr = addDaysToDateStr(todayStr, 3);
+            const weekdayFmt = new Intl.DateTimeFormat('pt-BR', { weekday: 'long' });
+            const monthFmt   = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' });
 
             const items = [];
 
+            // Eventos
             events.forEach(e => {
-                for (let i = 1; i <= 3; i++) {
+                for (let i = 1; i <= DAYS; i++) {
                     const dateStr = addDaysToDateStr(todayStr, i);
-                    if (isEventOnDate(e, dateStr)) {
-                        items.push({ type: 'event', date: dateStr, time: e.startTime || '', title: e.title, location: e.location, ref: e });
-                    }
+                    if (isEventOnDate(e, dateStr))
+                        items.push({ type: 'event', date: dateStr, time: e.startTime || '', title: e.title, location: e.location || '', ref: e });
                 }
             });
 
+            // Tarefas pendentes
             tasks.filter(t => !t.completed && t.date && t.date >= tomorrowStr && t.date <= endStr).forEach(t => {
-                items.push({ type: 'task', date: t.date, time: t.time || '', title: t.title, ref: t });
+                items.push({ type: 'task', date: t.date, time: t.time || '', title: t.title, priority: t.priority, ref: t });
+            });
+
+            // Follow-ups
+            contacts.filter(c => c.nextContact && c.nextContact >= tomorrowStr && c.nextContact <= endStr).forEach(c => {
+                items.push({ type: 'followup', date: c.nextContact, time: '', title: fullName(c), ref: c });
             });
 
             items.sort((a, b) => {
@@ -5550,42 +5570,68 @@
                 return (a.time || '23:59').localeCompare(b.time || '23:59');
             });
 
+            const countEl = document.getElementById('dashUpcomingCount');
+            if (countEl) countEl.textContent = items.length ? `${items.length} item${items.length > 1 ? 's' : ''}` : '';
+
             if (items.length === 0) {
-                container.innerHTML = emptyState('ph-calendar-dots', 'Semana livre', 'Nenhum compromisso ou tarefa nos próximos 7 dias.');
+                container.innerHTML = emptyState('ph-calendar-dots', '2 semanas livres', 'Nenhum compromisso, tarefa ou follow-up nas próximas 2 semanas.');
                 return;
             }
 
-            const weekdayFmt = new Intl.DateTimeFormat('pt-BR', { weekday: 'short' });
+            // Agrupa por dia
+            const byDay = {};
+            items.forEach(item => {
+                if (!byDay[item.date]) byDay[item.date] = [];
+                byDay[item.date].push(item);
+            });
 
-            container.innerHTML = items.map(item => {
-                const [y, m, d] = item.date.split('-').map(Number);
+            const prioColor = { urgent: '#ef4444', high: '#f97316', medium: '#eab308', low: '#22c55e' };
+
+            container.innerHTML = Object.keys(byDay).sort().map(dateStr => {
+                const [y, m, d] = dateStr.split('-').map(Number);
                 const dateObj = new Date(y, m - 1, d);
-                const dateLabel = `${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')} (${weekdayFmt.format(dateObj).replace('.', '')})`;
+                const dow  = weekdayFmt.format(dateObj);
+                const dStr = monthFmt.format(dateObj);
+                const isThisWeek = dateStr <= addDaysToDateStr(todayStr, 7);
 
-                if (item.type === 'event') {
-                    return `
-                    <div onclick="switchView('calendar'); switchToDayView('${item.date}')" class="flex items-center gap-3 p-3 bg-sant-cyan/5 border border-sant-cyan/10 rounded-lg cursor-pointer hover:border-sant-cyan/30 transition-colors">
-                        <div class="text-center shrink-0 w-14">
-                            <p class="text-xs font-bold text-sant-cyan">${dateLabel}</p>
-                            <p class="text-[10px] text-gray-500">${item.time || 'Dia todo'}</p>
-                        </div>
-                        <div class="flex-1 min-w-0 border-l border-sant-border pl-3">
-                            <p class="text-sm font-bold text-sant-cyan flex items-center gap-2 truncate"><i class="ph ph-calendar-blank text-sant-cyan"></i> ${item.title}</p>
-                            ${item.location ? `<p class="text-[11px] text-gray-400 mt-0.5 truncate">${item.location}</p>` : ''}
-                        </div>
-                    </div>`;
-                } else {
-                    return `
-                    <div onclick="switchView('tasks')" class="flex items-center gap-3 p-3 bg-amber-500/5 border border-amber-500/10 rounded-lg cursor-pointer hover:border-amber-500/30 transition-colors">
-                        <div class="text-center shrink-0 w-14">
-                            <p class="text-xs font-bold text-sant-cyan">${dateLabel}</p>
-                            <p class="text-[10px] text-gray-500">${item.time || 'Sem hora'}</p>
-                        </div>
-                        <div class="flex-1 min-w-0 border-l border-sant-border pl-3">
-                            <p class="text-sm font-bold text-[#fbbf24] flex items-center gap-2 truncate"><i class="ph ph-list-checks text-[#fbbf24]"></i> ${item.title}</p>
-                        </div>
-                    </div>`;
-                }
+                const dayHeader = `<div class="flex items-center gap-2 pt-2 pb-1">
+                    <span class="text-[11px] font-bold uppercase tracking-wide ${isThisWeek ? 'text-sant-cyan' : 'text-gray-500'}">${dow.charAt(0).toUpperCase() + dow.slice(1)}, ${dStr}</span>
+                    <div class="flex-1 h-px bg-[#1f1f1f]"></div>
+                </div>`;
+
+                const cards = byDay[dateStr].map(item => {
+                    if (item.type === 'event') {
+                        return `<div onclick="switchView('calendar'); switchToDayView('${dateStr}')" class="flex items-center gap-3 px-3 py-2 bg-sant-cyan/5 border border-sant-cyan/10 rounded-lg cursor-pointer hover:border-sant-cyan/30 transition-colors mb-1">
+                            <i class="ph ph-calendar-blank text-sant-cyan text-sm shrink-0"></i>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm text-sant-cyan font-medium truncate">${item.title}</p>
+                                ${item.location ? `<p class="text-[10px] text-gray-500 truncate">📍 ${item.location}</p>` : ''}
+                            </div>
+                            ${item.time ? `<span class="text-[10px] text-gray-500 shrink-0">${item.time}</span>` : ''}
+                        </div>`;
+                    } else if (item.type === 'task') {
+                        const pc = prioColor[item.priority] || '#94a3b8';
+                        return `<div onclick="switchView('tasks')" class="flex items-center gap-3 px-3 py-2 bg-amber-500/5 border border-amber-500/10 rounded-lg cursor-pointer hover:border-amber-500/30 transition-colors mb-1">
+                            <i class="ph ph-list-checks text-amber-400 text-sm shrink-0"></i>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm text-amber-400 font-medium truncate">${item.title}</p>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                ${item.time ? `<span class="text-[10px] text-gray-500">${item.time}</span>` : ''}
+                                <span class="w-2 h-2 rounded-full shrink-0" style="background:${pc}"></span>
+                            </div>
+                        </div>`;
+                    } else {
+                        return `<div onclick="openHistoryModal('${item.ref.id}')" class="flex items-center gap-3 px-3 py-2 bg-purple-500/5 border border-purple-500/10 rounded-lg cursor-pointer hover:border-purple-500/30 transition-colors mb-1">
+                            <i class="ph ph-phone text-purple-400 text-sm shrink-0"></i>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm text-purple-400 font-medium truncate">Follow-up: ${item.title}</p>
+                            </div>
+                        </div>`;
+                    }
+                }).join('');
+
+                return dayHeader + cards;
             }).join('');
         }
 
