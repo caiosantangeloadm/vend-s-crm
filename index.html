@@ -1336,6 +1336,15 @@
                                 <i class="ph ph-bell text-sant-cyan"></i>
                                 <input type="date" id="newNoteDueDate" onclick="event.stopPropagation()" class="bg-[#141414] border border-sant-border rounded-lg px-2 py-1 text-xs text-gray-300 outline-none focus:border-sant-cyan transition-colors">
                             </label>
+                            <label class="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer" title="Alerta por e-mail">
+                                <i class="ph ph-envelope text-sant-cyan"></i>
+                                <select id="newNoteEmailAlert" onclick="event.stopPropagation()" class="bg-[#141414] border border-sant-border rounded-lg px-2 py-1 text-xs text-gray-300 outline-none">
+                                    <option value="0">Sem e-mail</option>
+                                    <option value="same_day">No dia (8h)</option>
+                                    <option value="1_day">1 dia antes</option>
+                                    <option value="2_days">2 dias antes</option>
+                                </select>
+                            </label>
                         </div>
                         <div class="flex items-center gap-2">
                             <button onclick="event.stopPropagation(); collapseNewNote()" class="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Fechar</button>
@@ -3918,7 +3927,7 @@
                 title: n.title || '', body: n.body || '',
                 color: n.color || 'default', pinned: n.pinned || false,
                 archived: n.archived || false,
-                "contactId": n.contactId || '', "dueDate": n.dueDate || '',
+                "contactId": n.contactId || '', "dueDate": n.dueDate || '', "emailAlert": n.emailAlert || '0',
                 "kanbanColumn": n.kanbanColumn || 'inbox',
                 tags: n.tags || [],
                 "createdAt": n.createdAt || new Date().toISOString(),
@@ -5847,6 +5856,7 @@
             if (!title && !body) { collapseNewNote(); return; }
             const now = new Date().toISOString();
             const newNoteDueDate = document.getElementById('newNoteDueDate').value || '';
+            const newNoteEmailAlert = document.getElementById('newNoteEmailAlert').value || '0';
             const newId = crypto.randomUUID();
             notes.unshift({
                 id: newId,
@@ -5856,6 +5866,7 @@
                 contactId,
                 tags: [...newNoteTags],
                 dueDate: newNoteDueDate,
+                emailAlert: newNoteEmailAlert,
                 createdAt: now,
                 updatedAt: now
             });
@@ -5951,6 +5962,15 @@
                             <i class="ph ph-bell text-sant-cyan"></i>
                             <input type="date" id="editNoteDueDate-${id}" value="${n.dueDate || ''}" class="bg-[#141414] border border-sant-border rounded-lg px-2 py-1 text-xs text-gray-300 outline-none focus:border-sant-cyan transition-colors">
                         </label>
+                        <label class="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer" title="Alerta por e-mail">
+                            <i class="ph ph-envelope text-sant-cyan"></i>
+                            <select id="editNoteEmailAlert-${id}" class="bg-[#141414] border border-sant-border rounded-lg px-2 py-1 text-xs text-gray-300 outline-none">
+                                <option value="0" ${(n.emailAlert||'0')==='0'?'selected':''}>Sem e-mail</option>
+                                <option value="same_day" ${n.emailAlert==='same_day'?'selected':''}>No dia (8h)</option>
+                                <option value="1_day" ${n.emailAlert==='1_day'?'selected':''}>1 dia antes</option>
+                                <option value="2_days" ${n.emailAlert==='2_days'?'selected':''}>2 dias antes</option>
+                            </select>
+                        </label>
                     </div>
                     <div class="flex items-center gap-2">
                         <button onclick="renderNotes()" class="px-3 py-1.5 text-xs text-gray-400 hover:text-white transition-colors">Cancelar</button>
@@ -5969,6 +5989,7 @@
             n.contactId = document.getElementById('editNoteContact-'+id).value || null;
             n.tags = [...(editNoteTagsTemp[id] || [])];
             n.dueDate = document.getElementById('editNoteDueDate-'+id).value || '';
+            n.emailAlert = document.getElementById('editNoteEmailAlert-'+id)?.value || '0';
             delete editNoteTagsTemp[id];
             n.updatedAt = new Date().toISOString();
             saveNotesToStorage();
