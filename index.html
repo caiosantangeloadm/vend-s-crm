@@ -2034,16 +2034,14 @@
                 </div>
 
                 <div class="bg-[#141414] border border-sant-border rounded-md px-3 py-2">
-                    <div class="flex items-center gap-2 flex-wrap" id="eventParticipantsPills">
-                        <i class="ph ph-users text-gray-500 shrink-0"></i>
-                        <span class="text-gray-600 text-sm" id="eventParticipantsPlaceholder">Adicionar participantes (opcional)</span>
+                    <div class="flex items-center gap-1.5 mb-2">
+                        <i class="ph ph-users text-gray-500 text-sm shrink-0"></i>
+                        <span class="text-xs text-gray-500">Participantes</span>
                     </div>
-                    <div class="flex gap-2 mt-2">
-                        <select id="eventParticipantSelect" class="flex-1 bg-[#0a0a0a] border border-sant-border rounded-lg px-2 py-1.5 text-sm text-white outline-none">
-                            <option value="">Selecionar contato...</option>
-                        </select>
-                        <button type="button" onclick="addEventParticipant()" class="px-3 py-1.5 bg-sant-cyan/20 hover:bg-sant-cyan/30 text-sant-cyan rounded-lg text-sm transition-colors"><i class="ph ph-plus"></i></button>
-                    </div>
+                    <div class="flex flex-wrap gap-1.5 mb-2 min-h-0" id="eventParticipantsPills"></div>
+                    <select id="eventParticipantSelect" onchange="addEventParticipant()" class="w-full bg-[#0a0a0a] border border-sant-border rounded-lg px-2 py-1.5 text-sm text-gray-400 outline-none">
+                        <option value="">+ Adicionar participante...</option>
+                    </select>
                 </div>
 
                 <div class="flex items-center gap-3 bg-[#141414] border border-sant-border rounded-md px-3 py-2">
