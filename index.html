@@ -2539,7 +2539,10 @@
                     <div id="historyContactAvatar" class="shrink-0"></div>
                     <div>
                     <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-clock-clockwise text-sant-cyan"></i> Histórico de Interações</h3>
-                    <p id="historyContactName" class="text-xs text-gray-500 mt-0.5"></p>
+                    <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <p id="historyContactName" class="text-xs text-gray-500"></p>
+                        <span id="historyRelScore" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full border"></span>
+                    </div>
                     <a id="historyContactAddress" href="#" target="_blank" rel="noopener" class="hidden text-xs text-sant-cyan hover:underline mt-1 items-center gap-1"><i class="ph ph-map-pin"></i> <span></span></a>
                     <div id="historyCustomFields" class="flex flex-wrap gap-1.5 mt-1.5"></div>
                     <div id="contactStatsBar" class="hidden flex items-center gap-3 mt-2 flex-wrap"></div>
@@ -6642,6 +6645,61 @@
             return `https://wa.me/${num}`;
         }
 
+        function calcRelScore(c) {
+            const todayMs   = new Date().setHours(0, 0, 0, 0);
+            const todayStr  = getSPTodayStr();
+            const interactions = (c.interactions || []).filter(i => i.date).sort((a, b) => b.date.localeCompare(a.date));
+            let score = 0;
+
+            // ── RECÊNCIA (0-35) ────────────────────────────────────────────
+            if (interactions.length) {
+                const daysSince = Math.floor((todayMs - new Date(interactions[0].date).setHours(0,0,0,0)) / 86400000);
+                if      (daysSince <=  7) score += 35;
+                else if (daysSince <= 30) score += 25;
+                else if (daysSince <= 90) score += 10;
+            }
+
+            // ── FREQUÊNCIA últimos 90 dias (0-25) ─────────────────────────
+            const cutoff90 = new Date(todayMs - 90 * 86400000).toISOString().substring(0, 10);
+            const freq90   = interactions.filter(i => i.date >= cutoff90).length;
+            if      (freq90 >= 10) score += 25;
+            else if (freq90 >=  5) score += 18;
+            else if (freq90 >=  2) score += 10;
+            else if (freq90 >=  1) score +=  4;
+
+            // ── FOLLOW-UP (0-20) ──────────────────────────────────────────
+            if (c.nextContact) {
+                if (c.nextContact >= todayStr) score += 20;  // agendado e não vencido
+                else score -= 5;                              // vencido penaliza
+            }
+
+            // ── NOTAS RÁPIDAS (0-10) ──────────────────────────────────────
+            const cutoff30 = new Date(todayMs - 30 * 86400000).toISOString().substring(0, 10);
+            const qNotes   = (c.quickNotes || []);
+            const recentQN = qNotes.filter(n => n.createdAt && n.createdAt.substring(0,10) >= cutoff30).length;
+            if      (recentQN >= 2) score += 10;
+            else if (recentQN >= 1) score +=  7;
+            else if (qNotes.length) score +=  3;
+
+            // ── PERFIL COMPLETO (0-10) ────────────────────────────────────
+            const hasPhone    = !!(c.phoneProf || c.phonePess || c.phone);
+            const hasEmail    = !!(c.emailProf || c.emailPess || c.email);
+            const hasCategory = !!c.category;
+            score += (hasPhone ? 3 : 0) + (hasEmail ? 3 : 0) + (hasCategory ? 4 : 0);
+
+            score = Math.max(0, Math.min(100, score));
+
+            // ── LABEL + COR ───────────────────────────────────────────────
+            let label, color, emoji;
+            if      (score >= 80) { label = 'Excelente'; color = '#22c55e'; emoji = '🌟'; }
+            else if (score >= 60) { label = 'Forte';     color = '#5b8fa8'; emoji = '💙'; }
+            else if (score >= 40) { label = 'Moderado';  color = '#fbbf24'; emoji = '💛'; }
+            else if (score >= 20) { label = 'Fraco';     color = '#f97316'; emoji = '🔶'; }
+            else                  { label = 'Crítico';   color = '#ef4444'; emoji = '🔴'; }
+
+            return { score, label, color, emoji };
+        }
+
         function contactRelScore(c) {
             const todayMs = new Date().setHours(0, 0, 0, 0);
             const interactions = (c.interactions || []).filter(i => i.date);
@@ -6685,7 +6743,8 @@
                 ? [...c.interactions].sort((a,b) => (b.date||'').localeCompare(a.date||''))[0].date : null;
             const waUrl = contactWaUrl(c);
             const score = contactRelScore(c);
-            const scoreBadge = score ? `<span class="${score.cls} text-[9px] font-semibold shrink-0" title="${score.title}">${score.dot} ${score.label}</span>` : '';
+            const relScore = calcRelScore(c);
+            const scoreBadge = `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold border shrink-0" style="color:${relScore.color};border-color:${relScore.color}33;background:${relScore.color}11" title="Score de relacionamento: ${relScore.score}/100 — ${relScore.label}">${relScore.emoji} ${relScore.score}</span>`;
             const dealBadge = (c.isLead && c.dealValue > 0)
                 ? `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#fbbf24]/10 text-[#fbbf24] border border-[#fbbf24]/25" title="Valor potencial">R$ ${c.dealValue >= 1000 ? (c.dealValue/1000).toFixed(c.dealValue%1000===0?0:1)+'k' : c.dealValue.toLocaleString('pt-BR')}</span>`
                 : '';
@@ -12702,6 +12761,15 @@
             addRecentContact(contactId);
             document.getElementById('historyContactName').innerText = fullName(c);
             document.getElementById('historyContactAvatar').innerHTML = contactAvatarHtml(c, 'w-12 h-12');
+            const _rs = calcRelScore(c);
+            const _rsEl = document.getElementById('historyRelScore');
+            if (_rsEl) {
+                _rsEl.textContent = `${_rs.emoji} ${_rs.score}/100 · ${_rs.label}`;
+                _rsEl.style.color = _rs.color;
+                _rsEl.style.borderColor = _rs.color + '44';
+                _rsEl.style.background  = _rs.color + '11';
+                _rsEl.classList.remove('hidden');
+            }
             const addrLink = document.getElementById('historyContactAddress');
             const addrStr = buildAddressString(c);
             if (addrStr) {
