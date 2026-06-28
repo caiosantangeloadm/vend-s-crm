@@ -12117,11 +12117,30 @@
                     return;
                 }
 
+                // Separadores de grupo (só na ordenação por data e fora da coluna concluído)
+                const showGroups = currentTaskSort === 'date' && col.id !== 'done' && !taskFocusMode;
+                let lastGroup = -1;
+                const groupLabels = ['⚠ Atrasadas', '☆ Hoje', '📅 Próximos dias', '— Sem data'];
+                const groupColors = ['text-red-400', 'text-amber-400', 'text-gray-400', 'text-gray-600'];
+
                 cardsEl.innerHTML = colTasks.map(t => {
                     const isOverdue = t.date && t.date < todayStr && col.id !== 'done';
                     const dateStr   = t.date ? t.date.split('-').reverse().join('/') : '';
                     const timeStr   = t.time || '';
                     const dateFmt   = dateStr && timeStr ? `${dateStr} ${timeStr}` : (dateStr || timeStr);
+
+                    // Separador de grupo
+                    let groupSep = '';
+                    if (showGroups) {
+                        const g = !t.date ? 3 : t.date < todayStr ? 0 : t.date === todayStr ? 1 : 2;
+                        if (g !== lastGroup) {
+                            lastGroup = g;
+                            groupSep = `<div class="flex items-center gap-2 px-1 pt-2 pb-1 pointer-events-none select-none">
+                                <span class="text-[10px] font-bold uppercase tracking-wider ${groupColors[g]}">${groupLabels[g]}</span>
+                                <div class="flex-1 h-px bg-[#1f1f1f]"></div>
+                            </div>`;
+                        }
+                    }
 
                     const cl     = t.checklist || [];
                     const clDone = cl.filter(i => i.done).length;
@@ -12143,7 +12162,7 @@
                     const prevCol = colIdx > 0 ? KANBAN_COLS[colIdx - 1] : null;
                     const nextCol = colIdx < KANBAN_COLS.length - 1 ? KANBAN_COLS[colIdx + 1] : null;
 
-                    return `
+                    return groupSep + `
                     <div draggable="true"
                          ondragstart="dragStart(event,'${t.id}')"
                          ondragend="dragEnd(event)"
