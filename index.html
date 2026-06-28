@@ -12048,8 +12048,10 @@
         }
 
         function getTaskKanbanCol(t) {
-            if (t.kanbanColumn) return t.kanbanColumn;
-            return t.completed ? 'done' : 'todo';
+            // completed sempre vai para 'done', independente do kanbanColumn
+            if (t.completed) return 'done';
+            if (t.kanbanColumn && t.kanbanColumn !== 'done') return t.kanbanColumn;
+            return 'todo';
         }
 
         function renderKanban(searchTerm = '') {
@@ -12233,7 +12235,10 @@
             if (!t) return;
             t.kanbanColumn = colId;
             t.completed    = colId === 'done';
+            if (t.completed && !t.completedAt) t.completedAt = new Date().toISOString();
+            if (!t.completed) t.completedAt = '';
             saveTasksToStorage();
+            cloudSyncTask(t);
             const search = document.getElementById('taskSearchInput') ? document.getElementById('taskSearchInput').value : '';
             renderKanban(search);
             updateTaskBadge();
