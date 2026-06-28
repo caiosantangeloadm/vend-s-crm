@@ -7798,23 +7798,43 @@
         function sendMsgCopy() {
             const text = document.getElementById('sendMsgBody').value;
             navigator.clipboard.writeText(text).then(() => showToast('Texto copiado!'));
+            _recordMsgInteraction('Mensagem', text);
         }
 
         function sendMsgWhatsapp() {
             const c = contacts.find(x => x.id === sendMsgContactId);
             const phone = (c.phoneProf || c.phonePess || c.phone || '').replace(/\D/g, '');
             if (!phone) { showToast('Este contato não tem telefone cadastrado.', 'error'); return; }
-            const text = encodeURIComponent(document.getElementById('sendMsgBody').value);
-            window.open(`https://wa.me/55${phone}?text=${text}`, '_blank');
+            const text = document.getElementById('sendMsgBody').value;
+            window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
+            _recordMsgInteraction('WhatsApp', text);
         }
 
         function sendMsgEmail() {
             const c = contacts.find(x => x.id === sendMsgContactId);
             const email = c.emailProf || c.emailPess || c.email || '';
             if (!email) { showToast('Este contato não tem e-mail cadastrado.', 'error'); return; }
-            const subject = encodeURIComponent(document.getElementById('sendMsgSubject').value);
-            const body = encodeURIComponent(document.getElementById('sendMsgBody').value);
-            window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+            const subject = document.getElementById('sendMsgSubject').value;
+            const body    = document.getElementById('sendMsgBody').value;
+            window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            _recordMsgInteraction('E-mail', subject ? `${subject}\n\n${body}` : body);
+        }
+
+        function _recordMsgInteraction(channel, bodyText) {
+            const c = contacts.find(x => x.id === sendMsgContactId);
+            if (!c) return;
+            const tpl = messageTemplates.find(x => x.id === document.getElementById('sendMsgTemplate').value);
+            const tplName = tpl ? tpl.title : 'Mensagem avulsa';
+            if (!c.interactions) c.interactions = [];
+            c.interactions.push({
+                id: crypto.randomUUID(),
+                type: channel,
+                date: getSPTodayStr(),
+                notes: `[${tplName}] ${bodyText.substring(0, 300)}${bodyText.length > 300 ? '…' : ''}`
+            });
+            saveToStorage();
+            cloudSyncContact(c);
+            showToast(`${channel} registrado no histórico de ${fullName(c)}`);
         }
 
         function toggleTplSubjectField() {
