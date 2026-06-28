@@ -6254,6 +6254,7 @@
             const acc = JSON.parse(localStorage.getItem(key) || '{}');
             acc[id] = (acc[id] || 0) + 1;
             localStorage.setItem(key, JSON.stringify(acc));
+            syncPreferencesToSupabase();
         }
 
         function addRecentContact(id) {
@@ -10393,6 +10394,7 @@
                     "streakBest":    parseInt(localStorage.getItem('vends_streak_best')    || '0'),
                     "streakLast":    localStorage.getItem('vends_streak_last')             || '',
                     "streakHistory": JSON.parse(localStorage.getItem('vends_streak_history') || '[]'),
+                    "contactAccesses": JSON.parse(localStorage.getItem('vends_contact_accesses') || '{}'),
                 };
                 await sb.from('user_preferences').upsert(row, { onConflict: 'user_id' });
             } catch(e) { console.warn('Prefs sync:', e.message); }
@@ -10413,6 +10415,13 @@
                 if (data.eventTypeIcons && Object.keys(data.eventTypeIcons).length)  { eventTypeIcons = data.eventTypeIcons;  localStorage.setItem('vends_event_type_icons',  JSON.stringify(eventTypeIcons)); }
                 if (data.weeklyGoals && Object.keys(data.weeklyGoals).length)        { weeklyGoals = data.weeklyGoals; localStorage.setItem('vends_weekly_goals', JSON.stringify(weeklyGoals)); }
                 if (data.savedFilters?.length)      { savedFilters = data.savedFilters; localStorage.setItem('vends_saved_filters', JSON.stringify(savedFilters)); renderSavedFilters(); }
+                if (data.contactAccesses && Object.keys(data.contactAccesses).length) {
+                    // Mescla local + cloud (soma acessos dos dois dispositivos)
+                    const local = JSON.parse(localStorage.getItem('vends_contact_accesses') || '{}');
+                    const merged = { ...data.contactAccesses };
+                    Object.entries(local).forEach(([id, cnt]) => { merged[id] = Math.max(merged[id] || 0, cnt); });
+                    localStorage.setItem('vends_contact_accesses', JSON.stringify(merged));
+                }
                 // Streak — restaura do dispositivo com maior streak
                 if (data.streakDays > 0) {
                     const localDays = parseInt(localStorage.getItem('vends_streak_days') || '0');
