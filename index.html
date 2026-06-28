@@ -2033,11 +2033,17 @@
                     <input type="text" id="eventLocation" placeholder="Adicionar local ou link da reunião" class="bg-transparent border-none outline-none w-full text-sm text-white">
                 </div>
 
-                <div class="flex items-center gap-3 bg-[#141414] border border-sant-border rounded-md px-3 py-2">
-                    <i class="ph ph-user-circle text-gray-500"></i>
-                    <select id="eventContactId" class="bg-transparent border-none outline-none w-full text-sm text-white appearance-none">
-                        <option value="">Vincular a um contato (opcional)</option>
-                    </select>
+                <div class="bg-[#141414] border border-sant-border rounded-md px-3 py-2">
+                    <div class="flex items-center gap-2 flex-wrap" id="eventParticipantsPills">
+                        <i class="ph ph-users text-gray-500 shrink-0"></i>
+                        <span class="text-gray-600 text-sm" id="eventParticipantsPlaceholder">Adicionar participantes (opcional)</span>
+                    </div>
+                    <div class="flex gap-2 mt-2">
+                        <select id="eventParticipantSelect" class="flex-1 bg-[#0a0a0a] border border-sant-border rounded-lg px-2 py-1.5 text-sm text-white outline-none">
+                            <option value="">Selecionar contato...</option>
+                        </select>
+                        <button type="button" onclick="addEventParticipant()" class="px-3 py-1.5 bg-sant-cyan/20 hover:bg-sant-cyan/30 text-sant-cyan rounded-lg text-sm transition-colors"><i class="ph ph-plus"></i></button>
+                    </div>
                 </div>
 
                 <div class="flex items-center gap-3 bg-[#141414] border border-sant-border rounded-md px-3 py-2">
@@ -3889,6 +3895,7 @@
                 "startDate": e.startDate || '', "startTime": e.startTime || '',
                 "endDate": e.endDate || '', "endTime": e.endTime || '',
                 location: e.location || '', "contactId": e.contactId || '',
+                participants: e.participants || [],
                 notification: e.notification || '0', "emailAlert": e.emailAlert || '0', "desc": e.desc || '',
                 recurrence: e.recurrence || 'none', "recurrenceInterval": e.recurrenceInterval || 1,
                 "recurrenceWeekdays": e.recurrenceWeekdays || [],
@@ -8237,6 +8244,7 @@
 
         // ── NÍVEL 4: Recorrência Avançada ──────────────────────────────────────
         let selectedWeekdays = [];
+        let currentEventParticipants = []; // array de contact IDs
         let eventEditDateContext = null; // data da ocorrência sendo editada (eventos recorrentes)
 
         function _diffDays(a, b) { return Math.round((b - a) / 86400000); }
@@ -8792,6 +8800,7 @@
                                 <div class="flex-1 min-w-0 border-l-2 pl-3" style="border-color:${m.dot}">
                                     <h4 class="font-bold text-sant-cyan text-sm flex items-center gap-2"><i class="ph ${m.icon} ${m.text}"></i> ${e.title}</h4>
                                     ${e.location ? `<p class="text-xs text-gray-400 mt-0.5 flex items-center gap-1"><i class="ph ph-map-pin"></i> ${e.location}</p>` : ''}
+                                    ${(e.participants && e.participants.length > 0) ? `<div class="flex flex-wrap gap-1 mt-1.5">${e.participants.map(pid => { const pc = contacts.find(x => x.id === pid); return pc ? `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-sant-cyan/10 border border-sant-cyan/20 text-sant-cyan text-[10px] cursor-pointer hover:bg-sant-cyan/20 transition-colors" onclick="event.stopPropagation();openHistoryModal('${pid}')"><i class="ph ph-user text-[9px]"></i> ${fullName(pc)}</span>` : ''; }).join('')}</div>` : ''}
                                 </div>
                             </div>`;
                         }
@@ -8962,6 +8971,49 @@
             return h * 60 + (m || 0);
         }
 
+        function renderEventParticipants() {
+            const pills = document.getElementById('eventParticipantsPills');
+            const placeholder = document.getElementById('eventParticipantsPlaceholder');
+            if (!pills) return;
+            // Remove pills existentes (mantém ícone e placeholder)
+            pills.querySelectorAll('.ep-pill').forEach(p => p.remove());
+            if (currentEventParticipants.length === 0) {
+                if (placeholder) placeholder.classList.remove('hidden');
+            } else {
+                if (placeholder) placeholder.classList.add('hidden');
+                currentEventParticipants.forEach(cid => {
+                    const c = contacts.find(x => x.id === cid);
+                    if (!c) return;
+                    const pill = document.createElement('span');
+                    pill.className = 'ep-pill inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sant-cyan/15 border border-sant-cyan/30 text-sant-cyan text-xs';
+                    pill.innerHTML = `${fullName(c)} <button type="button" onclick="removeEventParticipant('${cid}')" class="hover:text-white ml-0.5">×</button>`;
+                    pills.appendChild(pill);
+                });
+            }
+        }
+
+        function addEventParticipant() {
+            const sel = document.getElementById('eventParticipantSelect');
+            const cid = sel?.value;
+            if (!cid || currentEventParticipants.includes(cid)) { sel.value = ''; return; }
+            currentEventParticipants.push(cid);
+            sel.value = '';
+            renderEventParticipants();
+        }
+
+        function removeEventParticipant(cid) {
+            currentEventParticipants = currentEventParticipants.filter(x => x !== cid);
+            renderEventParticipants();
+        }
+
+        function fillEventParticipantSelect() {
+            const sel = document.getElementById('eventParticipantSelect');
+            if (!sel) return;
+            const sorted = [...contacts].sort((a, b) => fullName(a).localeCompare(fullName(b), 'pt-BR'));
+            sel.innerHTML = '<option value="">Selecionar contato...</option>' +
+                sorted.map(c => `<option value="${c.id}">${fullName(c)}${c.company ? ' — ' + c.company : ''}</option>`).join('');
+        }
+
         function saveEvent() {
             const id = document.getElementById('eventId').value;
             const title = document.getElementById('eventTitle').value;
@@ -8988,7 +9040,8 @@
                 recurrenceEndType: recEndTypeEl ? recEndTypeEl.value : 'never',
                 recurrenceEndDate: document.getElementById('recEndDate').value,
                 location: document.getElementById('eventLocation').value,
-                contactId: document.getElementById('eventContactId').value || '',
+                contactId: currentEventParticipants[0] || '',
+                participants: [...currentEventParticipants],
                 notification: document.getElementById('eventNotification').value,
                 emailAlert: document.getElementById('eventEmailAlert').value || '0',
                 desc: document.getElementById('eventDesc').value,
@@ -11681,7 +11734,10 @@
             document.getElementById('eventNotification').value = ev ? (ev.notification || '0') : '0';
             document.getElementById('eventEmailAlert').value = ev ? (ev.emailAlert || '0') : '0';
             document.getElementById('eventDesc').value = ev ? (ev.desc || '') : '';
-            populateContactSelect('eventContactId', ev ? (ev.contactId || '') : '');
+            // Participantes
+            currentEventParticipants = ev ? [...(ev.participants || (ev.contactId ? [ev.contactId] : []))] : [];
+            fillEventParticipantSelect();
+            renderEventParticipants();
 
             // ── Campos de recorrência avançada ──
             document.getElementById('recInterval').value = ev ? (ev.recurrenceInterval || 1) : 1;
