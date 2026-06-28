@@ -2126,6 +2126,16 @@
                     </div>
                 </div>
 
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5 flex items-center gap-1"><i class="ph ph-envelope text-sant-cyan"></i> Alerta por e-mail</label>
+                    <select id="taskEmailAlert" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                        <option value="0">Sem alerta por e-mail</option>
+                        <option value="same_day">No dia (às 8h da manhã)</option>
+                        <option value="1_day">1 dia antes (às 8h)</option>
+                        <option value="at_time">No horário da tarefa</option>
+                    </select>
+                </div>
+
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5 flex items-center gap-1"><i class="ph ph-hourglass text-sant-cyan"></i> Estimativa</label>
@@ -3848,7 +3858,7 @@
                 date: t.date || '', time: t.time || '',
                 priority: t.priority || 'medium', completed: t.completed || false,
                 "completedAt": t.completedAt || '', "kanbanColumn": t.kanbanColumn || 'todo',
-                notification: t.notification || '0', recurrence: t.recurrence || 'none',
+                notification: t.notification || '0', "emailAlert": t.emailAlert || '0', recurrence: t.recurrence || 'none',
                 "recurrenceInterval": t.recurrenceInterval || 1,
                 "estimatedMinutes": t.estimatedMinutes || 0,
                 "contactId": t.contactId || '', tags: t.tags || [], checklist: t.checklist || [],
@@ -9359,6 +9369,7 @@
                 time: document.getElementById('taskTime').value,
                 priority: document.getElementById('taskPriority').value,
                 notification: document.getElementById('taskNotification').value,
+                emailAlert: document.getElementById('taskEmailAlert').value || '0',
                 desc: document.getElementById('taskDesc').value,
                 contactId: document.getElementById('taskContactId').value || '',
                 dependsOnId: document.getElementById('taskDependsOn').value || '',
@@ -9405,6 +9416,7 @@
             document.getElementById('taskTime').value = t.time || '';
             document.getElementById('taskPriority').value = t.priority || 'medium';
             document.getElementById('taskNotification').value = t.notification || '0';
+            document.getElementById('taskEmailAlert').value = t.emailAlert || '0';
             document.getElementById('taskDesc').value = t.desc || '';
             document.getElementById('taskRecurrence').value = t.recurrence || 'none';
             document.getElementById('taskRecInterval').value = t.recurrenceInterval || 1;
