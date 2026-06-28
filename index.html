@@ -2038,6 +2038,17 @@
                     </select>
                 </div>
 
+                <div class="flex items-center gap-3 bg-[#141414] border border-sant-border rounded-md px-3 py-2">
+                    <i class="ph ph-envelope text-gray-500"></i>
+                    <select id="eventEmailAlert" class="bg-transparent border-none outline-none w-full text-sm text-white appearance-none">
+                        <option value="0">Sem alerta por e-mail</option>
+                        <option value="30">E-mail 30 minutos antes</option>
+                        <option value="60">E-mail 1 hora antes</option>
+                        <option value="120">E-mail 2 horas antes</option>
+                        <option value="1440">E-mail 1 dia antes</option>
+                    </select>
+                </div>
+
                 <div>
                     <textarea id="eventDesc" rows="2" placeholder="Adicionar descrição, pauta da reunião ou notas..." class="w-full bg-[#141414] border border-sant-border rounded-md px-3 py-2 text-sm text-white outline-none resize-none"></textarea>
                 </div>
@@ -8823,6 +8834,7 @@
                 location: document.getElementById('eventLocation').value,
                 contactId: document.getElementById('eventContactId').value || '',
                 notification: document.getElementById('eventNotification').value,
+                emailAlert: document.getElementById('eventEmailAlert').value || '0',
                 desc: document.getElementById('eventDesc').value,
                 notified: false
             };
@@ -11494,6 +11506,7 @@
             document.getElementById('eventRecurrence').value = ev ? (ev.recurrence || 'none') : 'none';
             document.getElementById('eventLocation').value = ev ? (ev.location || '') : '';
             document.getElementById('eventNotification').value = ev ? (ev.notification || '0') : '0';
+            document.getElementById('eventEmailAlert').value = ev ? (ev.emailAlert || '0') : '0';
             document.getElementById('eventDesc').value = ev ? (ev.desc || '') : '';
             populateContactSelect('eventContactId', ev ? (ev.contactId || '') : '');
 
