@@ -9120,20 +9120,35 @@
                 if (t.completed && t.recurrence && t.recurrence !== 'none' && t.date) {
                     const interval = Math.max(1, parseInt(t.recurrenceInterval) || 1);
                     let nextDate = t.date;
-                    if (t.recurrence === 'daily') nextDate = addDaysToDateStr(t.date, interval);
-                    else if (t.recurrence === 'weekly') nextDate = addDaysToDateStr(t.date, 7 * interval);
+                    if (t.recurrence === 'daily')   nextDate = addDaysToDateStr(t.date, interval);
+                    else if (t.recurrence === 'weekly')  nextDate = addDaysToDateStr(t.date, 7 * interval);
                     else if (t.recurrence === 'monthly') nextDate = addMonthsToDateStr(t.date, interval);
-                    else if (t.recurrence === 'yearly') nextDate = addMonthsToDateStr(t.date, 12 * interval);
+                    else if (t.recurrence === 'yearly')  nextDate = addMonthsToDateStr(t.date, 12 * interval);
 
-                    tasks.push({
-                        ...t,
-                        id: crypto.randomUUID(),
-                        date: nextDate,
-                        completed: false,
-                        kanbanColumn: 'todo',
-                        notified: false,
-                        checklist: (t.checklist || []).map(i => ({...i, done: false}))
-                    });
+                    const nextTask = {
+                        id:                 crypto.randomUUID(),
+                        title:              t.title,
+                        desc:               t.desc || '',
+                        date:               nextDate,
+                        time:               t.time || '',
+                        priority:           t.priority || 'medium',
+                        notification:       t.notification || '0',
+                        emailAlert:         t.emailAlert || '0',
+                        recurrence:         t.recurrence,
+                        recurrenceInterval: t.recurrenceInterval || 1,
+                        tags:               [...(t.tags || [])],
+                        estimatedMinutes:   t.estimatedMinutes || 0,
+                        contactId:          t.contactId || '',
+                        dependsOnId:        '',
+                        kanbanColumn:       'todo',
+                        completed:          false,
+                        completedAt:        null,
+                        notified:           false,
+                        createdAt:          new Date().toISOString(),
+                        checklist:          (t.checklist || []).map(i => ({...i, id: crypto.randomUUID(), done: false}))
+                    };
+                    tasks.push(nextTask);
+                    cloudSyncTask(nextTask);
                     showToast('Tarefa concluída! Próxima ocorrência criada para ' + nextDate.split('-').reverse().join('/') + '.');
                 }
 
