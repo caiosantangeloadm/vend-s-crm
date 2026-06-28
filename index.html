@@ -12072,22 +12072,39 @@
                 const colTasks = filtered
                     .filter(t => getTaskKanbanCol(t) === col.id)
                     .sort((a, b) => {
+                        // Coluna CONCLUÍDO: mais recentemente concluída primeiro
                         if (col.id === 'done') {
                             const compA = a.completedAt || (a.date ? a.date + 'T' + (a.time || '00:00') : '');
                             const compB = b.completedAt || (b.date ? b.date + 'T' + (b.time || '00:00') : '');
                             return compB.localeCompare(compA);
                         }
+                        // Ordenação por criação
+                        if (currentTaskSort === 'createdAt') {
+                            return (b.createdAt || '').localeCompare(a.createdAt || '');
+                        }
+                        // Ordenação por prioridade (prioridade > data > hora)
                         if (currentTaskSort === 'priority') {
                             const pa = priorityOrder[a.priority] ?? 4;
                             const pb = priorityOrder[b.priority] ?? 4;
                             if (pa !== pb) return pa - pb;
+                            const da = a.date || '9999-12-31';
+                            const db = b.date || '9999-12-31';
+                            if (da !== db) return da.localeCompare(db);
+                            return (a.time || '23:59').localeCompare(b.time || '23:59');
                         }
-                        if (currentTaskSort === 'createdAt') {
-                            return (b.createdAt || '').localeCompare(a.createdAt || '');
-                        }
-                        const dateA = a.date || '9999-12-31';
-                        const dateB = b.date || '9999-12-31';
-                        if (dateA !== dateB) return dateA.localeCompare(dateB);
+                        // Ordenação cronológica inteligente (padrão):
+                        // 1. Atrasadas primeiro, 2. Hoje, 3. Futuras, 4. Sem data
+                        // Dentro de cada grupo: por prioridade, depois por hora
+                        const da = a.date || '';
+                        const db = b.date || '';
+                        const groupA = !da ? 3 : da < todayStr ? 0 : da === todayStr ? 1 : 2;
+                        const groupB = !db ? 3 : db < todayStr ? 0 : db === todayStr ? 1 : 2;
+                        if (groupA !== groupB) return groupA - groupB;
+                        // Mesmo grupo: por data asc, depois prioridade, depois hora
+                        if (da !== db) return da.localeCompare(db);
+                        const pa = priorityOrder[a.priority] ?? 4;
+                        const pb = priorityOrder[b.priority] ?? 4;
+                        if (pa !== pb) return pa - pb;
                         return (a.time || '23:59').localeCompare(b.time || '23:59');
                     });
                 const countEl  = document.getElementById('kanban-count-' + col.id);
