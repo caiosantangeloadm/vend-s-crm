@@ -10196,8 +10196,13 @@
                 const cats = [...new Set(cs.map(c => c.category).filter(Boolean))].slice(0,3).map(c =>
                     `<span class="px-1.5 py-0.5 rounded text-[9px] bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20">${c}</span>`
                 ).join('');
+                const isNoCity  = key === '(sem cidade)' || key === '(sem UF)';
+                const filterKey = geoView === 'city' ? 'city' : 'state';
+                const onclick   = isNoCity
+                    ? `switchView('contacts'); clearAdvFilters(); renderContacts();`
+                    : `switchView('contacts'); clearAdvFilters(); activeFilters.${filterKey}='${key.replace(/'/g,"\\'")}'; applyAdvFilters();`;
                 return `<div class="bg-sant-surface border border-sant-border rounded-xl px-4 py-3 hover:border-sant-cyan/40 transition-colors cursor-pointer overflow-hidden"
-                    onclick="switchView('contacts'); clearAdvFilters(); activeFilters.${geoView === 'city' ? 'city' : 'state'}='${key.replace(/'/g,"\\'")}'; applyAdvFilters();">
+                    onclick="${onclick}">
                     <div class="flex items-center gap-3 mb-2">
                         <div class="w-8 text-center shrink-0">${medal}</div>
                         <div class="flex-1 min-w-0">
