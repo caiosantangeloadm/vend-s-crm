@@ -10097,6 +10097,14 @@
         let geoView = 'city';
         let geoChartInstance = null;
 
+        function toggleGeoList(id) {
+            const el = document.getElementById(id);
+            const icon = document.getElementById(id + '-icon');
+            if (!el) return;
+            const isHidden = el.classList.toggle('hidden');
+            if (icon) icon.className = `ph ${isHidden ? 'ph-caret-down' : 'ph-caret-up'} text-gray-500 text-xs`;
+        }
+
         function setGeoView(mode) {
             geoView = mode;
             document.getElementById('geoBtnCity') .classList.toggle('bg-sant-purple', mode === 'city');
@@ -10196,13 +10204,21 @@
                 const cats = [...new Set(cs.map(c => c.category).filter(Boolean))].slice(0,3).map(c =>
                     `<span class="px-1.5 py-0.5 rounded text-[9px] bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20">${c}</span>`
                 ).join('');
-                const isNoCity  = key === '(sem cidade)' || key === '(sem UF)';
+                const geoId = `geo-list-${i}`;
                 const filterKey = geoView === 'city' ? 'city' : 'state';
-                const onclick   = isNoCity
-                    ? `switchView('contacts'); clearAdvFilters(); renderContacts();`
-                    : `switchView('contacts'); clearAdvFilters(); activeFilters.${filterKey}='${key.replace(/'/g,"\\'")}'; applyAdvFilters();`;
-                return `<div class="bg-sant-surface border border-sant-border rounded-xl px-4 py-3 hover:border-sant-cyan/40 transition-colors cursor-pointer overflow-hidden"
-                    onclick="${onclick}">
+                const isSpecial = key === '(sem cidade)' || key === '(sem UF)';
+                const contactListHtml = cs.map(c => `
+                    <div onclick="event.stopPropagation();openHistoryModal('${c.id}')"
+                         class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/5 cursor-pointer transition-colors">
+                        ${contactAvatarHtml(c,'w-6 h-6')}
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-medium text-white truncate">${fullName(c)}</p>
+                            ${c.company ? `<p class="text-[10px] text-gray-500 truncate">${c.company}</p>` : ''}
+                        </div>
+                        ${c.phoneProf||c.phonePess ? `<span class="text-[10px] text-gray-600 shrink-0">${c.phoneProf||c.phonePess}</span>` : ''}
+                    </div>`).join('');
+                return `<div class="bg-sant-surface border border-sant-border rounded-xl px-4 py-3 hover:border-sant-cyan/40 transition-colors overflow-hidden"
+                    onclick="${isSpecial ? `toggleGeoList('${geoId}')` : `switchView('contacts');clearAdvFilters();activeFilters.${filterKey}='${key.replace(/'/g,"\\'")}';applyAdvFilters();`}">
                     <div class="flex items-center gap-3 mb-2">
                         <div class="w-8 text-center shrink-0">${medal}</div>
                         <div class="flex-1 min-w-0">
@@ -10211,14 +10227,16 @@
                                 ${cats}
                             </div>
                         </div>
-                        <div class="text-right shrink-0">
+                        <div class="flex items-center gap-2 shrink-0">
                             <span class="text-lg font-bold text-sant-cyan">${cs.length}</span>
-                            <span class="text-xs text-gray-500 ml-1">${pct}%</span>
+                            <span class="text-xs text-gray-500">${pct}%</span>
+                            ${isSpecial ? `<i class="ph ph-caret-down text-gray-500 text-xs" id="${geoId}-icon"></i>` : `<i class="ph ph-arrow-right text-gray-500 text-xs"></i>`}
                         </div>
                     </div>
-                    <div class="ml-11 mr-1 bg-[#1f1f1f] rounded-full h-1.5 overflow-hidden">
+                    <div class="ml-11 mr-1 bg-[#1f1f1f] rounded-full h-1.5 overflow-hidden mb-2">
                         <div class="h-1.5 rounded-full bg-sant-cyan/60 transition-all" style="width:${barW}%"></div>
                     </div>
+                    ${isSpecial ? `<div id="${geoId}" class="hidden border-t border-sant-border/40 pt-2 mt-1 space-y-0.5">${contactListHtml}</div>` : ''}
                 </div>`;
             }).join('');
         }
