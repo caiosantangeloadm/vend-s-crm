@@ -8729,7 +8729,7 @@
                     </div>`;
                     // All-day cell
                     let adHtml = '';
-                    bdays.forEach(c => { adHtml += `<div class="text-[9px] truncate bg-pink-500/10 text-pink-400 px-1 py-0.5 rounded mb-0.5 border border-pink-500/20 cursor-pointer" onclick="event.stopPropagation();openHistoryModal('${c.id}')">🎂 ${fullName(c)}</div>`; });
+                    bdays.forEach(c => { adHtml += `<div class="text-[9px] bg-pink-500/10 text-pink-400 px-1 py-0.5 rounded mb-0.5 border border-pink-500/20 cursor-pointer" style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:100%;" onclick="event.stopPropagation();openHistoryModal('${c.id}')" title="${fullName(c)}">🎂 ${fullName(c)}</div>`; });
                     dayEvs.filter(e => !e.startTime).forEach(e => {
                         const m2 = getEventTypeMeta(e);
                         adHtml += `<div class="text-[9px] truncate ${m2.bg} ${m2.text} px-1 py-0.5 rounded mb-0.5 border ${m2.border} cursor-pointer" onclick="event.stopPropagation();openEventModal(events.find(x=>x.id==='${e.id}'),'${dateStr}')">${e.title}</div>`;
@@ -8737,7 +8737,7 @@
                     if (dayTasksW.length > 0) {
                         adHtml += `<div class="text-[9px] truncate bg-amber-500/10 text-amber-400 px-1 py-0.5 rounded mb-0.5 border border-amber-500/20 cursor-pointer" onclick="event.stopPropagation();switchView('tasks')"><i class="ph ph-check-circle"></i> ${dayTasksW.length} tarefa${dayTasksW.length>1?'s':''}</div>`;
                     }
-                    allDayHtml += `<div class="border-r border-sant-border last:border-r-0 px-1 py-1 min-h-[28px] ${isToday?'bg-sant-cyan/5':''}">${adHtml}</div>`;
+                    allDayHtml += `<div class="border-r border-sant-border last:border-r-0 px-1 py-1 min-h-[28px] overflow-hidden ${isToday?'bg-sant-cyan/5':''}" style="min-width:0;">${adHtml}</div>`;
                 });
 
                 // Build the header grid (time gutter + 7 cols)
