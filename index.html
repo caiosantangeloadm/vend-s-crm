@@ -147,6 +147,25 @@
         .cal-event-chip.cal-dragging { opacity: 0.35; }
         .cal-day-cell.cal-drop-over { outline: 2px solid #5b8fa8; background: rgba(91,143,168,0.08); }
 
+        /* Time-grid week view */
+        .cal-week-grid { display:flex; overflow-y:auto; position:relative; }
+        .cal-time-col { width:48px; shrink:0; position:relative; user-select:none; }
+        .cal-time-label { position:absolute; right:6px; font-size:10px; color:#475569; transform:translateY(-50%); line-height:1; white-space:nowrap; }
+        .cal-week-cols { flex:1; display:grid; grid-template-columns:repeat(7,1fr); position:relative; border-left:1px solid #1f1f1f; }
+        .cal-week-day-col { position:relative; border-right:1px solid #1f1f1f; }
+        .cal-week-day-col:last-child { border-right:none; }
+        .cal-hour-line { position:absolute; left:0; right:0; border-top:1px solid rgba(31,31,31,0.8); pointer-events:none; }
+        .cal-hour-line.half { border-top-style:dashed; opacity:0.4; }
+        .cal-time-event { position:absolute; left:2px; right:2px; border-radius:5px; padding:2px 5px; font-size:10px; font-weight:600; overflow:hidden; cursor:pointer; transition:opacity 0.15s; border-left-width:3px; border-left-style:solid; min-height:18px; }
+        .cal-time-event:hover { opacity:0.85; filter:brightness(1.1); }
+        .cal-time-event.dragging { opacity:0.35; }
+        .cal-schedule-block { position:absolute; left:0; right:0; pointer-events:none;
+            background: repeating-linear-gradient(45deg, rgba(100,116,139,0.06), rgba(100,116,139,0.06) 4px, transparent 4px, transparent 10px);
+            border-left:3px solid rgba(100,116,139,0.35); }
+        .cal-now-line { position:absolute; left:0; right:0; height:2px; background:#ef4444; z-index:10; pointer-events:none; }
+        .cal-now-dot { position:absolute; left:-4px; top:-4px; width:10px; height:10px; border-radius:50%; background:#ef4444; }
+        .cal-drop-col { background:rgba(91,143,168,0.08) !important; outline:2px solid #5b8fa8; }
+
         /* Markdown nas Notas */
         .note-md-body strong { color: #fff; font-weight: 700; }
         .note-md-body em { font-style: italic; color: #d1d5db; }
@@ -8658,106 +8677,174 @@
                 monthYearLabel.innerText = titleText;
 
                 const headerRow = document.getElementById('calendarWeekHeader');
-                const daysGrid = document.getElementById('calendarWeekDays');
+                const daysGrid  = document.getElementById('calendarWeekDays');
                 headerRow.innerHTML = '';
-                daysGrid.innerHTML = '';
+                daysGrid.innerHTML  = '';
 
-                const weekDaysNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+                const weekDaysNames = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+                const HOUR_H   = 56;   // px per hour
+                const GRID_S   = 6;    // grid starts at 6:00
+                const GRID_E   = 23;   // grid ends at 23:00
+                const GRID_HRS = GRID_E - GRID_S;
+                const TOTAL_H  = GRID_HRS * HOUR_H;
 
-                for(let i=0; i<7; i++) {
+                const toY = (timeStr) => {
+                    if (!timeStr) return null;
+                    const [h, m] = timeStr.split(':').map(Number);
+                    return ((h - GRID_S) + m / 60) * HOUR_H;
+                };
+
+                // Now-line
+                const nowBr   = new Date();
+                const nowMin  = nowBr.getHours() * 60 + nowBr.getMinutes();
+                const nowY    = ((nowBr.getHours() - GRID_S) + nowBr.getMinutes() / 60) * HOUR_H;
+                const showNow = nowBr.getHours() >= GRID_S && nowBr.getHours() < GRID_E;
+
+                // Collect day data for all 7 columns
+                const colData = [];
+                for (let i = 0; i < 7; i++) {
                     const loopDate = new Date(startDate);
                     loopDate.setDate(startDate.getDate() + i);
-                    const d = loopDate.getDate();
-                    const m = loopDate.getMonth() + 1;
-                    const y = loopDate.getFullYear();
-                    
-                    const dateStr = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                    const d = loopDate.getDate(), mo = loopDate.getMonth() + 1, y = loopDate.getFullYear();
+                    const dateStr    = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
                     const monthDayStr = dateStr.substring(5);
-                    const isToday = dateStr === todayStr;
+                    const isToday    = dateStr === todayStr;
+                    const dayEvs     = events.filter(e => isEventOnDate(e, dateStr) && calEventPassesFilter(e));
+                    const bdays      = contacts.filter(c => c.birth && c.birth.endsWith(monthDayStr));
+                    const blks       = getBlocksForDate(dateStr);
+                    const dayTasksW  = tasks.filter(t => t.date === dateStr && !t.completed);
+                    colData.push({ dateStr, d, mo, isToday, dayEvs, bdays, blks, dayTasksW });
+                }
 
-                    headerRow.innerHTML += `
-                        <div class="py-3 text-center border-r border-sant-border last:border-r-0">
-                            <p class="text-[10px] font-bold text-gray-500 uppercase">${weekDaysNames[i]}</p>
-                            <p class="text-lg font-bold mt-1 ${isToday ? 'text-sant-cyan' : 'text-white'}">${d}</p>
-                        </div>`;
+                // Header row (day names + date numbers)
+                // Also all-day row (birthdays + no-time events + tasks chip)
+                let headerHtml  = '<div class="col-span-full" style="width:48px;border-right:1px solid #1f1f1f;"></div>';
+                let allDayHtml  = '<div style="width:48px;border-right:1px solid #1f1f1f;font-size:9px;color:#475569;text-align:right;padding-right:4px;padding-top:4px;">Dia todo</div>';
 
-                    let dayEvents = events.filter(e => isEventOnDate(e, dateStr) && calEventPassesFilter(e));
-                    const bdays = contacts.filter(c => c.birth && c.birth.endsWith(monthDayStr)).map(c => ({ id: 'bday-'+crypto.randomUUID(), title: `Aniv: ${fullName(c)}`, isBirthday: true, startTime: '' }));
-                    const blocksW = getBlocksForDate(dateStr);
-                    dayEvents = [...bdays, ...dayEvents, ...blocksW].sort((a,b) => {
-                        if (a.isBirthday && !b.isBirthday) return -1;
-                        if (!a.isBirthday && b.isBirthday) return 1;
-                        return (a.startTime || "23:59").localeCompare(b.startTime || "23:59");
-                    });
-
-                    const dayTasksW = tasks.filter(t => t.date === dateStr && !t.completed);
-                    const dayTasksDoneW = tasks.filter(t => t.date === dateStr && t.completed);
-
-                    // Detect conflicts in week view (timed events only)
-                    const timedWeekEvs = dayEvents.filter(e => !e.isBlock && !e.isBirthday && e.startTime);
-                    const weekConflictIds = new Set();
-                    timedWeekEvs.forEach((a, i) => {
-                        const aS = _calTimeToMin(a.startTime), aE = a.endTime ? _calTimeToMin(a.endTime) : aS + 60;
-                        timedWeekEvs.forEach((b, j) => {
-                            if (i === j) return;
-                            const bS = _calTimeToMin(b.startTime), bE = b.endTime ? _calTimeToMin(b.endTime) : bS + 60;
-                            if (aS < bE && aE > bS) { weekConflictIds.add(a.id); weekConflictIds.add(b.id); }
-                        });
-                    });
-
-                    let eventsHtml = '';
-                    dayEvents.forEach(e => {
-                        const m = getEventTypeMeta(e);
-                        if(e.isBlock) {
-                            eventsHtml += `<div class="text-[10px] truncate bg-gray-500/10 text-gray-400 p-1.5 rounded mb-1.5 border border-gray-500/20"><i class="ph ph-lock-simple mr-1"></i>${e.startTime || ''} ${e.title}</div>`;
-                        } else if(e.isBirthday) {
-                            eventsHtml += `<div onclick="event.stopPropagation(); switchToDayView('${dateStr}')" class="text-[10px] truncate ${m.bg} ${m.text} p-1.5 rounded mb-1.5 border ${m.border} cursor-pointer hover:opacity-80"><i class="ph ${m.icon}"></i> ${e.title}</div>`;
-                        } else {
-                            const hasConflict = weekConflictIds.has(e.id);
-                            const chipBorder = hasConflict ? 'border-orange-500/70' : m.border;
-                            const warnIcon = hasConflict ? '<i class="ph ph-warning text-orange-400 ml-1 shrink-0"></i>' : '';
-                            eventsHtml += `<div
-                                draggable="true"
-                                ondragstart="onCalEventDragStart(event,'${e.id}','${dateStr}')"
-                                ondragend="onCalDragEnd()"
-                                onclick="event.stopPropagation(); openEventModal(events.find(x=>x.id==='${e.id}'), '${dateStr}')"
-                                class="cal-event-chip text-[10px] truncate ${m.bg} text-sant-cyan p-1.5 rounded mb-1.5 border ${chipBorder} hover:opacity-90 flex items-center"><span class="font-bold mr-1">${e.startTime || ''}</span><span class="truncate">${e.title}</span>${warnIcon}</div>`;
-                        }
+                colData.forEach(({dateStr, d, mo, isToday, dayEvs, bdays, dayTasksW}) => {
+                    // Header cell
+                    headerHtml += `<div class="py-2 text-center border-r border-sant-border last:border-r-0 ${isToday ? 'bg-sant-cyan/5' : ''}">
+                        <p class="text-[10px] font-bold text-gray-500 uppercase">${weekDaysNames[colData.findIndex(c=>c.dateStr===dateStr)]}</p>
+                        <p class="text-base font-bold mt-0.5 ${isToday ? 'w-7 h-7 bg-sant-cyan text-sant-bg rounded-full flex items-center justify-center mx-auto' : 'text-white'}">${d}</p>
+                    </div>`;
+                    // All-day cell
+                    let adHtml = '';
+                    bdays.forEach(c => { adHtml += `<div class="text-[9px] truncate bg-pink-500/10 text-pink-400 px-1 py-0.5 rounded mb-0.5 border border-pink-500/20 cursor-pointer" onclick="event.stopPropagation();openHistoryModal('${c.id}')">🎂 ${fullName(c)}</div>`; });
+                    dayEvs.filter(e => !e.startTime).forEach(e => {
+                        const m2 = getEventTypeMeta(e);
+                        adHtml += `<div class="text-[9px] truncate ${m2.bg} ${m2.text} px-1 py-0.5 rounded mb-0.5 border ${m2.border} cursor-pointer" onclick="event.stopPropagation();openEventModal(events.find(x=>x.id==='${e.id}'),'${dateStr}')">${e.title}</div>`;
                     });
                     if (dayTasksW.length > 0) {
-                        eventsHtml += `<div onclick="event.stopPropagation(); switchView('tasks')" class="text-[10px] truncate bg-amber-500/10 text-amber-400 p-1.5 rounded mb-1.5 border border-amber-500/20 cursor-pointer hover:bg-amber-500/20"><i class="ph ph-check-circle mr-1"></i>${dayTasksW.length} tarefa${dayTasksW.length > 1 ? 's' : ''}</div>`;
+                        adHtml += `<div class="text-[9px] truncate bg-amber-500/10 text-amber-400 px-1 py-0.5 rounded mb-0.5 border border-amber-500/20 cursor-pointer" onclick="event.stopPropagation();switchView('tasks')"><i class="ph ph-check-circle"></i> ${dayTasksW.length} tarefa${dayTasksW.length>1?'s':''}</div>`;
                     }
+                    allDayHtml += `<div class="border-r border-sant-border last:border-r-0 px-1 py-1 min-h-[28px] ${isToday?'bg-sant-cyan/5':''}">${adHtml}</div>`;
+                });
 
-                    // Pontinhos indicadores
-                    const totalEvW = dayEvents.filter(e => !e.isBirthday && !e.isBlock).length;
-                    const totalBdW = dayEvents.filter(e => e.isBirthday).length;
-                    const totalTkW = dayTasksW.length + dayTasksDoneW.length;
-                    let dotsW = '';
-                    if (totalEvW > 0 || totalBdW > 0 || totalTkW > 0) {
-                        dotsW = `<div class="flex items-center gap-0.5 mt-1 flex-wrap">`;
-                        dayEvents.filter(e => !e.isBirthday && !e.isBlock).slice(0, 4).forEach(e => {
-                            const m = getEventTypeMeta(e);
-                            dotsW += `<span class="w-1.5 h-1.5 rounded-full" style="background:#00FFFF;opacity:0.8;" title="${m.label}"></span>`;
-                        });
-                        if (totalEvW > 4) dotsW += `<span class="text-[8px] text-sant-cyan opacity-70">+${totalEvW-4}</span>`;
-                        for (let di = 0; di < Math.min(totalBdW, 3); di++)
-                            dotsW += `<span class="w-1.5 h-1.5 rounded-full" style="background:#ec4899;opacity:0.7;"></span>`;
-                        for (let di = 0; di < Math.min(totalTkW, 4); di++)
-                            dotsW += `<span class="w-1.5 h-1.5 rounded-full" style="background:#fbbf24;opacity:0.7;"></span>`;
-                        if (totalTkW > 4) dotsW += `<span class="text-[8px] text-amber-400 opacity-70">+${totalTkW-4}</span>`;
-                        dotsW += `</div>`;
-                    }
+                // Build the header grid (time gutter + 7 cols)
+                headerRow.style.cssText = 'display:grid;grid-template-columns:48px repeat(7,1fr);';
+                headerRow.innerHTML = headerHtml;
 
-                    daysGrid.innerHTML += `
-                        <div class="cal-day-cell p-2 min-h-[300px] ${isToday ? 'bg-sant-cyan/5' : ''}"
-                            onclick="switchToDayView('${dateStr}')"
-                            ondragover="onCalDayDragOver(event, this)"
-                            ondragleave="onCalDayDragLeave(this)"
-                            ondrop="onCalDayDrop(event, '${dateStr}')">
-                            ${eventsHtml}
-                            ${dotsW}
-                        </div>`;
+                // All-day strip
+                const allDayStrip = `<div style="display:grid;grid-template-columns:48px repeat(7,1fr);border-bottom:1px solid #1f1f1f;">${allDayHtml}</div>`;
+
+                // Time grid
+                let timeColHtml = '';
+                for (let h = 0; h <= GRID_HRS; h++) {
+                    timeColHtml += `<div class="cal-time-label" style="top:${h * HOUR_H}px">${String(GRID_S + h).padStart(2,'0')}:00</div>`;
                 }
+
+                // Hour lines (behind events)
+                let hourLinesHtml = '';
+                for (let h = 0; h <= GRID_HRS; h++) {
+                    hourLinesHtml += `<div class="cal-hour-line" style="top:${h * HOUR_H}px"></div>`;
+                    if (h < GRID_HRS) hourLinesHtml += `<div class="cal-hour-line half" style="top:${h * HOUR_H + HOUR_H/2}px"></div>`;
+                }
+
+                // Day columns with event blocks
+                let dayColsHtml = '';
+                colData.forEach(({dateStr, isToday, dayEvs, blks}) => {
+                    let colHtml = '';
+
+                    // Schedule blocks (striped)
+                    blks.forEach(b => {
+                        const yTop = toY(b.startTime);
+                        const yBot = toY(b.endTime);
+                        if (yTop === null || yBot === null) return;
+                        const h2 = Math.max(16, yBot - yTop);
+                        colHtml += `<div class="cal-schedule-block" style="top:${yTop}px;height:${h2}px;" title="Bloqueio: ${b.title}">
+                            <span style="font-size:9px;color:#64748b;padding:2px 4px;display:block;overflow:hidden;white-space:nowrap;"><i class="ph ph-lock-simple"></i> ${b.title}</span>
+                        </div>`;
+                    });
+
+                    // Timed events
+                    const timedEvs = dayEvs.filter(e => e.startTime);
+                    // Conflict detection
+                    const conflictIds = new Set();
+                    timedEvs.forEach((a,ai) => {
+                        const aS = _calTimeToMin(a.startTime), aE = a.endTime ? _calTimeToMin(a.endTime) : aS+60;
+                        timedEvs.forEach((b,bi) => {
+                            if (ai===bi) return;
+                            const bS = _calTimeToMin(b.startTime), bE = b.endTime ? _calTimeToMin(b.endTime) : bS+60;
+                            if (aS < bE && aE > bS) { conflictIds.add(a.id); conflictIds.add(b.id); }
+                        });
+                    });
+
+                    timedEvs.forEach((e, ei) => {
+                        const m2 = getEventTypeMeta(e);
+                        const yTop = toY(e.startTime);
+                        if (yTop === null || yTop < 0) return;
+                        const startMin = _calTimeToMin(e.startTime);
+                        const endMin   = e.endTime ? _calTimeToMin(e.endTime) : startMin + 60;
+                        const durMin   = Math.max(30, endMin - startMin);
+                        const evH      = Math.max(20, (durMin / 60) * HOUR_H);
+                        const hasConflict = conflictIds.has(e.id);
+                        // Stack conflicting events side by side
+                        const conflictEvs = timedEvs.filter(x => conflictIds.has(x.id));
+                        const myIdx = conflictEvs.indexOf(e);
+                        const total = conflictEvs.length || 1;
+                        const leftPct  = hasConflict ? `${(myIdx / total) * 100}%` : '2px';
+                        const widthPct = hasConflict ? `calc(${(1/total)*100}% - 4px)` : 'calc(100% - 4px)';
+
+                        const dotColor = m2.dot || '#5b8fa8';
+                        const bgColor  = dotColor + '22';
+                        const bdColor  = dotColor + (hasConflict ? '' : '88');
+
+                        colHtml += `<div class="cal-time-event"
+                            draggable="true"
+                            ondragstart="onCalEventDragStart(event,'${e.id}','${dateStr}')"
+                            ondragend="onCalDragEnd()"
+                            onclick="event.stopPropagation();openEventModal(events.find(x=>x.id==='${e.id}'),'${dateStr}')"
+                            style="top:${yTop}px;height:${evH}px;left:${leftPct};width:${widthPct};background:${bgColor};border-left-color:${dotColor};color:${dotColor};"
+                            title="${e.title} (${e.startTime}${e.endTime?' - '+e.endTime:''})">
+                            <div style="font-size:10px;font-weight:700;line-height:1.2;overflow:hidden;">${e.startTime} ${e.title}</div>
+                            ${evH > 36 && e.location ? `<div style="font-size:9px;opacity:0.7;overflow:hidden;white-space:nowrap;">📍 ${e.location}</div>` : ''}
+                            ${hasConflict ? '<div style="position:absolute;top:2px;right:3px;font-size:9px;">⚠️</div>' : ''}
+                        </div>`;
+                    });
+
+                    // Now line (today only)
+                    if (isToday && showNow) {
+                        colHtml += `<div class="cal-now-line" style="top:${nowY}px"><div class="cal-now-dot"></div></div>`;
+                    }
+
+                    dayColsHtml += `<div class="cal-week-day-col ${isToday?'bg-sant-cyan/3':''}"
+                        onclick="switchToDayView('${dateStr}')"
+                        ondragover="event.preventDefault();this.classList.add('cal-drop-col')"
+                        ondragleave="this.classList.remove('cal-drop-col')"
+                        ondrop="this.classList.remove('cal-drop-col');onCalDayDrop(event,'${dateStr}')">
+                        ${colHtml}
+                    </div>`;
+                });
+
+                daysGrid.style.cssText = 'display:block;';
+                daysGrid.innerHTML = allDayStrip + `
+                <div class="cal-week-grid" style="max-height:calc(100vh - 340px);">
+                    <div class="cal-time-col" style="height:${TOTAL_H}px;">${timeColHtml}</div>
+                    <div class="cal-week-cols" style="height:${TOTAL_H}px;">
+                        ${hourLinesHtml}
+                        ${dayColsHtml}
+                    </div>
+                </div>`;
 
             } else if (calViewMode === 'list') {
                 const startDate = new Date(currentMonthDate);
