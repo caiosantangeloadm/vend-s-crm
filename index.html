@@ -8838,10 +8838,16 @@
 
                 daysGrid.style.cssText = 'display:block;';
                 daysGrid.innerHTML = allDayStrip + `
-                <div class="cal-week-grid" style="max-height:calc(100vh - 340px);">
-                    <div class="cal-time-col" style="height:${TOTAL_H}px;">${timeColHtml}</div>
-                    <div class="cal-week-cols" style="height:${TOTAL_H}px;">
+                <div style="display:flex;overflow-y:auto;max-height:calc(100vh - 340px);">
+                    <!-- Coluna de horários -->
+                    <div style="width:48px;flex-shrink:0;position:relative;height:${TOTAL_H}px;border-right:1px solid #1f1f1f;">
+                        ${timeColHtml}
+                    </div>
+                    <!-- 7 colunas de dias -->
+                    <div style="flex:1;display:grid;grid-template-columns:repeat(7,1fr);position:relative;height:${TOTAL_H}px;">
+                        <!-- Linhas de hora (globais) -->
                         ${hourLinesHtml}
+                        <!-- Colunas dos dias -->
                         ${dayColsHtml}
                     </div>
                 </div>`;
