@@ -8745,7 +8745,7 @@
                 headerRow.innerHTML = headerHtml;
 
                 // All-day strip
-                const allDayStrip = `<div style="display:grid;grid-template-columns:48px repeat(7,1fr);border-bottom:1px solid #1f1f1f;">${allDayHtml}</div>`;
+                const allDayStrip = `<div style="display:grid;grid-template-columns:48px repeat(7,minmax(0,1fr));border-bottom:1px solid #1f1f1f;overflow:hidden;">${allDayHtml}</div>`;
 
                 // Time grid
                 let timeColHtml = '';
