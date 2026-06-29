@@ -8719,33 +8719,36 @@
                 // Header row (day names + date numbers)
                 // Also all-day row (birthdays + no-time events + tasks chip)
                 let headerHtml  = '<div class="col-span-full" style="width:48px;border-right:1px solid #1f1f1f;"></div>';
-                let allDayHtml  = '<div style="width:48px;border-right:1px solid #1f1f1f;font-size:9px;color:#475569;text-align:right;padding-right:4px;padding-top:4px;">Dia todo</div>';
+                let allDayCells = '';
 
-                colData.forEach(({dateStr, d, mo, isToday, dayEvs, bdays, dayTasksW}) => {
+                colData.forEach(({dateStr, d, mo, isToday, dayEvs, bdays, dayTasksW}, idx) => {
                     // Header cell
                     headerHtml += `<div class="py-2 text-center border-r border-sant-border last:border-r-0 ${isToday ? 'bg-sant-cyan/5' : ''}">
-                        <p class="text-[10px] font-bold text-gray-500 uppercase">${weekDaysNames[colData.findIndex(c=>c.dateStr===dateStr)]}</p>
+                        <p class="text-[10px] font-bold text-gray-500 uppercase">${weekDaysNames[idx]}</p>
                         <p class="text-base font-bold mt-0.5 ${isToday ? 'w-7 h-7 bg-sant-cyan text-sant-bg rounded-full flex items-center justify-center mx-auto' : 'text-white'}">${d}</p>
                     </div>`;
-                    // All-day cell
+                    // All-day cell — each cell is a flex child with equal width
                     let adHtml = '';
-                    bdays.forEach(c => { adHtml += `<div style="font-size:9px;background:rgba(236,72,153,0.1);color:#f472b6;padding:1px 4px;border-radius:4px;margin-bottom:2px;border:1px solid rgba(236,72,153,0.2);cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;width:100%;box-sizing:border-box;" onclick="event.stopPropagation();openHistoryModal('${c.id}')" title="${fullName(c)}">🎂 ${fullName(c)}</div>`; });
+                    bdays.forEach(c => { adHtml += `<div style="font-size:9px;background:rgba(236,72,153,0.1);color:#f472b6;padding:1px 4px;border-radius:4px;margin-bottom:2px;border:1px solid rgba(236,72,153,0.2);cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" onclick="event.stopPropagation();openHistoryModal('${c.id}')" title="${fullName(c)}">🎂 ${fullName(c)}</div>`; });
                     dayEvs.filter(e => !e.startTime).forEach(e => {
                         const m2 = getEventTypeMeta(e);
-                        adHtml += `<div class="text-[9px] ${m2.bg} ${m2.text} px-1 py-0.5 rounded mb-0.5 border ${m2.border} cursor-pointer" style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis;width:100%;box-sizing:border-box;" onclick="event.stopPropagation();openEventModal(events.find(x=>x.id==='${e.id}'),'${dateStr}')">${e.title}</div>`;
+                        adHtml += `<div style="font-size:9px;background:${m2.dot+'22'};color:${m2.dot};padding:1px 4px;border-radius:4px;margin-bottom:2px;border:1px solid ${m2.dot+'44'};cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" onclick="event.stopPropagation();openEventModal(events.find(x=>x.id==='${e.id}'),'${dateStr}')">${e.title}</div>`;
                     });
                     if (dayTasksW.length > 0) {
-                        adHtml += `<div style="font-size:9px;background:rgba(245,158,11,0.1);color:#fbbf24;padding:1px 4px;border-radius:4px;margin-bottom:2px;border:1px solid rgba(245,158,11,0.2);cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;width:100%;box-sizing:border-box;" onclick="event.stopPropagation();switchView('tasks')">✓ ${dayTasksW.length} tarefa${dayTasksW.length>1?'s':''}</div>`;
+                        adHtml += `<div style="font-size:9px;background:rgba(245,158,11,0.1);color:#fbbf24;padding:1px 4px;border-radius:4px;margin-bottom:2px;border:1px solid rgba(245,158,11,0.2);cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" onclick="event.stopPropagation();switchView('tasks')">✓ ${dayTasksW.length} tarefa${dayTasksW.length>1?'s':''}</div>`;
                     }
-                    allDayHtml += `<div style="padding:4px;min-height:28px;overflow:hidden;box-sizing:border-box;min-width:0;border-right:1px solid #1f1f1f;${isToday?'background:rgba(34,211,238,0.05)':''}">${adHtml}</div>`;
+                    allDayCells += `<div style="flex:1;min-width:0;padding:4px;overflow:hidden;border-right:1px solid #1f1f1f;box-sizing:border-box;${isToday?'background:rgba(34,211,238,0.05)':''}">${adHtml}</div>`;
                 });
 
                 // Build the header grid (time gutter + 7 cols)
-                headerRow.style.cssText = 'display:grid;grid-template-columns:48px repeat(7,1fr);';
+                headerRow.style.cssText = 'display:grid;grid-template-columns:48px repeat(7,minmax(0,1fr));';
                 headerRow.innerHTML = headerHtml;
 
-                // All-day strip
-                const allDayStrip = `<div style="display:grid;grid-template-columns:48px repeat(7,minmax(0,1fr));border-bottom:1px solid #1f1f1f;overflow:hidden;">${allDayHtml}</div>`;
+                // All-day strip — same flex structure as the time grid below
+                const allDayStrip = `<div style="display:flex;border-bottom:1px solid #1f1f1f;">
+                    <div style="width:48px;flex-shrink:0;border-right:1px solid #1f1f1f;font-size:9px;color:#475569;text-align:right;padding:4px 4px 0 0;">Dia<br>todo</div>
+                    <div style="flex:1;display:flex;overflow:hidden;">${allDayCells}</div>
+                </div>`;
 
                 // Time grid
                 let timeColHtml = '';
