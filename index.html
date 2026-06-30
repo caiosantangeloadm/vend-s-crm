@@ -3008,8 +3008,9 @@
         function setTagColor(tag, color) {
             tagColors[tag] = color;
             saveTagColorsToStorage();
-            renderGlobalTagsList();
-            applyFilters();
+            if (document.getElementById('globalTagsList')) renderGlobalTagsList();
+            if (document.getElementById('s-tag-list')) renderSTags();
+            if (typeof applyFilters === 'function') applyFilters();
         }
         function saveTagColorsToStorage() { localStorage.setItem('sant_crm_tag_colors', JSON.stringify(tagColors)); syncPreferencesToSupabase(); }
         function tagPillHtml(tag, opts) {
@@ -11635,12 +11636,16 @@
             const el = document.getElementById('s-tag-list');
             if (!el) return;
             if (!tags.length) { el.innerHTML = '<p class="text-xs text-gray-600 italic w-full">Nenhuma etiqueta cadastrada.</p>'; return; }
-            el.innerHTML = tags.map(t =>
-                `<div class="flex items-center gap-1 bg-sant-purple/10 border border-sant-purple/20 rounded-full px-3 py-1">
-                    <span class="text-xs text-sant-purple font-medium">${t}</span>
-                    <button onclick="deleteSTag('${t.replace(/'/g,"\\'")}')}" class="text-sant-purple/50 hover:text-red-500 ml-1 transition-colors"><i class="ph ph-x text-[10px]"></i></button>
-                </div>`
-            ).join('');
+            el.innerHTML = tags.map(t => {
+                const color = getTagColor(t);
+                const safe = t.replace(/'/g,"\\'");
+                return `<div class="flex items-center gap-1.5 rounded-full pl-1 pr-3 py-1" style="background:${color}1f;border:1px solid ${color}55;">
+                    <input type="color" value="${color}" onchange="setTagColor('${safe}', this.value)" title="Cor da tag"
+                        class="w-5 h-5 rounded-full cursor-pointer border border-sant-border bg-transparent p-0">
+                    <span class="text-xs font-medium" style="color:${color};">${t}</span>
+                    <button onclick="deleteSTag('${safe}')" class="ml-1 transition-colors" style="color:${color}88;" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='${color}88'"><i class="ph ph-x text-[10px]"></i></button>
+                </div>`;
+            }).join('');
         }
         function addSettingsTag() {
             const inp = document.getElementById('s-tag-input');
