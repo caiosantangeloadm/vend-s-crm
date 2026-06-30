@@ -667,6 +667,14 @@
                     <div id="dashContactRanking" class="space-y-2"></div>
                 </div>
 
+                <div id="dashFunnelCard" class="hidden bg-sant-surface border border-sant-border rounded-2xl p-6 flex flex-col cursor-pointer hover:border-sant-cyan/50 transition-colors" onclick="switchView('reports'); switchReportTab('leads')">
+                    <div class="flex justify-between items-center mb-6 shrink-0">
+                        <p class="text-xs font-bold text-white tracking-wide uppercase flex items-center gap-2"><i class="ph ph-funnel text-sant-cyan text-lg"></i> Funil de Leads</p>
+                        <span id="dashFunnelTotal" class="text-[10px] text-gray-600"></span>
+                    </div>
+                    <div id="dashFunnelBars" class="space-y-3"></div>
+                </div>
+
                 <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 flex flex-col">
                     <div class="flex justify-between items-center mb-6 shrink-0">
                         <p class="text-xs font-bold text-white tracking-wide uppercase flex items-center gap-2"><i class="ph ph-heartbeat text-sant-cyan text-lg"></i> Saúde da Base</p>
@@ -4285,6 +4293,7 @@
             renderProductivityChart();
             renderInteractionDonut();
             renderLeadsEvolution();
+            renderLeadsFunnel();
             renderHealthDashboard();
             renderWeekStats(todayStr);
             renderContactRanking();
@@ -5431,6 +5440,43 @@
                     }
                 }
             });
+        }
+
+        function renderLeadsFunnel() {
+            const card = document.getElementById('dashFunnelCard');
+            const bars = document.getElementById('dashFunnelBars');
+            const totalEl = document.getElementById('dashFunnelTotal');
+            if (!card || !bars) return;
+
+            const leads = contacts.filter(c => c.isLead);
+            if (leads.length === 0) { card.classList.add('hidden'); return; }
+            card.classList.remove('hidden');
+
+            const counts = { quente: 0, morno: 0, frio: 0 };
+            leads.forEach(c => { const t = c.temperature || 'frio'; if (counts[t] !== undefined) counts[t]++; });
+
+            const stages = [
+                { key: 'quente', label: '🔥 Quente', color: '#f87171' },
+                { key: 'morno',  label: '☀️ Morno',  color: '#fbbf24' },
+                { key: 'frio',   label: '❄️ Frio',   color: '#60a5fa' }
+            ];
+            const max = Math.max(counts.quente, counts.morno, counts.frio, 1);
+
+            totalEl.textContent = `${leads.length} lead${leads.length !== 1 ? 's' : ''} ativo${leads.length !== 1 ? 's' : ''}`;
+            bars.innerHTML = stages.map(s => {
+                const n = counts[s.key];
+                const pct = Math.max(8, Math.round((n / max) * 100));
+                return `
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-xs font-medium text-gray-300">${s.label}</span>
+                        <span class="text-xs font-bold text-white">${n}</span>
+                    </div>
+                    <div class="w-full h-3 bg-[#141414] rounded-full overflow-hidden border border-sant-border">
+                        <div style="width:${pct}%;background:${s.color};height:100%;border-radius:9999px;transition:width 0.4s;"></div>
+                    </div>
+                </div>`;
+            }).join('');
         }
 
         let contactsGrowthChartInstance = null;
