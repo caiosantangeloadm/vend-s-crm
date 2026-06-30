@@ -2997,6 +2997,29 @@
         let events = [];
         let scheduleBlocks = [];
         let tags = [];
+        let tagColors = {};
+        const tagColorPalette = ['#22d3ee','#a855f7','#f87171','#fbbf24','#34d399','#60a5fa','#f472b6','#facc15','#4ade80','#fb923c'];
+        function getTagColor(tag) {
+            if (tagColors[tag]) return tagColors[tag];
+            let hash = 0;
+            for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+            return tagColorPalette[Math.abs(hash) % tagColorPalette.length];
+        }
+        function setTagColor(tag, color) {
+            tagColors[tag] = color;
+            saveTagColorsToStorage();
+            renderGlobalTagsList();
+            applyFilters();
+        }
+        function saveTagColorsToStorage() { localStorage.setItem('sant_crm_tag_colors', JSON.stringify(tagColors)); syncPreferencesToSupabase(); }
+        function tagPillHtml(tag, opts) {
+            opts = opts || {};
+            const color = getTagColor(tag);
+            const onclick = opts.onclick ? ` onclick="${opts.onclick}"` : '';
+            const cursor = opts.onclick ? 'cursor-pointer' : '';
+            const sizeCls = opts.small ? 'text-[9px] px-1.5 py-0.5' : 'text-[10px] px-2 py-0.5';
+            return `<span${onclick} class="${sizeCls} rounded font-medium ${cursor} transition-colors" style="background:${color}1f;color:${color};border:1px solid ${color}55;">${opts.icon?`<i class="ph ${opts.icon}"></i> `:''}${tag}</span>`;
+        }
         let notes = [];
         let newNoteColor = '';
         let newNoteTags = [];
@@ -3829,6 +3852,7 @@
             tasks = JSON.parse(localStorage.getItem('sant_crm_tasks') || '[]');
             events = JSON.parse(localStorage.getItem('sant_crm_events') || '[]');
             tags = JSON.parse(localStorage.getItem('sant_crm_tags') || '[]');
+            tagColors = JSON.parse(localStorage.getItem('sant_crm_tag_colors') || '{}');
             notes = JSON.parse(localStorage.getItem('sant_crm_notes') || '[]');
             notifications = JSON.parse(localStorage.getItem('vends_notifications') || '[]');
             scheduleBlocks = JSON.parse(localStorage.getItem('sant_crm_schedule_blocks') || '[]');
@@ -4074,6 +4098,7 @@
                     if (data.tasks) tasks = data.tasks;
                     if (data.events) events = data.events;
                     if (data.tags) tags = data.tags;
+                    if (data.tagColors) tagColors = data.tagColors;
                     if (data.notes) notes = data.notes;
                     if (data.notifications) notifications = data.notifications;
                     if (data.messageTemplates) messageTemplates = data.messageTemplates;
@@ -6843,7 +6868,7 @@
                 : '';
             if (mode === 'grid') {
                 const tagsHtml = (c.tags && c.tags.length > 0)
-                    ? `<div class="flex flex-wrap gap-1 mt-2">${c.tags.slice(0,4).map(t=>`<span class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20">${t}</span>`).join('')}${c.tags.length>4?`<span class="text-[9px] text-gray-500">+${c.tags.length-4}</span>`:''}</div>` : '';
+                    ? `<div class="flex flex-wrap gap-1 mt-2">${c.tags.slice(0,4).map(t=>tagPillHtml(t, {small:true})).join('')}${c.tags.length>4?`<span class="text-[9px] text-gray-500">+${c.tags.length-4}</span>`:''}</div>` : '';
                 return `
                 <div id="ccard-${c.id}" class="relative bg-sant-surface border ${selectedContactIds.has(c.id)?'border-sant-cyan bg-sant-cyan/5':c.pinned?'border-amber-400/40':'border-sant-border'} rounded-xl p-5 hover:border-sant-cyan/50 transition-all group flex flex-col h-full min-w-0"
                     onmouseenter="hoveredContactId='${c.id}'" onmouseleave="hoveredContactId=null">
@@ -6892,7 +6917,7 @@
             // list mode
             const compact = density === 'compact';
             const listTagsHtml = (c.tags && c.tags.length > 0)
-                ? c.tags.slice(0,3).map(t=>`<span class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20">${t}</span>`).join('') : '';
+                ? c.tags.slice(0,3).map(t=>tagPillHtml(t, {small:true})).join('') : '';
             if (compact) {
                 return `
                 <div id="ccard-${c.id}" class="bg-sant-surface border ${selectedContactIds.has(c.id)?'border-sant-cyan bg-sant-cyan/5':c.pinned?'border-amber-400/40':'border-sant-border'} rounded-lg px-3 py-1.5 hover:border-sant-cyan/50 transition-all group flex items-center gap-3 min-w-0"
@@ -11764,6 +11789,7 @@
                 tasks: JSON.parse(localStorage.getItem('sant_crm_tasks') || '[]'),
                 events: JSON.parse(localStorage.getItem('sant_crm_events') || '[]'),
                 tags: JSON.parse(localStorage.getItem('sant_crm_tags') || '[]'),
+                tagColors: JSON.parse(localStorage.getItem('sant_crm_tag_colors') || '{}'),
                 notes: JSON.parse(localStorage.getItem('sant_crm_notes') || '[]'),
                 notifications: JSON.parse(localStorage.getItem('vends_notifications') || '[]'),
                 messageTemplates: JSON.parse(localStorage.getItem('sant_crm_message_templates') || '[]'),
@@ -11849,6 +11875,7 @@
                         if (Array.isArray(data.tasks)) localStorage.setItem('sant_crm_tasks', JSON.stringify(data.tasks));
                         if (Array.isArray(data.events)) localStorage.setItem('sant_crm_events', JSON.stringify(data.events));
                         if (Array.isArray(data.tags)) localStorage.setItem('sant_crm_tags', JSON.stringify(data.tags));
+                        if (data.tagColors && typeof data.tagColors === 'object') localStorage.setItem('sant_crm_tag_colors', JSON.stringify(data.tagColors));
                         if (Array.isArray(data.notes)) localStorage.setItem('sant_crm_notes', JSON.stringify(data.notes));
                         if (Array.isArray(data.notifications)) localStorage.setItem('vends_notifications', JSON.stringify(data.notifications));
                         showToast('Backup importado! Recarregando...');
@@ -12285,8 +12312,7 @@
             else nsEl.classList.add('hidden');
 
             // Tags
-            document.getElementById('qlTags').innerHTML = (c.tags||[]).slice(0,5).map(t =>
-                `<span class="px-1.5 py-0.5 rounded text-[9px] bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20">${t}</span>`).join('');
+            document.getElementById('qlTags').innerHTML = (c.tags||[]).slice(0,5).map(t => tagPillHtml(t, {small:true})).join('');
 
             // Última interação
             const lastInt = c.interactions && c.interactions.length
@@ -12371,9 +12397,7 @@
             }
 
             // Tags
-            document.getElementById('bcTags').innerHTML = (c.tags||[]).slice(0,4).map(t =>
-                `<span class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20">${t}</span>`
-            ).join('');
+            document.getElementById('bcTags').innerHTML = (c.tags||[]).slice(0,4).map(t => tagPillHtml(t, {small:true})).join('');
 
             // QR Code (codifica vCard simplificado)
             const vcard = `BEGIN:VCARD\nVERSION:3.0\nFN:${fullName(c)}\nN:${c.lastName||''};${c.name||''};;;\n${c.company?'ORG:'+c.company+'\n':''}${c.job?'TITLE:'+c.job+'\n':''}${phone?'TEL;TYPE=CELL:'+phone+'\n':''}${email?'EMAIL:'+email+'\n':''}${c.site?'URL:'+c.site+'\n':''}END:VCARD`;
@@ -13034,11 +13058,14 @@
             }
             list.innerHTML = tags.map(t => {
                 const count = contacts.filter(c => c.tags && c.tags.includes(t)).length;
+                const color = getTagColor(t);
                 return `
                 <div class="flex justify-between items-center bg-[#141414] border border-sant-border rounded-lg p-2.5">
-                    <div>
-                        <span class="text-sm text-gray-300">${t}</span>
-                        <span class="text-[10px] text-gray-600 ml-2">${count} contato(s)</span>
+                    <div class="flex items-center gap-2">
+                        <input type="color" value="${color}" onchange="setTagColor('${t}', this.value)" title="Cor da tag"
+                            class="w-6 h-6 rounded cursor-pointer border border-sant-border bg-transparent p-0">
+                        ${tagPillHtml(t)}
+                        <span class="text-[10px] text-gray-600 ml-1">${count} contato(s)</span>
                     </div>
                     <button onclick="deleteGlobalTag('${t}')" class="text-gray-500 hover:text-red-500 transition-colors"><i class="ph ph-trash"></i></button>
                 </div>`;
