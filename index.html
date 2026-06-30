@@ -3651,6 +3651,10 @@
                         <p class="text-sm text-white font-medium truncate">${n.title}</p>
                         <p class="text-xs text-gray-500 mt-0.5 leading-relaxed">${n.body}</p>
                         <p class="text-[10px] text-gray-700 mt-1">${ago}${n.refId ? ' · <span class="text-sant-cyan/60">toque para abrir</span>' : ''}</p>
+                        ${n.type === 'birthday' && n.refId ? `<button onclick="event.stopPropagation(); markNotifRead('${n.id}'); openSendMessageModal('${n.refId}','tpl-aniversario')"
+                            class="mt-2 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/25 text-pink-400 text-[11px] font-semibold transition-colors">
+                            <i class="ph ph-confetti"></i> Enviar parabéns
+                        </button>` : ''}
                     </div>
                     ${n.refId ? `<i class="ph ph-arrow-right text-gray-700 group-hover/notif:text-sant-cyan transition-colors shrink-0 mt-1 mr-1 text-sm"></i>` : ''}
                     <button onclick="event.stopPropagation(); deleteNotif('${n.id}')"
@@ -7985,12 +7989,15 @@
             return ch === 'whatsapp' ? 'WhatsApp' : ch === 'email' ? 'E-mail' : 'WhatsApp + E-mail';
         }
 
-        function openSendMessageModal(contactId) {
+        function openSendMessageModal(contactId, preselectTemplateId) {
             const c = contacts.find(x => x.id === contactId);
             if (!c) return;
             sendMsgContactId = contactId;
             const select = document.getElementById('sendMsgTemplate');
             select.innerHTML = messageTemplates.map(t => `<option value="${t.id}">${t.title}</option>`).join('');
+            if (preselectTemplateId && messageTemplates.some(t => t.id === preselectTemplateId)) {
+                select.value = preselectTemplateId;
+            }
             document.getElementById('sendMessageModal').classList.remove('hidden');
             loadSendMsgTemplate();
         }
