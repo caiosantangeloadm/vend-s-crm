@@ -2563,23 +2563,6 @@
         </div>
     </div>
 
-    <!-- MODAL DE TAGS -->
-    <div id="tagsModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4">
-        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-sm overflow-hidden flex flex-col shadow-2xl">
-            <div class="flex justify-between items-center p-5 border-b border-sant-border">
-                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-tag text-sant-purple"></i> Gerenciar Tags</h3>
-                <button onclick="closeTagsModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
-            </div>
-            <div class="p-5 flex flex-col gap-4">
-                <div class="flex gap-2">
-                    <input type="text" id="newTagInput" placeholder="Nova tag..." class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-purple outline-none" onkeydown="if(event.key==='Enter')addGlobalTag()">
-                    <button onclick="addGlobalTag()" class="bg-sant-purple hover:bg-purple-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">Adicionar</button>
-                </div>
-                <div id="globalTagsList" class="flex flex-col gap-2 max-h-60 overflow-y-auto custom-scrollbar"></div>
-            </div>
-        </div>
-    </div>
-
     <!-- MODAL DE HISTÓRICO DE INTERAÇÕES -->
     <div id="historyModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4">
         <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-2xl max-h-[95vh] overflow-hidden flex flex-col shadow-2xl">
@@ -10912,6 +10895,7 @@
                     "streakLast":    localStorage.getItem('vends_streak_last')             || '',
                     "streakHistory": JSON.parse(localStorage.getItem('vends_streak_history') || '[]'),
                     "contactAccesses": JSON.parse(localStorage.getItem('vends_contact_accesses') || '{}'),
+                    "tagColors": tagColors,
                 };
                 await sb.from('user_preferences').upsert(row, { onConflict: 'user_id' });
             } catch(e) { console.warn('Prefs sync:', e.message); }
@@ -10926,6 +10910,7 @@
                 if (data.categories?.length)        { categories = data.categories; localStorage.setItem('sant_crm_categories', JSON.stringify(categories)); }
                 if (data.origins?.length)           { origins = data.origins; localStorage.setItem('sant_crm_origins', JSON.stringify(origins)); }
                 if (data.tags?.length)              { tags = data.tags; localStorage.setItem('sant_crm_tags', JSON.stringify(tags)); }
+                if (data.tagColors && Object.keys(data.tagColors).length) { tagColors = data.tagColors; localStorage.setItem('sant_crm_tag_colors', JSON.stringify(tagColors)); }
                 if (data.messageTemplates?.length)  { messageTemplates = data.messageTemplates; localStorage.setItem('sant_crm_message_templates', JSON.stringify(messageTemplates)); }
                 if (data.scheduleBlocks?.length)    { scheduleBlocks = data.scheduleBlocks; localStorage.setItem('sant_crm_schedule_blocks', JSON.stringify(scheduleBlocks)); }
                 if (data.eventTypeLabels && Object.keys(data.eventTypeLabels).length) { eventTypeLabels = data.eventTypeLabels; localStorage.setItem('vends_event_type_labels', JSON.stringify(eventTypeLabels)); }
@@ -13032,62 +13017,6 @@
                 </span>`).join('');
         }
 
-        // ── GERENCIADOR GLOBAL DE TAGS ────────────────────────────────────
-        function openTagsModal() {
-            document.getElementById('tagsModal').classList.remove('hidden');
-            renderGlobalTagsList();
-        }
-
-        function closeTagsModal() {
-            document.getElementById('tagsModal').classList.add('hidden');
-        }
-
-        function addGlobalTag() {
-            const input = document.getElementById('newTagInput');
-            const val = input.value.trim();
-            if (val && !tags.includes(val)) {
-                tags.push(val);
-                saveTagsToStorage();
-                updateCategorySelects();
-                renderGlobalTagsList();
-                input.value = '';
-                showToast('Tag adicionada!');
-            }
-        }
-
-        function renderGlobalTagsList() {
-            const list = document.getElementById('globalTagsList');
-            if (tags.length === 0) {
-                list.innerHTML = '<p class="text-sm text-gray-500 italic text-center py-4">Nenhuma tag criada.</p>';
-                return;
-            }
-            list.innerHTML = tags.map(t => {
-                const count = contacts.filter(c => c.tags && c.tags.includes(t)).length;
-                const color = getTagColor(t);
-                return `
-                <div class="flex justify-between items-center bg-[#141414] border border-sant-border rounded-lg p-2.5">
-                    <div class="flex items-center gap-2">
-                        <input type="color" value="${color}" onchange="setTagColor('${t}', this.value)" title="Cor da tag"
-                            class="w-6 h-6 rounded cursor-pointer border border-sant-border bg-transparent p-0">
-                        ${tagPillHtml(t)}
-                        <span class="text-[10px] text-gray-600 ml-1">${count} contato(s)</span>
-                    </div>
-                    <button onclick="deleteGlobalTag('${t}')" class="text-gray-500 hover:text-red-500 transition-colors"><i class="ph ph-trash"></i></button>
-                </div>`;
-            }).join('');
-        }
-
-        function deleteGlobalTag(tag) {
-            showConfirm(`Excluir tag "${tag}"?`, 'Será removida de todos os contatos.', () => {
-                tags = tags.filter(t => t !== tag);
-                contacts.forEach(c => { if (c.tags) c.tags = c.tags.filter(t => t !== tag); });
-                saveTagsToStorage();
-                saveToStorage();
-                updateCategorySelects();
-                renderGlobalTagsList();
-                showToast('Tag removida.');
-            });
-        }
 
         // ── HISTÓRICO DE INTERAÇÕES ────────────────────────────────────────
         function openHistoryModal(contactId) {
