@@ -362,8 +362,12 @@
             <i class="ph ph-arrows-in-simple"></i> Sair da apresentação
         </button>
 
+        <button id="scrollTopBtn" onclick="scrollMainToTop()" class="hidden fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-sant-cyan text-sant-bg shadow-2xl flex items-center justify-center hover:bg-cyan-400 transition-all hover:scale-110" title="Voltar ao topo">
+            <i class="ph ph-arrow-up text-xl font-bold"></i>
+        </button>
+
         <div id="mainContentArea" class="flex-1 overflow-y-auto p-8 pt-28 pb-24">
-            
+
             <div id="view-dashboard" class="hidden max-w-6xl mx-auto space-y-6">
 
                 <!-- Cabeçalho: só aparece na impressão -->
@@ -14162,7 +14166,20 @@
             showToast(isFocus ? 'Modo apresentação ativado (tecla F para sair)' : 'Modo apresentação desativado');
         }
 
+        function scrollMainToTop() {
+            const area = document.getElementById('mainContentArea');
+            if (area) area.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
         function setupEventListeners() {
+            const _mainArea = document.getElementById('mainContentArea');
+            const _scrollBtn = document.getElementById('scrollTopBtn');
+            if (_mainArea && _scrollBtn) {
+                _mainArea.addEventListener('scroll', () => {
+                    _scrollBtn.classList.toggle('hidden', _mainArea.scrollTop < 400);
+                });
+            }
+
             document.getElementById('searchInput').addEventListener('input', (e) => {
                 if(currentView === 'dashboard') return;
                 renderContacts(e.target.value);
