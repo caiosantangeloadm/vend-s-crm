@@ -18,6 +18,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
     
     <script>
@@ -1275,6 +1277,7 @@
                         <div class="flex items-center gap-2">
                             <button onclick="setGeoView('city')"  id="geoBtnCity"  class="px-4 py-2 rounded-lg text-sm font-medium bg-sant-purple text-white transition-colors">Por Cidade</button>
                             <button onclick="setGeoView('state')" id="geoBtnState" class="px-4 py-2 rounded-lg text-sm font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-white transition-colors">Por Estado (UF)</button>
+                            <button onclick="setGeoView('map')" id="geoBtnMap" class="px-4 py-2 rounded-lg text-sm font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-white transition-colors flex items-center gap-1.5"><i class="ph ph-map-trifold"></i> Mapa</button>
                         </div>
                         <button onclick="exportGeoCsv()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors shrink-0">
                             <i class="ph ph-file-csv"></i> Exportar CSV
@@ -1283,13 +1286,18 @@
                     <!-- Cards de sumário -->
                     <div id="geoSummary" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 shrink-0"></div>
                     <!-- Gráfico -->
-                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-5 mb-6 shrink-0 overflow-hidden" style="height:280px">
+                    <div id="geoChartWrap" class="bg-sant-surface border border-sant-border rounded-2xl p-5 mb-6 shrink-0 overflow-hidden" style="height:280px">
                         <div class="relative w-full h-full">
                             <canvas id="geoChart"></canvas>
                         </div>
                     </div>
                     <!-- Lista ranqueada -->
                     <div id="geoList" class="space-y-2 pb-10"></div>
+                    <!-- Mapa -->
+                    <div id="geoMapWrap" class="hidden flex-col gap-3">
+                        <p id="geoMapStatus" class="text-xs text-gray-500"></p>
+                        <div id="geoMapContainer" class="rounded-2xl overflow-hidden border border-sant-border" style="height:520px"></div>
+                    </div>
                 </div><!-- /report-geography -->
                 <!-- Relatório Mensal -->
                 <div id="report-monthly" class="report-content hidden flex flex-col">
@@ -10753,19 +10761,124 @@
 
         function setGeoView(mode) {
             geoView = mode;
-            document.getElementById('geoBtnCity') .classList.toggle('bg-sant-purple', mode === 'city');
-            document.getElementById('geoBtnCity') .classList.toggle('text-white',      mode === 'city');
-            document.getElementById('geoBtnCity') .classList.toggle('bg-sant-surface', mode !== 'city');
-            document.getElementById('geoBtnCity') .classList.toggle('border',          mode !== 'city');
-            document.getElementById('geoBtnCity') .classList.toggle('border-sant-border', mode !== 'city');
-            document.getElementById('geoBtnCity') .classList.toggle('text-gray-400',   mode !== 'city');
-            document.getElementById('geoBtnState').classList.toggle('bg-sant-purple', mode === 'state');
-            document.getElementById('geoBtnState').classList.toggle('text-white',      mode === 'state');
-            document.getElementById('geoBtnState').classList.toggle('bg-sant-surface', mode !== 'state');
-            document.getElementById('geoBtnState').classList.toggle('border',          mode !== 'state');
-            document.getElementById('geoBtnState').classList.toggle('border-sant-border', mode !== 'state');
-            document.getElementById('geoBtnState').classList.toggle('text-gray-400',   mode !== 'state');
-            generateGeographyReport();
+            ['geoBtnCity','geoBtnState','geoBtnMap'].forEach(id => {
+                const key = id === 'geoBtnCity' ? 'city' : id === 'geoBtnState' ? 'state' : 'map';
+                const btn = document.getElementById(id);
+                const active = mode === key;
+                btn.classList.toggle('bg-sant-purple', active);
+                btn.classList.toggle('text-white', active);
+                btn.classList.toggle('bg-sant-surface', !active);
+                btn.classList.toggle('border', !active);
+                btn.classList.toggle('border-sant-border', !active);
+                btn.classList.toggle('text-gray-400', !active);
+            });
+
+            const isMap = mode === 'map';
+            document.getElementById('geoSummary').classList.toggle('hidden', isMap);
+            document.getElementById('geoChartWrap').classList.toggle('hidden', isMap);
+            document.getElementById('geoList').classList.toggle('hidden', isMap);
+            const mapWrap = document.getElementById('geoMapWrap');
+            mapWrap.classList.toggle('hidden', !isMap);
+            mapWrap.classList.toggle('flex', isMap);
+
+            if (isMap) renderGeoMap();
+            else generateGeographyReport();
+        }
+
+        // ── Mapa de Contatos (Leaflet + geocodificação com cache) ────────────
+        let geoLeafletMap = null;
+        function getGeoCache() {
+            try { return JSON.parse(localStorage.getItem('vends_geo_cache') || '{}'); }
+            catch(e) { return {}; }
+        }
+        function saveGeoCache(cache) { localStorage.setItem('vends_geo_cache', JSON.stringify(cache)); }
+
+        async function renderGeoMap() {
+            const statusEl = document.getElementById('geoMapStatus');
+            const withAddr = contacts.filter(c => (c.addressCity || '').trim());
+            if (!withAddr.length) {
+                statusEl.textContent = '';
+                document.getElementById('geoMapContainer').innerHTML = `<div class="h-full flex flex-col items-center justify-center text-gray-600"><i class="ph ph-map-pin text-4xl mb-3"></i><p class="text-sm">Nenhum contato com cidade cadastrada.</p></div>`;
+                return;
+            }
+
+            // Agrupa contatos por "Cidade, UF"
+            const groups = {};
+            withAddr.forEach(c => {
+                const key = `${c.addressCity.trim()}, ${(c.addressState||'').trim().toUpperCase()}`.replace(/, $/, '');
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(c);
+            });
+            const locations = Object.keys(groups);
+
+            const cache = getGeoCache();
+            const toGeocode = locations.filter(loc => !cache[loc]);
+
+            // Inicializa o mapa (uma vez só)
+            const container = document.getElementById('geoMapContainer');
+            if (!geoLeafletMap) {
+                container.innerHTML = '';
+                geoLeafletMap = L.map(container).setView([-14.2, -51.9], 4);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap',
+                    maxZoom: 18
+                }).addTo(geoLeafletMap);
+                geoLeafletMap._markersLayer = L.layerGroup().addTo(geoLeafletMap);
+            } else {
+                geoLeafletMap._markersLayer.clearLayers();
+                setTimeout(() => geoLeafletMap.invalidateSize(), 50);
+            }
+
+            function plotMarkers() {
+                const bounds = [];
+                locations.forEach(loc => {
+                    const coord = cache[loc];
+                    if (!coord) return;
+                    const list = groups[loc];
+                    const radius = Math.min(10 + list.length * 2, 30);
+                    const marker = L.circleMarker([coord.lat, coord.lng], {
+                        radius, color: '#22d3ee', weight: 2, fillColor: '#22d3ee', fillOpacity: 0.35
+                    }).addTo(geoLeafletMap._markersLayer);
+                    const names = list.slice(0, 8).map(c =>
+                        `<div style="padding:2px 0;cursor:pointer;color:#7aafc8;" onclick="closeAllReportPopups();switchView('contacts');setTimeout(()=>openHistoryModal('${c.id}'),150)">${fullName(c)}</div>`
+                    ).join('');
+                    marker.bindPopup(`<div style="font-family:Inter,sans-serif;min-width:160px;">
+                        <b style="color:#fff;">${loc}</b> <span style="color:#94a3b8;">— ${list.length} contato${list.length!==1?'s':''}</span>
+                        <div style="margin-top:6px;max-height:140px;overflow-y:auto;">${names}</div>
+                        ${list.length > 8 ? `<div style="color:#64748b;font-size:11px;margin-top:4px;">+${list.length-8} mais</div>` : ''}
+                    </div>`);
+                    bounds.push([coord.lat, coord.lng]);
+                });
+                if (bounds.length) geoLeafletMap.fitBounds(bounds, { padding: [30,30], maxZoom: 12 });
+            }
+
+            plotMarkers();
+
+            if (toGeocode.length === 0) {
+                statusEl.textContent = `${locations.length} localidade${locations.length!==1?'s':''} no mapa — ${withAddr.length} contato${withAddr.length!==1?'s':''} com cidade cadastrada.`;
+                return;
+            }
+
+            // Geocodifica localidades novas, respeitando o limite de 1 requisição/segundo do Nominatim (OpenStreetMap)
+            statusEl.innerHTML = `<i class="ph ph-spinner animate-spin"></i> Localizando ${toGeocode.length} cidade${toGeocode.length!==1?'s':''} nova${toGeocode.length!==1?'s':''} no mapa (isso só acontece uma vez por cidade)...`;
+            for (let i = 0; i < toGeocode.length; i++) {
+                const loc = toGeocode[i];
+                try {
+                    const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(loc + ', Brasil')}`);
+                    const data = await resp.json();
+                    if (data && data[0]) {
+                        cache[loc] = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+                        saveGeoCache(cache);
+                        plotMarkers();
+                    }
+                } catch(e) { console.warn('Geocode falhou para', loc, e.message); }
+                statusEl.innerHTML = `<i class="ph ph-spinner animate-spin"></i> Localizando cidades no mapa... (${i+1}/${toGeocode.length})`;
+                if (i < toGeocode.length - 1) await new Promise(r => setTimeout(r, 1100));
+            }
+            statusEl.textContent = `${locations.length} localidade${locations.length!==1?'s':''} no mapa — ${withAddr.length} contato${withAddr.length!==1?'s':''} com cidade cadastrada.`;
+        }
+        function closeAllReportPopups() {
+            if (geoLeafletMap) geoLeafletMap.closePopup();
         }
 
         function generateGeographyReport() {
