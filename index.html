@@ -4052,6 +4052,23 @@
             localStorage.setItem(_offlineQueueKey(), JSON.stringify(q));
             updateOfflineQueueBadge();
         }
+        function dequeueOfflineSync(table, id) {
+            const q = getOfflineQueue().filter(item => !(item.table === table && item.id === id));
+            localStorage.setItem(_offlineQueueKey(), JSON.stringify(q));
+        }
+        // Padrão "otimista": marca o registro como pendente ANTES de tentar enviar,
+        // e só remove da fila se a chamada realmente confirmar sucesso. Isso garante que
+        // nenhuma alteração se perca mesmo que o usuário recarregue a página no meio do
+        // caminho, antes da chamada de rede (que pode ficar pendurada) terminar de falhar.
+        async function syncOrQueue(table, action, id, networkCall) {
+            queueOfflineSync(table, action, id);
+            try {
+                await withTimeout(networkCall(), 5000);
+                dequeueOfflineSync(table, id);
+            } catch(e) {
+                console.warn(`${table} sync (${action}) ficou pendente:`, e.message);
+            }
+        }
         function updateOfflineQueueBadge() {
             const n = getOfflineQueue().length;
             const banner = document.getElementById('offlineBannerText');
@@ -4069,13 +4086,13 @@
             for (const item of q) {
                 try {
                     if (item.action === 'delete') {
-                        await sb.from(item.table).delete().eq('id', item.id);
+                        await withTimeout(sb.from(item.table).delete().eq('id', item.id), 5000);
                     } else {
                         const arr = { contacts, tasks, events, notes }[item.table];
                         const record = arr?.find(x => x.id === item.id);
                         if (!record) continue; // registro não existe mais localmente, nada a sincronizar
                         const rowFn = { contacts: contactToRow, tasks: taskToRow, events: eventToRow, notes: noteToRow }[item.table];
-                        await sb.from(item.table).upsert(rowFn(record), { onConflict: 'id' });
+                        await withTimeout(sb.from(item.table).upsert(rowFn(record), { onConflict: 'id' }), 5000);
                     }
                 } catch(e) {
                     console.warn('Offline queue replay failed:', item, e.message);
@@ -4086,6 +4103,18 @@
             if (remaining.length === 0) showToast('Tudo sincronizado com a nuvem! ✓');
             else showToast(`${remaining.length} alteração(ões) ainda não sincronizada(s) — tentaremos novamente.`, 'error');
         }
+        // Impõe um tempo-limite curto às chamadas de rede ao Supabase. Sem isso, se o
+        // navegador achar que está online (ex: com VPN/Tailscale ativo) mas não houver
+        // internet de fato, a chamada pode ficar "pendurada" por muito tempo — se o usuário
+        // atualizar a página antes dela falhar de verdade, a requisição é cancelada e nunca
+        // cai na fila de sincronização offline, perdendo a alteração silenciosamente.
+        function withTimeout(promise, ms) {
+            return Promise.race([
+                promise,
+                new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+            ]);
+        }
+
         function setupOnlineOfflineHandlers() {
             const banner = document.getElementById('offlineBanner');
             function applyState() {
@@ -4121,27 +4150,19 @@
 
         async function cloudSyncTask(t) {
             const sb = getSB(); if (!sb || !currentUser) return;
-            if (!navigator.onLine) { queueOfflineSync('tasks', 'upsert', t.id); return; }
-            try { await sb.from('tasks').upsert(taskToRow(t), { onConflict: 'id' }); }
-            catch(e) { console.warn('Task sync:', e.message); queueOfflineSync('tasks', 'upsert', t.id); }
+            await syncOrQueue('tasks', 'upsert', t.id, () => sb.from('tasks').upsert(taskToRow(t), { onConflict: 'id' }));
         }
         async function cloudDeleteTask(id) {
             const sb = getSB(); if (!sb || !currentUser) return;
-            if (!navigator.onLine) { queueOfflineSync('tasks', 'delete', id); return; }
-            try { await sb.from('tasks').delete().eq('id', id); }
-            catch(e) { console.warn('Task delete:', e.message); queueOfflineSync('tasks', 'delete', id); }
+            await syncOrQueue('tasks', 'delete', id, () => sb.from('tasks').delete().eq('id', id));
         }
         async function cloudSyncEvent(e) {
             const sb = getSB(); if (!sb || !currentUser) return;
-            if (!navigator.onLine) { queueOfflineSync('events', 'upsert', e.id); return; }
-            try { await sb.from('events').upsert(eventToRow(e), { onConflict: 'id' }); }
-            catch(err) { console.warn('Event sync:', err.message); queueOfflineSync('events', 'upsert', e.id); }
+            await syncOrQueue('events', 'upsert', e.id, () => sb.from('events').upsert(eventToRow(e), { onConflict: 'id' }));
         }
         async function cloudDeleteEvent(id) {
             const sb = getSB(); if (!sb || !currentUser) return;
-            if (!navigator.onLine) { queueOfflineSync('events', 'delete', id); return; }
-            try { await sb.from('events').delete().eq('id', id); }
-            catch(e) { console.warn('Event delete:', e.message); queueOfflineSync('events', 'delete', id); }
+            await syncOrQueue('events', 'delete', id, () => sb.from('events').delete().eq('id', id));
         }
         // ─────────────────────────────────────────────────────────────────────
         function saveScheduleBlocksToStorage() { localStorage.setItem('sant_crm_schedule_blocks', JSON.stringify(scheduleBlocks)); syncPreferencesToSupabase(); }
@@ -4164,15 +4185,11 @@
         }
         async function cloudSyncNote(n) {
             const sb = getSB(); if (!sb || !currentUser) return;
-            if (!navigator.onLine) { queueOfflineSync('notes', 'upsert', n.id); return; }
-            try { await sb.from('notes').upsert(noteToRow(n), { onConflict: 'id' }); }
-            catch(e) { console.warn('Note sync:', e.message); queueOfflineSync('notes', 'upsert', n.id); }
+            await syncOrQueue('notes', 'upsert', n.id, () => sb.from('notes').upsert(noteToRow(n), { onConflict: 'id' }));
         }
         async function cloudDeleteNote(id) {
             const sb = getSB(); if (!sb || !currentUser) return;
-            if (!navigator.onLine) { queueOfflineSync('notes', 'delete', id); return; }
-            try { await sb.from('notes').delete().eq('id', id); }
-            catch(e) { console.warn('Note delete:', e.message); queueOfflineSync('notes', 'delete', id); }
+            await syncOrQueue('notes', 'delete', id, () => sb.from('notes').delete().eq('id', id));
         }
         async function migrateNotesToSupabase() {
             const sb = getSB();
@@ -11171,20 +11188,14 @@
         async function cloudSyncContact(c) {
             const sb = getSB();
             if (!sb) return;
-            if (!navigator.onLine) { queueOfflineSync('contacts', 'upsert', c.id); return; }
-            try {
-                await sb.from('contacts').upsert(contactToRow(c), { onConflict: 'id' });
-            } catch(e) { console.warn('Supabase sync:', e.message); queueOfflineSync('contacts', 'upsert', c.id); }
+            await syncOrQueue('contacts', 'upsert', c.id, () => sb.from('contacts').upsert(contactToRow(c), { onConflict: 'id' }));
         }
 
         // Deleta um contato do Supabase
         async function cloudDeleteContact(id) {
             const sb = getSB();
             if (!sb) return;
-            if (!navigator.onLine) { queueOfflineSync('contacts', 'delete', id); return; }
-            try {
-                await sb.from('contacts').delete().eq('id', id);
-            } catch(e) { console.warn('Supabase delete:', e.message); queueOfflineSync('contacts', 'delete', id); }
+            await syncOrQueue('contacts', 'delete', id, () => sb.from('contacts').delete().eq('id', id));
         }
         async function migrateTasksToSupabase() {
             const sb = getSB();
