@@ -6540,6 +6540,45 @@
             a.click();
             URL.revokeObjectURL(a.href);
         }
+        function exportNotePdf(id) {
+            const n = notes.find(x => x.id === id);
+            if (!n) return;
+            const win = window.open('', '_blank');
+            const linkedContact = n.contactId ? contacts.find(x => x.id === n.contactId) : null;
+            const created = new Date(n.createdAt).toLocaleString('pt-BR');
+            const updated = n.updatedAt && n.updatedAt !== n.createdAt ? new Date(n.updatedAt).toLocaleString('pt-BR') : null;
+            const metaChips = [
+                linkedContact ? `Contato: ${fullName(linkedContact)}` : '',
+                n.dueDate ? `Lembrete: ${n.dueDate.split('-').reverse().join('/')}` : '',
+                (n.tags||[]).length ? `Etiquetas: ${n.tags.join(', ')}` : '',
+            ].filter(Boolean);
+            win.document.write(`
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>${n.title || 'Nota'}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 32px; color: #111; max-width: 700px; margin: 0 auto; }
+                        h1 { font-size: 20px; margin: 0 0 4px; }
+                        p.meta { font-size: 11px; color: #666; margin: 0 0 20px; }
+                        .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+                        .chip { background: #f0f0f0; border-radius: 999px; padding: 4px 12px; font-size: 11px; color: #333; }
+                        .body { font-size: 14px; line-height: 1.6; white-space: pre-wrap; border-top: 1px solid #ddd; padding-top: 16px; }
+                        @media print { body { padding: 0; } }
+                    </style>
+                </head>
+                <body>
+                    <h1>${n.title || 'Nota sem título'}</h1>
+                    <p class="meta">Vend-s Inteligência CRM · Criada em ${created}${updated ? ` · Editada em ${updated}` : ''}</p>
+                    ${metaChips.length ? `<div class="chips">${metaChips.map(m => `<span class="chip">${m}</span>`).join('')}</div>` : ''}
+                    <div class="body">${(n.body || '').replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>
+                    <scr${''}ipt>window.onload = () => { window.print(); };</scr${''}ipt>
+                </body>
+                </html>
+            `);
+            win.document.close();
+        }
+
         function setNoteColor(id, color) {
             const n = notes.find(x => x.id === id);
             if (n) { n.color = color; n.updatedAt = new Date().toISOString(); saveNotesToStorage(); renderNotes(); }
@@ -6659,6 +6698,7 @@
                         <div class="flex items-center gap-0.5 mr-0.5">${colorDots}</div>
                         <button onclick="event.stopPropagation(); convertNoteToTask('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-0.5" title="Converter em tarefa"><i class="ph ph-check-square text-sm"></i></button>
                         <button onclick="event.stopPropagation(); exportNoteTxt('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-0.5" title="Exportar como .txt"><i class="ph ph-file-text text-sm"></i></button>
+                        <button onclick="event.stopPropagation(); exportNotePdf('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-0.5" title="Exportar como PDF"><i class="ph ph-file-pdf text-sm"></i></button>
                         <button onclick="startEditNote('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-0.5" title="Editar"><i class="ph ph-pencil-simple text-sm"></i></button>
                         <button onclick="deleteNote('${n.id}')" class="text-gray-400 hover:text-red-500 p-0.5" title="Excluir permanentemente"><i class="ph ph-trash text-sm"></i></button>
                     </div>
