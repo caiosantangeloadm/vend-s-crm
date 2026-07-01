@@ -321,8 +321,8 @@
                     <span class="text-base leading-none">🔥</span>
                     <span id="streakCount" class="text-sm font-black text-orange-400 leading-none"></span>
                 </button>
-                <!-- Botão atalhos de teclado -->
-                <button onclick="openShortcutsModal()" class="relative w-10 h-10 rounded-xl flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-sant-border" title="Atalhos de teclado (?)">
+                <!-- Botão Central de Ajuda -->
+                <button onclick="openShortcutsModal()" class="relative w-10 h-10 rounded-xl flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-sant-border" title="Central de Ajuda (?)">
                     <i class="ph ph-question text-xl"></i>
                 </button>
                 <!-- Botão sino -->
@@ -2574,43 +2574,89 @@
     </div>
 
     <div id="shortcutsModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4">
-        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-md shadow-2xl">
-            <div class="flex justify-between items-center p-5 border-b border-sant-border">
-                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-keyboard text-sant-cyan"></i> Atalhos de Teclado</h3>
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center p-5 border-b border-sant-border shrink-0">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-lifebuoy text-sant-cyan"></i> Central de Ajuda</h3>
                 <button onclick="closeShortcutsModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
             </div>
-            <div class="p-5 flex flex-col gap-3">
-                <div class="flex items-center justify-between">
-                    <span class="text-sm text-gray-300">Busca global <span class="block text-[10px] text-gray-600">(use "/" se Ctrl+K abrir a busca do navegador)</span></span>
-                    <span class="flex items-center gap-1"><kbd class="kbd-key">Ctrl</kbd><kbd class="kbd-key">K</kbd><span class="text-gray-600 mx-0.5">ou</span><kbd class="kbd-key">/</kbd></span>
+            <div class="flex border-b border-sant-border shrink-0 px-3 pt-2 gap-1">
+                <button onclick="switchHelpTab('faq')" id="helpTabFaq" class="px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 border-sant-cyan text-sant-cyan transition-colors">Perguntas Frequentes</button>
+                <button onclick="switchHelpTab('shortcuts')" id="helpTabShortcuts" class="px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 border-transparent text-gray-500 hover:text-white transition-colors">Atalhos de Teclado</button>
+            </div>
+            <div class="overflow-y-auto custom-scrollbar">
+                <!-- FAQ -->
+                <div id="helpPanelFaq" class="p-5 flex flex-col gap-2">
+                    <details class="group bg-[#0a0a0a] border border-sant-border rounded-lg" open>
+                        <summary class="cursor-pointer list-none px-4 py-3 flex items-center justify-between text-sm text-white font-medium"><span>Como faço backup dos meus dados?</span><i class="ph ph-caret-down text-gray-500 group-open:rotate-180 transition-transform"></i></summary>
+                        <p class="px-4 pb-3 text-xs text-gray-400 leading-relaxed">Vá em <b>Configurações → Backup</b> e clique em "Exportar tudo (.json)". Recomendado fazer isso periodicamente, mesmo com a sincronização automática ativa.</p>
+                    </details>
+                    <details class="group bg-[#0a0a0a] border border-sant-border rounded-lg">
+                        <summary class="cursor-pointer list-none px-4 py-3 flex items-center justify-between text-sm text-white font-medium"><span>Meus dados sincronizam entre computadores?</span><i class="ph ph-caret-down text-gray-500 group-open:rotate-180 transition-transform"></i></summary>
+                        <p class="px-4 pb-3 text-xs text-gray-400 leading-relaxed">Sim! Contatos, tarefas, agenda, notas e praticamente todas as suas preferências (metas, cores de tags, filtros) sincronizam automaticamente pela nuvem, desde que você esteja logado com a mesma conta em cada dispositivo.</p>
+                    </details>
+                    <details class="group bg-[#0a0a0a] border border-sant-border rounded-lg">
+                        <summary class="cursor-pointer list-none px-4 py-3 flex items-center justify-between text-sm text-white font-medium"><span>Posso usar o CRM sem internet?</span><i class="ph ph-caret-down text-gray-500 group-open:rotate-180 transition-transform"></i></summary>
+                        <p class="px-4 pb-3 text-xs text-gray-400 leading-relaxed">Sim. O app funciona normalmente offline — suas alterações ficam salvas no próprio dispositivo e são enviadas automaticamente para a nuvem assim que a conexão voltar. Uma faixa amarela avisa quando você está sem internet.</p>
+                    </details>
+                    <details class="group bg-[#0a0a0a] border border-sant-border rounded-lg">
+                        <summary class="cursor-pointer list-none px-4 py-3 flex items-center justify-between text-sm text-white font-medium"><span>Como anexo um arquivo (PDF, foto) a um contato?</span><i class="ph ph-caret-down text-gray-500 group-open:rotate-180 transition-transform"></i></summary>
+                        <p class="px-4 pb-3 text-xs text-gray-400 leading-relaxed">Abra o <b>Histórico</b> do contato → seção "Links & Anexos" → clique em "Anexar arquivo". Aceita PDF, imagens, Word e Excel, até 10MB por arquivo.</p>
+                    </details>
+                    <details class="group bg-[#0a0a0a] border border-sant-border rounded-lg">
+                        <summary class="cursor-pointer list-none px-4 py-3 flex items-center justify-between text-sm text-white font-medium"><span>Como mudo a cor de uma etiqueta (tag)?</span><i class="ph ph-caret-down text-gray-500 group-open:rotate-180 transition-transform"></i></summary>
+                        <p class="px-4 pb-3 text-xs text-gray-400 leading-relaxed"><b>Configurações → Tags</b> → clique no círculo colorido ao lado de cada etiqueta para escolher uma nova cor.</p>
+                    </details>
+                    <details class="group bg-[#0a0a0a] border border-sant-border rounded-lg">
+                        <summary class="cursor-pointer list-none px-4 py-3 flex items-center justify-between text-sm text-white font-medium"><span>Como recebo alertas por e-mail?</span><i class="ph ph-caret-down text-gray-500 group-open:rotate-180 transition-transform"></i></summary>
+                        <p class="px-4 pb-3 text-xs text-gray-400 leading-relaxed">Ao criar ou editar um Evento, Tarefa ou Nota, existe um campo "✉️ Alerta por e-mail" para escolher com quanto tempo de antecedência você quer ser avisado. Também existe um briefing diário e um resumo semanal automáticos.</p>
+                    </details>
+                    <details class="group bg-[#0a0a0a] border border-sant-border rounded-lg">
+                        <summary class="cursor-pointer list-none px-4 py-3 flex items-center justify-between text-sm text-white font-medium"><span>Como instalo o CRM como aplicativo no celular?</span><i class="ph ph-caret-down text-gray-500 group-open:rotate-180 transition-transform"></i></summary>
+                        <p class="px-4 pb-3 text-xs text-gray-400 leading-relaxed"><b>Android (Chrome):</b> menu ⋮ → "Adicionar à tela inicial". <b>iPhone (Safari):</b> botão de compartilhar → "Adicionar à Tela de Início". O app abre em tela cheia, como um aplicativo nativo.</p>
+                    </details>
+                    <details class="group bg-[#0a0a0a] border border-sant-border rounded-lg">
+                        <summary class="cursor-pointer list-none px-4 py-3 flex items-center justify-between text-sm text-white font-medium"><span>Como funciona o Score de Relacionamento?</span><i class="ph ph-caret-down text-gray-500 group-open:rotate-180 transition-transform"></i></summary>
+                        <p class="px-4 pb-3 text-xs text-gray-400 leading-relaxed">É calculado automaticamente com base na frequência de interações registradas, follow-ups cumpridos em dia e tempo desde o último contato. Aparece no histórico de cada contato e no card do contato na lista.</p>
+                    </details>
+                    <details class="group bg-[#0a0a0a] border border-sant-border rounded-lg">
+                        <summary class="cursor-pointer list-none px-4 py-3 flex items-center justify-between text-sm text-white font-medium"><span>Meus dados estão seguros?</span><i class="ph ph-caret-down text-gray-500 group-open:rotate-180 transition-transform"></i></summary>
+                        <p class="px-4 pb-3 text-xs text-gray-400 leading-relaxed">Sim. Os dados ficam hospedados no Supabase (banco de dados na nuvem) com autenticação por login e regras de acesso que restringem cada informação exclusivamente à sua própria conta.</p>
+                    </details>
                 </div>
-                <div class="flex items-center justify-between">
-                    <span class="text-sm text-gray-300">Novo item (na aba atual: Contato, Tarefa, Evento ou Nota)</span>
-                    <span class="flex gap-1"><kbd class="kbd-key">N</kbd></span>
-                </div>
-                <div class="flex items-center justify-between">
-                    <span class="text-sm text-gray-300">Fechar modal / busca</span>
-                    <span class="flex gap-1"><kbd class="kbd-key">Esc</kbd></span>
-                </div>
-                <div class="flex items-center justify-between">
-                    <span class="text-sm text-gray-300">Mostrar esta ajuda</span>
-                    <span class="flex gap-1"><kbd class="kbd-key">?</kbd></span>
-                </div>
-                <div class="flex items-center justify-between">
-                    <span class="text-sm text-gray-300">Modo apresentação/foco (oculta menu e cabeçalho)</span>
-                    <span class="flex gap-1"><kbd class="kbd-key">F</kbd></span>
-                </div>
-                <div class="flex items-center justify-between">
-                    <span class="text-sm text-gray-300">Registrar interação rápida no último contato aberto</span>
-                    <span class="flex gap-1"><kbd class="kbd-key">R</kbd></span>
-                </div>
-                <div class="flex items-center justify-between">
-                    <span class="text-sm text-gray-300">Abrir última nota criada ou editada</span>
-                    <span class="flex gap-1"><kbd class="kbd-key">Q</kbd></span>
-                </div>
-                <div class="flex items-center justify-between">
-                    <span class="text-sm text-gray-300">Revisão Semanal Guiada</span>
-                    <span class="flex gap-1"><kbd class="kbd-key">W</kbd></span>
+                <!-- Atalhos -->
+                <div id="helpPanelShortcuts" class="p-5 flex-col gap-3 hidden">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-300">Busca global <span class="block text-[10px] text-gray-600">(use "/" se Ctrl+K abrir a busca do navegador)</span></span>
+                        <span class="flex items-center gap-1"><kbd class="kbd-key">Ctrl</kbd><kbd class="kbd-key">K</kbd><span class="text-gray-600 mx-0.5">ou</span><kbd class="kbd-key">/</kbd></span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-300">Novo item (na aba atual: Contato, Tarefa, Evento ou Nota)</span>
+                        <span class="flex gap-1"><kbd class="kbd-key">N</kbd></span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-300">Fechar modal / busca</span>
+                        <span class="flex gap-1"><kbd class="kbd-key">Esc</kbd></span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-300">Mostrar esta ajuda</span>
+                        <span class="flex gap-1"><kbd class="kbd-key">?</kbd></span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-300">Modo apresentação/foco (oculta menu e cabeçalho)</span>
+                        <span class="flex gap-1"><kbd class="kbd-key">F</kbd></span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-300">Registrar interação rápida no último contato aberto</span>
+                        <span class="flex gap-1"><kbd class="kbd-key">R</kbd></span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-300">Abrir última nota criada ou editada</span>
+                        <span class="flex gap-1"><kbd class="kbd-key">Q</kbd></span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-300">Revisão Semanal Guiada</span>
+                        <span class="flex gap-1"><kbd class="kbd-key">W</kbd></span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -13007,8 +13053,22 @@
         }
         // ── fim Cartão de Visita ──────────────────────────────────────────────
 
-        function openShortcutsModal() { document.getElementById('shortcutsModal').classList.remove('hidden'); }
+        function openShortcutsModal() { document.getElementById('shortcutsModal').classList.remove('hidden'); switchHelpTab('faq'); }
         function closeShortcutsModal() { document.getElementById('shortcutsModal').classList.add('hidden'); }
+        function switchHelpTab(tab) {
+            const isFaq = tab === 'faq';
+            document.getElementById('helpPanelFaq').classList.toggle('hidden', !isFaq);
+            document.getElementById('helpPanelShortcuts').classList.toggle('hidden', isFaq);
+            document.getElementById('helpPanelShortcuts').classList.toggle('flex', !isFaq);
+            document.getElementById('helpTabFaq').classList.toggle('border-sant-cyan', isFaq);
+            document.getElementById('helpTabFaq').classList.toggle('text-sant-cyan', isFaq);
+            document.getElementById('helpTabFaq').classList.toggle('border-transparent', !isFaq);
+            document.getElementById('helpTabFaq').classList.toggle('text-gray-500', !isFaq);
+            document.getElementById('helpTabShortcuts').classList.toggle('border-sant-cyan', !isFaq);
+            document.getElementById('helpTabShortcuts').classList.toggle('text-sant-cyan', !isFaq);
+            document.getElementById('helpTabShortcuts').classList.toggle('border-transparent', isFaq);
+            document.getElementById('helpTabShortcuts').classList.toggle('text-gray-500', isFaq);
+        }
 
         function emptyState(icon, title, sub = '') {
             return `<div class="flex flex-col items-center justify-center text-center py-10 px-4 text-gray-500">
