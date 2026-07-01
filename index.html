@@ -10885,13 +10885,16 @@
                     const marker = L.circleMarker([coord.lat, coord.lng], {
                         radius, color: '#22d3ee', weight: 2, fillColor: '#22d3ee', fillOpacity: 0.35
                     }).addTo(geoLeafletMap._markersLayer);
-                    const names = list.slice(0, 8).map(c =>
+                    const MAX_POPUP_NAMES = 8;
+                    const names = list.slice(0, MAX_POPUP_NAMES).map(c =>
                         `<div style="padding:2px 0;cursor:pointer;color:#7aafc8;" onclick="closeAllReportPopups();switchView('contacts');setTimeout(()=>openHistoryModal('${c.id}'),150)">${fullName(c)}</div>`
                     ).join('');
-                    marker.bindPopup(`<div style="font-family:Inter,sans-serif;min-width:160px;">
+                    const cityEsc = list[0].addressCity.trim().replace(/'/g,"\\'");
+                    const stateEsc = (list[0].addressState||'').trim().replace(/'/g,"\\'");
+                    marker.bindPopup(`<div style="font-family:Inter,sans-serif;min-width:180px;">
                         <b style="color:#fff;">${loc}</b> <span style="color:#94a3b8;">— ${list.length} contato${list.length!==1?'s':''}</span>
                         <div style="margin-top:6px;max-height:140px;overflow-y:auto;">${names}</div>
-                        ${list.length > 8 ? `<div style="color:#64748b;font-size:11px;margin-top:4px;">+${list.length-8} mais</div>` : ''}
+                        ${list.length > MAX_POPUP_NAMES ? `<div style="color:#22d3ee;font-size:11px;margin-top:6px;cursor:pointer;font-weight:600;" onclick="viewCityContacts('${cityEsc}','${stateEsc}')">Ver todos os ${list.length} →</div>` : ''}
                     </div>`);
                     bounds.push([coord.lat, coord.lng]);
                 });
@@ -10925,6 +10928,21 @@
         }
         function closeAllReportPopups() {
             if (geoLeafletMap) geoLeafletMap.closePopup();
+        }
+        function viewCityContacts(city, state) {
+            switchView('contacts');
+            clearAdvFilters();
+            setTimeout(() => {
+                toggleAdvFilters();
+                activeFilters.city = city;
+                activeFilters.state = state || '';
+                const cityEl = document.getElementById('filterCity');
+                const stateEl = document.getElementById('filterState');
+                if (cityEl) cityEl.value = city;
+                if (stateEl && state) stateEl.value = state;
+                renderContacts(document.getElementById('searchInput')?.value || '');
+                updateSaveFilterBtn();
+            }, 150);
         }
 
         function generateGeographyReport() {
