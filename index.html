@@ -581,6 +581,32 @@
                     </div>
                 </div>
 
+                <!-- Card: Metas Maiores (Mês/Trimestre) -->
+                <div id="dashBigGoalsCard" data-dash-title="Metas Maiores" class="bg-sant-surface border border-sant-border rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                        <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase flex items-center gap-2"><i class="ph ph-trophy text-[#fbbf24]"></i> Metas Maiores</p>
+                        <div class="flex items-center gap-2">
+                            <div class="flex bg-[#141414] border border-sant-border rounded-lg overflow-hidden">
+                                <button id="bigGoalsTabMonth" onclick="toggleBigGoalsPeriod('month')" class="px-3 py-1.5 text-xs font-medium text-sant-cyan bg-sant-cyan/10 transition-colors">Mês</button>
+                                <button id="bigGoalsTabQuarter" onclick="toggleBigGoalsPeriod('quarter')" class="px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-white transition-colors">Trimestre</button>
+                            </div>
+                            <button onclick="toggleBigGoalsEdit()" id="dashBigGoalsEditBtn" class="text-xs text-gray-500 hover:text-sant-cyan transition-colors flex items-center gap-1"><i class="ph ph-pencil-simple"></i> Editar</button>
+                        </div>
+                    </div>
+                    <p id="bigGoalsPeriodLabel" class="text-[11px] text-gray-600 mb-4"></p>
+                    <div id="dashBigGoalsList" class="space-y-3"></div>
+                    <div id="dashBigGoalsEditPanel" class="hidden mt-5 pt-5 border-t border-sant-border">
+                        <p class="text-xs text-gray-500 mb-4">Defina a meta para o período selecionado (0 = desativado):</p>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div><label class="text-xs text-gray-400 mb-1 block">Tarefas concluídas</label><input type="number" id="bigGoalInputTasks" min="0" max="9999" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none"></div>
+                            <div><label class="text-xs text-gray-400 mb-1 block">Interações registradas</label><input type="number" id="bigGoalInputInteractions" min="0" max="9999" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none"></div>
+                            <div><label class="text-xs text-gray-400 mb-1 block">Follow-ups realizados</label><input type="number" id="bigGoalInputFollowups" min="0" max="9999" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none"></div>
+                            <div><label class="text-xs text-gray-400 mb-1 block">Novos contatos</label><input type="number" id="bigGoalInputNewContacts" min="0" max="9999" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none"></div>
+                        </div>
+                        <button onclick="saveBigGoals()" class="mt-4 bg-sant-cyan text-sant-bg px-5 py-2 rounded-lg text-sm font-bold hover:bg-cyan-400 transition-colors">Salvar meta</button>
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 lg:col-span-2">
                         <p class="text-xs font-bold text-white tracking-wide uppercase flex items-center gap-2 mb-6"><i class="ph ph-chart-pie-slice text-sant-cyan text-lg"></i> Distribuição por Categoria</p>
@@ -3849,6 +3875,7 @@
             migrateContactOrigins();
             loadEventTypeLabels();
             loadWeeklyGoals();
+            loadBigGoals();
             checkStreak();
             // Sincroniza streak 3s após init — dá tempo do loadPreferencesFromSupabase restaurar o valor correto
             setTimeout(() => { if (currentUser) syncPreferencesToSupabase(); }, 3000);
@@ -4057,6 +4084,8 @@
                 savedFilters: JSON.parse(localStorage.getItem('vends_saved_filters')||'[]'),
                 searchHistory: JSON.parse(localStorage.getItem('vends_search_history')||'[]'),
                 weeklyGoals: JSON.parse(localStorage.getItem('vends_weekly_goals')||'{}'),
+                monthlyGoals: JSON.parse(localStorage.getItem('vends_monthly_goals')||'{}'),
+                quarterlyGoals: JSON.parse(localStorage.getItem('vends_quarterly_goals')||'{}'),
             };
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -4101,6 +4130,8 @@
                     if (data.savedFilters)               { savedFilters = data.savedFilters; localStorage.setItem('vends_saved_filters', JSON.stringify(savedFilters)); renderSavedFilters(); }
                     if (data.searchHistory)              localStorage.setItem('vends_search_history', JSON.stringify(data.searchHistory));
                     if (data.weeklyGoals)                { weeklyGoals  = data.weeklyGoals;  localStorage.setItem('vends_weekly_goals',  JSON.stringify(weeklyGoals)); }
+                    if (data.monthlyGoals)               { monthlyGoals = data.monthlyGoals; localStorage.setItem('vends_monthly_goals', JSON.stringify(monthlyGoals)); }
+                    if (data.quarterlyGoals)             { quarterlyGoals = data.quarterlyGoals; localStorage.setItem('vends_quarterly_goals', JSON.stringify(quarterlyGoals)); }
                     saveToStorage(); saveCategoriesToStorage(); saveOriginsToStorage(); saveTasksToStorage(); saveEventsToStorage(); saveTagsToStorage(); saveNotesToStorage(); saveMessageTemplatesToStorage(); saveScheduleBlocksToStorage();
                     localStorage.setItem('vends_notifications', JSON.stringify(notifications));
                     init();
@@ -4461,6 +4492,7 @@
             { id: 'dashLeadsEvolutionCard', title: 'Evolução de Leads' },
             { id: 'dashStreakCard',          title: 'Streak de Uso' },
             { id: 'dashGoalsCard',          title: 'Metas da Semana' },
+            { id: 'dashBigGoalsCard',       title: 'Metas Maiores' },
         ];
 
         function toggleDashCustomize() {
@@ -4824,6 +4856,184 @@
             calcAndRenderWeeklyScore(metrics);
         }
 
+        // ── Metas Maiores (Mês / Trimestre) ─────────────────────────────────
+        let monthlyGoals = {};
+        let quarterlyGoals = {};
+        let bigGoalsPeriod = localStorage.getItem('vends_big_goals_period') || 'month';
+
+        function loadBigGoals() {
+            monthlyGoals   = JSON.parse(localStorage.getItem('vends_monthly_goals')   || '{"tasks":20,"interactions":40,"followups":10,"newContacts":8}');
+            quarterlyGoals = JSON.parse(localStorage.getItem('vends_quarterly_goals') || '{"tasks":60,"interactions":120,"followups":30,"newContacts":24}');
+        }
+
+        function toggleBigGoalsPeriod(period) {
+            bigGoalsPeriod = period;
+            localStorage.setItem('vends_big_goals_period', period);
+            document.getElementById('bigGoalsTabMonth').classList.toggle('text-sant-cyan', period === 'month');
+            document.getElementById('bigGoalsTabMonth').classList.toggle('bg-sant-cyan/10', period === 'month');
+            document.getElementById('bigGoalsTabMonth').classList.toggle('text-gray-400', period !== 'month');
+            document.getElementById('bigGoalsTabQuarter').classList.toggle('text-sant-cyan', period === 'quarter');
+            document.getElementById('bigGoalsTabQuarter').classList.toggle('bg-sant-cyan/10', period === 'quarter');
+            document.getElementById('bigGoalsTabQuarter').classList.toggle('text-gray-400', period !== 'quarter');
+            document.getElementById('dashBigGoalsEditPanel').classList.add('hidden');
+            document.getElementById('dashBigGoalsEditBtn').innerHTML = '<i class="ph ph-pencil-simple"></i> Editar';
+            renderBigGoals(getSPTodayStr());
+        }
+
+        function toggleBigGoalsEdit() {
+            const panel = document.getElementById('dashBigGoalsEditPanel');
+            const btn   = document.getElementById('dashBigGoalsEditBtn');
+            const hidden = panel.classList.toggle('hidden');
+            btn.innerHTML = hidden
+                ? '<i class="ph ph-pencil-simple"></i> Editar'
+                : '<i class="ph ph-x"></i> Cancelar';
+            if (!hidden) {
+                const g = bigGoalsPeriod === 'month' ? monthlyGoals : quarterlyGoals;
+                document.getElementById('bigGoalInputTasks').value        = g.tasks        || 0;
+                document.getElementById('bigGoalInputInteractions').value = g.interactions || 0;
+                document.getElementById('bigGoalInputFollowups').value    = g.followups    || 0;
+                document.getElementById('bigGoalInputNewContacts').value  = g.newContacts  || 0;
+            }
+        }
+
+        function saveBigGoals() {
+            const g = {
+                tasks:        parseInt(document.getElementById('bigGoalInputTasks').value)        || 0,
+                interactions: parseInt(document.getElementById('bigGoalInputInteractions').value) || 0,
+                followups:    parseInt(document.getElementById('bigGoalInputFollowups').value)    || 0,
+                newContacts:  parseInt(document.getElementById('bigGoalInputNewContacts').value)  || 0,
+            };
+            if (bigGoalsPeriod === 'month') {
+                monthlyGoals = g;
+                localStorage.setItem('vends_monthly_goals', JSON.stringify(monthlyGoals));
+            } else {
+                quarterlyGoals = g;
+                localStorage.setItem('vends_quarterly_goals', JSON.stringify(quarterlyGoals));
+            }
+            document.getElementById('dashBigGoalsEditPanel').classList.add('hidden');
+            document.getElementById('dashBigGoalsEditBtn').innerHTML = '<i class="ph ph-pencil-simple"></i> Editar';
+            renderBigGoals(getSPTodayStr());
+            showToast('Meta salva!');
+        }
+
+        function renderBigGoals(todayStr) {
+            const el = document.getElementById('dashBigGoalsList');
+            const labelEl = document.getElementById('bigGoalsPeriodLabel');
+            if (!el) return;
+
+            const tabMonth = document.getElementById('bigGoalsTabMonth');
+            const tabQuarter = document.getElementById('bigGoalsTabQuarter');
+            if (tabMonth && tabQuarter) {
+                tabMonth.classList.toggle('text-sant-cyan', bigGoalsPeriod === 'month');
+                tabMonth.classList.toggle('bg-sant-cyan/10', bigGoalsPeriod === 'month');
+                tabMonth.classList.toggle('text-gray-400', bigGoalsPeriod !== 'month');
+                tabQuarter.classList.toggle('text-sant-cyan', bigGoalsPeriod === 'quarter');
+                tabQuarter.classList.toggle('bg-sant-cyan/10', bigGoalsPeriod === 'quarter');
+                tabQuarter.classList.toggle('text-gray-400', bigGoalsPeriod !== 'quarter');
+            }
+
+            const [ty, tm, td] = todayStr.split('-').map(Number);
+            const toDateStr = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            const monthNamesPt = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+            let periodStart, prevStart, prevEnd, periodLabel, goals;
+            if (bigGoalsPeriod === 'month') {
+                periodStart = new Date(ty, tm-1, 1);
+                prevStart   = new Date(ty, tm-2, 1);
+                prevEnd     = new Date(ty, tm-1, 0);
+                periodLabel = `${monthNamesPt[tm-1]} de ${ty}`;
+                goals = monthlyGoals;
+            } else {
+                const q = Math.floor((tm-1) / 3); // 0-3
+                periodStart = new Date(ty, q*3, 1);
+                prevStart   = new Date(ty, q*3 - 3, 1);
+                prevEnd     = new Date(ty, q*3, 0);
+                periodLabel = `${q+1}º Trimestre de ${ty} (${monthNamesPt[q*3]}–${monthNamesPt[q*3+2]})`;
+                goals = quarterlyGoals;
+            }
+            const periodStartStr = toDateStr(periodStart);
+            const prevStartStr   = toDateStr(prevStart);
+            const prevEndStr     = toDateStr(prevEnd);
+
+            if (labelEl) labelEl.textContent = periodLabel;
+
+            const tasksDone = tasks.filter(t => {
+                if (!t.completed) return false;
+                const ref = t.completedAt ? t.completedAt.substring(0,10) : (t.date||'');
+                return ref >= periodStartStr && ref <= todayStr;
+            }).length;
+            const interactionsDone = contacts.reduce((acc, c) =>
+                acc + (c.interactions||[]).filter(i => i.date >= periodStartStr && i.date <= todayStr).length, 0);
+            const followupsDone = contacts.filter(c => {
+                if (!c.nextContact || c.nextContact < periodStartStr || c.nextContact > todayStr) return false;
+                return (c.interactions||[]).some(i => i.date >= c.nextContact);
+            }).length;
+            const newContacts = contacts.filter(c => c.createdAt && c.createdAt.substring(0,10) >= periodStartStr).length;
+
+            const prevTasks = tasks.filter(t => {
+                if (!t.completed) return false;
+                const ref = t.completedAt ? t.completedAt.substring(0,10) : (t.date||'');
+                return ref >= prevStartStr && ref <= prevEndStr;
+            }).length;
+            const prevInteractions = contacts.reduce((acc, c) =>
+                acc + (c.interactions||[]).filter(i => i.date >= prevStartStr && i.date <= prevEndStr).length, 0);
+            const prevFollowups = contacts.filter(c => {
+                if (!c.nextContact || c.nextContact < prevStartStr || c.nextContact > prevEndStr) return false;
+                return (c.interactions||[]).some(i => i.date >= c.nextContact);
+            }).length;
+            const prevNewContacts = contacts.filter(c => {
+                const d = c.createdAt ? c.createdAt.substring(0,10) : '';
+                return d >= prevStartStr && d <= prevEndStr;
+            }).length;
+
+            const deltaBadge = (cur, prev) => {
+                const d = cur - prev;
+                const prevLabel = bigGoalsPeriod === 'month' ? 'mês passado' : 'trimestre passado';
+                if (d > 0) return `<span class="text-[10px] font-bold text-green-400 flex items-center gap-0.5" title="vs ${prevLabel} (${prev})"><i class="ph ph-trend-up"></i>+${d}</span>`;
+                if (d < 0) return `<span class="text-[10px] font-bold text-red-400 flex items-center gap-0.5" title="vs ${prevLabel} (${prev})"><i class="ph ph-trend-down"></i>${d}</span>`;
+                return `<span class="text-[10px] text-gray-600 flex items-center gap-0.5" title="vs ${prevLabel} (${prev})"><i class="ph ph-equals"></i></span>`;
+            };
+
+            const metrics = [
+                { label:'Tarefas concluídas',    icon:'ph-check-square',           color:'#5b8fa8', actual: tasksDone,        prev: prevTasks,        goal: goals.tasks        || 0 },
+                { label:'Interações registradas', icon:'ph-handshake',              color:'#fbbf24', actual: interactionsDone, prev: prevInteractions, goal: goals.interactions || 0 },
+                { label:'Follow-ups realizados',  icon:'ph-arrow-counter-clockwise',color:'#a78bfa', actual: followupsDone,    prev: prevFollowups,    goal: goals.followups    || 0 },
+                { label:'Novos contatos',         icon:'ph-user-plus',              color:'#34d399', actual: newContacts,      prev: prevNewContacts,  goal: goals.newContacts  || 0 },
+            ];
+
+            el.innerHTML = metrics.map(m => {
+                if (!m.goal) return '';
+                const pct      = Math.min(Math.round((m.actual / m.goal) * 100), 100);
+                const over     = m.actual >= m.goal;
+                const half     = pct >= 50;
+                const barColor = over ? '#4ade80' : half ? '#fbbf24' : '#f87171';
+                const badge    = over
+                    ? `<span class="text-[10px] font-bold text-green-400 bg-green-400/10 border border-green-400/20 rounded-full px-2 py-0.5">✓ Meta!</span>`
+                    : `<span class="text-[10px] text-gray-500">${m.actual}/${m.goal}</span>`;
+                return `<div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <div class="flex items-center gap-2">
+                            <i class="ph ${m.icon} text-sm" style="color:${m.color}"></i>
+                            <span class="text-xs text-gray-300">${m.label}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            ${deltaBadge(m.actual, m.prev)}
+                            ${badge}
+                            <span class="text-xs font-bold text-white">${pct}%</span>
+                        </div>
+                    </div>
+                    <div class="w-full bg-[#1f1f1f] rounded-full h-2">
+                        <div class="h-2 rounded-full transition-all duration-500" style="width:${pct}%;background:${barColor}"></div>
+                    </div>
+                </div>`;
+            }).join('');
+
+            if (!el.innerHTML.trim()) {
+                el.innerHTML = `<p class="text-xs text-gray-600 italic text-center py-2">Nenhuma meta definida para este período. Clique em "Editar" para começar.</p>`;
+            }
+        }
+        // ── fim Metas Maiores ────────────────────────────────────────────────
+
         function renderWeekStats(todayStr) {
             // Início da semana atual: segunda-feira
             const [ty, tm, td] = todayStr.split('-').map(Number);
@@ -4904,6 +5114,7 @@
             elH('dashWeekInteractionsDelta', deltaHtml(interactions, lastInteractions));
 
             renderGoals(todayStr, tasksDone, interactions);
+            renderBigGoals(todayStr);
         }
 
         // ── Ranking de Acessos ───────────────────────────────────────────
@@ -10920,6 +11131,8 @@
                 if (data.eventTypeLabels && Object.keys(data.eventTypeLabels).length) { eventTypeLabels = data.eventTypeLabels; localStorage.setItem('vends_event_type_labels', JSON.stringify(eventTypeLabels)); }
                 if (data.eventTypeIcons && Object.keys(data.eventTypeIcons).length)  { eventTypeIcons = data.eventTypeIcons;  localStorage.setItem('vends_event_type_icons',  JSON.stringify(eventTypeIcons)); }
                 if (data.weeklyGoals && Object.keys(data.weeklyGoals).length)        { weeklyGoals = data.weeklyGoals; localStorage.setItem('vends_weekly_goals', JSON.stringify(weeklyGoals)); }
+                if (data.monthlyGoals && Object.keys(data.monthlyGoals).length)      { monthlyGoals = data.monthlyGoals; localStorage.setItem('vends_monthly_goals', JSON.stringify(monthlyGoals)); }
+                if (data.quarterlyGoals && Object.keys(data.quarterlyGoals).length)  { quarterlyGoals = data.quarterlyGoals; localStorage.setItem('vends_quarterly_goals', JSON.stringify(quarterlyGoals)); }
                 if (data.savedFilters?.length)      { savedFilters = data.savedFilters; localStorage.setItem('vends_saved_filters', JSON.stringify(savedFilters)); renderSavedFilters(); }
                 if (data.contactAccesses && Object.keys(data.contactAccesses).length) {
                     // Mescla local + cloud (soma acessos dos dois dispositivos)
@@ -11796,6 +12009,8 @@
                 savedFilters:  JSON.parse(localStorage.getItem('vends_saved_filters')  ||'[]'),
                 searchHistory: JSON.parse(localStorage.getItem('vends_search_history') ||'[]'),
                 weeklyGoals:   JSON.parse(localStorage.getItem('vends_weekly_goals')   ||'{}'),
+                monthlyGoals:  JSON.parse(localStorage.getItem('vends_monthly_goals')  ||'{}'),
+                quarterlyGoals:JSON.parse(localStorage.getItem('vends_quarterly_goals')||'{}'),
             };
             const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
