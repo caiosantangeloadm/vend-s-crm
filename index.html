@@ -4526,12 +4526,14 @@
             dashCollapsed.add(id);
             localStorage.setItem('vends_dash_collapsed', JSON.stringify([...dashCollapsed]));
             applyDashCollapsed();
+            syncPreferencesToSupabase();
         }
 
         function expandDashCard(id) {
             dashCollapsed.delete(id);
             localStorage.setItem('vends_dash_collapsed', JSON.stringify([...dashCollapsed]));
             applyDashCollapsed();
+            syncPreferencesToSupabase();
         }
 
         function applyDashCollapsed() {
@@ -4667,6 +4669,7 @@
             document.getElementById('dashGoalsEditBtn').innerHTML = '<i class="ph ph-pencil-simple"></i> Editar metas';
             renderDashboard();
             showToast('Metas salvas!');
+            syncPreferencesToSupabase();
         }
         function toggleGoalsEdit() {
             const panel = document.getElementById('dashGoalsEditPanel');
@@ -4869,6 +4872,7 @@
         function toggleBigGoalsPeriod(period) {
             bigGoalsPeriod = period;
             localStorage.setItem('vends_big_goals_period', period);
+            syncPreferencesToSupabase();
             document.getElementById('bigGoalsTabMonth').classList.toggle('text-sant-cyan', period === 'month');
             document.getElementById('bigGoalsTabMonth').classList.toggle('bg-sant-cyan/10', period === 'month');
             document.getElementById('bigGoalsTabMonth').classList.toggle('text-gray-400', period !== 'month');
@@ -4914,6 +4918,7 @@
             document.getElementById('dashBigGoalsEditBtn').innerHTML = '<i class="ph ph-pencil-simple"></i> Editar';
             renderBigGoals(getSPTodayStr());
             showToast('Meta salva!');
+            syncPreferencesToSupabase();
         }
 
         function renderBigGoals(todayStr) {
@@ -6628,7 +6633,7 @@
 
         function setViewMode(mode, save = true) {
             currentViewMode = mode;
-            if(save) localStorage.setItem('sant_crm_view_mode', mode);
+            if(save) { localStorage.setItem('sant_crm_view_mode', mode); syncPreferencesToSupabase(); }
             
             document.getElementById('btnViewGrid').classList.toggle('text-sant-cyan', mode === 'grid');
             document.getElementById('btnViewGrid').classList.toggle('bg-sant-cyan/10', mode === 'grid');
@@ -6646,6 +6651,7 @@
             localStorage.setItem('sant_crm_density', currentDensity);
             updateDensityBtn();
             renderContacts();
+            syncPreferencesToSupabase();
         }
         function updateDensityBtn() {
             const btn = document.getElementById('btnDensity');
@@ -6695,6 +6701,7 @@
             const sel = document.getElementById('contactSortSelect');
             if (sel) sel.value = val;
             renderContacts(document.getElementById('searchInput') ? document.getElementById('searchInput').value : '');
+            syncPreferencesToSupabase();
         }
 
         function togglePin(id) {
@@ -11111,6 +11118,17 @@
                     "streakHistory": JSON.parse(localStorage.getItem('vends_streak_history') || '[]'),
                     "contactAccesses": JSON.parse(localStorage.getItem('vends_contact_accesses') || '{}'),
                     "tagColors": tagColors,
+                    "monthlyGoals": monthlyGoals,
+                    "quarterlyGoals": quarterlyGoals,
+                    "bigGoalsPeriod": localStorage.getItem('vends_big_goals_period') || 'month',
+                    "bdayAdvance":    parseInt(localStorage.getItem('vends_bday_advance')    || '3'),
+                    "inactivityDays": parseInt(localStorage.getItem('vends_inactivity_days') || '60'),
+                    "maxPinned":      parseInt(localStorage.getItem('vends_max_pinned')      || '10'),
+                    "viewMode":    localStorage.getItem('sant_crm_view_mode')    || '',
+                    "density":     localStorage.getItem('sant_crm_density')     || '',
+                    "contactSort": localStorage.getItem('sant_crm_contact_sort')|| '',
+                    "dashCollapsed": JSON.parse(localStorage.getItem('vends_dash_collapsed') || '[]'),
+                    "scoreHistory":  JSON.parse(localStorage.getItem('vends_score_history')  || '{}'),
                 };
                 await sb.from('user_preferences').upsert(row, { onConflict: 'user_id' });
             } catch(e) { console.warn('Prefs sync:', e.message); }
@@ -11133,6 +11151,15 @@
                 if (data.weeklyGoals && Object.keys(data.weeklyGoals).length)        { weeklyGoals = data.weeklyGoals; localStorage.setItem('vends_weekly_goals', JSON.stringify(weeklyGoals)); }
                 if (data.monthlyGoals && Object.keys(data.monthlyGoals).length)      { monthlyGoals = data.monthlyGoals; localStorage.setItem('vends_monthly_goals', JSON.stringify(monthlyGoals)); }
                 if (data.quarterlyGoals && Object.keys(data.quarterlyGoals).length)  { quarterlyGoals = data.quarterlyGoals; localStorage.setItem('vends_quarterly_goals', JSON.stringify(quarterlyGoals)); }
+                if (data.bigGoalsPeriod)            { localStorage.setItem('vends_big_goals_period', data.bigGoalsPeriod); }
+                if (data.bdayAdvance !== undefined && data.bdayAdvance !== null)    localStorage.setItem('vends_bday_advance', String(data.bdayAdvance));
+                if (data.inactivityDays !== undefined && data.inactivityDays !== null) localStorage.setItem('vends_inactivity_days', String(data.inactivityDays));
+                if (data.maxPinned !== undefined && data.maxPinned !== null)        localStorage.setItem('vends_max_pinned', String(data.maxPinned));
+                if (data.viewMode)                  localStorage.setItem('sant_crm_view_mode', data.viewMode);
+                if (data.density)                   localStorage.setItem('sant_crm_density', data.density);
+                if (data.contactSort)               localStorage.setItem('sant_crm_contact_sort', data.contactSort);
+                if (data.dashCollapsed?.length)     localStorage.setItem('vends_dash_collapsed', JSON.stringify(data.dashCollapsed));
+                if (data.scoreHistory && Object.keys(data.scoreHistory).length) localStorage.setItem('vends_score_history', JSON.stringify(data.scoreHistory));
                 if (data.savedFilters?.length)      { savedFilters = data.savedFilters; localStorage.setItem('vends_saved_filters', JSON.stringify(savedFilters)); renderSavedFilters(); }
                 if (data.contactAccesses && Object.keys(data.contactAccesses).length) {
                     // Mescla local + cloud (soma acessos dos dois dispositivos)
@@ -11164,6 +11191,14 @@
                 loadEventTypeLabels();
                 updateCategorySelects();
                 updateOriginSelects();
+                // Aplica preferências visuais restauradas da nuvem (visão, densidade, ordenação, cards ocultos)
+                if (data.viewMode && document.getElementById('btnViewGrid')) { setViewMode(data.viewMode, false); }
+                if (data.density)     { currentDensity  = data.density;  updateDensityBtn(); }
+                if (data.contactSort) { currentContactSort = data.contactSort; const s = document.getElementById('contactSortSelect'); if (s) s.value = data.contactSort; }
+                if (data.dashCollapsed?.length) { dashCollapsed = new Set(data.dashCollapsed); applyDashCollapsed(); }
+                if (data.bigGoalsPeriod && data.bigGoalsPeriod !== bigGoalsPeriod) { bigGoalsPeriod = data.bigGoalsPeriod; }
+                if (currentView === 'contacts') renderContacts(document.getElementById('searchInput') ? document.getElementById('searchInput').value : '');
+                if (currentView === 'dashboard') renderDashboard();
                 // Sincroniza de volta para garantir consistência (streak já foi restaurado do cloud)
                 syncPreferencesToSupabase();
             } catch(e) { console.warn('Prefs load:', e.message); }
@@ -12099,12 +12134,14 @@
         function saveBdayAdvance(val) {
             localStorage.setItem('vends_bday_advance', val);
             showToast(`Lembretes de aniversário: ${val == 0 ? 'no dia' : val + ' dia(s) antes'}.`);
+            syncPreferencesToSupabase();
         }
 
         function saveInactivityDays(val) {
             localStorage.setItem('vends_inactivity_days', val);
             showToast(val == 0 ? 'Detecção de inatividade desativada.' : `Contatos sem interação há mais de ${val} dias serão destacados.`);
             renderContacts(document.getElementById('contactSearchInput') ? document.getElementById('contactSearchInput').value : '');
+            syncPreferencesToSupabase();
         }
 
         // ── Detecção de Inatividade ───────────────────────────────────────
