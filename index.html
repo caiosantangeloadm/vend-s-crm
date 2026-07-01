@@ -2558,8 +2558,8 @@
             </div>
             <div class="p-5 flex flex-col gap-3">
                 <div class="flex items-center justify-between">
-                    <span class="text-sm text-gray-300">Busca global</span>
-                    <span class="flex gap-1"><kbd class="kbd-key">Ctrl</kbd><kbd class="kbd-key">K</kbd></span>
+                    <span class="text-sm text-gray-300">Busca global <span class="block text-[10px] text-gray-600">(use "/" se Ctrl+K abrir a busca do navegador)</span></span>
+                    <span class="flex items-center gap-1"><kbd class="kbd-key">Ctrl</kbd><kbd class="kbd-key">K</kbd><span class="text-gray-600 mx-0.5">ou</span><kbd class="kbd-key">/</kbd></span>
                 </div>
                 <div class="flex items-center justify-between">
                     <span class="text-sm text-gray-300">Novo item (na aba atual: Contato, Tarefa, Evento ou Nota)</span>
@@ -14503,7 +14503,6 @@
                     if (!document.getElementById('taskModal').classList.contains('hidden')) { closeTaskModal(); return; }
                     document.getElementById('categoryModal').classList.add('hidden');
                     document.getElementById('confirmModal').classList.add('hidden');
-                    document.getElementById('tagsModal').classList.add('hidden');
                     document.getElementById('historyModal').classList.add('hidden');
                     document.getElementById('shortcutsModal').classList.add('hidden');
                     confirmCallback = null;
@@ -14511,8 +14510,11 @@
                     clearGlobalSearch();
                 }
 
-                // Ctrl+K abre busca global
-                if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                // Ctrl+K (ou / fora de campos de digitação) abre busca global
+                // Obs: em navegadores baseados em Firefox (ex: LibreWolf), Ctrl+K é reservado
+                // pelo próprio navegador para a barra de busca e não pode ser sobrescrito por JS —
+                // por isso a tecla "/" funciona como alternativa universal.
+                if (((e.ctrlKey || e.metaKey) && e.key === 'k') || (!isTyping && e.key === '/')) {
                     e.preventDefault();
                     const inp = document.getElementById('globalSearchInput');
                     inp.focus();
