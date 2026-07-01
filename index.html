@@ -366,6 +366,10 @@
             <i class="ph ph-arrow-up text-xl font-bold"></i>
         </button>
 
+        <div id="offlineBanner" class="hidden fixed top-0 left-0 right-0 z-[60] bg-amber-500 text-black text-xs font-bold text-center py-1.5 items-center justify-center gap-2">
+            <i class="ph ph-wifi-slash"></i> <span id="offlineBannerText">Sem conexão — suas alterações estão sendo salvas neste dispositivo e serão sincronizadas quando a internet voltar.</span>
+        </div>
+
         <div id="mainContentArea" class="flex-1 overflow-y-auto p-8 pt-28 pb-24">
 
             <div id="view-dashboard" class="hidden max-w-6xl mx-auto space-y-6">
@@ -3909,6 +3913,7 @@
             loadEventTypeLabels();
             loadWeeklyGoals();
             loadBigGoals();
+            setupOnlineOfflineHandlers();
             checkStreak();
             // Sincroniza streak 3s após init — dá tempo do loadPreferencesFromSupabase restaurar o valor correto
             setTimeout(() => { if (currentUser) syncPreferencesToSupabase(); }, 3000);
@@ -3924,6 +3929,7 @@
                 loadEventsFromSupabase();
                 loadNotesFromSupabase();
                 loadPreferencesFromSupabase();
+                if (navigator.onLine) replayOfflineQueue(); // reenvia pendências de uma sessão offline anterior
             }
         }
 
@@ -4028,25 +4034,110 @@
             };
         }
 
+        // ── Fila de Sincronização Offline ────────────────────────────────────
+        // Quando o dispositivo está sem internet, alterações continuam sendo salvas
+        // normalmente no localStorage (funcionamento local intacto), mas o envio para o
+        // Supabase é enfileirado aqui e reenviado automaticamente assim que a conexão volta.
+        function _offlineQueueKey() { return 'vends_offline_queue'; }
+        function getOfflineQueue() {
+            try { return JSON.parse(localStorage.getItem(_offlineQueueKey()) || '[]'); }
+            catch(e) { return []; }
+        }
+        function queueOfflineSync(table, action, id) {
+            let q = getOfflineQueue();
+            // Remove entradas antigas do mesmo registro (a mais recente prevalece)
+            q = q.filter(item => !(item.table === table && item.id === id));
+            q.push({ table, action, id, ts: Date.now() });
+            localStorage.setItem(_offlineQueueKey(), JSON.stringify(q));
+            updateOfflineQueueBadge();
+        }
+        function updateOfflineQueueBadge() {
+            const n = getOfflineQueue().length;
+            const banner = document.getElementById('offlineBannerText');
+            if (banner && n > 0 && !navigator.onLine) {
+                banner.textContent = `Sem conexão — ${n} alteração${n>1?'ões':''} pendente${n>1?'s':''} de sincronização, serão enviadas quando a internet voltar.`;
+            }
+        }
+        async function replayOfflineQueue() {
+            const sb = getSB();
+            if (!sb || !currentUser) return;
+            let q = getOfflineQueue();
+            if (!q.length) return;
+            showToast(`Sincronizando ${q.length} alteração${q.length>1?'ões':''} pendente${q.length>1?'s':''}...`);
+            const remaining = [];
+            for (const item of q) {
+                try {
+                    if (item.action === 'delete') {
+                        await sb.from(item.table).delete().eq('id', item.id);
+                    } else {
+                        const arr = { contacts, tasks, events, notes }[item.table];
+                        const record = arr?.find(x => x.id === item.id);
+                        if (!record) continue; // registro não existe mais localmente, nada a sincronizar
+                        const rowFn = { contacts: contactToRow, tasks: taskToRow, events: eventToRow, notes: noteToRow }[item.table];
+                        await sb.from(item.table).upsert(rowFn(record), { onConflict: 'id' });
+                    }
+                } catch(e) {
+                    console.warn('Offline queue replay failed:', item, e.message);
+                    remaining.push(item);
+                }
+            }
+            localStorage.setItem(_offlineQueueKey(), JSON.stringify(remaining));
+            if (remaining.length === 0) showToast('Tudo sincronizado com a nuvem! ✓');
+            else showToast(`${remaining.length} alteração(ões) ainda não sincronizada(s) — tentaremos novamente.`, 'error');
+        }
+        function setupOnlineOfflineHandlers() {
+            const banner = document.getElementById('offlineBanner');
+            function applyState() {
+                if (navigator.onLine) {
+                    banner?.classList.add('hidden');
+                    banner?.classList.remove('flex');
+                } else {
+                    banner?.classList.remove('hidden');
+                    banner?.classList.add('flex');
+                    updateOfflineQueueBadge();
+                }
+            }
+            window.addEventListener('online', () => {
+                applyState();
+                showToast('Conexão restabelecida — sincronizando alterações...');
+                replayOfflineQueue();
+                if (currentUser) {
+                    syncPreferencesToSupabase();
+                    loadContactsFromSupabase(); loadTasksFromSupabase();
+                    loadEventsFromSupabase(); loadNotesFromSupabase();
+                    loadPreferencesFromSupabase(); startRealtimeSync();
+                }
+            });
+            window.addEventListener('offline', () => {
+                applyState();
+                showToast('Você está offline. Alterações continuam sendo salvas neste dispositivo.', 'error');
+            });
+            applyState();
+        }
+
         async function cloudSyncTask(t) {
             const sb = getSB(); if (!sb || !currentUser) return;
+            if (!navigator.onLine) { queueOfflineSync('tasks', 'upsert', t.id); return; }
             try { await sb.from('tasks').upsert(taskToRow(t), { onConflict: 'id' }); }
-            catch(e) { console.warn('Task sync:', e.message); }
+            catch(e) { console.warn('Task sync:', e.message); queueOfflineSync('tasks', 'upsert', t.id); }
         }
         async function cloudDeleteTask(id) {
             const sb = getSB(); if (!sb || !currentUser) return;
+            if (!navigator.onLine) { queueOfflineSync('tasks', 'delete', id); return; }
             try { await sb.from('tasks').delete().eq('id', id); }
-            catch(e) { console.warn('Task delete:', e.message); }
+            catch(e) { console.warn('Task delete:', e.message); queueOfflineSync('tasks', 'delete', id); }
         }
         async function cloudSyncEvent(e) {
             const sb = getSB(); if (!sb || !currentUser) return;
+            if (!navigator.onLine) { queueOfflineSync('events', 'upsert', e.id); return; }
             try { await sb.from('events').upsert(eventToRow(e), { onConflict: 'id' }); }
-            catch(e) { console.warn('Event sync:', e.message); }
+            catch(err) { console.warn('Event sync:', err.message); queueOfflineSync('events', 'upsert', e.id); }
         }
         async function cloudDeleteEvent(id) {
             const sb = getSB(); if (!sb || !currentUser) return;
+            if (!navigator.onLine) { queueOfflineSync('events', 'delete', id); return; }
             try { await sb.from('events').delete().eq('id', id); }
-            catch(e) { console.warn('Event delete:', e.message); }
+            catch(e) { console.warn('Event delete:', e.message); queueOfflineSync('events', 'delete', id); }
         }
         // ─────────────────────────────────────────────────────────────────────
         function saveScheduleBlocksToStorage() { localStorage.setItem('sant_crm_schedule_blocks', JSON.stringify(scheduleBlocks)); syncPreferencesToSupabase(); }
@@ -4069,13 +4160,15 @@
         }
         async function cloudSyncNote(n) {
             const sb = getSB(); if (!sb || !currentUser) return;
+            if (!navigator.onLine) { queueOfflineSync('notes', 'upsert', n.id); return; }
             try { await sb.from('notes').upsert(noteToRow(n), { onConflict: 'id' }); }
-            catch(e) { console.warn('Note sync:', e.message); }
+            catch(e) { console.warn('Note sync:', e.message); queueOfflineSync('notes', 'upsert', n.id); }
         }
         async function cloudDeleteNote(id) {
             const sb = getSB(); if (!sb || !currentUser) return;
+            if (!navigator.onLine) { queueOfflineSync('notes', 'delete', id); return; }
             try { await sb.from('notes').delete().eq('id', id); }
-            catch(e) { console.warn('Note delete:', e.message); }
+            catch(e) { console.warn('Note delete:', e.message); queueOfflineSync('notes', 'delete', id); }
         }
         async function migrateNotesToSupabase() {
             const sb = getSB();
@@ -11074,18 +11167,20 @@
         async function cloudSyncContact(c) {
             const sb = getSB();
             if (!sb) return;
+            if (!navigator.onLine) { queueOfflineSync('contacts', 'upsert', c.id); return; }
             try {
                 await sb.from('contacts').upsert(contactToRow(c), { onConflict: 'id' });
-            } catch(e) { console.warn('Supabase sync:', e.message); }
+            } catch(e) { console.warn('Supabase sync:', e.message); queueOfflineSync('contacts', 'upsert', c.id); }
         }
 
         // Deleta um contato do Supabase
         async function cloudDeleteContact(id) {
             const sb = getSB();
             if (!sb) return;
+            if (!navigator.onLine) { queueOfflineSync('contacts', 'delete', id); return; }
             try {
                 await sb.from('contacts').delete().eq('id', id);
-            } catch(e) { console.warn('Supabase delete:', e.message); }
+            } catch(e) { console.warn('Supabase delete:', e.message); queueOfflineSync('contacts', 'delete', id); }
         }
         async function migrateTasksToSupabase() {
             const sb = getSB();
@@ -11155,7 +11250,7 @@
         }
         // ── Sync Configurações → Supabase ────────────────────────────────────
         async function syncPreferencesToSupabase() {
-            const sb = getSB(); if (!sb || !currentUser) return;
+            const sb = getSB(); if (!sb || !currentUser || !navigator.onLine) return;
             try {
                 const row = {
                     user_id: currentUser.id,
