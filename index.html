@@ -2756,8 +2756,12 @@
                     <div class="flex gap-2 mb-2">
                         <input type="text" id="contactLinkTitle" placeholder="Descrição (Ex: Proposta, Contrato, Fotos...)" class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
                         <input type="url" id="contactLinkUrl" placeholder="https://..." class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none" onkeydown="if(event.key==='Enter'){event.preventDefault();addContactLink()}">
-                        <button onclick="addContactLink()" class="bg-sant-cyan/20 hover:bg-sant-cyan text-sant-cyan hover:text-sant-bg px-3 py-2 rounded-lg text-sm font-bold transition-colors border border-sant-cyan/30 shrink-0"><i class="ph ph-plus"></i></button>
+                        <button onclick="addContactLink()" class="bg-sant-cyan/20 hover:bg-sant-cyan text-sant-cyan hover:text-sant-bg px-3 py-2 rounded-lg text-sm font-bold transition-colors border border-sant-cyan/30 shrink-0" title="Adicionar link"><i class="ph ph-plus"></i></button>
                     </div>
+                    <label class="flex items-center justify-center gap-2 border border-dashed border-sant-border hover:border-sant-cyan rounded-lg px-3 py-2 text-xs text-gray-400 hover:text-sant-cyan cursor-pointer transition-colors">
+                        <i class="ph ph-upload-simple"></i> <span id="contactAttachUploadLabel">Anexar arquivo (PDF, foto — até 10MB)</span>
+                        <input type="file" id="contactAttachFileInput" class="hidden" accept=".pdf,image/*,.doc,.docx,.xls,.xlsx" onchange="uploadContactAttachment(event)">
+                    </label>
                 </div>
                 <div class="px-4 pt-3">
                     <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 mb-2">
@@ -13882,12 +13886,29 @@
                 return;
             }
 
-            box.innerHTML = links.map(l => `
-                <div class="flex items-center gap-2 p-2 bg-[#0a0a0a] border border-sant-border rounded-lg">
-                    <i class="ph ph-link text-sant-cyan"></i>
-                    <a href="${l.url}" target="_blank" rel="noopener" class="text-sm text-sant-cyan hover:underline truncate flex-1">${l.title || l.url}</a>
-                    <button onclick="deleteContactLink('${l.id}')" class="text-gray-500 hover:text-red-500 shrink-0"><i class="ph ph-trash"></i></button>
-                </div>`).join('');
+            const fileIcon = (name) => {
+                const ext = (name || '').split('.').pop().toLowerCase();
+                if (['jpg','jpeg','png','gif','webp'].includes(ext)) return 'ph-image';
+                if (ext === 'pdf') return 'ph-file-pdf';
+                if (['doc','docx'].includes(ext)) return 'ph-file-doc';
+                if (['xls','xlsx'].includes(ext)) return 'ph-file-xls';
+                return 'ph-file';
+            };
+            const formatSize = (bytes) => !bytes ? '' : bytes < 1024*1024 ? `${(bytes/1024).toFixed(0)}KB` : `${(bytes/1024/1024).toFixed(1)}MB`;
+
+            box.innerHTML = links.map(l => l.isFile
+                ? `<div class="flex items-center gap-2 p-2 bg-[#0a0a0a] border border-sant-border rounded-lg">
+                        <i class="ph ${fileIcon(l.title)} text-amber-400"></i>
+                        <a href="#" onclick="event.preventDefault();openContactAttachment('${l.id}')" class="text-sm text-amber-300 hover:underline truncate flex-1">${l.title}</a>
+                        ${l.size ? `<span class="text-[10px] text-gray-600 shrink-0">${formatSize(l.size)}</span>` : ''}
+                        <button onclick="deleteContactLink('${l.id}')" class="text-gray-500 hover:text-red-500 shrink-0"><i class="ph ph-trash"></i></button>
+                    </div>`
+                : `<div class="flex items-center gap-2 p-2 bg-[#0a0a0a] border border-sant-border rounded-lg">
+                        <i class="ph ph-link text-sant-cyan"></i>
+                        <a href="${l.url}" target="_blank" rel="noopener" class="text-sm text-sant-cyan hover:underline truncate flex-1">${l.title || l.url}</a>
+                        <button onclick="deleteContactLink('${l.id}')" class="text-gray-500 hover:text-red-500 shrink-0"><i class="ph ph-trash"></i></button>
+                    </div>`
+            ).join('');
         }
 
         function addContactLink() {
@@ -13910,9 +13931,71 @@
             showToast('Link adicionado!');
         }
 
+        const ATTACHMENT_BUCKET = 'attachments';
+        const ATTACHMENT_MAX_MB = 10;
+
+        async function uploadContactAttachment(event) {
+            const file = event.target.files[0];
+            event.target.value = ''; // permite selecionar o mesmo arquivo de novo depois
+            if (!file) return;
+            if (file.size > ATTACHMENT_MAX_MB * 1024 * 1024) {
+                showToast(`Arquivo muito grande — o limite é ${ATTACHMENT_MAX_MB}MB.`, 'error');
+                return;
+            }
+            const sb = getSB();
+            if (!sb || !currentUser) { showToast('Faça login para anexar arquivos.', 'error'); return; }
+            const c = contacts.find(x => x.id === currentHistoryContactId);
+            if (!c) return;
+
+            const label = document.getElementById('contactAttachUploadLabel');
+            const originalLabel = label.textContent;
+            label.textContent = 'Enviando...';
+
+            const ext = file.name.split('.').pop();
+            const storagePath = `${currentUser.id}/${c.id}/${crypto.randomUUID()}.${ext}`;
+
+            try {
+                const { error } = await sb.storage.from(ATTACHMENT_BUCKET).upload(storagePath, file, { upsert: false });
+                if (error) throw error;
+                if (!c.links) c.links = [];
+                c.links.push({
+                    id: crypto.randomUUID(), title: file.name, storagePath,
+                    size: file.size, isFile: true, createdAt: new Date().toISOString()
+                });
+                saveToStorage();
+                renderContactLinks();
+                showToast('Arquivo anexado!');
+            } catch(e) {
+                console.warn('Attachment upload:', e.message);
+                showToast('Erro ao enviar arquivo: ' + (e.message || 'tente novamente'), 'error');
+            } finally {
+                label.textContent = originalLabel;
+            }
+        }
+
+        async function openContactAttachment(linkId) {
+            const c = contacts.find(x => x.id === currentHistoryContactId);
+            const l = c?.links?.find(x => x.id === linkId);
+            if (!l || !l.storagePath) return;
+            const sb = getSB();
+            if (!sb) return;
+            try {
+                const { data, error } = await sb.storage.from(ATTACHMENT_BUCKET).createSignedUrl(l.storagePath, 3600);
+                if (error || !data?.signedUrl) throw error || new Error('sem URL');
+                window.open(data.signedUrl, '_blank');
+            } catch(e) {
+                showToast('Erro ao abrir anexo: ' + (e.message || 'tente novamente'), 'error');
+            }
+        }
+
         function deleteContactLink(linkId) {
             const c = contacts.find(x => x.id === currentHistoryContactId);
             if (!c || !c.links) return;
+            const l = c.links.find(x => x.id === linkId);
+            if (l?.isFile && l.storagePath) {
+                const sb = getSB();
+                if (sb) sb.storage.from(ATTACHMENT_BUCKET).remove([l.storagePath]).catch(e => console.warn('Attachment delete:', e.message));
+            }
             c.links = c.links.filter(l => l.id !== linkId);
             saveToStorage();
             renderContactLinks();
