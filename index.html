@@ -12204,11 +12204,14 @@
             const el = document.getElementById('s-backup-status');
             if (el) {
                 const last = localStorage.getItem('sant_crm_last_export');
-                if (!last) { el.innerHTML = '<i class="ph ph-warning text-amber-400"></i> Nenhum backup realizado ainda.'; return; }
-                const days = Math.floor((Date.now() - new Date(last).getTime()) / 86400000);
-                const txt = days <= 0 ? 'Último backup: hoje.' : days === 1 ? 'Último backup: ontem.' : `Último backup: há ${days} dias.`;
-                const cls = days > 7 ? 'text-amber-400' : 'text-green-400';
-                el.innerHTML = `<span class="${cls}">${txt}</span>`;
+                if (!last) {
+                    el.innerHTML = '<i class="ph ph-warning text-amber-400"></i> Nenhum backup realizado ainda.';
+                } else {
+                    const days = Math.floor((Date.now() - new Date(last).getTime()) / 86400000);
+                    const txt = days <= 0 ? 'Último backup: hoje.' : days === 1 ? 'Último backup: ontem.' : `Último backup: há ${days} dias.`;
+                    const cls = days > 7 ? 'text-amber-400' : 'text-green-400';
+                    el.innerHTML = `<span class="${cls}">${txt}</span>`;
+                }
             }
             renderAttachmentStorageUsage();
             const bdayEl = document.getElementById('s-bday-advance');
