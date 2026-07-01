@@ -1620,6 +1620,17 @@
                             </div>
                         </div>
                         <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
+                            <div class="flex items-center justify-between mb-3">
+                                <p class="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-2"><i class="ph ph-hard-drives text-sant-cyan"></i> Espaço de Anexos</p>
+                                <span id="s-storage-pct" class="text-xs font-bold"></span>
+                            </div>
+                            <div class="w-full bg-[#1f1f1f] rounded-full h-2 mb-2">
+                                <div id="s-storage-bar" class="h-2 rounded-full transition-all duration-500" style="width:0%;background:#22d3ee"></div>
+                            </div>
+                            <p id="s-storage-text" class="text-xs text-gray-500 mb-1"></p>
+                            <p class="text-[10px] text-gray-700">Estimativa com base nos anexos cadastrados nos contatos (arquivo real no Supabase Storage — plano gratuito: 1GB no total)</p>
+                        </div>
+                        <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
                             <p class="text-xs font-bold text-white uppercase tracking-wide mb-5 flex items-center gap-2"><i class="ph ph-sliders text-sant-cyan"></i> Preferências</p>
                             <div class="space-y-4">
                                 <div class="flex items-center justify-between">
@@ -12160,6 +12171,29 @@
             });
         }
 
+        const ATTACHMENT_PLAN_LIMIT_BYTES = 1024 * 1024 * 1024; // 1GB (plano gratuito Supabase)
+        function renderAttachmentStorageUsage() {
+            const barEl = document.getElementById('s-storage-bar');
+            const pctEl = document.getElementById('s-storage-pct');
+            const textEl = document.getElementById('s-storage-text');
+            if (!barEl || !pctEl || !textEl) return;
+
+            let totalBytes = 0, fileCount = 0;
+            contacts.forEach(c => (c.links || []).forEach(l => {
+                if (l.isFile && l.size) { totalBytes += l.size; fileCount++; }
+            }));
+
+            const pct = Math.min(100, (totalBytes / ATTACHMENT_PLAN_LIMIT_BYTES) * 100);
+            const fmtMB = (bytes) => (bytes / 1024 / 1024).toFixed(bytes < 10*1024*1024 ? 2 : 1);
+            const color = pct >= 90 ? '#f87171' : pct >= 70 ? '#fbbf24' : '#22d3ee';
+
+            barEl.style.width = `${Math.max(pct, fileCount > 0 ? 1 : 0)}%`;
+            barEl.style.background = color;
+            pctEl.textContent = `${pct.toFixed(1)}%`;
+            pctEl.style.color = color;
+            textEl.textContent = `${fmtMB(totalBytes)}MB usados de 1024MB — ${fileCount} arquivo${fileCount!==1?'s':''} anexado${fileCount!==1?'s':''}`;
+        }
+
         // — Backup —
         function renderSBackup() {
             checkCloudSync();
@@ -12176,6 +12210,7 @@
                 const cls = days > 7 ? 'text-amber-400' : 'text-green-400';
                 el.innerHTML = `<span class="${cls}">${txt}</span>`;
             }
+            renderAttachmentStorageUsage();
             const bdayEl = document.getElementById('s-bday-advance');
             if (bdayEl) bdayEl.value = localStorage.getItem('vends_bday_advance') || '3';
             const inactEl = document.getElementById('s-inact-days');
