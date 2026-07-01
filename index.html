@@ -3284,44 +3284,72 @@
             const ql = q.toLowerCase().trim();
             const panel = document.getElementById('globalSearchResults');
 
-            // ── Detecta prefixo tipo "empresa:Wave" ──────────────────────────
-            const colonIdx = ql.indexOf(':');
-            if (colonIdx > 0) {
-                const prefix = ql.substring(0, colonIdx).trim();
-                const value  = ql.substring(colonIdx + 1).trim();
-                const getter = SEARCH_PREFIXES[prefix];
-                if (getter && value.length >= 1) {
-                    const matched = contacts.filter(c =>
-                        getter(c).toLowerCase().includes(value)
-                    );
-                    const hl = txt => txt.replace(new RegExp(`(${value.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'),
-                        '<mark class="bg-[#5b8fa8]/30 text-[#7aafc8] rounded px-0.5">$1</mark>');
-
-                    panel.innerHTML = `
-                        <div class="px-4 pt-3 pb-1 flex items-center justify-between">
-                            <span class="text-[10px] font-bold tracking-widest text-sant-cyan uppercase flex items-center gap-1.5">
-                                <i class="ph ph-funnel"></i> ${prefix}: "${value}" — ${matched.length} resultado${matched.length!==1?'s':''}
-                            </span>
-                            ${matched.length ? `<button onclick="applyPrefixFilter('${prefix}','${value.replace(/'/g,"\\'")}'); clearGlobalSearch();"
-                                class="text-[10px] font-bold text-sant-cyan hover:text-white transition-colors">Ver todos →</button>` : ''}
-                        </div>
-                        ${matched.length === 0
-                            ? `<div class="px-5 py-6 text-center text-gray-600 text-sm">Nenhum contato com ${prefix} contendo "${value}"</div>`
-                            : matched.slice(0,6).map(c => `
-                                <div data-gs-item class="gs-item flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-white/5 transition-colors rounded-xl mx-1"
-                                    onclick="gsOpenContact('${c.id}')">
-                                    ${contactAvatarHtml(c, 'w-8 h-8 text-xs')}
-                                    <div class="min-w-0 flex-1">
-                                        <div class="text-sm text-white truncate">${fullName(c)}</div>
-                                        <div class="text-xs text-gray-500 truncate">${hl(getter(c))}</div>
-                                    </div>
-                                    <i class="ph ph-arrow-right text-gray-700 shrink-0"></i>
-                                </div>`).join('')
-                        }
-                        ${matched.length > 6 ? `<div class="px-4 py-2 text-[11px] text-gray-600 text-center">+${matched.length-6} mais — clique em "Ver todos"</div>` : ''}`;
-                    showGlobalResults();
-                    return;
+            // ── Detecta filtros combinados tipo "categoria:Alunos tag:vip João" ──
+            const tokens = ql.split(/\s+/).filter(Boolean);
+            const pairs = []; // [{prefix, value}]
+            const freeWords = [];
+            tokens.forEach(tok => {
+                const idx = tok.indexOf(':');
+                if (idx > 0) {
+                    const prefix = tok.substring(0, idx);
+                    const value  = tok.substring(idx + 1);
+                    if (SEARCH_PREFIXES[prefix] && value.length >= 1) {
+                        pairs.push({ prefix, value });
+                        return;
+                    }
                 }
+                freeWords.push(tok);
+            });
+
+            if (pairs.length > 0) {
+                const freeText = freeWords.join(' ').trim();
+                const matched = contacts.filter(c => {
+                    const passesPrefixes = pairs.every(({prefix, value}) => SEARCH_PREFIXES[prefix](c).toLowerCase().includes(value));
+                    if (!passesPrefixes) return false;
+                    if (!freeText) return true;
+                    return fullName(c).toLowerCase().includes(freeText) ||
+                        (c.company||'').toLowerCase().includes(freeText) ||
+                        (c.phoneProf||c.phonePess||c.phone||'').toLowerCase().includes(freeText) ||
+                        (c.emailProf||c.emailPess||c.email||'').toLowerCase().includes(freeText);
+                });
+
+                const chipsHtml = pairs.map(({prefix,value}) =>
+                    `<span class="inline-flex items-center gap-1 bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20 rounded-full px-2 py-0.5 text-[10px] font-bold"><i class="ph ph-funnel text-[9px]"></i>${prefix}:${value}</span>`
+                ).join(' ') + (freeText ? ` <span class="inline-flex items-center gap-1 bg-white/5 text-gray-400 border border-sant-border rounded-full px-2 py-0.5 text-[10px]">"${freeText}"</span>` : '');
+
+                const hlMulti = txt => {
+                    let out = txt;
+                    [...pairs.map(p=>p.value), freeText].filter(Boolean).forEach(v => {
+                        out = out.replace(new RegExp(`(${v.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'), '<mark class="bg-[#5b8fa8]/30 text-[#7aafc8] rounded px-0.5">$1</mark>');
+                    });
+                    return out;
+                };
+
+                panel.innerHTML = `
+                    <div class="px-4 pt-3 pb-2">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <span class="text-[10px] font-bold tracking-widest text-gray-600 uppercase">${matched.length} resultado${matched.length!==1?'s':''}</span>
+                            ${matched.length ? `<button onclick='applyCombinedPrefixFilters(${JSON.stringify(pairs)}, ${JSON.stringify(freeText)})' class="text-[10px] font-bold text-sant-cyan hover:text-white transition-colors">Ver todos →</button>` : ''}
+                        </div>
+                        <div class="flex flex-wrap gap-1.5">${chipsHtml}</div>
+                    </div>
+                    ${matched.length === 0
+                        ? `<div class="px-5 py-6 text-center text-gray-600 text-sm">Nenhum contato encontrado com esses filtros combinados.</div>`
+                        : matched.slice(0,6).map(c => `
+                            <div data-gs-item class="gs-item flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-white/5 transition-colors rounded-xl mx-1"
+                                onclick="gsOpenContact('${c.id}')">
+                                ${contactAvatarHtml(c, 'w-8 h-8 text-xs')}
+                                <div class="min-w-0 flex-1">
+                                    <div class="text-sm text-white truncate">${hlMulti(fullName(c))}</div>
+                                    <div class="text-xs text-gray-500 truncate">${hlMulti(c.company||c.phone||c.email||'')}</div>
+                                </div>
+                                <i class="ph ph-arrow-right text-gray-700 shrink-0"></i>
+                            </div>`).join('')
+                    }
+                    ${matched.length > 6 ? `<div class="px-4 py-2 text-[11px] text-gray-600 text-center">+${matched.length-6} mais — clique em "Ver todos"</div>` : ''}
+                    <div class="px-4 py-2 border-t border-sant-border/50 text-[10px] text-gray-700">Combine filtros: <code class="text-gray-500">categoria:X tag:Y cidade:Z</code></div>`;
+                showGlobalResults();
+                return;
             }
 
             // ── Busca normal ─────────────────────────────────────────────────
@@ -3443,33 +3471,38 @@
             setTimeout(() => startEditNote(id), 150);
         }
 
-        function applyPrefixFilter(prefix, value) {
-            // Mapeia prefixo para o filtro correto em activeFilters
+        function applyCombinedPrefixFilters(pairs, freeText) {
             switchView('contacts');
             clearAdvFilters();
+            clearGlobalSearch();
             setTimeout(() => {
                 toggleAdvFilters(); // abre o painel
                 const map = {
-                    'empresa': 'filterCategory', // fallback — usamos busca de texto
-                    'company': null,
-                    'tag':     'filterTag',
-                    'cidade':  'filterCity',
-                    'city':    'filterCity',
-                    'estado':  'filterState',
-                    'uf':      'filterState',
+                    'tag':      'filterTag',
+                    'cidade':   'filterCity',
+                    'city':     'filterCity',
+                    'estado':   'filterState',
+                    'uf':       'filterState',
                     'categoria':'filterCategory',
-                    'cat':     'filterCategory',
-                    'origem':  'filterOrigin',
-                    'origin':  'filterOrigin',
+                    'cat':      'filterCategory',
+                    'origem':   'filterOrigin',
+                    'origin':   'filterOrigin',
                 };
-                const filterId = map[prefix];
-                if (filterId) {
-                    const el = document.getElementById(filterId);
-                    if (el) { el.value = value; applyAdvFilters(); return; }
-                }
-                // Para empresa, telefone, email, passo — usa busca de texto
+                let extraText = freeText || '';
+                pairs.forEach(({prefix, value}) => {
+                    const filterId = map[prefix];
+                    if (filterId) {
+                        const el = document.getElementById(filterId);
+                        if (el) el.value = value;
+                    } else {
+                        // Sem select correspondente (ex: empresa, telefone, email) — cai na busca de texto
+                        extraText = (extraText + ' ' + value).trim();
+                    }
+                });
                 const si = document.getElementById('searchInput');
-                if (si) { si.value = value; renderContacts(value); }
+                if (si) si.value = extraText;
+                applyAdvFilters();
+                if (extraText) renderContacts(extraText);
             }, 150);
         }
 
