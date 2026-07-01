@@ -5295,6 +5295,27 @@
                     });
             }
 
+            // ── 7. Leads quentes/mornos esfriando (sem contato recente) ─────
+            contacts
+                .filter(c => c.isLead && (c.temperature === 'quente' || c.temperature === 'morno'))
+                .forEach(c => {
+                    const d = getInactivityDays(c);
+                    if (d === null) return;
+                    const limit = c.temperature === 'quente' ? 5 : 10;
+                    if (d < limit) return;
+                    const isHot = c.temperature === 'quente';
+                    items.push({
+                        priority: isHot ? 1 : 3,
+                        icon: 'ph-fire', color: isHot ? '#f87171' : '#fbbf24',
+                        bg: isHot ? 'bg-red-500/10' : 'bg-amber-500/10',
+                        border: isHot ? 'border-red-500/20' : 'border-amber-500/20',
+                        label: `${isHot ? '🔥 Lead quente' : '☀️ Lead morno'} esfriando (${d}d sem contato)`,
+                        name: fullName(c),
+                        action: `openHistoryModal('${c.id}')`,
+                        actionLabel: 'Reativar'
+                    });
+                });
+
             if (!items.length) {
                 card.classList.add('hidden');
                 return;
