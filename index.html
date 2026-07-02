@@ -7844,7 +7844,16 @@
             document.getElementById('contactId').value = contact.id;
             document.getElementById('contactName').value = contact.name || '';
             document.getElementById('contactLastName').value = contact.lastName || '';
-            document.getElementById('contactCategory').value = contact.category || '';
+            const catSelect = document.getElementById('contactCategory');
+            catSelect.value = contact.category || '';
+            if (contact.category && catSelect.value !== contact.category) {
+                // Categoria antiga foi excluída da lista mas o contato ainda a possui — evita perda de dado
+                const orphanOpt = document.createElement('option');
+                orphanOpt.value = contact.category;
+                orphanOpt.textContent = `${contact.category} (categoria excluída)`;
+                catSelect.insertBefore(orphanOpt, catSelect.firstChild.nextSibling);
+                catSelect.value = contact.category;
+            }
             document.getElementById('contactOrigin').value = contact.origin || '';
             document.getElementById('contactCompany').value = contact.company || '';
             document.getElementById('contactJob').value = contact.job || '';
