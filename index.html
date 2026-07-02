@@ -217,7 +217,7 @@
                 </div>
             </div>
             <!-- Card de login -->
-            <div class="bg-sant-surface border border-sant-border rounded-2xl p-8 shadow-2xl">
+            <div id="loginCard" class="bg-sant-surface border border-sant-border rounded-2xl p-8 shadow-2xl">
                 <h2 class="text-xl font-bold text-white mb-1">Bem-vindo de volta</h2>
                 <p class="text-xs text-gray-500 mb-6">Entre com sua conta para acessar o CRM</p>
                 <div class="space-y-4">
@@ -239,6 +239,26 @@
                         style="background:#5b8fa8;color:#030303">
                         <i class="ph ph-sign-in"></i> Entrar
                     </button>
+                </div>
+            </div>
+            <!-- Etapa 2: código do autenticador (só aparece se o 2FA estiver ativado) -->
+            <div id="mfaLoginCard" class="hidden bg-sant-surface border border-sant-border rounded-2xl p-8 shadow-2xl">
+                <div class="flex items-center gap-2 mb-1">
+                    <i class="ph ph-shield-check text-xl" style="color:#5b8fa8"></i>
+                    <h2 class="text-xl font-bold text-white">Verificação em duas etapas</h2>
+                </div>
+                <p class="text-xs text-gray-500 mb-6">Digite o código de 6 dígitos do seu aplicativo autenticador.</p>
+                <div class="space-y-4">
+                    <input type="text" id="mfaLoginCode" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code"
+                        class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-3 text-center text-2xl tracking-[0.5em] text-white outline-none focus:border-sant-cyan transition-colors"
+                        onkeydown="if(event.key==='Enter')confirmMfaLogin()">
+                    <p id="mfaLoginError" class="hidden text-xs text-red-400 flex items-center gap-1.5"><i class="ph ph-warning-circle"></i> <span></span></p>
+                    <button onclick="confirmMfaLogin()" id="mfaLoginBtn"
+                        class="w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2"
+                        style="background:#5b8fa8;color:#030303">
+                        <i class="ph ph-check-circle"></i> Confirmar
+                    </button>
+                    <button onclick="cancelMfaLogin()" class="w-full py-2 text-xs text-gray-500 hover:text-white transition-colors">Voltar</button>
                 </div>
             </div>
             <p class="text-center text-[10px] text-gray-700 mt-4">Vend-s Inteligência CRM • Acesso restrito</p>
@@ -1481,6 +1501,7 @@
                     <button onclick="switchSettingsTab('templates')"  id="stab-templates"  class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Templates</button>
                     <button onclick="switchSettingsTab('blocks')"     id="stab-blocks"     class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Bloqueios de Horário</button>
                     <button onclick="switchSettingsTab('backup')"     id="stab-backup"     class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Backup</button>
+                    <button onclick="switchSettingsTab('security')"   id="stab-security"   class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Segurança</button>
                 </div>
 
                 <!-- Painel: Categorias -->
@@ -1674,6 +1695,59 @@
                                     <button onclick="requestPushPermission()" id="pushPermBtn" class="text-sm border px-4 py-2 rounded-lg transition-colors flex items-center gap-2 border-sant-border text-gray-400 hover:border-sant-cyan hover:text-sant-cyan"><i class="ph ph-bell-slash"></i> Ativar</button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Painel: Segurança -->
+                <div id="spanel-security" class="settings-panel hidden">
+                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
+                        <p class="text-xs font-bold text-white uppercase tracking-wide mb-2 flex items-center gap-2"><i class="ph ph-shield-check text-sant-cyan"></i> Autenticação de Dois Fatores (2FA)</p>
+                        <p class="text-xs text-gray-500 mb-5">Adiciona uma segunda camada de segurança ao login: além da senha, um código de 6 dígitos gerado por um app autenticador (Google Authenticator, Microsoft Authenticator, Authy).</p>
+
+                        <!-- Estado: desativado -->
+                        <div id="mfaStateOff">
+                            <div class="flex items-center justify-between bg-[#0a0a0a] border border-sant-border rounded-xl p-4">
+                                <div class="flex items-center gap-3">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-gray-600"></span>
+                                    <div><p class="text-sm text-white font-medium">2FA desativado</p><p class="text-xs text-gray-500">Sua conta usa apenas e-mail e senha.</p></div>
+                                </div>
+                                <button onclick="startMfaEnrollment()" class="bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-4 py-2 rounded-lg text-sm font-bold transition-colors">Ativar 2FA</button>
+                            </div>
+                        </div>
+
+                        <!-- Estado: ativado -->
+                        <div id="mfaStateOn" class="hidden">
+                            <div class="flex items-center justify-between bg-[#0a0a0a] border border-green-500/20 rounded-xl p-4">
+                                <div class="flex items-center gap-3">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-green-400"></span>
+                                    <div><p class="text-sm text-white font-medium">2FA ativado</p><p class="text-xs text-gray-500">Seu login exige código do autenticador.</p></div>
+                                </div>
+                                <button onclick="disableMfa()" class="bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-400 px-4 py-2 rounded-lg text-sm font-bold transition-colors">Desativar 2FA</button>
+                            </div>
+                        </div>
+
+                        <!-- Fluxo de matrícula (QR code) -->
+                        <div id="mfaEnrollBox" class="hidden mt-5 pt-5 border-t border-sant-border">
+                            <p class="text-sm text-white font-medium mb-3">1. Escaneie o QR code com seu app autenticador</p>
+                            <div class="flex flex-col items-center gap-3 mb-4">
+                                <div id="mfaQrCode" class="bg-white p-3 rounded-xl"></div>
+                                <p class="text-[11px] text-gray-500">Ou digite manualmente: <code id="mfaSecretText" class="text-sant-cyan"></code></p>
+                            </div>
+                            <p class="text-sm text-white font-medium mb-2">2. Digite o código gerado para confirmar</p>
+                            <div class="flex gap-2">
+                                <input type="text" id="mfaEnrollCode" placeholder="000000" maxlength="6" inputmode="numeric" class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-4 py-2.5 text-center text-lg tracking-[0.4em] text-white outline-none focus:border-sant-cyan">
+                                <button onclick="confirmMfaEnrollment()" class="bg-sant-cyan text-sant-bg px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-cyan-400 transition-colors">Confirmar</button>
+                            </div>
+                            <p id="mfaEnrollError" class="hidden text-xs text-red-400 mt-2 flex items-center gap-1.5"><i class="ph ph-warning-circle"></i> <span></span></p>
+                            <button onclick="cancelMfaEnrollment()" class="text-xs text-gray-500 hover:text-white transition-colors mt-3">Cancelar</button>
+                        </div>
+
+                        <div class="mt-5 pt-5 border-t border-sant-border">
+                            <p class="text-xs font-bold text-amber-400 uppercase tracking-wide mb-2 flex items-center gap-1.5"><i class="ph ph-key"></i> Se você perder o acesso ao autenticador</p>
+                            <p class="text-xs text-gray-500 leading-relaxed">Como dono da conta no Supabase, você sempre pode desativar o 2FA diretamente pelo painel do banco de dados, sem precisar do código — mesmo que fique impossibilitado de entrar pelo CRM. Guarde este comando em local seguro:</p>
+                            <div class="bg-[#0a0a0a] border border-sant-border rounded-lg p-3 mt-2 font-mono text-[11px] text-gray-400 overflow-x-auto">delete from auth.mfa_factors where user_id = '1e899bde-4770-4971-a773-a070084e7887';</div>
+                            <p class="text-[10px] text-gray-600 mt-1.5">Rode no SQL Editor do Supabase (supabase.com/dashboard) para remover o 2FA da sua conta instantaneamente.</p>
                         </div>
                     </div>
                 </div>
@@ -3090,6 +3164,9 @@
             }
         }
 
+        let mfaPendingFactorId = null;
+        let mfaEnrollFactorId = null;
+
         async function doLogin() {
             const sb = getSB();
             const email = document.getElementById('loginEmail').value.trim();
@@ -3108,7 +3185,60 @@
                 return;
             }
             currentUser = data.user;
+
+            // Verifica se a conta exige segundo fator (2FA)
+            const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+            if (aal && aal.nextLevel === 'aal2' && aal.nextLevel !== aal.currentLevel) {
+                const { data: factors } = await sb.auth.mfa.listFactors();
+                const factor = factors?.totp?.find(f => f.status === 'verified');
+                if (factor) {
+                    mfaPendingFactorId = factor.id;
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="ph ph-sign-in"></i> Entrar';
+                    document.getElementById('loginCard').classList.add('hidden');
+                    document.getElementById('mfaLoginCard').classList.remove('hidden');
+                    setTimeout(() => document.getElementById('mfaLoginCode')?.focus(), 100);
+                    return;
+                }
+            }
             showAppAfterLogin();
+        }
+
+        async function confirmMfaLogin() {
+            const sb = getSB();
+            const code = document.getElementById('mfaLoginCode').value.trim();
+            const btn = document.getElementById('mfaLoginBtn');
+            const errEl = document.getElementById('mfaLoginError');
+            errEl.classList.add('hidden');
+            if (!/^\d{6}$/.test(code)) { showMfaLoginError('Digite os 6 dígitos do código.'); return; }
+            btn.disabled = true;
+            btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Verificando...';
+            try {
+                const { data: challenge, error: chErr } = await sb.auth.mfa.challenge({ factorId: mfaPendingFactorId });
+                if (chErr) throw chErr;
+                const { error: verErr } = await sb.auth.mfa.verify({ factorId: mfaPendingFactorId, challengeId: challenge.id, code });
+                if (verErr) throw verErr;
+                showAppAfterLogin();
+            } catch(e) {
+                showMfaLoginError('Código inválido ou expirado. Tente novamente.');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="ph ph-check-circle"></i> Confirmar';
+            }
+        }
+
+        function cancelMfaLogin() {
+            mfaPendingFactorId = null;
+            document.getElementById('mfaLoginCard').classList.add('hidden');
+            document.getElementById('loginCard').classList.remove('hidden');
+            document.getElementById('mfaLoginCode').value = '';
+            const sb = getSB();
+            sb?.auth.signOut();
+        }
+
+        function showMfaLoginError(msg) {
+            const el = document.getElementById('mfaLoginError');
+            el.querySelector('span').textContent = msg;
+            el.classList.remove('hidden');
         }
 
         function showLoginError(msg) {
@@ -12435,6 +12565,69 @@
             if (tab === 'templates')   renderSTemplates();
             if (tab === 'blocks')      renderSBlocks();
             if (tab === 'backup')      renderSBackup();
+            if (tab === 'security')    renderSSecurity();
+        }
+
+        // — Segurança / 2FA —
+        async function renderSSecurity() {
+            const sb = getSB();
+            if (!sb) return;
+            document.getElementById('mfaEnrollBox').classList.add('hidden');
+            try {
+                const { data } = await sb.auth.mfa.listFactors();
+                const hasVerified = data?.totp?.some(f => f.status === 'verified');
+                document.getElementById('mfaStateOff').classList.toggle('hidden', hasVerified);
+                document.getElementById('mfaStateOn').classList.toggle('hidden', !hasVerified);
+            } catch(e) { console.warn('MFA status:', e.message); }
+        }
+
+        async function startMfaEnrollment() {
+            const sb = getSB();
+            const { data, error } = await sb.auth.mfa.enroll({ factorType: 'totp' });
+            if (error) { showToast('Erro ao iniciar 2FA: ' + error.message, 'error'); return; }
+            mfaEnrollFactorId = data.id;
+            document.getElementById('mfaQrCode').innerHTML = data.totp.qr_code;
+            document.getElementById('mfaSecretText').textContent = data.totp.secret;
+            document.getElementById('mfaEnrollBox').classList.remove('hidden');
+            document.getElementById('mfaEnrollCode').value = '';
+            document.getElementById('mfaEnrollError').classList.add('hidden');
+        }
+
+        async function confirmMfaEnrollment() {
+            const sb = getSB();
+            const code = document.getElementById('mfaEnrollCode').value.trim();
+            const errEl = document.getElementById('mfaEnrollError');
+            errEl.classList.add('hidden');
+            if (!/^\d{6}$/.test(code)) { errEl.querySelector('span').textContent = 'Digite os 6 dígitos do código.'; errEl.classList.remove('hidden'); return; }
+            try {
+                const { data: challenge, error: chErr } = await sb.auth.mfa.challenge({ factorId: mfaEnrollFactorId });
+                if (chErr) throw chErr;
+                const { error: verErr } = await sb.auth.mfa.verify({ factorId: mfaEnrollFactorId, challengeId: challenge.id, code });
+                if (verErr) throw verErr;
+                document.getElementById('mfaEnrollBox').classList.add('hidden');
+                showToast('2FA ativado com sucesso! ✅');
+                renderSSecurity();
+            } catch(e) {
+                errEl.querySelector('span').textContent = 'Código inválido. Confira o horário do celular e tente novamente.';
+                errEl.classList.remove('hidden');
+            }
+        }
+
+        function cancelMfaEnrollment() {
+            document.getElementById('mfaEnrollBox').classList.add('hidden');
+        }
+
+        function disableMfa() {
+            showConfirm('Desativar autenticação de dois fatores?', 'Seu login voltará a exigir apenas e-mail e senha.', async () => {
+                const sb = getSB();
+                try {
+                    const { data } = await sb.auth.mfa.listFactors();
+                    const factor = data?.totp?.find(f => f.status === 'verified');
+                    if (factor) await sb.auth.mfa.unenroll({ factorId: factor.id });
+                    showToast('2FA desativado.');
+                    renderSSecurity();
+                } catch(e) { showToast('Erro ao desativar: ' + e.message, 'error'); }
+            });
         }
 
         // — Categorias —
