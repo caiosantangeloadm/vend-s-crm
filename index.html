@@ -10454,7 +10454,7 @@
         }
         function renderPlaybookStepsList() {
             const box = document.getElementById('playbookStepsList');
-            const prioOptions = { low: 'Baixa', medium: 'Média', high: 'Alta', urgent: 'Urgente' };
+            const prioOptions = { low: 'Baixa', medium: 'Normal', high: 'Alta (Urgente)' };
             box.innerHTML = currentPlaybookSteps.map((s, i) => `
                 <div class="flex items-center gap-2 bg-[#141414] border border-sant-border rounded-lg p-2">
                     <span class="text-[10px] text-gray-600 w-4 shrink-0 text-center">${i+1}</span>
