@@ -8464,11 +8464,14 @@
 
         function updateCategorySelects() {
             const select = document.getElementById('contactCategory');
+            const currentCat = select ? select.value : '';
             const sortedCats = [...categories].sort((a, b) => a.localeCompare(b, 'pt-BR'));
             select.innerHTML = '<option value="">Sem Categoria</option>' + sortedCats.map(c => `<option value="${c}">${c}</option>`).join('');
+            select.value = currentCat;
 
             const fCat = document.getElementById('filterCategory');
-            if (fCat) fCat.innerHTML = '<option value="">Todas</option>' + sortedCats.map(c => `<option value="${c}">${c}</option>`).join('');
+            const currentFCat = fCat ? fCat.value : '';
+            if (fCat) { fCat.innerHTML = '<option value="">Todas</option>' + sortedCats.map(c => `<option value="${c}">${c}</option>`).join(''); fCat.value = currentFCat; }
 
             const fTag = document.getElementById('filterTag');
             if (fTag) fTag.innerHTML = '<option value="">Todas</option>' + tags.map(t => `<option value="${t}">${t}</option>`).join('');
