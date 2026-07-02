@@ -3439,6 +3439,7 @@
             clear.classList.toggle('hidden', !q.trim());
             clearTimeout(_gsTimeout);
             if (!q.trim()) { showSearchHistory(); return; }
+            if (q.trim().startsWith('>')) { renderCommandPalette(q.trim().slice(1)); return; }
             _gsTimeout = setTimeout(() => {
                 saveSearchHistory(q.trim());
                 runGlobalSearch(q.trim());
@@ -3505,10 +3506,25 @@
         function showSearchHistory() {
             const hist = JSON.parse(localStorage.getItem('vends_search_history') || '[]').slice(0, 5);
             const panel = document.getElementById('globalSearchResults');
-            if (!hist.length) { hideGlobalResults(); return; }
 
-            panel.innerHTML = `
+            const quickCmds = COMMANDS.slice(0, 5);
+            const quickHtml = `
                 <div class="px-4 pt-3 pb-1 flex items-center justify-between">
+                    <span class="text-[10px] font-bold tracking-widest text-gray-600 uppercase flex items-center gap-1.5">
+                        <i class="ph ph-lightning"></i> Ações rápidas
+                    </span>
+                    <span class="text-[10px] text-gray-700">digite <kbd class="kbd-key" style="font-size:9px">&gt;</kbd> para ver todas</span>
+                </div>
+                ${quickCmds.map(cmdToHtml).join('')}`;
+
+            if (!hist.length) {
+                panel.innerHTML = quickHtml;
+                showGlobalResults();
+                return;
+            }
+
+            panel.innerHTML = quickHtml + `
+                <div class="px-4 pt-3 pb-1 flex items-center justify-between border-t border-sant-border/50 mt-1">
                     <span class="text-[10px] font-bold tracking-widest text-gray-600 uppercase flex items-center gap-1.5">
                         <i class="ph ph-clock-counter-clockwise"></i> Buscas recentes
                     </span>
@@ -3527,6 +3543,59 @@
             showGlobalResults();
         }
         // ── fim Histórico de buscas ───────────────────────────────────────────
+
+        // ── Command Palette (ações rápidas no Ctrl+K) ─────────────────────────
+        const COMMANDS = [
+            { label: 'Novo Contato', icon: 'ph-user-plus', keywords: 'contato criar adicionar', action: () => { switchView('contacts'); setTimeout(() => openModal(), 150); } },
+            { label: 'Novo Evento', icon: 'ph-calendar-plus', keywords: 'evento agenda compromisso criar', action: () => { switchView('calendar'); setTimeout(() => openEventModal(), 150); } },
+            { label: 'Nova Tarefa', icon: 'ph-check-square-offset', keywords: 'tarefa criar adicionar', action: () => { switchView('tasks'); setTimeout(() => openTaskModal(), 150); } },
+            { label: 'Nova Nota', icon: 'ph-note-pencil', keywords: 'nota criar adicionar anotação', action: () => { switchView('notes'); setTimeout(() => expandNewNote(), 150); } },
+            { label: 'Aplicar Playbook', icon: 'ph-flow-arrow', keywords: 'playbook modelo tarefas sequencia', action: () => { switchView('tasks'); setTimeout(() => openPlaybookModal(), 150); } },
+            { label: 'Ir para Dashboard', icon: 'ph-house', keywords: 'inicio home painel', action: () => switchView('dashboard') },
+            { label: 'Ir para Contatos', icon: 'ph-users', keywords: 'lista contatos', action: () => switchView('contacts') },
+            { label: 'Ir para Agenda', icon: 'ph-calendar-blank', keywords: 'calendario compromissos', action: () => switchView('calendar') },
+            { label: 'Ir para Tarefas', icon: 'ph-squares-four', keywords: 'lista tarefas kanban', action: () => switchView('tasks') },
+            { label: 'Ir para Notas', icon: 'ph-note', keywords: 'anotações lista', action: () => switchView('notes') },
+            { label: 'Ir para Relatórios', icon: 'ph-chart-bar', keywords: 'graficos analise regioes mapa', action: () => switchView('reports') },
+            { label: 'Ir para Configurações', icon: 'ph-gear', keywords: 'ajustes preferencias categorias tags backup', action: () => switchView('settings') },
+            { label: 'Revisão Semanal Guiada', icon: 'ph-list-checks', keywords: 'revisao semana resumo', action: () => openWeeklyReview() },
+            { label: 'Modo Apresentação/Foco', icon: 'ph-arrows-out', keywords: 'foco apresentacao tela cheia oculta menu', action: () => toggleFocusMode() },
+            { label: 'Central de Ajuda', icon: 'ph-lifebuoy', keywords: 'ajuda faq duvida atalhos', action: () => openShortcutsModal() },
+            { label: 'Exportar Backup', icon: 'ph-database', keywords: 'backup exportar json dados', action: () => { switchView('settings'); setTimeout(() => switchSettingsTab('backup'), 150); } },
+            { label: 'Sair (Logout)', icon: 'ph-sign-out', keywords: 'logout sair desconectar', action: () => doLogout() },
+        ];
+
+        function cmdToHtml(cmd) {
+            const idx = COMMANDS.indexOf(cmd);
+            return `<div data-gs-item class="gs-item flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-white/5 transition-colors rounded-xl mx-1" onclick="runCommand(${idx})">
+                <span class="w-8 h-8 rounded-lg bg-sant-cyan/10 border border-sant-cyan/20 flex items-center justify-center shrink-0"><i class="ph ${cmd.icon} text-sant-cyan text-sm"></i></span>
+                <span class="text-sm text-white flex-1">${cmd.label}</span>
+                <i class="ph ph-arrow-right text-gray-700 shrink-0"></i>
+            </div>`;
+        }
+
+        function runCommand(idx) {
+            clearGlobalSearch();
+            const cmd = COMMANDS[idx];
+            if (cmd) cmd.action();
+        }
+
+        function renderCommandPalette(query) {
+            const panel = document.getElementById('globalSearchResults');
+            const ql = query.toLowerCase().trim();
+            const matched = ql
+                ? COMMANDS.filter(c => c.label.toLowerCase().includes(ql) || c.keywords.includes(ql))
+                : COMMANDS;
+            panel.innerHTML = `
+                <div class="px-4 pt-3 pb-1">
+                    <span class="text-[10px] font-bold tracking-widest text-sant-cyan uppercase flex items-center gap-1.5">
+                        <i class="ph ph-lightning"></i> Comandos ${matched.length ? `— ${matched.length}` : ''}
+                    </span>
+                </div>
+                ${matched.length ? matched.map(cmdToHtml).join('') : '<div class="px-5 py-6 text-center text-gray-600 text-sm">Nenhum comando encontrado.</div>'}`;
+            showGlobalResults();
+        }
+        // ── fim Command Palette ────────────────────────────────────────────────
 
         // Prefixos suportados na busca global
         const SEARCH_PREFIXES = {
