@@ -1502,6 +1502,7 @@
                     <button onclick="switchSettingsTab('blocks')"     id="stab-blocks"     class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Bloqueios de Horário</button>
                     <button onclick="switchSettingsTab('backup')"     id="stab-backup"     class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Backup</button>
                     <button onclick="switchSettingsTab('security')"   id="stab-security"   class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Segurança</button>
+                    <button onclick="switchSettingsTab('audit')"      id="stab-audit"      class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Auditoria de Dados</button>
                 </div>
 
                 <!-- Painel: Categorias -->
@@ -1749,6 +1750,38 @@
                             <div class="bg-[#0a0a0a] border border-sant-border rounded-lg p-3 mt-2 font-mono text-[11px] text-gray-400 overflow-x-auto">delete from auth.mfa_factors where user_id = '1e899bde-4770-4971-a773-a070084e7887';</div>
                             <p class="text-[10px] text-gray-600 mt-1.5">Rode no SQL Editor do Supabase (supabase.com/dashboard) para remover o 2FA da sua conta instantaneamente.</p>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Painel: Auditoria de Dados -->
+                <div id="spanel-audit" class="settings-panel hidden">
+                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 mb-6">
+                        <p class="text-xs font-bold text-white uppercase tracking-wide mb-2 flex items-center gap-2"><i class="ph ph-magnifying-glass text-sant-cyan"></i> Auditoria de Dados</p>
+                        <p class="text-xs text-gray-500">Uma varredura da sua base para encontrar inconsistências acumuladas: categorias excluídas mas ainda em uso, tags sem nenhum contato/nota/tarefa vinculada, e possíveis contatos duplicados.</p>
+                    </div>
+
+                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 mb-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <p class="text-sm font-bold text-white flex items-center gap-2"><i class="ph ph-tag text-amber-400"></i> Categorias Órfãs</p>
+                            <span id="auditCatCount" class="text-[10px] text-gray-600 bg-[#141414] border border-sant-border rounded-full px-2 py-0.5"></span>
+                        </div>
+                        <div id="auditCatList" class="space-y-2"></div>
+                    </div>
+
+                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 mb-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <p class="text-sm font-bold text-white flex items-center gap-2"><i class="ph ph-hash text-purple-400"></i> Tags Não Usadas</p>
+                            <span id="auditTagCount" class="text-[10px] text-gray-600 bg-[#141414] border border-sant-border rounded-full px-2 py-0.5"></span>
+                        </div>
+                        <div id="auditTagList" class="flex flex-wrap gap-2"></div>
+                    </div>
+
+                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <p class="text-sm font-bold text-white flex items-center gap-2"><i class="ph ph-git-merge text-red-400"></i> Possíveis Contatos Duplicados</p>
+                            <span id="auditDupCount" class="text-[10px] text-gray-600 bg-[#141414] border border-sant-border rounded-full px-2 py-0.5"></span>
+                        </div>
+                        <div id="auditDupList" class="space-y-2"></div>
                     </div>
                 </div>
             </div><!-- /view-settings -->
@@ -12635,6 +12668,114 @@
             if (tab === 'blocks')      renderSBlocks();
             if (tab === 'backup')      renderSBackup();
             if (tab === 'security')    renderSSecurity();
+            if (tab === 'audit')       renderSAudit();
+        }
+
+        // — Auditoria de Dados —
+        function renderSAudit() {
+            renderAuditCategories();
+            renderAuditTags();
+            renderAuditDuplicates();
+        }
+
+        function renderAuditCategories() {
+            const list = document.getElementById('auditCatList');
+            const countEl = document.getElementById('auditCatCount');
+            if (!list) return;
+            const orphans = {};
+            contacts.forEach(c => {
+                if (c.category && !categories.includes(c.category)) {
+                    (orphans[c.category] = orphans[c.category] || []).push(c);
+                }
+            });
+            const entries = Object.entries(orphans);
+            countEl.textContent = `${entries.length} categoria${entries.length!==1?'s':''}`;
+            if (!entries.length) { list.innerHTML = '<p class="text-xs text-gray-600 italic">Nenhuma categoria órfã encontrada. ✓</p>'; return; }
+            list.innerHTML = entries.map(([cat, arr]) => `
+                <div class="bg-[#0a0a0a] border border-sant-border rounded-lg p-3">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <p class="text-sm text-white font-medium">${cat}</p>
+                        <span class="text-[10px] text-gray-500">${arr.length} contato${arr.length!==1?'s':''}</span>
+                    </div>
+                    <p class="text-xs text-gray-600 mb-2 truncate">${arr.slice(0,5).map(c=>fullName(c)).join(', ')}${arr.length>5?` +${arr.length-5}`:''}</p>
+                    <div class="flex gap-2">
+                        <button onclick="auditRecreateCategory('${cat.replace(/'/g,"\\'")}')" class="text-[11px] bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-1.5 rounded-lg font-medium transition-colors">Recriar categoria</button>
+                        <button onclick="auditClearCategory('${cat.replace(/'/g,"\\'")}')" class="text-[11px] bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-400 px-3 py-1.5 rounded-lg font-medium transition-colors">Limpar destes contatos</button>
+                    </div>
+                </div>`).join('');
+        }
+        function auditRecreateCategory(cat) {
+            if (!categories.includes(cat)) {
+                categories.push(cat);
+                categories.sort((a,b) => a.localeCompare(b, 'pt-BR'));
+                saveCategoriesToStorage();
+                updateCategorySelects();
+            }
+            showToast(`Categoria "${cat}" recriada!`);
+            renderAuditCategories();
+        }
+        function auditClearCategory(cat) {
+            const arr = contacts.filter(c => c.category === cat);
+            showConfirm(`Limpar a categoria "${cat}" de ${arr.length} contato(s)?`, 'A categoria ficará vazia nesses contatos. Isso não pode ser desfeito.', () => {
+                arr.forEach(c => { c.category = ''; cloudSyncContact(c); });
+                saveToStorage();
+                showToast('Categoria removida dos contatos.');
+                renderAuditCategories();
+            });
+        }
+
+        function renderAuditTags() {
+            const list = document.getElementById('auditTagList');
+            const countEl = document.getElementById('auditTagCount');
+            if (!list) return;
+            const usedTags = new Set();
+            contacts.forEach(c => (c.tags||[]).forEach(t => usedTags.add(t)));
+            notes.forEach(n => (n.tags||[]).forEach(t => usedTags.add(t)));
+            tasks.forEach(t => (t.tags||[]).forEach(tag => usedTags.add(tag)));
+            const unused = tags.filter(t => !usedTags.has(t));
+            countEl.textContent = `${unused.length} tag${unused.length!==1?'s':''}`;
+            if (!unused.length) { list.innerHTML = '<p class="text-xs text-gray-600 italic">Nenhuma tag sem uso. ✓</p>'; return; }
+            list.innerHTML = unused.map(t => `
+                <span class="inline-flex items-center gap-1.5 bg-[#0a0a0a] border border-sant-border rounded-full pl-3 pr-1.5 py-1 text-xs text-gray-300">
+                    ${t}
+                    <button onclick="auditDeleteTag('${t.replace(/'/g,"\\'")}')" class="text-gray-600 hover:text-red-400 transition-colors p-0.5"><i class="ph ph-trash text-[11px]"></i></button>
+                </span>`).join('');
+        }
+        function auditDeleteTag(t) {
+            deleteSTag(t);
+            renderAuditTags();
+        }
+
+        function renderAuditDuplicates() {
+            const list = document.getElementById('auditDupList');
+            const countEl = document.getElementById('auditDupCount');
+            if (!list) return;
+            const pairs = [];
+            const seen = new Set();
+            for (let i = 0; i < contacts.length; i++) {
+                for (let j = i + 1; j < contacts.length; j++) {
+                    const a = contacts[i], b = contacts[j];
+                    const nameA = fullName(a).trim().toLowerCase(), nameB = fullName(b).trim().toLowerCase();
+                    const phonesA = [normalizePhoneDigits(a.phoneProf), normalizePhoneDigits(a.phonePess)].filter(Boolean);
+                    const phonesB = [normalizePhoneDigits(b.phoneProf), normalizePhoneDigits(b.phonePess)].filter(Boolean);
+                    const sameName = nameA && nameA === nameB;
+                    const samePhone = phonesA.some(p => phonesB.includes(p));
+                    if (sameName || samePhone) {
+                        const key = [a.id, b.id].sort().join('|');
+                        if (!seen.has(key)) { seen.add(key); pairs.push({ a, b, reason: sameName ? 'nome igual' : 'telefone igual' }); }
+                    }
+                }
+            }
+            countEl.textContent = `${pairs.length} par${pairs.length!==1?'es':''}`;
+            if (!pairs.length) { list.innerHTML = '<p class="text-xs text-gray-600 italic">Nenhum possível duplicado encontrado. ✓</p>'; return; }
+            list.innerHTML = pairs.slice(0, 30).map(({a, b, reason}) => `
+                <div class="bg-[#0a0a0a] border border-sant-border rounded-lg p-3 flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <p class="text-sm text-white truncate">${fullName(a)} <span class="text-gray-600">#${a.code||''}</span> <span class="text-gray-700">×</span> ${fullName(b)} <span class="text-gray-600">#${b.code||''}</span></p>
+                        <p class="text-[10px] text-red-400/80 mt-0.5">${reason}</p>
+                    </div>
+                    <button onclick="openMergeModal('${a.id}')" class="shrink-0 text-[11px] bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-1.5 rounded-lg font-medium transition-colors">Mesclar</button>
+                </div>`).join('') + (pairs.length > 30 ? `<p class="text-[10px] text-gray-600 text-center pt-1">+${pairs.length-30} outros pares encontrados</p>` : '');
         }
 
         // — Segurança / 2FA —
