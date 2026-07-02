@@ -1018,6 +1018,9 @@
                             <button id="btnTaskViewList" onclick="switchTaskView('list')" class="p-2.5 text-sant-cyan bg-sant-cyan/10 transition-colors" title="Visão em Lista"><i class="ph ph-list-dashes text-lg"></i></button>
                             <button id="btnTaskViewKanban" onclick="switchTaskView('kanban')" class="p-2.5 text-gray-500 hover:text-white transition-colors" title="Visão Kanban"><i class="ph ph-kanban text-lg"></i></button>
                         </div>
+                        <button onclick="openPlaybookModal()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-4 py-2.5 rounded-lg flex items-center gap-2 font-medium transition-all" title="Playbooks: aplique um modelo pronto que cria várias tarefas de uma vez">
+                            <i class="ph ph-flow-arrow"></i> Playbooks
+                        </button>
                         <button onclick="openTaskModal()" class="bg-sant-cyan text-sant-bg px-5 py-2.5 rounded-lg flex items-center gap-2 font-bold hover:bg-cyan-400 transition-all shadow-lg shadow-cyan-900/20">
                             <i class="ph ph-plus"></i> Nova Tarefa
                         </button>
@@ -2166,6 +2169,66 @@
         </div>
     </div>
 
+    <!-- MODAL DE PLAYBOOKS DE TAREFAS -->
+    <div id="playbookModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center p-5 border-b border-sant-border shrink-0">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-flow-arrow text-sant-cyan"></i> <span id="playbookModalTitle">Playbooks de Tarefas</span></h3>
+                <button onclick="closePlaybookModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+
+            <!-- Lista de Playbooks -->
+            <div id="playbookViewList" class="overflow-y-auto custom-scrollbar p-5">
+                <p class="text-xs text-gray-500 mb-4">Um playbook cria várias tarefas de uma vez, em sequência, com prazos relativos a uma data de início (ex: "Processo de Renovação" gera 5 tarefas escalonadas).</p>
+                <button onclick="openPlaybookEditor()" class="w-full bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-4 py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 mb-4"><i class="ph ph-plus"></i> Novo Playbook</button>
+                <div id="playbookList" class="space-y-2"></div>
+            </div>
+
+            <!-- Editor de Playbook (criar/editar) -->
+            <div id="playbookViewEditor" class="hidden overflow-y-auto custom-scrollbar p-5 flex-col gap-4">
+                <input type="hidden" id="playbookId">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Nome do Playbook</label>
+                    <input type="text" id="playbookName" placeholder="Ex: Processo de Renovação" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-sant-cyan">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Descrição <span class="text-gray-600 normal-case font-normal">(opcional)</span></label>
+                    <input type="text" id="playbookDesc" placeholder="Do que se trata este playbook?" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-sant-cyan">
+                </div>
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide">Etapas (tarefas)</label>
+                        <button onclick="addPlaybookStepRow()" class="text-xs text-sant-cyan hover:text-white transition-colors flex items-center gap-1"><i class="ph ph-plus"></i> Adicionar etapa</button>
+                    </div>
+                    <div id="playbookStepsList" class="space-y-2"></div>
+                </div>
+                <div class="flex gap-3 pt-2 pb-1">
+                    <button onclick="closePlaybookEditor()" class="flex-1 px-4 py-2 rounded-lg border border-sant-border text-gray-400 hover:text-white text-sm transition-colors">Cancelar</button>
+                    <button onclick="savePlaybook()" class="flex-1 bg-sant-cyan text-sant-bg px-4 py-2 rounded-lg text-sm font-bold hover:bg-cyan-400 transition-colors">Salvar Playbook</button>
+                </div>
+            </div>
+
+            <!-- Aplicar Playbook -->
+            <div id="playbookViewApply" class="hidden overflow-y-auto custom-scrollbar p-5 flex-col gap-4">
+                <input type="hidden" id="applyPlaybookId">
+                <p id="applyPlaybookPreview" class="text-xs text-gray-500"></p>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Data de início</label>
+                    <input type="date" id="applyPlaybookStartDate" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-sant-cyan">
+                    <p class="text-[10px] text-gray-600 mt-1">Os prazos de cada etapa serão calculados a partir desta data.</p>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Vincular a um contato <span class="text-gray-600 normal-case font-normal">(opcional)</span></label>
+                    <select id="applyPlaybookContact" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-sant-cyan"><option value="">Nenhum contato</option></select>
+                </div>
+                <div class="flex gap-3 pt-2 pb-1">
+                    <button onclick="closePlaybookApply()" class="flex-1 px-4 py-2 rounded-lg border border-sant-border text-gray-400 hover:text-white text-sm transition-colors">Cancelar</button>
+                    <button onclick="confirmApplyPlaybook()" class="flex-1 bg-sant-cyan text-sant-bg px-4 py-2 rounded-lg text-sm font-bold hover:bg-cyan-400 transition-colors">Criar Tarefas</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL DE TAREFA -->
     <div id="taskModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4">
         <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg max-h-[92vh] overflow-hidden flex flex-col shadow-2xl">
@@ -3152,6 +3215,8 @@
         let messageTemplates = [];
         let sendMsgContactId = null;
         let editingTemplateId = null;
+        let taskPlaybooks = [];
+        let currentPlaybookSteps = [];
         let activeFilters = { category: '', isLead: '', temperature: '', tag: '', origin: '', city: '', state: '', intType: '', intFrom: '', intTo: '' };
         let currentContactTags = [];
         let currentContactCustomFields = [];
@@ -3977,6 +4042,7 @@
             notifications = JSON.parse(localStorage.getItem('vends_notifications') || '[]');
             scheduleBlocks = JSON.parse(localStorage.getItem('sant_crm_schedule_blocks') || '[]');
             messageTemplates = JSON.parse(localStorage.getItem('sant_crm_message_templates') || JSON.stringify(defaultMessageTemplates));
+            taskPlaybooks = JSON.parse(localStorage.getItem('sant_crm_task_playbooks') || '[]');
             migrateContactCodes();
             migrateContactOrigins();
             loadEventTypeLabels();
@@ -10319,6 +10385,186 @@
             _refreshCurrentTaskView();
         }
 
+        // ── Playbooks de Tarefas ──────────────────────────────────────────────
+        function savePlaybooksToStorage() {
+            localStorage.setItem('sant_crm_task_playbooks', JSON.stringify(taskPlaybooks));
+            syncPreferencesToSupabase();
+        }
+
+        function openPlaybookModal() {
+            document.getElementById('playbookModal').classList.remove('hidden');
+            showPlaybookView('list');
+            renderPlaybookList();
+        }
+        function closePlaybookModal() { document.getElementById('playbookModal').classList.add('hidden'); }
+
+        function showPlaybookView(view) {
+            document.getElementById('playbookViewList').classList.toggle('hidden', view !== 'list');
+            document.getElementById('playbookViewEditor').classList.toggle('hidden', view !== 'editor');
+            document.getElementById('playbookViewEditor').classList.toggle('flex', view === 'editor');
+            document.getElementById('playbookViewApply').classList.toggle('hidden', view !== 'apply');
+            document.getElementById('playbookViewApply').classList.toggle('flex', view === 'apply');
+            document.getElementById('playbookModalTitle').textContent =
+                view === 'editor' ? 'Editar Playbook' : view === 'apply' ? 'Aplicar Playbook' : 'Playbooks de Tarefas';
+        }
+
+        function renderPlaybookList() {
+            const box = document.getElementById('playbookList');
+            if (!taskPlaybooks.length) {
+                box.innerHTML = '<p class="text-xs text-gray-600 italic text-center py-6">Nenhum playbook criado ainda.</p>';
+                return;
+            }
+            box.innerHTML = taskPlaybooks.map(pb => `
+                <div class="bg-[#0a0a0a] border border-sant-border rounded-xl p-4">
+                    <div class="flex items-start justify-between gap-2 mb-1">
+                        <p class="text-sm font-bold text-white">${pb.name}</p>
+                        <span class="text-[10px] text-gray-500 bg-[#141414] border border-sant-border rounded-full px-2 py-0.5 shrink-0">${pb.steps.length} etapa${pb.steps.length!==1?'s':''}</span>
+                    </div>
+                    ${pb.description ? `<p class="text-xs text-gray-500 mb-3">${pb.description}</p>` : '<div class="mb-3"></div>'}
+                    <div class="flex gap-2">
+                        <button onclick="openPlaybookApply('${pb.id}')" class="flex-1 bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1"><i class="ph ph-play"></i> Aplicar</button>
+                        <button onclick="openPlaybookEditor('${pb.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5" title="Editar"><i class="ph ph-pencil-simple"></i></button>
+                        <button onclick="deletePlaybook('${pb.id}')" class="text-gray-400 hover:text-red-500 p-1.5" title="Excluir"><i class="ph ph-trash"></i></button>
+                    </div>
+                </div>`).join('');
+        }
+
+        function openPlaybookEditor(id) {
+            const pb = id ? taskPlaybooks.find(x => x.id === id) : null;
+            document.getElementById('playbookId').value = pb ? pb.id : '';
+            document.getElementById('playbookName').value = pb ? pb.name : '';
+            document.getElementById('playbookDesc').value = pb ? pb.description || '' : '';
+            currentPlaybookSteps = pb ? pb.steps.map(s => ({...s})) : [{ title: '', daysOffset: 0, priority: 'medium' }];
+            renderPlaybookStepsList();
+            showPlaybookView('editor');
+        }
+        function closePlaybookEditor() { showPlaybookView('list'); }
+
+        function addPlaybookStepRow() {
+            const lastOffset = currentPlaybookSteps.length ? currentPlaybookSteps[currentPlaybookSteps.length-1].daysOffset : 0;
+            currentPlaybookSteps.push({ title: '', daysOffset: lastOffset + 1, priority: 'medium' });
+            renderPlaybookStepsList();
+        }
+        function removePlaybookStep(idx) {
+            currentPlaybookSteps.splice(idx, 1);
+            renderPlaybookStepsList();
+        }
+        function updatePlaybookStep(idx, field, value) {
+            currentPlaybookSteps[idx][field] = field === 'daysOffset' ? (parseInt(value) || 0) : value;
+        }
+        function renderPlaybookStepsList() {
+            const box = document.getElementById('playbookStepsList');
+            const prioOptions = { low: 'Baixa', medium: 'Média', high: 'Alta', urgent: 'Urgente' };
+            box.innerHTML = currentPlaybookSteps.map((s, i) => `
+                <div class="flex items-center gap-2 bg-[#141414] border border-sant-border rounded-lg p-2">
+                    <span class="text-[10px] text-gray-600 w-4 shrink-0 text-center">${i+1}</span>
+                    <input type="text" value="${(s.title||'').replace(/"/g,'&quot;')}" placeholder="Título da tarefa" oninput="updatePlaybookStep(${i},'title',this.value)" class="flex-1 min-w-0 bg-transparent text-sm text-white outline-none">
+                    <div class="flex items-center gap-1 shrink-0" title="Dias após a data de início">
+                        <span class="text-[10px] text-gray-500">D+</span>
+                        <input type="number" min="0" value="${s.daysOffset||0}" oninput="updatePlaybookStep(${i},'daysOffset',this.value)" class="w-12 bg-[#0a0a0a] border border-sant-border rounded px-1.5 py-1 text-xs text-white outline-none text-center">
+                    </div>
+                    <select onchange="updatePlaybookStep(${i},'priority',this.value)" class="shrink-0 bg-[#0a0a0a] border border-sant-border rounded px-1.5 py-1 text-xs text-white outline-none">
+                        ${Object.entries(prioOptions).map(([v,l]) => `<option value="${v}" ${s.priority===v?'selected':''}>${l}</option>`).join('')}
+                    </select>
+                    <button onclick="removePlaybookStep(${i})" class="text-gray-500 hover:text-red-500 shrink-0"><i class="ph ph-x"></i></button>
+                </div>`).join('');
+        }
+
+        function savePlaybook() {
+            const name = document.getElementById('playbookName').value.trim();
+            if (!name) { showToast('Dê um nome ao playbook!', 'error'); return; }
+            const steps = currentPlaybookSteps.filter(s => s.title.trim());
+            if (!steps.length) { showToast('Adicione pelo menos uma etapa com título!', 'error'); return; }
+
+            const id = document.getElementById('playbookId').value;
+            const pb = {
+                id: id || crypto.randomUUID(),
+                name,
+                description: document.getElementById('playbookDesc').value.trim(),
+                steps: steps.map(s => ({ title: s.title.trim(), daysOffset: s.daysOffset || 0, priority: s.priority || 'medium' }))
+            };
+            if (id) {
+                const idx = taskPlaybooks.findIndex(x => x.id === id);
+                if (idx !== -1) taskPlaybooks[idx] = pb;
+            } else {
+                taskPlaybooks.push(pb);
+            }
+            savePlaybooksToStorage();
+            showPlaybookView('list');
+            renderPlaybookList();
+            showToast('Playbook salvo!');
+        }
+
+        function deletePlaybook(id) {
+            const pb = taskPlaybooks.find(x => x.id === id);
+            if (!pb) return;
+            showConfirm(`Excluir playbook "${pb.name}"?`, 'As tarefas já criadas a partir dele não serão apagadas.', () => {
+                taskPlaybooks = taskPlaybooks.filter(x => x.id !== id);
+                savePlaybooksToStorage();
+                renderPlaybookList();
+                showToast('Playbook excluído.');
+            });
+        }
+
+        function openPlaybookApply(id) {
+            const pb = taskPlaybooks.find(x => x.id === id);
+            if (!pb) return;
+            document.getElementById('applyPlaybookId').value = id;
+            document.getElementById('applyPlaybookStartDate').value = getSPTodayStr();
+            populateContactSelect('applyPlaybookContact', '');
+            renderPlaybookApplyPreview();
+            document.getElementById('applyPlaybookStartDate').oninput = renderPlaybookApplyPreview;
+            showPlaybookView('apply');
+        }
+        function closePlaybookApply() { showPlaybookView('list'); }
+
+        function renderPlaybookApplyPreview() {
+            const pb = taskPlaybooks.find(x => x.id === document.getElementById('applyPlaybookId').value);
+            const startStr = document.getElementById('applyPlaybookStartDate').value || getSPTodayStr();
+            if (!pb) return;
+            const lines = pb.steps.map(s => {
+                const d = addDaysToDateStr(startStr, s.daysOffset || 0);
+                return `<div class="flex items-center justify-between py-1 border-b border-sant-border/40 last:border-0"><span class="text-gray-300">${s.title}</span><span class="text-gray-500">${d.split('-').reverse().join('/')}</span></div>`;
+            }).join('');
+            document.getElementById('applyPlaybookPreview').innerHTML = `<div class="bg-[#0a0a0a] border border-sant-border rounded-lg p-3 text-xs">${lines}</div>`;
+        }
+
+        function confirmApplyPlaybook() {
+            const pb = taskPlaybooks.find(x => x.id === document.getElementById('applyPlaybookId').value);
+            if (!pb) return;
+            const startStr = document.getElementById('applyPlaybookStartDate').value || getSPTodayStr();
+            const contactId = document.getElementById('applyPlaybookContact').value || '';
+
+            pb.steps.forEach(s => {
+                const task = {
+                    id: crypto.randomUUID(),
+                    title: s.title,
+                    date: addDaysToDateStr(startStr, s.daysOffset || 0),
+                    time: '',
+                    priority: s.priority || 'medium',
+                    notification: '0',
+                    emailAlert: '0',
+                    desc: `Gerado pelo playbook "${pb.name}"`,
+                    contactId,
+                    dependsOnId: '',
+                    recurrence: 'none',
+                    recurrenceInterval: 1,
+                    tags: [],
+                    estimatedMinutes: 0,
+                    checklist: [],
+                    kanbanColumn: 'todo',
+                    completed: false,
+                    notified: false
+                };
+                tasks.push(task);
+                cloudSyncTask(task);
+            });
+            saveTasksToStorage();
+            _refreshCurrentTaskView();
+            closePlaybookModal();
+            showToast(`${pb.steps.length} tarefa(s) criada(s) a partir do playbook!`);
+        }
+
         function saveTask() {
             const id = document.getElementById('taskId').value;
             const title = document.getElementById('taskTitle').value;
@@ -11548,6 +11794,7 @@
                     "contactSort": localStorage.getItem('sant_crm_contact_sort')|| '',
                     "dashCollapsed": JSON.parse(localStorage.getItem('vends_dash_collapsed') || '[]'),
                     "scoreHistory":  JSON.parse(localStorage.getItem('vends_score_history')  || '{}'),
+                    "taskPlaybooks": taskPlaybooks,
                 };
                 await sb.from('user_preferences').upsert(row, { onConflict: 'user_id' });
             } catch(e) { console.warn('Prefs sync:', e.message); }
@@ -11579,6 +11826,7 @@
                 if (data.contactSort)               localStorage.setItem('sant_crm_contact_sort', data.contactSort);
                 if (data.dashCollapsed?.length)     localStorage.setItem('vends_dash_collapsed', JSON.stringify(data.dashCollapsed));
                 if (data.scoreHistory && Object.keys(data.scoreHistory).length) localStorage.setItem('vends_score_history', JSON.stringify(data.scoreHistory));
+                if (data.taskPlaybooks?.length) { taskPlaybooks = data.taskPlaybooks; localStorage.setItem('sant_crm_task_playbooks', JSON.stringify(taskPlaybooks)); }
                 if (data.savedFilters?.length)      { savedFilters = data.savedFilters; localStorage.setItem('vends_saved_filters', JSON.stringify(savedFilters)); renderSavedFilters(); }
                 if (data.contactAccesses && Object.keys(data.contactAccesses).length) {
                     // Mescla local + cloud (soma acessos dos dois dispositivos)
