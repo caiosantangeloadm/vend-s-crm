@@ -7995,13 +7995,39 @@
         }
 
         // ── Validação inteligente em tempo real (e-mail / telefone) ──────────
-        const EMAIL_DOMAIN_TYPOS = {
-            'gmial.com': 'gmail.com', 'gmai.com': 'gmail.com', 'gamil.com': 'gmail.com', 'gmail.con': 'gmail.com', 'gmail.co': 'gmail.com', 'gnail.com': 'gmail.com',
-            'hotmial.com': 'hotmail.com', 'hotmil.com': 'hotmail.com', 'hotmai.com': 'hotmail.com', 'hotmail.con': 'hotmail.com',
-            'yahho.com': 'yahoo.com', 'yaho.com': 'yahoo.com', 'yahoo.con': 'yahoo.com',
-            'outlok.com': 'outlook.com', 'outloo.com': 'outlook.com', 'outlook.con': 'outlook.com',
-            'iclou.com': 'icloud.com', 'icloud.con': 'icloud.com',
-        };
+        // Provedores mais comuns no Brasil — usado para detectar erro de digitação
+        // por proximidade (distância de edição), não só uma lista fixa de erros conhecidos.
+        const COMMON_EMAIL_DOMAINS = [
+            'gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com', 'yahoo.com.br',
+            'icloud.com', 'live.com', 'bol.com.br', 'uol.com.br', 'terra.com.br', 'globo.com', 'msn.com'
+        ];
+
+        // Distância de Levenshtein simples (quantas edições separam duas strings)
+        function editDistance(a, b) {
+            const m = a.length, n = b.length;
+            const dp = Array.from({length: m+1}, (_, i) => [i, ...Array(n).fill(0)]);
+            for (let j = 0; j <= n; j++) dp[0][j] = j;
+            for (let i = 1; i <= m; i++) {
+                for (let j = 1; j <= n; j++) {
+                    dp[i][j] = a[i-1] === b[j-1]
+                        ? dp[i-1][j-1]
+                        : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+                }
+            }
+            return dp[m][n];
+        }
+
+        function findEmailDomainSuggestion(domain) {
+            if (!domain || COMMON_EMAIL_DOMAINS.includes(domain)) return null;
+            let best = null, bestDist = Infinity;
+            for (const known of COMMON_EMAIL_DOMAINS) {
+                const d = editDistance(domain, known);
+                if (d < bestDist) { bestDist = d; best = known; }
+            }
+            // Só sugere se for bem próximo (1 ou 2 caracteres de diferença) — evita falsos positivos
+            // com domínios corporativos/próprios legítimos que não têm nada a ver com os comuns.
+            return (bestDist > 0 && bestDist <= 2) ? best : null;
+        }
 
         function clearFieldWarn(warnId) {
             const el = document.getElementById(warnId);
@@ -8020,8 +8046,9 @@
                 return;
             }
             const domain = val.split('@')[1]?.toLowerCase();
-            if (domain && EMAIL_DOMAIN_TYPOS[domain]) {
-                const suggestion = val.split('@')[0] + '@' + EMAIL_DOMAIN_TYPOS[domain];
+            const suggestedDomain = findEmailDomainSuggestion(domain);
+            if (suggestedDomain) {
+                const suggestion = val.split('@')[0] + '@' + suggestedDomain;
                 warnEl.innerHTML = `<i class="ph ph-warning"></i> <span>Você quis dizer <b class="text-amber-300 cursor-pointer underline" onclick="document.getElementById('${input.id}').value='${suggestion}'; clearFieldWarn('${warnId}')">${suggestion}</b>?</span>`;
                 warnEl.classList.remove('hidden');
                 return;
