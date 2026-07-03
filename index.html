@@ -1808,14 +1808,28 @@
                         </div>
                         <div class="mb-4">
                             <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Quando isso acontecer...</label>
-                            <select id="automationTrigger" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-sant-cyan">
+                            <select id="automationTrigger" onchange="updateAutomationEditorUI()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-sant-cyan">
                                 <option value="became_hot">Lead virar Quente 🔥</option>
                                 <option value="became_warm">Lead virar Morno ☀️</option>
                                 <option value="became_lead">Contato virar Lead</option>
+                                <option value="inactive_days">Contato ficar inativo (sem interação) 🥶</option>
                             </select>
                         </div>
-                        <p class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">...criar esta tarefa:</p>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-2">
+                        <div id="automationInactiveDaysBox" class="hidden mb-4">
+                            <label class="block text-[10px] text-gray-500 uppercase mb-1">Dias sem interação</label>
+                            <div class="flex items-center gap-1.5">
+                                <input type="number" min="1" id="automationInactiveDays" value="30" class="w-20 bg-[#141414] border border-sant-border rounded-lg px-2 py-2 text-sm text-white outline-none text-center focus:border-sant-cyan">
+                                <span class="text-[10px] text-gray-600">dias sem nenhuma interação registrada</span>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">...fazer isso:</label>
+                            <select id="automationAction" onchange="updateAutomationEditorUI()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-sant-cyan">
+                                <option value="create_task">Criar uma tarefa</option>
+                                <option value="add_tag">Adicionar uma etiqueta</option>
+                            </select>
+                        </div>
+                        <div id="automationTaskFieldsBox" class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-2">
                             <div class="md:col-span-2">
                                 <label class="block text-[10px] text-gray-500 uppercase mb-1">Título da tarefa</label>
                                 <input type="text" id="automationTaskTitle" placeholder="Ex: Ligar para {{nome}}" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan">
@@ -1837,7 +1851,12 @@
                                 </select>
                             </div>
                         </div>
-                        <p class="text-[10px] text-gray-600 mb-4">Use <code class="text-gray-500">{{nome}}</code> no título para inserir o nome do contato automaticamente.</p>
+                        <div id="automationTagFieldsBox" class="hidden mb-2">
+                            <label class="block text-[10px] text-gray-500 uppercase mb-1">Nome da etiqueta</label>
+                            <input type="text" id="automationTagName" placeholder="Ex: 🥶 Esfriando" list="tagSuggestions" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan">
+                            <p class="text-[10px] text-gray-600 mt-1">A etiqueta é removida automaticamente se o contato voltar a ter interação registrada.</p>
+                        </div>
+                        <p id="automationTaskHint" class="text-[10px] text-gray-600 mb-4">Use <code class="text-gray-500">{{nome}}</code> no título para inserir o nome do contato automaticamente.</p>
                         <div class="flex gap-3">
                             <button onclick="closeAutomationEditor()" class="flex-1 px-4 py-2 rounded-lg border border-sant-border text-gray-400 hover:text-white text-sm transition-colors">Cancelar</button>
                             <button onclick="saveAutomation()" class="flex-1 bg-sant-cyan text-sant-bg px-4 py-2 rounded-lg text-sm font-bold hover:bg-cyan-400 transition-colors">Salvar Automação</button>
@@ -4066,7 +4085,7 @@
                 });
 
                 // Verifica aniversários uma vez por hora (quando minuto === 0)
-                if (parseInt(mStr) === 0) { checkBirthdayReminders(); checkFollowupReminders(); checkNoteReminders(); checkFrequencyReminders(); checkUrgentTaskReminders(); }
+                if (parseInt(mStr) === 0) { checkBirthdayReminders(); checkFollowupReminders(); checkNoteReminders(); checkFrequencyReminders(); checkUrgentTaskReminders(); runInactivityAutomations(); }
 
             }, 60000);
 
@@ -4076,6 +4095,7 @@
             checkNoteReminders();
             checkFrequencyReminders();
             checkUrgentTaskReminders();
+            runInactivityAutomations();
         }
 
         function checkUrgentTaskReminders() {
@@ -12943,18 +12963,24 @@
             became_hot: '🔥 Lead vira Quente',
             became_warm: '☀️ Lead vira Morno',
             became_lead: 'Contato vira Lead',
+            inactive_days: '🥶 Contato fica inativo',
         };
 
         function renderAutomationsList() {
             const box = document.getElementById('automationsList');
             if (!box) return;
             if (!automationRules.length) { box.innerHTML = '<p class="text-xs text-gray-600 italic text-center py-6">Nenhuma automação criada ainda.</p>'; return; }
-            box.innerHTML = automationRules.map(r => `
+            box.innerHTML = automationRules.map(r => {
+                const trigLabel = (AUTOMATION_TRIGGER_LABELS[r.trigger] || r.trigger) + (r.trigger === 'inactive_days' ? ` (${r.inactiveDays || 30}d)` : '');
+                const actionLabel = r.action === 'add_tag'
+                    ? `adiciona etiqueta "${r.tagName}"`
+                    : `cria tarefa "${r.taskTitle}" (D+${r.taskDaysOffset})`;
+                return `
                 <div class="bg-[#0a0a0a] border border-sant-border rounded-lg p-4">
                     <div class="flex items-start justify-between gap-3 mb-1">
                         <div class="min-w-0">
                             <p class="text-sm font-bold text-white">${r.name}</p>
-                            <p class="text-xs text-gray-500 mt-0.5">${AUTOMATION_TRIGGER_LABELS[r.trigger] || r.trigger} → cria tarefa "${r.taskTitle}" (D+${r.taskDaysOffset})</p>
+                            <p class="text-xs text-gray-500 mt-0.5">${trigLabel} → ${actionLabel}</p>
                         </div>
                         <label class="inline-flex items-center gap-1.5 shrink-0 cursor-pointer" title="Ativar/desativar">
                             <input type="checkbox" ${r.active !== false ? 'checked' : ''} onchange="toggleAutomationActive('${r.id}', this.checked)" class="w-4 h-4 accent-sant-cyan cursor-pointer">
@@ -12965,7 +12991,8 @@
                         <button onclick="openAutomationEditor('${r.id}')" class="text-[11px] bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-1.5 rounded-lg font-medium transition-colors">Editar</button>
                         <button onclick="deleteAutomation('${r.id}')" class="text-[11px] bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-400 px-3 py-1.5 rounded-lg font-medium transition-colors">Excluir</button>
                     </div>
-                </div>`).join('');
+                </div>`;
+            }).join('');
         }
 
         function toggleAutomationActive(id, active) {
@@ -12976,14 +13003,27 @@
             renderAutomationsList();
         }
 
+        function updateAutomationEditorUI() {
+            const trigger = document.getElementById('automationTrigger').value;
+            const action = document.getElementById('automationAction').value;
+            document.getElementById('automationInactiveDaysBox').classList.toggle('hidden', trigger !== 'inactive_days');
+            document.getElementById('automationTaskFieldsBox').classList.toggle('hidden', action !== 'create_task');
+            document.getElementById('automationTagFieldsBox').classList.toggle('hidden', action !== 'add_tag');
+            document.getElementById('automationTaskHint').classList.toggle('hidden', action !== 'create_task');
+        }
+
         function openAutomationEditor(id) {
             const r = id ? automationRules.find(x => x.id === id) : null;
             document.getElementById('automationId').value = r ? r.id : '';
             document.getElementById('automationName').value = r ? r.name : '';
             document.getElementById('automationTrigger').value = r ? r.trigger : 'became_hot';
-            document.getElementById('automationTaskTitle').value = r ? r.taskTitle : '';
+            document.getElementById('automationAction').value = r ? (r.action || 'create_task') : 'create_task';
+            document.getElementById('automationInactiveDays').value = r ? (r.inactiveDays || 30) : 30;
+            document.getElementById('automationTaskTitle').value = r ? (r.taskTitle || '') : '';
             document.getElementById('automationTaskDays').value = r ? r.taskDaysOffset : 1;
             document.getElementById('automationTaskPriority').value = r ? r.taskPriority : 'medium';
+            document.getElementById('automationTagName').value = r ? (r.tagName || '') : '';
+            updateAutomationEditorUI();
             document.getElementById('automationEditorBox').classList.remove('hidden');
             document.getElementById('automationEditorBox').scrollIntoView({behavior:'smooth', block:'nearest'});
         }
@@ -12993,19 +13033,25 @@
 
         function saveAutomation() {
             const name = document.getElementById('automationName').value.trim();
+            const trigger = document.getElementById('automationTrigger').value;
+            const action = document.getElementById('automationAction').value;
             const taskTitle = document.getElementById('automationTaskTitle').value.trim();
+            const tagName = document.getElementById('automationTagName').value.trim();
             if (!name) { showToast('Dê um nome à automação!', 'error'); return; }
-            if (!taskTitle) { showToast('Defina o título da tarefa a ser criada!', 'error'); return; }
+            if (action === 'create_task' && !taskTitle) { showToast('Defina o título da tarefa a ser criada!', 'error'); return; }
+            if (action === 'add_tag' && !tagName) { showToast('Defina o nome da etiqueta!', 'error'); return; }
 
             const id = document.getElementById('automationId').value;
             const rule = {
                 id: id || crypto.randomUUID(),
                 name,
-                trigger: document.getElementById('automationTrigger').value,
-                action: 'create_task',
+                trigger,
+                inactiveDays: parseInt(document.getElementById('automationInactiveDays').value) || 30,
+                action,
                 taskTitle,
                 taskDaysOffset: parseInt(document.getElementById('automationTaskDays').value) || 0,
                 taskPriority: document.getElementById('automationTaskPriority').value,
+                tagName,
                 active: true,
             };
             if (id) {
@@ -13019,6 +13065,7 @@
             closeAutomationEditor();
             renderAutomationsList();
             showToast('Automação salva!');
+            runInactivityAutomations();
         }
 
         function deleteAutomation(id) {
@@ -13045,6 +13092,17 @@
         }
 
         function executeAutomationAction(rule, contact) {
+            if (rule.action === 'add_tag') {
+                if (!rule.tagName) return;
+                if (!contact.tags) contact.tags = [];
+                if (contact.tags.includes(rule.tagName)) return;
+                contact.tags.push(rule.tagName);
+                if (!tags.includes(rule.tagName)) { tags.push(rule.tagName); saveTagsToStorage(); }
+                saveToStorage(contact.id);
+                if (currentView === 'contacts') renderContacts();
+                showToast(`⚡ Automação "${rule.name}": etiqueta "${rule.tagName}" adicionada a ${fullName(contact)}`);
+                return;
+            }
             if (rule.action !== 'create_task') return;
             const title = (rule.taskTitle || 'Tarefa automática').replace(/\{\{\s*nome\s*\}\}/gi, fullName(contact));
             const task = {
@@ -13072,6 +13130,41 @@
             cloudSyncTask(task);
             if (currentView === 'tasks') _refreshCurrentTaskView();
             showToast(`⚡ Automação "${rule.name}": tarefa criada para ${fullName(contact)}`);
+        }
+
+        // Gatilho por inatividade — roda periodicamente (não depende de salvar o contato)
+        function runInactivityAutomations() {
+            const inactiveRules = automationRules.filter(r => r.active !== false && r.trigger === 'inactive_days');
+            if (!inactiveRules.length) return;
+            let changed = false;
+            inactiveRules.forEach(rule => {
+                const threshold = rule.inactiveDays || 30;
+                contacts.forEach(c => {
+                    const days = getInactivityDays(c);
+                    const isStale = days !== null && days >= threshold;
+                    if (rule.action === 'add_tag' && rule.tagName) {
+                        const hasTag = (c.tags || []).includes(rule.tagName);
+                        if (isStale && !hasTag) {
+                            if (!c.tags) c.tags = [];
+                            c.tags.push(rule.tagName);
+                            if (!tags.includes(rule.tagName)) { tags.push(rule.tagName); saveTagsToStorage(); }
+                            saveToStorage(c.id);
+                            changed = true;
+                        } else if (!isStale && hasTag) {
+                            c.tags = c.tags.filter(t => t !== rule.tagName);
+                            saveToStorage(c.id);
+                            changed = true;
+                        }
+                    } else if (rule.action === 'create_task' && isStale) {
+                        const firedKey = `vends_automation_fired_${rule.id}_${c.id}`;
+                        const lastFired = localStorage.getItem(firedKey);
+                        if (lastFired && (Date.now() - parseInt(lastFired)) < threshold * 86400000) return;
+                        localStorage.setItem(firedKey, String(Date.now()));
+                        executeAutomationAction(rule, c);
+                    }
+                });
+            });
+            if (changed && currentView === 'contacts') renderContacts();
         }
 
         // — Auditoria de Dados —
