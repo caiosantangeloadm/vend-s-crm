@@ -786,6 +786,9 @@
                         <button onclick="enterBulkMode()" id="btnBulkSelect" title="Seleção múltipla" class="p-2.5 bg-sant-surface border border-sant-border rounded-lg text-gray-500 hover:text-sant-cyan hover:border-sant-cyan transition-colors shrink-0">
                             <i class="ph ph-checks text-lg"></i>
                         </button>
+                        <button onclick="openQuickReview()" id="btnQuickReview" title="Revisão Rápida de contatos parados" class="p-2.5 bg-sant-surface border border-sant-border rounded-lg text-gray-500 hover:text-amber-400 hover:border-amber-400 transition-colors shrink-0">
+                            <i class="ph ph-lightning text-lg"></i>
+                        </button>
                         <button onclick="toggleAdvFilters()" id="btnAdvFilters" title="Filtros Avançados" class="p-2.5 bg-sant-surface border border-sant-border rounded-lg text-gray-500 hover:text-sant-cyan hover:border-sant-cyan transition-colors shrink-0">
                             <i class="ph ph-funnel text-lg"></i>
                         </button>
@@ -2649,6 +2652,24 @@
                 <div class="flex-1"></div>
                 <button id="wrNextBtn" onclick="wrNav(1)" class="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-colors" style="background:#5b8fa8;color:#030303">Próximo <i class="ph ph-caret-right"></i></button>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal: Revisão Rápida (modo swipe) -->
+    <div id="quickReviewModal" class="fixed inset-0 bg-sant-bg hidden z-50 flex-col">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-sant-border shrink-0">
+            <div>
+                <h3 class="text-sm font-bold text-white flex items-center gap-2"><i class="ph ph-lightning text-amber-400"></i> Revisão Rápida</h3>
+                <p id="qrProgress" class="text-[11px] text-gray-500 mt-0.5"></p>
+            </div>
+            <button onclick="closeQuickReview()" class="text-gray-400 hover:text-white transition-colors p-2"><i class="ph ph-x text-xl"></i></button>
+        </div>
+        <div class="flex-1 overflow-y-auto flex items-center justify-center p-4">
+            <div id="qrCardWrap" class="w-full max-w-md"></div>
+        </div>
+        <div class="px-5 py-4 border-t border-sant-border shrink-0">
+            <div id="qrActions" class="grid grid-cols-4 gap-2 max-w-md mx-auto"></div>
+            <p class="text-center text-[10px] text-gray-600 mt-3">Atalhos: <kbd class="kbd-key">Q</kbd> Quente &nbsp; <kbd class="kbd-key">A</kbd> Follow-up +7d &nbsp; <kbd class="kbd-key">R</kbd> Revisado &nbsp; <kbd class="kbd-key">→</kbd> Pular &nbsp; <kbd class="kbd-key">Esc</kbd> Sair</p>
         </div>
     </div>
 
@@ -13552,6 +13573,99 @@
             return Math.floor((today - lastDate) / (1000 * 60 * 60 * 24));
         }
 
+        // ── Revisão Rápida (modo swipe) ──────────────────────────────────────
+        let qrQueue = [];
+        let qrIndex = 0;
+
+        function openQuickReview() {
+            const threshold = parseInt(localStorage.getItem('vends_inactivity_days') || '60') || 60;
+            qrQueue = contacts
+                .filter(c => (getInactivityDays(c) ?? 9999) >= threshold)
+                .sort((a, b) => (getInactivityDays(b) || 0) - (getInactivityDays(a) || 0));
+            qrIndex = 0;
+            if (qrQueue.length === 0) {
+                showToast('Nenhum contato parado no momento — tudo em dia! 🎉');
+                return;
+            }
+            document.getElementById('quickReviewModal').classList.remove('hidden');
+            document.getElementById('quickReviewModal').classList.add('flex');
+            renderQuickReviewCard();
+        }
+
+        function closeQuickReview() {
+            document.getElementById('quickReviewModal').classList.add('hidden');
+            document.getElementById('quickReviewModal').classList.remove('flex');
+        }
+
+        function renderQuickReviewCard() {
+            if (qrIndex >= qrQueue.length) {
+                document.getElementById('qrProgress').textContent = '';
+                document.getElementById('qrCardWrap').innerHTML = `<div class="text-center py-10">
+                    <i class="ph ph-check-circle text-4xl text-green-400 block mb-3"></i>
+                    <p class="text-white font-bold">Revisão concluída!</p>
+                    <p class="text-sm text-gray-500 mt-1">Você passou por todos os contatos parados.</p>
+                    <button onclick="closeQuickReview()" class="mt-5 bg-sant-cyan text-sant-bg px-5 py-2 rounded-lg text-sm font-bold hover:bg-cyan-400 transition-colors">Fechar</button>
+                </div>`;
+                document.getElementById('qrActions').innerHTML = '';
+                return;
+            }
+            const c = qrQueue[qrIndex];
+            const days = getInactivityDays(c);
+            const dispPhone = c.phoneProf || c.phonePess || c.phone || '';
+            const dispEmail = c.emailProf || c.emailPess || c.email || '';
+            const waUrl = contactWaUrl(c);
+            document.getElementById('qrProgress').textContent = `${qrIndex + 1} de ${qrQueue.length} contatos parados`;
+            document.getElementById('qrCardWrap').innerHTML = `
+                <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 modalPop">
+                    <div class="flex items-center gap-3 mb-4">
+                        ${contactAvatarHtml(c, 'w-14 h-14 text-lg')}
+                        <div class="min-w-0">
+                            <h3 class="font-bold text-white text-lg truncate">${fullName(c)}</h3>
+                            ${c.category?`<span class="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-medium bg-sant-purple/20 text-sant-purple border border-sant-purple/30">${c.category}</span>`:''}
+                        </div>
+                    </div>
+                    <p class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 mb-4"><i class="ph ph-clock-countdown"></i> Sem contato há ${days} dias</p>
+                    <div class="space-y-1.5 text-sm text-gray-400">
+                        ${dispPhone?`<p><i class="ph ph-phone mr-1.5"></i>${dispPhone}</p>`:''}
+                        ${dispEmail?`<p><i class="ph ph-envelope-simple mr-1.5"></i>${dispEmail}</p>`:''}
+                        ${c.company?`<p><i class="ph ph-briefcase mr-1.5"></i>${c.company}</p>`:''}
+                    </div>
+                    <div class="flex gap-2 mt-4 pt-4 border-t border-sant-border">
+                        ${dispPhone?`<a href="tel:${dispPhone.replace(/\D/g,'')}" class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-sant-cyan/10 text-sant-cyan hover:bg-sant-cyan/20 text-xs font-medium transition-colors"><i class="ph ph-phone-call"></i> Ligar</a>`:''}
+                        ${waUrl?`<a href="${waUrl}" target="_blank" rel="noopener" class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20 text-xs font-medium transition-colors"><i class="ph ph-whatsapp-logo"></i> WhatsApp</a>`:''}
+                        <button onclick="closeQuickReview();openHistoryModal('${c.id}')" class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-[#141414] border border-sant-border text-gray-400 hover:text-sant-cyan text-xs font-medium transition-colors"><i class="ph ph-clock-clockwise"></i> Histórico</button>
+                    </div>
+                </div>`;
+            document.getElementById('qrActions').innerHTML = `
+                <button onclick="quickReviewAction('hot')" class="flex flex-col items-center gap-1 py-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors text-xs font-bold"><i class="ph ph-fire text-lg"></i>Quente</button>
+                <button onclick="quickReviewAction('followup')" class="flex flex-col items-center gap-1 py-3 rounded-lg bg-sant-cyan/10 border border-sant-cyan/30 text-sant-cyan hover:bg-sant-cyan/20 transition-colors text-xs font-bold"><i class="ph ph-calendar-plus text-lg"></i>Follow-up +7d</button>
+                <button onclick="quickReviewAction('done')" class="flex flex-col items-center gap-1 py-3 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 transition-colors text-xs font-bold"><i class="ph ph-check-circle text-lg"></i>Revisado</button>
+                <button onclick="quickReviewAction('skip')" class="flex flex-col items-center gap-1 py-3 rounded-lg bg-[#141414] border border-sant-border text-gray-400 hover:text-white transition-colors text-xs font-bold"><i class="ph ph-arrow-right text-lg"></i>Pular</button>
+            `;
+        }
+
+        function quickReviewAction(action) {
+            const c = qrQueue[qrIndex];
+            if (!c) return;
+            if (action === 'hot') {
+                c.isLead = true;
+                c.temperature = 'quente';
+                saveToStorage(c.id);
+                showToast(`🔥 ${fullName(c)} marcado como lead quente`);
+            } else if (action === 'followup') {
+                c.nextContact = addDaysToDateStr(getSPTodayStr(), 7);
+                saveToStorage(c.id);
+                showToast(`📅 Follow-up de ${fullName(c)} agendado para 7 dias`);
+            } else if (action === 'done') {
+                if (!c.interactions) c.interactions = [];
+                c.interactions.push({ id: crypto.randomUUID(), type: 'Outro', date: getSPTodayStr(), notes: 'Revisado na Revisão Rápida — contato confirmado em dia.' });
+                saveToStorage(c.id);
+                showToast(`✅ ${fullName(c)} marcado como revisado`);
+            }
+            qrIndex++;
+            renderQuickReviewCard();
+        }
+
         // ── Bloqueios de Horário Fixos: gerenciamento ───────────────────────
         let newBlockDays = [];
         function toggleNewBlockDay(i) {
@@ -15934,6 +16048,16 @@
             document.addEventListener('keydown', (e) => {
                 const tag = document.activeElement.tagName;
                 const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+
+                // Revisão Rápida (modo swipe): atalhos exclusivos enquanto a modal está aberta
+                if (!document.getElementById('quickReviewModal').classList.contains('hidden')) {
+                    if (e.key === 'Escape') { closeQuickReview(); return; }
+                    if (!isTyping && (e.key === 'q' || e.key === 'Q')) { quickReviewAction('hot'); return; }
+                    if (!isTyping && (e.key === 'a' || e.key === 'A')) { quickReviewAction('followup'); return; }
+                    if (!isTyping && (e.key === 'r' || e.key === 'R')) { quickReviewAction('done'); return; }
+                    if (!isTyping && (e.key === 'ArrowRight' || e.key === ' ')) { e.preventDefault(); quickReviewAction('skip'); return; }
+                    return;
+                }
 
                 if (e.key === 'Escape') {
                     const ql = document.getElementById('quickLookPopover');
