@@ -2197,7 +2197,7 @@
                     <div>
                         <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Início</label>
                         <div class="flex gap-2">
-                            <input type="date" id="eventStartDate" onchange="updateMonthlyLabels()" class="flex-1 bg-[#141414] border border-sant-border rounded-md px-2 py-1.5 text-sm text-white outline-none">
+                            <input type="date" id="eventStartDate" onchange="updateMonthlyLabels();renderFreeSlotSuggestions()" class="flex-1 bg-[#141414] border border-sant-border rounded-md px-2 py-1.5 text-sm text-white outline-none">
                             <input type="time" id="eventStartTime" class="w-24 bg-[#141414] border border-sant-border rounded-md px-2 py-1.5 text-sm text-white outline-none">
                         </div>
                     </div>
@@ -2208,6 +2208,12 @@
                             <input type="time" id="eventEndTime" class="w-24 bg-[#141414] border border-sant-border rounded-md px-2 py-1.5 text-sm text-white outline-none">
                         </div>
                     </div>
+                </div>
+
+                <!-- ── SUGESTÃO DE HORÁRIOS LIVRES ── -->
+                <div id="freeSlotsBox" class="hidden rounded-xl border border-sant-cyan/25 bg-sant-cyan/5 p-3">
+                    <p class="text-[10px] font-bold text-sant-cyan uppercase tracking-wider mb-2 flex items-center gap-1.5"><i class="ph ph-magic-wand"></i> Próximos horários livres neste dia</p>
+                    <div id="freeSlotsChips" class="flex flex-wrap gap-1.5"></div>
                 </div>
 
                 <!-- ── RECORRÊNCIA AVANÇADA ── -->
@@ -9678,6 +9684,90 @@
 
             return false;
         }
+        // ── Assistente de Horário Livre ──────────────────────────────────────
+        const FREE_SLOT_WORK_START = 8 * 60;   // 08:00
+        const FREE_SLOT_WORK_END   = 19 * 60;  // 19:00
+        const FREE_SLOT_DURATION   = 30;        // minutos, duração padrão sugerida
+
+        function _timeToMin(t) {
+            if (!t) return null;
+            const [h, m] = t.split(':').map(Number);
+            return h * 60 + m;
+        }
+        function _minToTime(mins) {
+            const h = Math.floor(mins / 60).toString().padStart(2, '0');
+            const m = (mins % 60).toString().padStart(2, '0');
+            return `${h}:${m}`;
+        }
+
+        function renderFreeSlotSuggestions() {
+            const box = document.getElementById('freeSlotsBox');
+            const chips = document.getElementById('freeSlotsChips');
+            if (!box || !chips) return;
+            const dateStr = document.getElementById('eventStartDate').value;
+            if (!dateStr) { box.classList.add('hidden'); return; }
+            const editingId = document.getElementById('eventId').value;
+
+            // Intervalos ocupados no dia: eventos (avulsos + recorrências) e bloqueios fixos
+            const busy = [];
+            events.forEach(e => {
+                if (e.id === editingId) return;
+                if (!isEventOnDate(e, dateStr) || !e.startTime) return;
+                const start = _timeToMin(e.startTime);
+                const end = e.endTime ? _timeToMin(e.endTime) : start + FREE_SLOT_DURATION;
+                if (start !== null) busy.push({ start, end: Math.max(end, start + 1) });
+            });
+            getBlocksForDate(dateStr).forEach(b => {
+                const start = _timeToMin(b.startTime);
+                const end = _timeToMin(b.endTime);
+                if (start !== null && end !== null) busy.push({ start, end });
+            });
+            busy.sort((a, b) => a.start - b.start);
+
+            // Se o dia for hoje, não sugerir horários que já passaram
+            let windowStart = FREE_SLOT_WORK_START;
+            if (dateStr === getSPTodayStr()) {
+                const now = new Date();
+                const nowMin = now.getHours() * 60 + now.getMinutes();
+                windowStart = Math.max(FREE_SLOT_WORK_START, Math.ceil(nowMin / 30) * 30);
+            }
+
+            const freeSlots = [];
+            let cursor = windowStart;
+            for (const b of busy) {
+                if (b.start - cursor >= FREE_SLOT_DURATION) {
+                    freeSlots.push(cursor);
+                    if (freeSlots.length >= 3) break;
+                }
+                cursor = Math.max(cursor, b.end);
+            }
+            while (freeSlots.length < 3 && cursor + FREE_SLOT_DURATION <= FREE_SLOT_WORK_END) {
+                freeSlots.push(cursor);
+                cursor += FREE_SLOT_DURATION;
+            }
+
+            if (freeSlots.length === 0) {
+                box.classList.remove('hidden');
+                chips.innerHTML = `<p class="text-xs text-gray-500 italic">Nenhum horário livre encontrado dentro do expediente (08h–19h) neste dia.</p>`;
+                return;
+            }
+
+            box.classList.remove('hidden');
+            chips.innerHTML = freeSlots.map(startMin => {
+                const endMin = startMin + FREE_SLOT_DURATION;
+                return `<button type="button" onclick="applyFreeSlot('${_minToTime(startMin)}','${_minToTime(endMin)}')"
+                    class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sant-cyan/10 border border-sant-cyan/30 text-sant-cyan hover:bg-sant-cyan hover:text-sant-bg transition-colors">${_minToTime(startMin)} – ${_minToTime(endMin)}</button>`;
+            }).join('');
+        }
+
+        function applyFreeSlot(startTime, endTime) {
+            document.getElementById('eventStartTime').value = startTime;
+            const endDateEl = document.getElementById('eventEndDate');
+            const endTimeEl = document.getElementById('eventEndTime');
+            if (!endDateEl.value) endDateEl.value = document.getElementById('eventStartDate').value;
+            endTimeEl.value = endTime;
+            showToast(`Horário ${startTime} aplicado!`);
+        }
         // ── FIM NÍVEL 4 helpers ─────────────────────────────────────────────
 
         function renderCalendar() {
@@ -13792,6 +13882,7 @@
 
             updateRecurrenceUI();
             updateMonthlyLabels();
+            renderFreeSlotSuggestions();
             document.getElementById('eventModal').classList.remove('hidden');
             takeModalSnapshot('eventModal');
         }
