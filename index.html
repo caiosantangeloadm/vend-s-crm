@@ -14864,6 +14864,18 @@
                 });
             });
 
+            // Links & Anexos
+            (c.links || []).forEach(l => {
+                const d = (l.createdAt || '').substring(0,10);
+                if (!d) return;
+                items.push({ date: d, sortKey: l.createdAt || d, type: 'link',
+                    icon: l.isFile ? 'ph-paperclip' : 'ph-link',
+                    color: l.isFile ? '#fbbf24' : '#5b8fa8',
+                    label: l.isFile ? 'Anexo' : 'Link',
+                    text: l.title || l.url || '',
+                });
+            });
+
             // Edições do changelog
             const fieldIcons = { 'Nome':'ph-user', 'Etiquetas':'ph-hash', 'Categoria':'ph-tag',
                 'Telefone':'ph-phone', 'E-mail':'ph-envelope', 'Empresa':'ph-buildings',
