@@ -3237,6 +3237,11 @@
                 <button onclick="closeTemplatesManager()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
             </div>
             <div class="p-5 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
+                <div class="bg-[#0a0a0a] border border-sant-border rounded-xl p-4">
+                    <p class="text-xs font-bold text-white mb-1.5 flex items-center gap-2"><i class="ph ph-signature text-sant-cyan"></i> Assinatura padrão</p>
+                    <p class="text-[10px] text-gray-600 mb-2">Adicionada automaticamente ao final das mensagens (pode ser desativada por template abaixo).</p>
+                    <textarea id="msgSignature" rows="3" placeholder="Ex: Att, Caio Santangelo&#10;Vend-s Inteligência de Vendas&#10;(11) 99999-9999" onblur="saveMessageSignature(this.value)" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none resize-none"></textarea>
+                </div>
                 <div>
                     <p class="text-[10px] text-gray-600 uppercase font-bold tracking-wider mb-1.5">Variáveis disponíveis — clique para copiar</p>
                     <div class="flex flex-wrap gap-1.5">
@@ -3258,6 +3263,10 @@
                         <input type="text" id="tplSubject" placeholder="Assunto (e-mail)" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
                     </div>
                     <textarea id="tplBody" rows="4" placeholder="Texto da mensagem..." class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none resize-none"></textarea>
+                    <label class="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                        <input type="checkbox" id="tplUseSignature" checked class="w-4 h-4 accent-sant-cyan cursor-pointer">
+                        Incluir assinatura padrão ao enviar
+                    </label>
                     <div class="flex gap-2 justify-end">
                         <button onclick="resetTemplateForm()" class="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Limpar</button>
                         <button id="tplSaveBtn" onclick="saveTemplate()" class="bg-sant-purple hover:bg-purple-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">Adicionar</button>
@@ -9070,7 +9079,10 @@
             const t = messageTemplates.find(x => x.id === document.getElementById('sendMsgTemplate').value) || messageTemplates[0];
             if (!t) return;
             document.getElementById('sendMsgSubject').value = fillMessageTemplate(t.subject || '', c);
-            document.getElementById('sendMsgBody').value = fillMessageTemplate(t.body || '', c);
+            let body = fillMessageTemplate(t.body || '', c);
+            const signature = (localStorage.getItem('sant_crm_message_signature') || '').trim();
+            if (signature && t.useSignature !== false) body += `\n\n${signature}`;
+            document.getElementById('sendMsgBody').value = body;
             document.getElementById('sendMsgSubjectWrap').classList.toggle('hidden', t.channel === 'whatsapp');
         }
 
@@ -9126,6 +9138,7 @@
             document.getElementById('tplChannel').value = 'whatsapp';
             document.getElementById('tplSubject').value = '';
             document.getElementById('tplBody').value = '';
+            document.getElementById('tplUseSignature').checked = true;
             toggleTplSubjectField();
             document.getElementById('tplFormTitle').innerText = 'Novo Modelo';
             document.getElementById('tplSaveBtn').innerText = 'Adicionar';
@@ -9174,6 +9187,7 @@
             document.getElementById('tplChannel').value = t.channel;
             document.getElementById('tplSubject').value = t.subject || '';
             document.getElementById('tplBody').value = t.body || '';
+            document.getElementById('tplUseSignature').checked = t.useSignature !== false;
             toggleTplSubjectField();
             document.getElementById('tplFormTitle').innerText = 'Editar Modelo';
             document.getElementById('tplSaveBtn').innerText = 'Salvar';
@@ -9184,17 +9198,23 @@
             const channel = document.getElementById('tplChannel').value;
             const subject = document.getElementById('tplSubject').value.trim();
             const body = document.getElementById('tplBody').value.trim();
+            const useSignature = document.getElementById('tplUseSignature').checked;
             if (!title || !body) { showToast('Preencha o título e a mensagem.', 'error'); return; }
             if (editingTemplateId) {
                 const t = messageTemplates.find(x => x.id === editingTemplateId);
-                t.title = title; t.channel = channel; t.subject = subject; t.body = body;
+                t.title = title; t.channel = channel; t.subject = subject; t.body = body; t.useSignature = useSignature;
             } else {
-                messageTemplates.push({ id: crypto.randomUUID(), title, channel, subject, body });
+                messageTemplates.push({ id: crypto.randomUUID(), title, channel, subject, body, useSignature });
             }
             saveMessageTemplatesToStorage();
             renderTemplatesList();
             resetTemplateForm();
             showToast('Modelo salvo!');
+        }
+
+        function saveMessageSignature(val) {
+            localStorage.setItem('sant_crm_message_signature', val);
+            syncPreferencesToSupabase();
         }
 
         function deleteTemplate(id) {
@@ -9213,6 +9233,7 @@
             resetTemplateForm();
             const searchEl = document.getElementById('tplSearchInput');
             if (searchEl) searchEl.value = '';
+            document.getElementById('msgSignature').value = localStorage.getItem('sant_crm_message_signature') || '';
             document.getElementById('templatesModal').classList.remove('hidden');
             renderTemplatesList();
         }
@@ -12309,6 +12330,7 @@
                     "scoreHistory":  JSON.parse(localStorage.getItem('vends_score_history')  || '{}'),
                     "taskPlaybooks": taskPlaybooks,
                     "automationRules": automationRules,
+                    "messageSignature": localStorage.getItem('sant_crm_message_signature') || '',
                 };
                 await sb.from('user_preferences').upsert(row, { onConflict: 'user_id' });
             } catch(e) { console.warn('Prefs sync:', e.message); }
@@ -12342,6 +12364,7 @@
                 if (data.scoreHistory && Object.keys(data.scoreHistory).length) localStorage.setItem('vends_score_history', JSON.stringify(data.scoreHistory));
                 if (data.taskPlaybooks?.length) { taskPlaybooks = data.taskPlaybooks; localStorage.setItem('sant_crm_task_playbooks', JSON.stringify(taskPlaybooks)); }
                 if (data.automationRules?.length) { automationRules = data.automationRules; localStorage.setItem('sant_crm_automations', JSON.stringify(automationRules)); }
+                if (data.messageSignature)          localStorage.setItem('sant_crm_message_signature', data.messageSignature);
                 if (data.savedFilters?.length)      { savedFilters = data.savedFilters; localStorage.setItem('vends_saved_filters', JSON.stringify(savedFilters)); renderSavedFilters(); }
                 if (data.contactAccesses && Object.keys(data.contactAccesses).length) {
                     // Mescla local + cloud (soma acessos dos dois dispositivos)
