@@ -12907,7 +12907,7 @@
             el.innerHTML = [...categories].sort((a,b) => a.localeCompare(b,'pt-BR')).map(c =>
                 `<div class="flex items-center justify-between bg-[#141414] border border-sant-border rounded-lg px-4 py-2.5">
                     <span class="text-sm text-white">${c}</span>
-                    <button onclick="deleteSCategory('${c.replace(/'/g,"\\'")}')}" class="text-gray-500 hover:text-red-500 transition-colors"><i class="ph ph-trash text-sm"></i></button>
+                    <button onclick="deleteSCategory('${c.replace(/'/g,"\\'")}')" class="text-gray-500 hover:text-red-500 transition-colors"><i class="ph ph-trash text-sm"></i></button>
                 </div>`
             ).join('');
         }
@@ -12925,9 +12925,9 @@
             showToast('Categoria adicionada!');
         }
         function deleteSCategory(name) {
-            showConfirm(`Excluir categoria "${name}"?`, '', () => {
+            showConfirm(`Excluir categoria "${name}"?`, 'Os contatos desta categoria não serão apagados.', () => {
                 categories = categories.filter(c => c !== name);
-                localStorage.setItem('sant_crm_categories', JSON.stringify(categories));
+                saveCategoriesToStorage();
                 renderSCategories();
                 updateCategorySelects && updateCategorySelects();
                 showToast('Categoria excluída.');
