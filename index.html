@@ -1850,11 +1850,13 @@
                             </div>
                             <div>
                                 <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-1">E-mail Profissional</label>
-                                <input type="email" id="contactEmailProf" class="w-full bg-[#141414] border border-sant-border rounded-md px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none">
+                                <input type="email" id="contactEmailProf" onblur="validateEmailLive(this,'contactEmailProfWarn')" oninput="clearFieldWarn('contactEmailProfWarn')" class="w-full bg-[#141414] border border-sant-border rounded-md px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none">
+                                <p id="contactEmailProfWarn" class="hidden text-[10px] text-amber-400 mt-1 flex items-center gap-1"><i class="ph ph-warning"></i> <span></span></p>
                             </div>
                             <div>
                                 <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Telefone Profissional</label>
-                                <input type="text" id="contactPhoneProf" placeholder="Ex: (11) 99999-9999" maxlength="15" oninput="maskPhone(this)" class="w-full bg-[#141414] border border-sant-border rounded-md px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none">
+                                <input type="text" id="contactPhoneProf" placeholder="Ex: (11) 99999-9999" maxlength="15" oninput="maskPhone(this)" onblur="validatePhoneLive(this,'contactPhoneProfWarn')" class="w-full bg-[#141414] border border-sant-border rounded-md px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none">
+                                <p id="contactPhoneProfWarn" class="hidden text-[10px] text-amber-400 mt-1 flex items-center gap-1"><i class="ph ph-warning"></i> <span></span></p>
                             </div>
                             <div class="md:col-span-2">
                                 <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Website</label>
@@ -1868,11 +1870,13 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-1">E-mail Pessoal</label>
-                                <input type="email" id="contactEmailPess" class="w-full bg-[#141414] border border-sant-border rounded-md px-3 py-2 text-sm text-white focus:border-sant-purple outline-none">
+                                <input type="email" id="contactEmailPess" onblur="validateEmailLive(this,'contactEmailPessWarn')" oninput="clearFieldWarn('contactEmailPessWarn')" class="w-full bg-[#141414] border border-sant-border rounded-md px-3 py-2 text-sm text-white focus:border-sant-purple outline-none">
+                                <p id="contactEmailPessWarn" class="hidden text-[10px] text-amber-400 mt-1 flex items-center gap-1"><i class="ph ph-warning"></i> <span></span></p>
                             </div>
                             <div>
                                 <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Telefone Pessoal</label>
-                                <input type="text" id="contactPhonePess" placeholder="Ex: (11) 99999-9999" maxlength="15" oninput="maskPhone(this)" class="w-full bg-[#141414] border border-sant-border rounded-md px-3 py-2 text-sm text-white focus:border-sant-purple outline-none">
+                                <input type="text" id="contactPhonePess" placeholder="Ex: (11) 99999-9999" maxlength="15" oninput="maskPhone(this)" onblur="validatePhoneLive(this,'contactPhonePessWarn')" class="w-full bg-[#141414] border border-sant-border rounded-md px-3 py-2 text-sm text-white focus:border-sant-purple outline-none">
+                                <p id="contactPhonePessWarn" class="hidden text-[10px] text-amber-400 mt-1 flex items-center gap-1"><i class="ph ph-warning"></i> <span></span></p>
                             </div>
                             <div class="md:col-span-2">
                                 <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Data de Nascimento</label>
@@ -7988,6 +7992,61 @@
         function isValidEmail(email) {
             if (!email) return true; // campo opcional
             return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+        }
+
+        // ── Validação inteligente em tempo real (e-mail / telefone) ──────────
+        const EMAIL_DOMAIN_TYPOS = {
+            'gmial.com': 'gmail.com', 'gmai.com': 'gmail.com', 'gamil.com': 'gmail.com', 'gmail.con': 'gmail.com', 'gmail.co': 'gmail.com', 'gnail.com': 'gmail.com',
+            'hotmial.com': 'hotmail.com', 'hotmil.com': 'hotmail.com', 'hotmai.com': 'hotmail.com', 'hotmail.con': 'hotmail.com',
+            'yahho.com': 'yahoo.com', 'yaho.com': 'yahoo.com', 'yahoo.con': 'yahoo.com',
+            'outlok.com': 'outlook.com', 'outloo.com': 'outlook.com', 'outlook.con': 'outlook.com',
+            'iclou.com': 'icloud.com', 'icloud.con': 'icloud.com',
+        };
+
+        function clearFieldWarn(warnId) {
+            const el = document.getElementById(warnId);
+            if (el) el.classList.add('hidden');
+        }
+
+        function validateEmailLive(input, warnId) {
+            const warnEl = document.getElementById(warnId);
+            const val = input.value.trim();
+            if (!warnEl) return;
+            if (!val) { warnEl.classList.add('hidden'); return; }
+
+            if (!isValidEmail(val)) {
+                warnEl.querySelector('span').textContent = 'Esse e-mail não parece completo (ex: nome@dominio.com).';
+                warnEl.classList.remove('hidden');
+                return;
+            }
+            const domain = val.split('@')[1]?.toLowerCase();
+            if (domain && EMAIL_DOMAIN_TYPOS[domain]) {
+                const suggestion = val.split('@')[0] + '@' + EMAIL_DOMAIN_TYPOS[domain];
+                warnEl.innerHTML = `<i class="ph ph-warning"></i> <span>Você quis dizer <b class="text-amber-300 cursor-pointer underline" onclick="document.getElementById('${input.id}').value='${suggestion}'; clearFieldWarn('${warnId}')">${suggestion}</b>?</span>`;
+                warnEl.classList.remove('hidden');
+                return;
+            }
+            warnEl.classList.add('hidden');
+        }
+
+        function validatePhoneLive(input, warnId) {
+            const warnEl = document.getElementById(warnId);
+            if (!warnEl) return;
+            const digits = input.value.replace(/\D/g, '');
+            if (!digits) { warnEl.classList.add('hidden'); return; }
+
+            if (digits.length < 10) {
+                warnEl.querySelector('span').textContent = `Número incompleto (faltam dígitos — DDD + telefone tem 10 ou 11 números).`;
+                warnEl.classList.remove('hidden');
+                return;
+            }
+            const ddd = parseInt(digits.slice(0, 2), 10);
+            if (ddd < 11 || ddd > 99) {
+                warnEl.querySelector('span').textContent = 'DDD parece inválido. Confira os dois primeiros números.';
+                warnEl.classList.remove('hidden');
+                return;
+            }
+            warnEl.classList.add('hidden');
         }
         // ─────────────────────────────────────────────────────────────
 
