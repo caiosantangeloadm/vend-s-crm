@@ -1503,6 +1503,7 @@
                     <button onclick="switchSettingsTab('backup')"     id="stab-backup"     class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Backup</button>
                     <button onclick="switchSettingsTab('security')"   id="stab-security"   class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Segurança</button>
                     <button onclick="switchSettingsTab('audit')"      id="stab-audit"      class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Auditoria de Dados</button>
+                    <button onclick="switchSettingsTab('automations')" id="stab-automations" class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Automações</button>
                 </div>
 
                 <!-- Painel: Categorias -->
@@ -1782,6 +1783,62 @@
                             <span id="auditDupCount" class="text-[10px] text-gray-600 bg-[#141414] border border-sant-border rounded-full px-2 py-0.5"></span>
                         </div>
                         <div id="auditDupList" class="space-y-2"></div>
+                    </div>
+                </div>
+
+                <!-- Painel: Automações -->
+                <div id="spanel-automations" class="settings-panel hidden">
+                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 mb-6">
+                        <p class="text-xs font-bold text-white uppercase tracking-wide mb-2 flex items-center gap-2"><i class="ph ph-lightning text-amber-400"></i> Automações</p>
+                        <p class="text-xs text-gray-500">Crie regras simples: quando algo acontecer com um contato (ex: virar lead quente), o sistema cria uma tarefa automaticamente pra você. Só funciona enquanto o app está aberto.</p>
+                    </div>
+
+                    <button onclick="openAutomationEditor()" class="w-full bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-4 py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 mb-4"><i class="ph ph-plus"></i> Nova Automação</button>
+                    <div id="automationsList" class="space-y-2"></div>
+
+                    <!-- Editor de Automação -->
+                    <div id="automationEditorBox" class="hidden mt-5 pt-5 border-t border-sant-border bg-sant-surface border border-sant-border rounded-2xl p-6">
+                        <input type="hidden" id="automationId">
+                        <div class="mb-4">
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Nome da automação</label>
+                            <input type="text" id="automationName" placeholder="Ex: Follow-up de lead quente" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-sant-cyan">
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Quando isso acontecer...</label>
+                            <select id="automationTrigger" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-sant-cyan">
+                                <option value="became_hot">Lead virar Quente 🔥</option>
+                                <option value="became_warm">Lead virar Morno ☀️</option>
+                                <option value="became_lead">Contato virar Lead</option>
+                            </select>
+                        </div>
+                        <p class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">...criar esta tarefa:</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-2">
+                            <div class="md:col-span-2">
+                                <label class="block text-[10px] text-gray-500 uppercase mb-1">Título da tarefa</label>
+                                <input type="text" id="automationTaskTitle" placeholder="Ex: Ligar para {{nome}}" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-gray-500 uppercase mb-1">Prazo</label>
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-xs text-gray-500">D+</span>
+                                    <input type="number" min="0" id="automationTaskDays" value="1" class="w-16 bg-[#141414] border border-sant-border rounded-lg px-2 py-2 text-sm text-white outline-none text-center focus:border-sant-cyan">
+                                    <span class="text-[10px] text-gray-600">dias após o gatilho</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-gray-500 uppercase mb-1">Prioridade</label>
+                                <select id="automationTaskPriority" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan">
+                                    <option value="low">Baixa</option>
+                                    <option value="medium" selected>Normal</option>
+                                    <option value="high">Alta (Urgente)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-gray-600 mb-4">Use <code class="text-gray-500">{{nome}}</code> no título para inserir o nome do contato automaticamente.</p>
+                        <div class="flex gap-3">
+                            <button onclick="closeAutomationEditor()" class="flex-1 px-4 py-2 rounded-lg border border-sant-border text-gray-400 hover:text-white text-sm transition-colors">Cancelar</button>
+                            <button onclick="saveAutomation()" class="flex-1 bg-sant-cyan text-sant-bg px-4 py-2 rounded-lg text-sm font-bold hover:bg-cyan-400 transition-colors">Salvar Automação</button>
+                        </div>
                     </div>
                 </div>
             </div><!-- /view-settings -->
@@ -3384,6 +3441,7 @@
         let editingTemplateId = null;
         let taskPlaybooks = [];
         let currentPlaybookSteps = [];
+        let automationRules = [];
         let activeFilters = { category: '', isLead: '', temperature: '', tag: '', origin: '', city: '', state: '', intType: '', intFrom: '', intTo: '' };
         let currentContactTags = [];
         let currentContactCustomFields = [];
@@ -4279,6 +4337,7 @@
             scheduleBlocks = JSON.parse(localStorage.getItem('sant_crm_schedule_blocks') || '[]');
             messageTemplates = JSON.parse(localStorage.getItem('sant_crm_message_templates') || JSON.stringify(defaultMessageTemplates));
             taskPlaybooks = JSON.parse(localStorage.getItem('sant_crm_task_playbooks') || '[]');
+            automationRules = JSON.parse(localStorage.getItem('sant_crm_automations') || '[]');
             migrateContactCodes();
             migrateContactOrigins();
             loadEventTypeLabels();
@@ -8187,8 +8246,10 @@
                 }
                 const index = contacts.findIndex(c => c.id === id);
                 if (index !== -1) contacts[index] = contact;
+                runAutomationsForContact(old, contact);
             } else {
                 contacts.push(contact);
+                runAutomationsForContact(null, contact);
             }
 
             saveToStorage();
@@ -12113,6 +12174,7 @@
                     "dashCollapsed": JSON.parse(localStorage.getItem('vends_dash_collapsed') || '[]'),
                     "scoreHistory":  JSON.parse(localStorage.getItem('vends_score_history')  || '{}'),
                     "taskPlaybooks": taskPlaybooks,
+                    "automationRules": automationRules,
                 };
                 await sb.from('user_preferences').upsert(row, { onConflict: 'user_id' });
             } catch(e) { console.warn('Prefs sync:', e.message); }
@@ -12145,6 +12207,7 @@
                 if (data.dashCollapsed?.length)     localStorage.setItem('vends_dash_collapsed', JSON.stringify(data.dashCollapsed));
                 if (data.scoreHistory && Object.keys(data.scoreHistory).length) localStorage.setItem('vends_score_history', JSON.stringify(data.scoreHistory));
                 if (data.taskPlaybooks?.length) { taskPlaybooks = data.taskPlaybooks; localStorage.setItem('sant_crm_task_playbooks', JSON.stringify(taskPlaybooks)); }
+                if (data.automationRules?.length) { automationRules = data.automationRules; localStorage.setItem('sant_crm_automations', JSON.stringify(automationRules)); }
                 if (data.savedFilters?.length)      { savedFilters = data.savedFilters; localStorage.setItem('vends_saved_filters', JSON.stringify(savedFilters)); renderSavedFilters(); }
                 if (data.contactAccesses && Object.keys(data.contactAccesses).length) {
                     // Mescla local + cloud (soma acessos dos dois dispositivos)
@@ -12755,6 +12818,148 @@
             if (tab === 'backup')      renderSBackup();
             if (tab === 'security')    renderSSecurity();
             if (tab === 'audit')       renderSAudit();
+            if (tab === 'automations') renderAutomationsList();
+        }
+
+        // — Automações ("gatilhos") —
+        function saveAutomationsToStorage() {
+            localStorage.setItem('sant_crm_automations', JSON.stringify(automationRules));
+            syncPreferencesToSupabase();
+        }
+
+        const AUTOMATION_TRIGGER_LABELS = {
+            became_hot: '🔥 Lead vira Quente',
+            became_warm: '☀️ Lead vira Morno',
+            became_lead: 'Contato vira Lead',
+        };
+
+        function renderAutomationsList() {
+            const box = document.getElementById('automationsList');
+            if (!box) return;
+            if (!automationRules.length) { box.innerHTML = '<p class="text-xs text-gray-600 italic text-center py-6">Nenhuma automação criada ainda.</p>'; return; }
+            box.innerHTML = automationRules.map(r => `
+                <div class="bg-[#0a0a0a] border border-sant-border rounded-lg p-4">
+                    <div class="flex items-start justify-between gap-3 mb-1">
+                        <div class="min-w-0">
+                            <p class="text-sm font-bold text-white">${r.name}</p>
+                            <p class="text-xs text-gray-500 mt-0.5">${AUTOMATION_TRIGGER_LABELS[r.trigger] || r.trigger} → cria tarefa "${r.taskTitle}" (D+${r.taskDaysOffset})</p>
+                        </div>
+                        <label class="inline-flex items-center gap-1.5 shrink-0 cursor-pointer" title="Ativar/desativar">
+                            <input type="checkbox" ${r.active !== false ? 'checked' : ''} onchange="toggleAutomationActive('${r.id}', this.checked)" class="w-4 h-4 accent-sant-cyan cursor-pointer">
+                            <span class="text-[10px] ${r.active !== false ? 'text-green-400' : 'text-gray-600'}">${r.active !== false ? 'Ativa' : 'Pausada'}</span>
+                        </label>
+                    </div>
+                    <div class="flex gap-2 mt-2">
+                        <button onclick="openAutomationEditor('${r.id}')" class="text-[11px] bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-1.5 rounded-lg font-medium transition-colors">Editar</button>
+                        <button onclick="deleteAutomation('${r.id}')" class="text-[11px] bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-400 px-3 py-1.5 rounded-lg font-medium transition-colors">Excluir</button>
+                    </div>
+                </div>`).join('');
+        }
+
+        function toggleAutomationActive(id, active) {
+            const r = automationRules.find(x => x.id === id);
+            if (!r) return;
+            r.active = active;
+            saveAutomationsToStorage();
+            renderAutomationsList();
+        }
+
+        function openAutomationEditor(id) {
+            const r = id ? automationRules.find(x => x.id === id) : null;
+            document.getElementById('automationId').value = r ? r.id : '';
+            document.getElementById('automationName').value = r ? r.name : '';
+            document.getElementById('automationTrigger').value = r ? r.trigger : 'became_hot';
+            document.getElementById('automationTaskTitle').value = r ? r.taskTitle : '';
+            document.getElementById('automationTaskDays').value = r ? r.taskDaysOffset : 1;
+            document.getElementById('automationTaskPriority').value = r ? r.taskPriority : 'medium';
+            document.getElementById('automationEditorBox').classList.remove('hidden');
+            document.getElementById('automationEditorBox').scrollIntoView({behavior:'smooth', block:'nearest'});
+        }
+        function closeAutomationEditor() {
+            document.getElementById('automationEditorBox').classList.add('hidden');
+        }
+
+        function saveAutomation() {
+            const name = document.getElementById('automationName').value.trim();
+            const taskTitle = document.getElementById('automationTaskTitle').value.trim();
+            if (!name) { showToast('Dê um nome à automação!', 'error'); return; }
+            if (!taskTitle) { showToast('Defina o título da tarefa a ser criada!', 'error'); return; }
+
+            const id = document.getElementById('automationId').value;
+            const rule = {
+                id: id || crypto.randomUUID(),
+                name,
+                trigger: document.getElementById('automationTrigger').value,
+                action: 'create_task',
+                taskTitle,
+                taskDaysOffset: parseInt(document.getElementById('automationTaskDays').value) || 0,
+                taskPriority: document.getElementById('automationTaskPriority').value,
+                active: true,
+            };
+            if (id) {
+                const idx = automationRules.findIndex(x => x.id === id);
+                if (idx !== -1) rule.active = automationRules[idx].active;
+                if (idx !== -1) automationRules[idx] = rule;
+            } else {
+                automationRules.push(rule);
+            }
+            saveAutomationsToStorage();
+            closeAutomationEditor();
+            renderAutomationsList();
+            showToast('Automação salva!');
+        }
+
+        function deleteAutomation(id) {
+            const r = automationRules.find(x => x.id === id);
+            if (!r) return;
+            showConfirm(`Excluir automação "${r.name}"?`, 'Tarefas já criadas por ela não serão apagadas.', () => {
+                automationRules = automationRules.filter(x => x.id !== id);
+                saveAutomationsToStorage();
+                renderAutomationsList();
+                showToast('Automação excluída.');
+            });
+        }
+
+        // Executa as automações aplicáveis comparando o contato antes/depois de salvar
+        function runAutomationsForContact(oldContact, newContact) {
+            automationRules.forEach(rule => {
+                if (rule.active === false) return;
+                let fires = false;
+                if (rule.trigger === 'became_hot')  fires = newContact.temperature === 'quente' && (!oldContact || oldContact.temperature !== 'quente');
+                if (rule.trigger === 'became_warm') fires = newContact.temperature === 'morno'  && (!oldContact || oldContact.temperature !== 'morno');
+                if (rule.trigger === 'became_lead') fires = !!newContact.isLead && (!oldContact || !oldContact.isLead);
+                if (fires) executeAutomationAction(rule, newContact);
+            });
+        }
+
+        function executeAutomationAction(rule, contact) {
+            if (rule.action !== 'create_task') return;
+            const title = (rule.taskTitle || 'Tarefa automática').replace(/\{\{\s*nome\s*\}\}/gi, fullName(contact));
+            const task = {
+                id: crypto.randomUUID(),
+                title,
+                date: addDaysToDateStr(getSPTodayStr(), rule.taskDaysOffset || 0),
+                time: '',
+                priority: rule.taskPriority || 'medium',
+                notification: '0',
+                emailAlert: '0',
+                desc: `Gerado automaticamente pela automação "${rule.name}"`,
+                contactId: contact.id,
+                dependsOnId: '',
+                recurrence: 'none',
+                recurrenceInterval: 1,
+                tags: [],
+                estimatedMinutes: 0,
+                checklist: [],
+                kanbanColumn: 'todo',
+                completed: false,
+                notified: false
+            };
+            tasks.push(task);
+            saveTasksToStorage();
+            cloudSyncTask(task);
+            if (currentView === 'tasks') _refreshCurrentTaskView();
+            showToast(`⚡ Automação "${rule.name}": tarefa criada para ${fullName(contact)}`);
         }
 
         // — Auditoria de Dados —
