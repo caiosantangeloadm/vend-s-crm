@@ -1847,7 +1847,7 @@
     </main>
 
     <!-- MODAL DE CONTATO -->
-    <div id="contactModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+    <div id="contactModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4">
         <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl transform scale-95 transition-transform duration-300" id="modalContent">
             <div class="flex justify-between items-center p-6 border-b border-sant-border shrink-0">
                 <h3 class="text-xl font-bold text-white flex items-center gap-2"><i class="ph ph-user-circle text-sant-cyan"></i> <span id="modalTitle">Novo Contato</span></h3>
@@ -12776,13 +12776,11 @@
             renderContactCustomFields();
             previewContactPhoto('');
             document.getElementById('contactModal').classList.remove('hidden');
-            setTimeout(()=>document.getElementById('contactModal').classList.remove('opacity-0'), 10);
             takeModalSnapshot('contactModal');
         }
         function closeModal() {
             tryCloseModal('contactModal', () => {
-                document.getElementById('contactModal').classList.add('opacity-0');
-                setTimeout(()=>document.getElementById('contactModal').classList.add('hidden'), 300);
+                document.getElementById('contactModal').classList.add('hidden');
             });
         }
         
