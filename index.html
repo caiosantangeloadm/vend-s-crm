@@ -3240,7 +3240,11 @@
                 <div class="bg-[#0a0a0a] border border-sant-border rounded-xl p-4">
                     <p class="text-xs font-bold text-white mb-1.5 flex items-center gap-2"><i class="ph ph-signature text-sant-cyan"></i> Assinatura padrão</p>
                     <p class="text-[10px] text-gray-600 mb-2">Adicionada automaticamente ao final das mensagens (pode ser desativada por template abaixo).</p>
-                    <textarea id="msgSignature" rows="3" placeholder="Ex: Att, Caio Santangelo&#10;Vend-s Inteligência de Vendas&#10;(11) 99999-9999" onblur="saveMessageSignature(this.value)" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none resize-none"></textarea>
+                    <textarea id="msgSignature" rows="3" placeholder="Ex: Att, Caio Santangelo&#10;Vend-s Inteligência de Vendas&#10;(11) 99999-9999" onblur="saveMessageSignature(this.value)" oninput="renderSignaturePreview()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none resize-none"></textarea>
+                </div>
+                <div id="signaturePreviewBox" class="bg-[#0a0a0a] border border-sant-cyan/25 rounded-xl p-4">
+                    <p class="text-[10px] font-bold text-sant-cyan uppercase tracking-wider mb-2 flex items-center gap-1.5"><i class="ph ph-eye"></i> Preview da mensagem final</p>
+                    <pre id="signaturePreviewText" class="text-xs text-gray-300 whitespace-pre-wrap font-sans leading-relaxed"></pre>
                 </div>
                 <div>
                     <p class="text-[10px] text-gray-600 uppercase font-bold tracking-wider mb-1.5">Variáveis disponíveis — clique para copiar</p>
@@ -3262,9 +3266,9 @@
                     <div id="tplSubjectWrap" class="hidden">
                         <input type="text" id="tplSubject" placeholder="Assunto (e-mail)" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
                     </div>
-                    <textarea id="tplBody" rows="4" placeholder="Texto da mensagem..." class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none resize-none"></textarea>
+                    <textarea id="tplBody" rows="4" placeholder="Texto da mensagem..." oninput="renderSignaturePreview()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none resize-none"></textarea>
                     <label class="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
-                        <input type="checkbox" id="tplUseSignature" checked class="w-4 h-4 accent-sant-cyan cursor-pointer">
+                        <input type="checkbox" id="tplUseSignature" checked onchange="renderSignaturePreview()" class="w-4 h-4 accent-sant-cyan cursor-pointer">
                         Incluir assinatura padrão ao enviar
                     </label>
                     <div class="flex gap-2 justify-end">
@@ -9180,6 +9184,7 @@
             toggleTplSubjectField();
             document.getElementById('tplFormTitle').innerText = 'Novo Modelo';
             document.getElementById('tplSaveBtn').innerText = 'Adicionar';
+            renderSignaturePreview();
         }
 
         function renderTemplatesList(filtered) {
@@ -9229,6 +9234,7 @@
             toggleTplSubjectField();
             document.getElementById('tplFormTitle').innerText = 'Editar Modelo';
             document.getElementById('tplSaveBtn').innerText = 'Salvar';
+            renderSignaturePreview();
         }
 
         function saveTemplate() {
@@ -9255,6 +9261,18 @@
             syncPreferencesToSupabase();
         }
 
+        function renderSignaturePreview() {
+            const box = document.getElementById('signaturePreviewText');
+            if (!box) return;
+            const sample = { name: 'João', lastName: 'Silva', company: 'Empresa Exemplo Ltda' };
+            const body = document.getElementById('tplBody').value.trim() || 'Olá {{nome}}, tudo bem?';
+            const useSignature = document.getElementById('tplUseSignature').checked;
+            const signature = document.getElementById('msgSignature').value.trim();
+            let text = fillMessageTemplate(body, sample);
+            if (signature && useSignature) text += `\n\n${signature}`;
+            box.textContent = text;
+        }
+
         function deleteTemplate(id) {
             const t = messageTemplates.find(x => x.id === id);
             if (!t) return;
@@ -9274,6 +9292,7 @@
             document.getElementById('msgSignature').value = localStorage.getItem('sant_crm_message_signature') || '';
             document.getElementById('templatesModal').classList.remove('hidden');
             renderTemplatesList();
+            renderSignaturePreview();
         }
         function closeTemplatesManager() { document.getElementById('templatesModal').classList.add('hidden'); }
 
