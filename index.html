@@ -8458,8 +8458,9 @@
                 lines.push(`ADR;TYPE=WORK:;;${vcfEscape(c.addressStreet)}${c.addressNumber ? ', ' + vcfEscape(c.addressNumber) : ''};${vcfEscape(c.addressNeighborhood)} ${vcfEscape(c.addressCity)};;${vcfEscape(c.addressState)};${vcfEscape(c.addressZip)};Brasil`);
             }
             if (c.birth) {
-                const [bm, bd] = c.birth.split('-');
-                if (bm && bd) lines.push(`BDAY:--${bm}${bd}`);
+                const bm = String(getBirthMonth(c.birth)).padStart(2, '0');
+                const bd = String(getBirthDay(c.birth)).padStart(2, '0');
+                if (bm !== '00' && bd !== '00') lines.push(`BDAY:--${bm}${bd}`);
             }
             if (c.notes) lines.push(`NOTE:${vcfEscape(c.notes)}`);
             lines.push('END:VCARD');
