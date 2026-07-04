@@ -2687,7 +2687,11 @@
                 <h3 class="text-sm font-bold text-white flex items-center gap-2"><i class="ph ph-lightning text-amber-400"></i> Revisão Rápida</h3>
                 <p id="qrProgress" class="text-[11px] text-gray-500 mt-0.5"></p>
             </div>
-            <button onclick="closeQuickReview()" class="text-gray-400 hover:text-white transition-colors p-2"><i class="ph ph-x text-xl"></i></button>
+            <div class="flex items-center gap-2">
+                <button onclick="exportContactListVcf(qrQueue, 'revisao_rapida')" title="Exportar lista atual (.vcf)" class="text-gray-400 hover:text-sant-cyan transition-colors p-2"><i class="ph ph-address-book text-lg"></i></button>
+                <button onclick="exportContactListCsv(qrQueue, 'revisao_rapida')" title="Exportar lista atual (.csv)" class="text-gray-400 hover:text-sant-cyan transition-colors p-2"><i class="ph ph-file-csv text-lg"></i></button>
+                <button onclick="closeQuickReview()" class="text-gray-400 hover:text-white transition-colors p-2"><i class="ph ph-x text-xl"></i></button>
+            </div>
         </div>
         <div class="flex-1 overflow-y-auto flex items-center justify-center p-4">
             <div id="qrCardWrap" class="w-full max-w-md"></div>
@@ -12877,17 +12881,25 @@
 
         function bulkExportVcf() {
             if (!selectedContactIds.size) { showToast('Selecione ao menos um contato.', 'error'); return; }
-            const sel = contacts.filter(c => selectedContactIds.has(c.id));
-            const content = sel.map(buildVcfEntry).join('\r\n');
-            downloadVcf(content, `vends_selecionados_${getSPTodayStr()}.vcf`);
-            showToast(`${sel.length} contato${sel.length>1?'s':''} exportado${sel.length>1?'s':''}!`);
+            exportContactListVcf(contacts.filter(c => selectedContactIds.has(c.id)), 'selecionados');
         }
 
         function bulkExportCsv() {
             if (!selectedContactIds.size) { showToast('Selecione ao menos um contato.', 'error'); return; }
-            const sel = contacts.filter(c => selectedContactIds.has(c.id));
+            exportContactListCsv(contacts.filter(c => selectedContactIds.has(c.id)), 'selecionados');
+        }
+
+        function exportContactListVcf(list, label) {
+            if (!list.length) { showToast('Nenhum contato para exportar.', 'error'); return; }
+            const content = list.map(buildVcfEntry).join('\r\n');
+            downloadVcf(content, `vends_${label}_${getSPTodayStr()}.vcf`);
+            showToast(`${list.length} contato${list.length>1?'s':''} exportado${list.length>1?'s':''}!`);
+        }
+
+        function exportContactListCsv(list, label) {
+            if (!list.length) { showToast('Nenhum contato para exportar.', 'error'); return; }
             const headers = ['#','Nome','Sobrenome','Empresa','Categoria','Telefone','E-mail','Origem','Tags','Cidade','Estado'];
-            const rows = sel.map(c => [
+            const rows = list.map(c => [
                 c.code||'', c.name||'', c.lastName||'', c.company||'',
                 c.category||'', c.phoneProf||c.phonePess||'',
                 c.emailProf||c.emailPess||'', c.origin||'',
@@ -12897,10 +12909,10 @@
             const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = `vends_selecionados_${getSPTodayStr()}.csv`;
+            a.download = `vends_${label}_${getSPTodayStr()}.csv`;
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
             URL.revokeObjectURL(a.href);
-            showToast(`${sel.length} contato${sel.length>1?'s':''} exportado${sel.length>1?'s':''}!`);
+            showToast(`${list.length} contato${list.length>1?'s':''} exportado${list.length>1?'s':''}!`);
         }
 
         function bulkDelete() {
