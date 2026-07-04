@@ -334,8 +334,8 @@
                     <div id="globalSearchResults" class="hidden absolute right-0 top-12 w-96 max-h-[70vh] overflow-y-auto rounded-2xl border border-sant-border shadow-2xl z-50" style="background:#0d0d0d;">
                     </div>
                 </div>
-                <!-- Indicador Realtime -->
-                <div id="realtimeDot" class="hidden w-2 h-2 rounded-full bg-green-400 animate-pulse" title="Sync em tempo real ativo" style="box-shadow:0 0 6px #4ade80"></div>
+                <!-- Indicador de Sincronização -->
+                <div id="realtimeDot" onclick="showToast(document.getElementById('realtimeDot').title)" class="hidden w-2 h-2 rounded-full bg-green-400 cursor-pointer" title="Sincronização" style="box-shadow:0 0 6px #4ade80"></div>
                 <!-- Streak de uso -->
                 <button onclick="switchView('dashboard');setTimeout(()=>{const el=document.getElementById('dashStreakCard');if(el&&!el.classList.contains('hidden')){el.scrollIntoView({behavior:'smooth',block:'center'});el.style.outline='2px solid #f97316';setTimeout(()=>el.style.outline='',1200);}},200);" id="streakBadge" class="hidden items-center gap-1 px-2.5 py-1.5 rounded-lg border border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/20 transition-colors" title="Streak de uso — clique para ver detalhes">
                     <span class="text-base leading-none">🔥</span>
@@ -4096,6 +4096,8 @@
                 // Verifica aniversários uma vez por hora (quando minuto === 0)
                 if (parseInt(mStr) === 0) { checkBirthdayReminders(); checkFollowupReminders(); checkNoteReminders(); checkFrequencyReminders(); checkUrgentTaskReminders(); runInactivityAutomations(); }
 
+                updateSyncIndicator();
+
             }, 60000);
 
             // Verifica imediatamente ao abrir o app
@@ -4105,6 +4107,7 @@
             checkFrequencyReminders();
             checkUrgentTaskReminders();
             runInactivityAutomations();
+            updateSyncIndicator();
         }
 
         function checkUrgentTaskReminders() {
@@ -4551,9 +4554,42 @@
             try {
                 await withTimeout(networkCall(), 5000);
                 dequeueOfflineSync(table, id);
+                markSyncSuccess();
             } catch(e) {
                 console.warn(`${table} sync (${action}) ficou pendente:`, e.message);
+                updateSyncIndicator();
             }
+        }
+
+        // ── Indicador de Última Sincronização ───────────────────────────────
+        function markSyncSuccess() {
+            localStorage.setItem('vends_last_sync', String(Date.now()));
+            updateSyncIndicator();
+        }
+
+        function updateSyncIndicator() {
+            const dot = document.getElementById('realtimeDot');
+            if (!dot) return;
+            const lastSync = parseInt(localStorage.getItem('vends_last_sync') || '0');
+            const pendingCount = getOfflineQueue().length;
+            let color, label;
+            if (!navigator.onLine) {
+                color = '#f87171'; label = 'Offline — alterações serão sincronizadas quando a internet voltar';
+            } else if (pendingCount > 0) {
+                color = '#fbbf24'; label = `${pendingCount} alteração(ões) pendente(s) de sincronização`;
+            } else if (lastSync) {
+                color = '#4ade80';
+                const diffMin = Math.floor((Date.now() - lastSync) / 60000);
+                const timeStr = new Date(lastSync).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                label = diffMin < 1 ? `Sincronizado agora mesmo (${timeStr})` : diffMin < 60 ? `Sincronizado há ${diffMin} min (${timeStr})` : `Última sincronização às ${timeStr}`;
+            } else {
+                color = '#6b7280'; label = 'Aguardando primeira sincronização com a nuvem';
+            }
+            dot.style.background = color;
+            dot.style.boxShadow = `0 0 6px ${color}`;
+            dot.title = label;
+            dot.classList.remove('hidden');
+            dot.classList.toggle('animate-pulse', !navigator.onLine || pendingCount > 0);
         }
         function updateOfflineQueueBadge() {
             const n = getOfflineQueue().length;
@@ -4615,6 +4651,7 @@
             }
             window.addEventListener('online', async () => {
                 applyState();
+                updateSyncIndicator();
                 showToast('Conexão restabelecida — sincronizando alterações...');
                 // Importante: primeiro reenvia a fila pendente (push local→nuvem) e só DEPOIS
                 // busca dados da nuvem — senão o pull pode trazer valor antigo e sobrescrever
@@ -4629,6 +4666,7 @@
             });
             window.addEventListener('offline', () => {
                 applyState();
+                updateSyncIndicator();
                 showToast('Você está offline. Alterações continuam sendo salvas neste dispositivo.', 'error');
             });
             applyState();
@@ -12333,6 +12371,7 @@
                     "messageSignature": localStorage.getItem('sant_crm_message_signature') || '',
                 };
                 await sb.from('user_preferences').upsert(row, { onConflict: 'user_id' });
+                markSyncSuccess();
             } catch(e) { console.warn('Prefs sync:', e.message); }
         }
 
@@ -12406,6 +12445,7 @@
                 if (currentView === 'dashboard') renderDashboard();
                 // Sincroniza de volta para garantir consistência (streak já foi restaurado do cloud)
                 syncPreferencesToSupabase();
+                markSyncSuccess();
             } catch(e) { console.warn('Prefs load:', e.message); }
         }
         // ── Supabase Realtime ────────────────────────────────────────────────
@@ -12486,8 +12526,7 @@
                 .subscribe((status) => {
                     if (status === 'SUBSCRIBED') {
                         console.log('✅ Realtime sync ativo');
-                        const dot = document.getElementById('realtimeDot');
-                        if (dot) { dot.classList.remove('hidden'); dot.title = 'Sync em tempo real ativo'; }
+                        markSyncSuccess();
                     }
                 });
         }
