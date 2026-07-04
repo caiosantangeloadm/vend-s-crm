@@ -8459,7 +8459,7 @@
             }
             if (c.birth) {
                 const [bm, bd] = c.birth.split('-');
-                if (bm && bd) lines.push(`BDAY:--${bm}-${bd}`);
+                if (bm && bd) lines.push(`BDAY:--${bm}${bd}`);
             }
             if (c.notes) lines.push(`NOTE:${vcfEscape(c.notes)}`);
             lines.push('END:VCARD');
