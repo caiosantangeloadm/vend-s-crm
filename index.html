@@ -13092,6 +13092,7 @@
                     </div>
                     <div class="flex gap-2 mt-2">
                         <button onclick="openAutomationEditor('${r.id}')" class="text-[11px] bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-1.5 rounded-lg font-medium transition-colors">Editar</button>
+                        <button onclick="duplicateAutomation('${r.id}')" class="text-[11px] bg-sant-purple/10 border border-sant-purple/30 hover:bg-sant-purple/20 text-sant-purple px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1"><i class="ph ph-copy"></i> Duplicar</button>
                         <button onclick="deleteAutomation('${r.id}')" class="text-[11px] bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-400 px-3 py-1.5 rounded-lg font-medium transition-colors">Excluir</button>
                     </div>
                 </div>`;
@@ -13169,6 +13170,17 @@
             renderAutomationsList();
             showToast('Automação salva!');
             runInactivityAutomations();
+        }
+
+        function duplicateAutomation(id) {
+            const r = automationRules.find(x => x.id === id);
+            if (!r) return;
+            const copy = { ...r, id: crypto.randomUUID(), name: `${r.name} (cópia)`, active: false };
+            automationRules.push(copy);
+            saveAutomationsToStorage();
+            renderAutomationsList();
+            showToast('Automação duplicada — revise e ative quando quiser.');
+            openAutomationEditor(copy.id);
         }
 
         function deleteAutomation(id) {
