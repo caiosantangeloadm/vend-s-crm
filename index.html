@@ -8458,9 +8458,18 @@
                 lines.push(`ADR;TYPE=WORK:;;${vcfEscape(c.addressStreet)}${c.addressNumber ? ', ' + vcfEscape(c.addressNumber) : ''};${vcfEscape(c.addressNeighborhood)} ${vcfEscape(c.addressCity)};;${vcfEscape(c.addressState)};${vcfEscape(c.addressZip)};Brasil`);
             }
             if (c.birth) {
+                const parts = c.birth.split('-');
                 const bm = String(getBirthMonth(c.birth)).padStart(2, '0');
                 const bd = String(getBirthDay(c.birth)).padStart(2, '0');
-                if (bm !== '00' && bd !== '00') lines.push(`BDAY:--${bm}${bd}`);
+                if (bm !== '00' && bd !== '00') {
+                    // Se o cadastro tem o ano completo (AAAA-MM-DD), exporta a data cheia;
+                    // senão (legado, só MM-DD), usa o formato reduzido sem ano.
+                    if (parts.length >= 3 && parts[0].length === 4) {
+                        lines.push(`BDAY:${parts[0]}-${bm}-${bd}`);
+                    } else {
+                        lines.push(`BDAY:--${bm}${bd}`);
+                    }
+                }
             }
             if (c.notes) lines.push(`NOTE:${vcfEscape(c.notes)}`);
             lines.push('END:VCARD');
