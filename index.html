@@ -3017,7 +3017,7 @@
                     </div><!-- /info text -->
                 </div><!-- /avatar+info flex -->
                 <div class="flex items-center gap-3 shrink-0">
-                    <button onclick="editContact(currentHistoryContactId)" class="text-gray-400 hover:text-sant-cyan transition-colors" title="Editar Cadastro"><i class="ph ph-pencil-simple text-lg"></i></button>
+                    <button onclick="goToEditFromHistoryModal()" class="text-gray-400 hover:text-sant-cyan transition-colors" title="Editar Cadastro"><i class="ph ph-pencil-simple text-lg"></i></button>
                     <button onclick="exportContactPdf(currentHistoryContactId)" class="text-gray-400 hover:text-sant-cyan transition-colors" title="Exportar briefing PDF"><i class="ph ph-file-pdf text-lg"></i></button>
                     <button onclick="openSendMessageModal(currentHistoryContactId)" class="text-gray-400 hover:text-sant-cyan transition-colors" title="Enviar Mensagem"><i class="ph ph-paper-plane-tilt text-lg"></i></button>
                     <button onclick="closeHistoryModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
@@ -16176,6 +16176,14 @@
         function closeHistoryModal() {
             document.getElementById('historyModal').classList.add('hidden');
             currentHistoryContactId = null;
+        }
+
+        function goToEditFromHistoryModal() {
+            const id = currentHistoryContactId;
+            if (!id) return;
+            document.getElementById('historyModal').classList.add('hidden');
+            currentHistoryContactId = null;
+            editContact(id);
         }
 
         function getFrequencyStatus(c) {
