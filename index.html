@@ -8402,15 +8402,36 @@
         function normalizePhoneDigits(p) {
             return (p || '').replace(/\D/g, '');
         }
+        const DIACRITICS_RE = new RegExp('[' + String.fromCharCode(0x0300) + '-' + String.fromCharCode(0x036f) + ']', 'g');
+        function normalizeNameForMatch(s) {
+            return (s || '').toLowerCase().normalize('NFD').replace(DIACRITICS_RE, '').trim().replace(/\s+/g, ' ');
+        }
+
+        // Compara dois nomes com tolerância a pequenas diferenças de digitação (fuzzy match).
+        // Distâncias maiores só contam como duplicado se as duas pessoas também tiverem a mesma
+        // empresa cadastrada — evita falso positivo entre nomes parecidos mas pessoas diferentes.
+        function fuzzyNameMatch(nameA, nameB, companyA, companyB) {
+            if (!nameA || !nameB) return { match: false };
+            if (nameA === nameB) return { match: true, reason: 'nome idêntico' };
+            const maxLen = Math.max(nameA.length, nameB.length);
+            if (Math.abs(nameA.length - nameB.length) > 4) return { match: false };
+            const dist = editDistance(nameA, nameB);
+            const threshold = maxLen <= 10 ? 1 : maxLen <= 20 ? 2 : 3;
+            if (dist === 0 || dist > threshold) return { match: false };
+            const sameCompany = companyA && companyB && companyA.trim().toLowerCase() === companyB.trim().toLowerCase();
+            if (dist >= 2 && !sameCompany) return { match: false };
+            return { match: true, reason: sameCompany ? 'nome parecido + mesma empresa' : 'nome muito parecido' };
+        }
+
         function findPossibleDuplicate(contact) {
-            const newName = fullName(contact).trim().toLowerCase();
+            const newName = normalizeNameForMatch(fullName(contact));
             const newPhones = [normalizePhoneDigits(contact.phoneProf), normalizePhoneDigits(contact.phonePess)].filter(Boolean);
 
             return contacts.find(c => {
-                const sameName = newName && fullName(c).trim().toLowerCase() === newName;
                 const cPhones = [normalizePhoneDigits(c.phoneProf), normalizePhoneDigits(c.phonePess)].filter(Boolean);
                 const samePhone = newPhones.some(p => cPhones.includes(p));
-                return sameName || samePhone;
+                if (samePhone) return true;
+                return fuzzyNameMatch(newName, normalizeNameForMatch(fullName(c)), contact.company, c.company).match;
             });
         }
 
@@ -13442,14 +13463,14 @@
             for (let i = 0; i < contacts.length; i++) {
                 for (let j = i + 1; j < contacts.length; j++) {
                     const a = contacts[i], b = contacts[j];
-                    const nameA = fullName(a).trim().toLowerCase(), nameB = fullName(b).trim().toLowerCase();
+                    const nameA = normalizeNameForMatch(fullName(a)), nameB = normalizeNameForMatch(fullName(b));
                     const phonesA = [normalizePhoneDigits(a.phoneProf), normalizePhoneDigits(a.phonePess)].filter(Boolean);
                     const phonesB = [normalizePhoneDigits(b.phoneProf), normalizePhoneDigits(b.phonePess)].filter(Boolean);
-                    const sameName = nameA && nameA === nameB;
                     const samePhone = phonesA.some(p => phonesB.includes(p));
-                    if (sameName || samePhone) {
+                    const fuzzy = fuzzyNameMatch(nameA, nameB, a.company, b.company);
+                    if (fuzzy.match || samePhone) {
                         const key = [a.id, b.id].sort().join('|');
-                        if (!seen.has(key)) { seen.add(key); pairs.push({ a, b, reason: sameName ? 'nome igual' : 'telefone igual' }); }
+                        if (!seen.has(key)) { seen.add(key); pairs.push({ a, b, reason: samePhone ? 'telefone igual' : fuzzy.reason }); }
                     }
                 }
             }
