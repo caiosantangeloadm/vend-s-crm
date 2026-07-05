@@ -4421,12 +4421,20 @@
 
             // 2️⃣ Busca do Supabase em background (atualiza se online e autenticado)
             if (currentUser) {
-                loadContactsFromSupabase();
-                loadTasksFromSupabase();
-                loadEventsFromSupabase();
-                loadNotesFromSupabase();
-                loadPreferencesFromSupabase();
-                if (navigator.onLine) replayOfflineQueue(); // reenvia pendências de uma sessão offline anterior
+                // Importante: primeiro reenvia a fila pendente de uma sessão offline anterior
+                // (push local→nuvem) e só DEPOIS busca dados da nuvem — mesma ordem já usada no
+                // handler de reconexão (evento 'online'). Buscar antes de reenviar cria uma corrida:
+                // a leitura da nuvem pode chegar DEPOIS que a fila já foi limpa localmente, mas
+                // com uma resposta antiga (lida antes do upsert commitar) — sobrescrevendo a
+                // edição feita offline com o valor antigo.
+                (async () => {
+                    if (navigator.onLine) await replayOfflineQueue();
+                    loadContactsFromSupabase();
+                    loadTasksFromSupabase();
+                    loadEventsFromSupabase();
+                    loadNotesFromSupabase();
+                    loadPreferencesFromSupabase();
+                })();
             }
         }
 
