@@ -3018,6 +3018,9 @@
                     <button onclick="closeHistoryModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
                 </div>
             </div>
+            <div id="historySmartSummary" class="hidden px-4 py-2.5 border-b border-sant-border bg-sant-cyan/5 shrink-0">
+                <p class="text-xs text-gray-300 leading-relaxed flex items-start gap-2"><i class="ph ph-sparkle text-sant-cyan shrink-0 mt-0.5"></i><span id="historySmartSummaryText"></span></p>
+            </div>
             <div class="px-4 pt-3 pb-3 border-b border-sant-border bg-[#0a0a0a] shrink-0 space-y-3">
                 <div class="flex items-center gap-2">
                     <i class="ph ph-bell-ringing text-sant-cyan"></i>
@@ -15582,6 +15585,7 @@
             if (nsInp) nsInp.value = c.nextStep || '';
             if (nsClr) nsClr.classList.toggle('hidden', !c.nextStep);
             renderFollowUpHistory(c);
+            renderHistorySmartSummary(c);
             renderRelationshipSummary(c);
             renderFrequencyChart(c);
             renderRelationships(c);
@@ -16267,6 +16271,48 @@
             document.getElementById('historyNextContactClear').classList.toggle('hidden', !c.nextContact);
             renderFollowUpHistory(c);
             showToast(c.nextContact ? 'Lembrete de follow-up definido.' : 'Lembrete removido.');
+        }
+
+        // Resumo rápido em linguagem natural — gerado por regras a partir dos dados já existentes
+        function renderHistorySmartSummary(c) {
+            const box = document.getElementById('historySmartSummary');
+            const textEl = document.getElementById('historySmartSummaryText');
+            if (!box || !textEl) return;
+
+            const ints = c.interactions || [];
+            const todayStr = getSPTodayStr();
+            if (ints.length === 0 && !c.nextContact && !c.nextStep) { box.classList.add('hidden'); return; }
+
+            const parts = [];
+            if (ints.length > 0) {
+                const sorted = [...ints].sort((a,b) => (b.date||'').localeCompare(a.date||''));
+                const last = sorted[0];
+                const lastFmt = last.date ? last.date.split('-').reverse().join('/') : '—';
+                const snippet = (last.notes || '').trim().replace(/\s+/g, ' ').slice(0, 70);
+                parts.push(`Última interação: ${last.type || 'Contato'} em ${lastFmt}${snippet ? ` — "${snippet}${last.notes.length > 70 ? '…' : ''}"` : ''}.`);
+
+                const thirtyDaysAgo = addDaysToDateStr(todayStr, -30);
+                const recentCount = ints.filter(i => i.date && i.date >= thirtyDaysAgo).length;
+                if (recentCount > 0) parts.push(`${recentCount} interaç${recentCount > 1 ? 'ões' : 'ão'} nos últimos 30 dias.`);
+            } else {
+                parts.push('Nenhuma interação registrada ainda.');
+            }
+
+            if (c.nextContact) {
+                const fmtNext = c.nextContact.split('-').reverse().join('/');
+                const isOverdue = c.nextContact < todayStr;
+                parts.push(isOverdue ? `⚠️ Follow-up vencido desde ${fmtNext}.` : `Follow-up agendado para ${fmtNext}.`);
+            }
+            if (c.nextStep) parts.push(`Próximo passo: ${c.nextStep}.`);
+
+            const inactDays = getInactivityDays(c);
+            const inactThreshold = parseInt(localStorage.getItem('vends_inactivity_days') || '60');
+            if (inactThreshold && inactDays !== null && inactDays >= inactThreshold && !c.nextContact) {
+                parts.push(`⚠️ Sem contato há ${inactDays} dias.`);
+            }
+
+            textEl.textContent = parts.join(' ');
+            box.classList.remove('hidden');
         }
 
         function renderRelationshipSummary(c) {
