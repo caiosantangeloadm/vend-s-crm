@@ -274,6 +274,9 @@
             <button onclick="switchView('dashboard')" id="nav-dashboard" class="nav-item tooltip-nav flex items-center justify-center w-full py-4 text-gray-400 hover:text-white transition-colors" data-tip="Dashboard">
                 <i class="ph ph-house text-2xl"></i>
             </button>
+            <button onclick="switchView('myweek')" id="nav-myweek" class="nav-item tooltip-nav flex items-center justify-center w-full py-4 text-gray-400 hover:text-white transition-colors" data-tip="Minha Semana">
+                <i class="ph ph-calendar-check text-2xl"></i>
+            </button>
             <button onclick="switchView('contacts')" id="nav-contacts" class="nav-item tooltip-nav flex items-center justify-center w-full py-4 text-gray-400 hover:text-white transition-colors" data-tip="Contatos">
                 <i class="ph ph-users text-2xl"></i>
             </button>
@@ -755,6 +758,22 @@
                     </div>
                     <div id="dashMonthBirthdays" class="space-y-3"></div>
                 </div>
+            </div>
+
+            <!-- Minha Semana -->
+            <div id="view-myweek" class="hidden max-w-4xl mx-auto">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-white flex items-center gap-2"><i class="ph ph-calendar-check text-sant-cyan"></i> Minha Semana</h2>
+                        <p id="myWeekRange" class="text-sm text-gray-500 mt-1"></p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="navMyWeek(-1)" class="p-2 rounded-lg border border-sant-border text-gray-400 hover:text-white transition-colors"><i class="ph ph-caret-left"></i></button>
+                        <button onclick="navMyWeek(0)" class="px-3 py-2 rounded-lg border border-sant-border text-gray-400 hover:text-sant-cyan text-sm transition-colors">Esta semana</button>
+                        <button onclick="navMyWeek(1)" class="p-2 rounded-lg border border-sant-border text-gray-400 hover:text-white transition-colors"><i class="ph ph-caret-right"></i></button>
+                    </div>
+                </div>
+                <div id="myWeekContent" class="space-y-4"></div>
             </div>
 
             <div id="view-contacts" class="hidden max-w-6xl mx-auto">
@@ -6764,6 +6783,7 @@
 
             if(viewId === 'contacts') renderContacts();
             if(viewId === 'dashboard') renderDashboard();
+            if(viewId === 'myweek') renderMyWeek();
             if(viewId === 'calendar') renderCalendar();
             if(viewId === 'tasks') _refreshCurrentTaskView();
             if(viewId === 'notes') renderNotes();
@@ -6779,6 +6799,91 @@
                 }
                 switchReportTab('birthdays');
             }
+        }
+
+        // ── Minha Semana (Tarefas + Agenda + Follow-ups em uma visão única) ──
+        let myWeekOffset = 0;
+        function navMyWeek(delta) {
+            myWeekOffset = delta === 0 ? 0 : myWeekOffset + delta;
+            renderMyWeek();
+        }
+
+        function renderMyWeek() {
+            const todayStr = getSPTodayStr();
+            const [ty, tm, td] = todayStr.split('-').map(Number);
+            const today = new Date(ty, tm - 1, td);
+            const dow = today.getDay();
+            const diffToMon = dow === 0 ? -6 : 1 - dow;
+            const weekStart = new Date(today);
+            weekStart.setDate(today.getDate() + diffToMon + myWeekOffset * 7);
+            const pad = n => String(n).padStart(2, '0');
+            const days = [];
+            for (let i = 0; i < 7; i++) {
+                const d = new Date(weekStart);
+                d.setDate(weekStart.getDate() + i);
+                days.push(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`);
+            }
+
+            const rangeEl = document.getElementById('myWeekRange');
+            const fmtShort = s => s.split('-').reverse().slice(0,2).join('/');
+            rangeEl.textContent = `${fmtShort(days[0])} — ${fmtShort(days[6])}` + (myWeekOffset === 0 ? ' (esta semana)' : '');
+
+            const weekdayNames = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'];
+
+            const html = days.map(dateStr => {
+                const d = new Date(dateStr + 'T00:00:00');
+                const isToday = dateStr === todayStr;
+
+                // Eventos (avulsos + recorrentes) do dia
+                const dayEvents = events.filter(e => isEventOnDate(e, dateStr))
+                    .sort((a,b) => (a.startTime||'').localeCompare(b.startTime||''));
+
+                // Tarefas pendentes com data neste dia
+                const dayTasks = tasks.filter(t => !t.completed && t.date === dateStr)
+                    .sort((a,b) => (a.time||'').localeCompare(b.time||''));
+
+                // Follow-ups agendados para este dia
+                const dayFollowups = contacts.filter(c => c.nextContact === dateStr);
+
+                const items = [];
+                dayEvents.forEach(e => {
+                    const meta = eventTypeMeta[e.type] || eventTypeMeta.other;
+                    items.push({ time: e.startTime || '', icon: meta.icon, color: meta.dot, label: e.title,
+                        sub: e.location || '', action: `switchView('calendar');switchToDayView('${dateStr}');openEventModal(events.find(x=>x.id==='${e.id}'),'${dateStr}')` });
+                });
+                dayTasks.forEach(t => {
+                    items.push({ time: t.time || '', icon: 'ph-check-square', color: '#fbbf24', label: t.title,
+                        sub: t.desc || '', action: `switchView('tasks');setTimeout(()=>editTask('${t.id}'),150)` });
+                });
+                dayFollowups.forEach(c => {
+                    items.push({ time: '', icon: 'ph-arrow-circle-right', color: '#5b8fa8', label: `Follow-up: ${fullName(c)}`,
+                        sub: c.nextStep || '', action: `openHistoryModal('${c.id}')` });
+                });
+                items.sort((a,b) => (a.time || 'zz').localeCompare(b.time || 'zz'));
+
+                const itemsHtml = items.length
+                    ? items.map(it => `
+                        <div onclick="${it.action}" class="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-[#141414] cursor-pointer transition-colors">
+                            <span class="text-[11px] font-bold text-gray-500 w-10 shrink-0">${it.time || '—'}</span>
+                            <i class="ph ${it.icon} text-base shrink-0" style="color:${it.color}"></i>
+                            <div class="min-w-0 flex-1">
+                                <p class="text-sm text-gray-200 truncate">${it.label}</p>
+                                ${it.sub ? `<p class="text-[11px] text-gray-500 truncate">${it.sub}</p>` : ''}
+                            </div>
+                        </div>`).join('')
+                    : `<p class="text-xs text-gray-600 italic px-3 py-2">Nada agendado.</p>`;
+
+                return `
+                <div class="bg-sant-surface border ${isToday ? 'border-sant-cyan/40' : 'border-sant-border'} rounded-xl overflow-hidden">
+                    <div class="px-4 py-2.5 border-b border-sant-border flex items-center justify-between ${isToday ? 'bg-sant-cyan/5' : ''}">
+                        <p class="text-sm font-bold ${isToday ? 'text-sant-cyan' : 'text-white'}">${weekdayNames[d.getDay()]}<span class="text-gray-500 font-normal ml-1.5">${fmtShort(dateStr)}</span></p>
+                        ${isToday ? '<span class="text-[10px] font-bold text-sant-cyan bg-sant-cyan/10 border border-sant-cyan/30 rounded-full px-2 py-0.5">HOJE</span>' : ''}
+                    </div>
+                    <div class="py-1">${itemsHtml}</div>
+                </div>`;
+            }).join('');
+
+            document.getElementById('myWeekContent').innerHTML = html;
         }
 
         // ── Notas (estilo Google Keep) ──────────────────────────────────────
