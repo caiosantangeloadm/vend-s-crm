@@ -3006,6 +3006,7 @@
                     <div class="flex items-center gap-2 mt-0.5 flex-wrap">
                         <p id="historyContactName" class="text-xs text-gray-500"></p>
                         <span id="historyRelScore" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full border"></span>
+                        <button id="tempSuggestionChip" onclick="applyTemperatureSuggestion()" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-400/40 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20 transition-colors items-center gap-1" title="Clique para aplicar"></button>
                     </div>
                     <a id="historyContactAddress" href="#" target="_blank" rel="noopener" class="hidden text-xs text-sant-cyan hover:underline mt-1 items-center gap-1"><i class="ph ph-map-pin"></i> <span></span></a>
                     <div id="historyCustomFields" class="flex flex-wrap gap-1.5 mt-1.5"></div>
@@ -7965,6 +7966,45 @@
             else                  { label = 'Crítico';   color = '#ef4444'; emoji = '🔴'; }
 
             return { score, label, color, emoji };
+        }
+
+        // ── Lead Scoring Automático (sugestão de temperatura) ────────────────
+        function suggestTemperatureFromScore(score) {
+            if (score >= 70) return 'quente';
+            if (score >= 40) return 'morno';
+            return 'frio';
+        }
+        const TEMPERATURE_LABELS = { quente: 'Quente 🔥', morno: 'Morno ☀️', frio: 'Frio ❄️' };
+
+        function renderTemperatureSuggestion(c, score) {
+            const chip = document.getElementById('tempSuggestionChip');
+            if (!chip) return;
+            if (!c.isLead) { chip.classList.add('hidden'); return; }
+            const suggested = suggestTemperatureFromScore(score);
+            if (suggested === (c.temperature || 'frio')) { chip.classList.add('hidden'); return; }
+            chip.dataset.suggested = suggested;
+            chip.dataset.contactId = c.id;
+            chip.innerHTML = `<i class="ph ph-lightbulb"></i> Sugestão: ${TEMPERATURE_LABELS[suggested]} (score ${score})`;
+            chip.classList.remove('hidden');
+            chip.classList.add('inline-flex');
+        }
+
+        function applyTemperatureSuggestion() {
+            const chip = document.getElementById('tempSuggestionChip');
+            const contactId = chip.dataset.contactId;
+            const suggested = chip.dataset.suggested;
+            const c = contacts.find(x => x.id === contactId);
+            if (!c || !suggested) return;
+            const old = { ...c };
+            c.temperature = suggested;
+            saveToStorage(c.id);
+            runAutomationsForContact(old, c);
+            chip.classList.add('hidden');
+            const _rs = calcRelScore(c);
+            const _rsEl = document.getElementById('historyRelScore');
+            if (_rsEl) _rsEl.textContent = `${_rs.emoji} ${_rs.score}/100 · ${_rs.label}`;
+            if (currentView === 'contacts') renderContacts();
+            showToast(`Temperatura de ${fullName(c)} atualizada para ${TEMPERATURE_LABELS[suggested]}!`);
         }
 
         function contactRelScore(c) {
@@ -15562,6 +15602,7 @@
                 _rsEl.style.background  = _rs.color + '11';
                 _rsEl.classList.remove('hidden');
             }
+            renderTemperatureSuggestion(c, _rs.score);
             const addrLink = document.getElementById('historyContactAddress');
             const addrStr = buildAddressString(c);
             if (addrStr) {
