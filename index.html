@@ -2599,6 +2599,18 @@
                     </div>
                 </div>
 
+                <!-- Comentários -->
+                <div class="hidden" id="taskCommentsSection">
+                    <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 mb-2">
+                        <i class="ph ph-chat-text text-sant-cyan"></i> Comentários
+                    </h4>
+                    <div id="taskCommentsList" class="space-y-2 mb-2"></div>
+                    <div class="flex gap-2">
+                        <input type="text" id="taskCommentInput" placeholder="Adicionar um comentário..." class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none" onkeydown="if(event.key==='Enter'){event.preventDefault();addTaskComment()}">
+                        <button type="button" onclick="addTaskComment()" class="bg-sant-cyan/20 hover:bg-sant-cyan text-sant-cyan hover:text-sant-bg px-3 py-2 rounded-lg text-sm font-bold transition-colors border border-sant-cyan/30 shrink-0"><i class="ph ph-plus"></i></button>
+                    </div>
+                </div>
+
                 <!-- Histórico de Alterações -->
                 <div class="hidden" id="taskChangeLogSection">
                     <div class="flex items-center justify-between mb-3">
@@ -4539,6 +4551,7 @@
                 "contactId": t.contactId || '', tags: t.tags || [], checklist: t.checklist || [],
                 "createdAt": toISO(t.createdAt),
                 "changeLog": t.changeLog || [],
+                "comments": t.comments || [],
             };
         }
 
@@ -11273,7 +11286,8 @@
                 kanbanColumn: existingTask ? (existingTask.kanbanColumn || 'todo') : 'todo',
                 completed: false,
                 notified: false,
-                changeLog: existingTask ? (existingTask.changeLog || []) : []
+                changeLog: existingTask ? (existingTask.changeLog || []) : [],
+                comments: existingTask ? (existingTask.comments || []) : []
             };
 
             if (existingTask) {
@@ -11342,7 +11356,59 @@
             fillTaskTagSuggestions();
             renderTaskTagsInModal();
             renderChangeLogGeneric(t.changeLog, 'taskChangeLog', 'taskChangeLogSection', 'taskChangeLogBadge');
+            document.getElementById('taskCommentsSection').classList.remove('hidden');
+            renderTaskComments(t.id);
             takeModalSnapshot('taskModal');
+        }
+
+        // ── Comentários da Tarefa ────────────────────────────────────────────
+        function renderTaskComments(taskId) {
+            const box = document.getElementById('taskCommentsList');
+            if (!box) return;
+            const t = tasks.find(x => x.id === taskId);
+            const comments = (t && t.comments || []).slice().reverse();
+            if (comments.length === 0) {
+                box.innerHTML = '<p class="text-xs text-gray-600 italic">Nenhum comentário ainda.</p>';
+                return;
+            }
+            box.innerHTML = comments.map(c => `
+                <div class="flex items-start justify-between gap-2 bg-[#0a0a0a] border border-sant-border rounded-lg p-2.5">
+                    <div class="min-w-0">
+                        <p class="text-sm text-gray-200 break-words">${c.text}</p>
+                        <p class="text-[10px] text-gray-600 mt-1">${formatCommentDate(c.createdAt)}</p>
+                    </div>
+                    <button onclick="deleteTaskComment('${taskId}','${c.id}')" class="text-gray-500 hover:text-red-500 shrink-0"><i class="ph ph-trash text-xs"></i></button>
+                </div>`).join('');
+        }
+
+        function formatCommentDate(iso) {
+            if (!iso) return '';
+            const d = new Date(iso);
+            return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) + ', ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function addTaskComment() {
+            const taskId = document.getElementById('taskId').value;
+            const input = document.getElementById('taskCommentInput');
+            const text = input.value.trim();
+            if (!taskId || !text) return;
+            const t = tasks.find(x => x.id === taskId);
+            if (!t) return;
+            if (!t.comments) t.comments = [];
+            t.comments.push({ id: crypto.randomUUID(), text, createdAt: new Date().toISOString() });
+            saveTasksToStorage();
+            cloudSyncTask(t);
+            input.value = '';
+            renderTaskComments(taskId);
+        }
+
+        function deleteTaskComment(taskId, commentId) {
+            const t = tasks.find(x => x.id === taskId);
+            if (!t) return;
+            t.comments = (t.comments || []).filter(c => c.id !== commentId);
+            saveTasksToStorage();
+            cloudSyncTask(t);
+            renderTaskComments(taskId);
         }
 
         function duplicateTask(id) {
@@ -14218,6 +14284,7 @@
             fillTaskTagSuggestions();
             renderTaskTagsInModal();
             document.getElementById('taskChangeLogSection').classList.add('hidden');
+            document.getElementById('taskCommentsSection').classList.add('hidden');
             document.getElementById('taskModal').classList.remove('hidden');
             takeModalSnapshot('taskModal');
         }
