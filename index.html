@@ -1891,7 +1891,10 @@
         <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl transform scale-95 transition-transform duration-300" id="modalContent">
             <div class="flex justify-between items-center p-6 border-b border-sant-border shrink-0">
                 <h3 class="text-xl font-bold text-white flex items-center gap-2"><i class="ph ph-user-circle text-sant-cyan"></i> <span id="modalTitle">Novo Contato</span></h3>
-                <button onclick="closeModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-xl"></i></button>
+                <div class="flex items-center gap-3 shrink-0">
+                    <button id="btnGoToHistoryFromModal" onclick="goToHistoryFromContactModal()" class="hidden text-gray-400 hover:text-sant-cyan transition-colors" title="Ver Histórico"><i class="ph ph-clock-clockwise text-xl"></i></button>
+                    <button onclick="closeModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-xl"></i></button>
+                </div>
             </div>
             
             <div class="p-6 overflow-y-auto flex-1 custom-scrollbar">
@@ -3014,6 +3017,7 @@
                     </div><!-- /info text -->
                 </div><!-- /avatar+info flex -->
                 <div class="flex items-center gap-3 shrink-0">
+                    <button onclick="editContact(currentHistoryContactId)" class="text-gray-400 hover:text-sant-cyan transition-colors" title="Editar Cadastro"><i class="ph ph-pencil-simple text-lg"></i></button>
                     <button onclick="exportContactPdf(currentHistoryContactId)" class="text-gray-400 hover:text-sant-cyan transition-colors" title="Exportar briefing PDF"><i class="ph ph-file-pdf text-lg"></i></button>
                     <button onclick="openSendMessageModal(currentHistoryContactId)" class="text-gray-400 hover:text-sant-cyan transition-colors" title="Enviar Mensagem"><i class="ph ph-paper-plane-tilt text-lg"></i></button>
                     <button onclick="closeHistoryModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
@@ -5016,7 +5020,7 @@
                     else if (l.temperature === 'morno') { color = 'text-[#fbbf24]'; bg = 'bg-[#fbbf24]/10'; border = 'border-[#fbbf24]/20'; icon = 'ph-sun'; }
 
                     return `
-                    <div class="flex items-center gap-3 p-3 bg-[#0a0a0a] border border-sant-border rounded-lg hover:border-gray-500/50 transition-colors shrink-0 cursor-pointer" onclick="editContact('${l.id}')">
+                    <div class="flex items-center gap-3 p-3 bg-[#0a0a0a] border border-sant-border rounded-lg hover:border-gray-500/50 transition-colors shrink-0 cursor-pointer" onclick="openHistoryModal('${l.id}')">
                         <div class="w-8 h-8 rounded ${bg} ${color} flex items-center justify-center shrink-0 border ${border}">
                             <i class="ph ${icon}"></i>
                         </div>
@@ -8656,6 +8660,7 @@
             document.getElementById('modalTitle').innerText = 'Editar Contato';
             document.getElementById('contactCode').value = contact.code ? `#${contact.code}` : '-';
             document.getElementById('contactId').value = contact.id;
+            document.getElementById('btnGoToHistoryFromModal').classList.remove('hidden');
             document.getElementById('contactName').value = contact.name || '';
             document.getElementById('contactLastName').value = contact.lastName || '';
             const catSelect = document.getElementById('contactCategory');
@@ -13368,6 +13373,7 @@
             document.getElementById('tempContainer').classList.add('hidden');
             document.getElementById('modalTitle').innerText = 'Novo Contato';
             document.getElementById('contactCode').value = `#${getNextContactCode()}`;
+            document.getElementById('btnGoToHistoryFromModal').classList.add('hidden');
             currentContactTags = [];
             renderContactTagPills();
             currentContactCustomFields = [];
@@ -13379,6 +13385,15 @@
         function closeModal() {
             tryCloseModal('contactModal', () => {
                 document.getElementById('contactModal').classList.add('hidden');
+            });
+        }
+
+        function goToHistoryFromContactModal() {
+            const id = document.getElementById('contactId').value;
+            if (!id) return;
+            tryCloseModal('contactModal', () => {
+                document.getElementById('contactModal').classList.add('hidden');
+                openHistoryModal(id);
             });
         }
         
