@@ -2357,6 +2357,17 @@
                 <div>
                     <textarea id="eventDesc" rows="2" placeholder="Adicionar descrição, pauta da reunião ou notas..." class="w-full bg-[#141414] border border-sant-border rounded-md px-3 py-2 text-sm text-white outline-none resize-none"></textarea>
                 </div>
+
+                <!-- Histórico de Alterações -->
+                <div class="hidden" id="eventChangeLogSection">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                            <i class="ph ph-clock-counter-clockwise text-sant-cyan"></i> Histórico de Alterações
+                        </h4>
+                        <span id="eventChangeLogBadge" class="text-[10px] font-bold text-gray-600 bg-sant-surface border border-sant-border rounded-full px-2 py-0.5"></span>
+                    </div>
+                    <div id="eventChangeLog" class="space-y-0 relative"></div>
+                </div>
             </div>
             <div class="p-5 border-t border-sant-border flex justify-end gap-3 bg-[#0a0a0a] shrink-0">
                 <button onclick="closeEventModal()" class="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white transition-colors">Cancelar</button>
@@ -2586,6 +2597,17 @@
                             <i class="ph ph-plus"></i>
                         </button>
                     </div>
+                </div>
+
+                <!-- Histórico de Alterações -->
+                <div class="hidden" id="taskChangeLogSection">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                            <i class="ph ph-clock-counter-clockwise text-sant-cyan"></i> Histórico de Alterações
+                        </h4>
+                        <span id="taskChangeLogBadge" class="text-[10px] font-bold text-gray-600 bg-sant-surface border border-sant-border rounded-full px-2 py-0.5"></span>
+                    </div>
+                    <div id="taskChangeLog" class="space-y-0 relative"></div>
                 </div>
             </div>
             <div class="p-5 border-t border-sant-border flex justify-end gap-3 bg-[#0a0a0a] shrink-0">
@@ -4516,6 +4538,7 @@
                 "estimatedMinutes": t.estimatedMinutes || 0,
                 "contactId": t.contactId || '', tags: t.tags || [], checklist: t.checklist || [],
                 "createdAt": toISO(t.createdAt),
+                "changeLog": t.changeLog || [],
             };
         }
 
@@ -4537,6 +4560,7 @@
                 "recurrenceEndDate": e.recurrenceEndDate || '',
                 "excludedDates": e.excludedDates || [], uid: e.uid || '',
                 "createdAt": e.createdAt || new Date().toISOString(),
+                "changeLog": e.changeLog || [],
             };
         }
 
@@ -10474,15 +10498,35 @@
                 notification: document.getElementById('eventNotification').value,
                 emailAlert: document.getElementById('eventEmailAlert').value || '0',
                 desc: document.getElementById('eventDesc').value,
-                notified: false
+                notified: false,
+                changeLog: []
             };
 
             if (id) {
                 const original = events.find(e => e.id === id);
+                event.changeLog = original ? (original.changeLog || []) : [];
                 if (original && (original.recurrence || 'none') !== 'none' && eventEditDateContext) {
                     pendingEventEdit = event;
                     showRecurEditModal(original, eventEditDateContext);
                     return;
+                }
+                if (original) {
+                    const today = getSPTodayStr();
+                    const eventTypeMetaLabels = { meeting:'Reunião', call:'Ligação', visit:'Visita', other:'Outro' };
+                    const watchedFields = [
+                        { key: 'title',     label: 'Título' },
+                        { key: 'startDate', label: 'Data', fmt: v => v ? v.split('-').reverse().join('/') : '—' },
+                        { key: 'startTime', label: 'Horário' },
+                        { key: 'location',  label: 'Local' },
+                        { key: 'type',      label: 'Tipo', fmt: v => eventTypeMetaLabels[v] || v },
+                        { key: 'desc',      label: 'Descrição' },
+                    ];
+                    watchedFields.forEach(({ key, label, fmt }) => {
+                        const vOld = fmt ? fmt(original[key]) : (original[key] || '—');
+                        const vNew = fmt ? fmt(event[key]) : (event[key] || '—');
+                        if (String(vOld) !== String(vNew))
+                            event.changeLog.push({ id: crypto.randomUUID(), date: today, field: label, from: String(vOld), to: String(vNew) });
+                    });
                 }
                 const idx = events.findIndex(e => e.id === id);
                 if(idx !== -1) events[idx] = event;
@@ -10650,6 +10694,8 @@
                 const wasCompleted = t.completed;
                 t.completed = !t.completed;
                 t.completedAt = t.completed ? new Date().toISOString() : null;
+                if (!t.changeLog) t.changeLog = [];
+                t.changeLog.push({ id: crypto.randomUUID(), date: getSPTodayStr(), field: 'Status', from: wasCompleted ? 'Concluída' : 'Pendente', to: t.completed ? 'Concluída' : 'Pendente' });
                 // Animação ✓ apenas ao CONCLUIR (não ao desmarcar)
                 if (!wasCompleted) {
                     const btn = document.querySelector(`button[onclick="toggleTask('${id}')"]`);
@@ -11203,13 +11249,32 @@
                 checklist: currentChecklist.map(i => ({...i})),
                 kanbanColumn: existingTask ? (existingTask.kanbanColumn || 'todo') : 'todo',
                 completed: false,
-                notified: false
+                notified: false,
+                changeLog: existingTask ? (existingTask.changeLog || []) : []
             };
+
+            if (existingTask) {
+                const today = getSPTodayStr();
+                const watchedFields = [
+                    { key: 'title',    label: 'Título' },
+                    { key: 'date',     label: 'Data', fmt: v => v ? v.split('-').reverse().join('/') : '—' },
+                    { key: 'time',     label: 'Horário' },
+                    { key: 'priority', label: 'Prioridade', fmt: v => ({low:'Baixa',medium:'Normal',high:'Alta'}[v]||v) },
+                    { key: 'desc',     label: 'Descrição' },
+                ];
+                watchedFields.forEach(({ key, label, fmt }) => {
+                    const vOld = fmt ? fmt(existingTask[key]) : (existingTask[key] || '—');
+                    const vNew = fmt ? fmt(task[key]) : (task[key] || '—');
+                    if (String(vOld) !== String(vNew))
+                        task.changeLog.push({ id: crypto.randomUUID(), date: today, field: label, from: String(vOld), to: String(vNew) });
+                });
+            }
 
             if(id) {
                 const index = tasks.findIndex(t => t.id === id);
                 if(index !== -1) {
-                    task.completed = tasks[index].completed;
+                    const wasCompleted = tasks[index].completed;
+                    task.completed = wasCompleted;
                     if (task.completed) task.kanbanColumn = 'done';
                     tasks[index] = task;
                 }
@@ -11253,6 +11318,7 @@
             currentTaskTags = t.tags ? [...t.tags] : [];
             fillTaskTagSuggestions();
             renderTaskTagsInModal();
+            renderChangeLogGeneric(t.changeLog, 'taskChangeLog', 'taskChangeLogSection', 'taskChangeLogBadge');
             takeModalSnapshot('taskModal');
         }
 
@@ -14099,6 +14165,7 @@
             updateRecurrenceUI();
             updateMonthlyLabels();
             renderFreeSlotSuggestions();
+            renderChangeLogGeneric(ev ? ev.changeLog : null, 'eventChangeLog', 'eventChangeLogSection', 'eventChangeLogBadge');
             document.getElementById('eventModal').classList.remove('hidden');
             takeModalSnapshot('eventModal');
         }
@@ -14127,6 +14194,7 @@
             currentTaskTags = [];
             fillTaskTagSuggestions();
             renderTaskTagsInModal();
+            document.getElementById('taskChangeLogSection').classList.add('hidden');
             document.getElementById('taskModal').classList.remove('hidden');
             takeModalSnapshot('taskModal');
         }
@@ -15371,14 +15439,18 @@
         }
 
         function renderChangeLog() {
-            const box     = document.getElementById('contactChangeLog');
-            const section = document.getElementById('changeLogSection');
-            const badge   = document.getElementById('changeLogBadge');
-            if (!box || !currentHistoryContactId) return;
-            const c   = contacts.find(x => x.id === currentHistoryContactId);
-            const log = (c && c.changeLog || []).slice().reverse();
-            if (log.length === 0) { section.classList.add('hidden'); return; }
-            section.classList.remove('hidden');
+            const c = contacts.find(x => x.id === currentHistoryContactId);
+            renderChangeLogGeneric(c && c.changeLog, 'contactChangeLog', 'changeLogSection', 'changeLogBadge');
+        }
+
+        function renderChangeLogGeneric(logRaw, boxId, sectionId, badgeId) {
+            const box     = document.getElementById(boxId);
+            const section = document.getElementById(sectionId);
+            const badge   = document.getElementById(badgeId);
+            if (!box) return;
+            const log = (logRaw || []).slice().reverse();
+            if (log.length === 0) { if (section) section.classList.add('hidden'); return; }
+            if (section) section.classList.remove('hidden');
             if (badge) badge.textContent = `${log.length} alteraç${log.length !== 1 ? 'ões' : 'ão'}`;
 
             const fieldMeta = {
@@ -15391,6 +15463,15 @@
                 'Cargo':      { icon: 'ph-briefcase',     color: '#9ca3af' },
                 'Site':       { icon: 'ph-globe',         color: '#9ca3af' },
                 'Mesclagem':  { icon: 'ph-git-merge',     color: '#ec4899' },
+                'Título':     { icon: 'ph-text-aa',       color: '#5b8fa8' },
+                'Data':       { icon: 'ph-calendar',      color: '#5b8fa8' },
+                'Horário':    { icon: 'ph-clock',         color: '#5b8fa8' },
+                'Prioridade': { icon: 'ph-flag',          color: '#fbbf24' },
+                'Status':     { icon: 'ph-check-square',  color: '#4ade80' },
+                'Local':      { icon: 'ph-map-pin',       color: '#5b8fa8' },
+                'Descrição':  { icon: 'ph-note',          color: '#9ca3af' },
+                'Tipo':       { icon: 'ph-tag',           color: '#fbbf24' },
+                'Recorrência':{ icon: 'ph-repeat',        color: '#a78bfa' },
             };
             const def = { icon: 'ph-pencil-simple', color: '#9ca3af' };
 
