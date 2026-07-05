@@ -3791,9 +3791,58 @@
             if (cmd) cmd.action();
         }
 
+        // Ações rápidas vinculadas a um contato: ">tarefa <nome>", ">nota <nome>", ">evento <nome>"
+        const QUICK_LINKED_ACTIONS = [
+            { keys: ['tarefa', 'task'], verb: 'Criar tarefa vinculada a', icon: 'ph-check-square-offset',
+              run: (contactId) => { switchView('tasks'); setTimeout(() => { openTaskModal(); document.getElementById('taskContactId').value = contactId; }, 150); } },
+            { keys: ['nota', 'note'], verb: 'Criar nota vinculada a', icon: 'ph-note-pencil',
+              run: (contactId) => { switchView('notes'); setTimeout(() => { expandNewNote(); const sel = document.getElementById('newNoteContact'); if (!sel.dataset.built) { fillNoteContactSelect(sel, ''); sel.dataset.built = '1'; } sel.value = contactId; }, 150); } },
+            { keys: ['evento', 'compromisso'], verb: 'Criar evento vinculado a', icon: 'ph-calendar-plus',
+              run: (contactId) => { switchView('calendar'); setTimeout(() => { openEventModal(); currentEventParticipants = [contactId]; fillEventParticipantSelect(); renderEventParticipants(); }, 150); } },
+        ];
+
+        function _matchQuickLinkedAction(ql) {
+            for (const qa of QUICK_LINKED_ACTIONS) {
+                for (const key of qa.keys) {
+                    if (ql.startsWith(key + ' ')) return { qa, rest: ql.slice(key.length + 1).trim() };
+                }
+            }
+            return null;
+        }
+
+        function runQuickLinkedAction(actionIndex, contactId) {
+            clearGlobalSearch();
+            QUICK_LINKED_ACTIONS[actionIndex].run(contactId);
+        }
+
         function renderCommandPalette(query) {
             const panel = document.getElementById('globalSearchResults');
             const ql = query.toLowerCase().trim();
+
+            // Ação rápida vinculada a contato (ex: ">tarefa Maria" ou ">nota João")
+            const linkedMatch = ql ? _matchQuickLinkedAction(ql) : null;
+            if (linkedMatch && linkedMatch.rest.length >= 2) {
+                const qaIndex = QUICK_LINKED_ACTIONS.indexOf(linkedMatch.qa);
+                const nameFilter = linkedMatch.rest;
+                const matchedContacts = contacts
+                    .filter(c => fullName(c).toLowerCase().includes(nameFilter))
+                    .slice(0, 6);
+                panel.innerHTML = `
+                    <div class="px-4 pt-3 pb-1">
+                        <span class="text-[10px] font-bold tracking-widest text-sant-cyan uppercase flex items-center gap-1.5">
+                            <i class="ph ${linkedMatch.qa.icon}"></i> ${linkedMatch.qa.verb}...
+                        </span>
+                    </div>
+                    ${matchedContacts.length ? matchedContacts.map(c => `
+                        <div class="gs-item flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-white/5 transition-colors rounded-xl mx-1" onclick="runQuickLinkedAction(${qaIndex}, '${c.id}')">
+                            ${contactAvatarHtml(c, 'w-7 h-7 text-[10px]')}
+                            <span class="text-sm text-white flex-1">${fullName(c)}</span>
+                            <i class="ph ph-arrow-right text-gray-700 shrink-0"></i>
+                        </div>`).join('') : '<div class="px-5 py-6 text-center text-gray-600 text-sm">Nenhum contato encontrado com esse nome.</div>'}`;
+                showGlobalResults();
+                return;
+            }
+
             const matched = ql
                 ? COMMANDS.filter(c => c.label.toLowerCase().includes(ql) || c.keywords.includes(ql))
                 : COMMANDS;
@@ -3803,7 +3852,8 @@
                         <i class="ph ph-lightning"></i> Comandos ${matched.length ? `— ${matched.length}` : ''}
                     </span>
                 </div>
-                ${matched.length ? matched.map(cmdToHtml).join('') : '<div class="px-5 py-6 text-center text-gray-600 text-sm">Nenhum comando encontrado.</div>'}`;
+                ${matched.length ? matched.map(cmdToHtml).join('') : '<div class="px-5 py-6 text-center text-gray-600 text-sm">Nenhum comando encontrado.</div>'}
+                ${!ql ? `<div class="px-4 pt-2 pb-3 border-t border-sant-border mt-1"><p class="text-[10px] text-gray-600">Dica: digite <span class="text-gray-400 font-mono">tarefa</span>, <span class="text-gray-400 font-mono">nota</span> ou <span class="text-gray-400 font-mono">evento</span> + nome do contato para criar já vinculado (ex: <span class="text-gray-400 font-mono">tarefa Maria</span>)</p></div>` : ''}`;
             showGlobalResults();
         }
         // ── fim Command Palette ────────────────────────────────────────────────
