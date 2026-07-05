@@ -104,6 +104,30 @@
         .overdue-task { border-color: rgba(239,68,68,0.4) !important; background: rgba(239,68,68,0.04) !important; }
         .overdue-task .overdue-label { display: flex !important; }
 
+        /* ── Modo Paisagem (celular) ──────────────────────────────────────────
+           Em telas baixas e largas (celular deitado), o header fixo e os ícones
+           do menu lateral ocupavam espaço vertical demais e alguns ícones
+           ficavam inacessíveis (sem rolagem). Este bloco compacta a barra
+           superior e o menu lateral, e ajusta as áreas com altura calculada
+           em vh que ficavam pequenas/negativas nesse formato. */
+        @media (orientation: landscape) and (max-height: 500px) {
+            aside > div.h-20 { height: 44px !important; }
+            aside > div.h-20 img { height: 22px !important; }
+            aside nav.flex-1 { padding-top: 4px !important; padding-bottom: 4px !important; gap: 0 !important; }
+            aside nav.flex-1 button { padding-top: 6px !important; padding-bottom: 6px !important; }
+            aside nav.flex-1 button i { font-size: 1.1rem !important; }
+            header.h-20 { height: 48px !important; }
+            #mainContentArea { padding-top: 56px !important; padding-bottom: 12px !important; }
+            #notifPanel { top: 52px !important; max-height: calc(100vh - 64px) !important; }
+            #notifList { max-height: calc(100vh - 140px) !important; }
+            #dayTimeline { max-height: calc(100vh - 130px) !important; }
+            #calendarWeekView div[style*="max-height:calc(100vh"] { max-height: calc(100vh - 130px) !important; }
+            [class*="max-h-[90vh]"], [class*="max-h-[95vh]"] { max-height: 96vh !important; }
+        }
+        /* Garante que o menu lateral nunca fique com ícones inacessíveis,
+           mesmo em telas muito baixas — vira scroll em vez de cortar. */
+        aside nav.flex-1 { overflow-y: auto; }
+
         /* ── Central de Notificações ── */
         #notifPanel {
             position: fixed; top: 80px; right: 16px; width: 360px; max-height: calc(100vh - 100px);
