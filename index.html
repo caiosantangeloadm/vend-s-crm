@@ -1909,13 +1909,14 @@
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Nome *</label>
-                                <input type="text" id="contactName" required class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-2.5 text-sm text-white focus:border-sant-cyan outline-none transition-colors">
+                                <input type="text" id="contactName" required oninput="checkLiveDuplicate()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-2.5 text-sm text-white focus:border-sant-cyan outline-none transition-colors">
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Sobrenome</label>
-                                <input type="text" id="contactLastName" class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-2.5 text-sm text-white focus:border-sant-cyan outline-none transition-colors">
+                                <input type="text" id="contactLastName" oninput="checkLiveDuplicate()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-2.5 text-sm text-white focus:border-sant-cyan outline-none transition-colors">
                             </div>
                         </div>
+                        <div id="contactDupWarning" class="hidden md:col-span-2 items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs"></div>
                         <div class="md:col-span-1">
                             <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Foto (URL)</label>
                             <div class="flex gap-3 items-center">
@@ -1955,7 +1956,7 @@
                             </div>
                             <div>
                                 <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Telefone Profissional</label>
-                                <input type="text" id="contactPhoneProf" placeholder="Ex: (11) 99999-9999" maxlength="15" oninput="maskPhone(this)" onblur="validatePhoneLive(this,'contactPhoneProfWarn')" class="w-full bg-[#141414] border border-sant-border rounded-md px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none">
+                                <input type="text" id="contactPhoneProf" placeholder="Ex: (11) 99999-9999" maxlength="15" oninput="maskPhone(this);checkLiveDuplicate()" onblur="validatePhoneLive(this,'contactPhoneProfWarn')" class="w-full bg-[#141414] border border-sant-border rounded-md px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none">
                                 <p id="contactPhoneProfWarn" class="hidden text-[10px] text-amber-400 mt-1 flex items-center gap-1"><i class="ph ph-warning"></i> <span></span></p>
                             </div>
                             <div class="md:col-span-2">
@@ -1975,7 +1976,7 @@
                             </div>
                             <div>
                                 <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Telefone Pessoal</label>
-                                <input type="text" id="contactPhonePess" placeholder="Ex: (11) 99999-9999" maxlength="15" oninput="maskPhone(this)" onblur="validatePhoneLive(this,'contactPhonePessWarn')" class="w-full bg-[#141414] border border-sant-border rounded-md px-3 py-2 text-sm text-white focus:border-sant-purple outline-none">
+                                <input type="text" id="contactPhonePess" placeholder="Ex: (11) 99999-9999" maxlength="15" oninput="maskPhone(this);checkLiveDuplicate()" onblur="validatePhoneLive(this,'contactPhonePessWarn')" class="w-full bg-[#141414] border border-sant-border rounded-md px-3 py-2 text-sm text-white focus:border-sant-purple outline-none">
                                 <p id="contactPhonePessWarn" class="hidden text-[10px] text-amber-400 mt-1 flex items-center gap-1"><i class="ph ph-warning"></i> <span></span></p>
                             </div>
                             <div class="md:col-span-2">
@@ -8650,6 +8651,43 @@
             });
         }
 
+        // Aviso de duplicidade em tempo real, enquanto o usuário digita (não só ao salvar)
+        let _liveDupTimer = null;
+        function checkLiveDuplicate() {
+            clearTimeout(_liveDupTimer);
+            _liveDupTimer = setTimeout(_runLiveDuplicateCheck, 250);
+        }
+        function _runLiveDuplicateCheck() {
+            const box = document.getElementById('contactDupWarning');
+            if (!box) return;
+            const editingId = document.getElementById('contactId').value;
+            const name = normalizeNameForMatch(
+                (document.getElementById('contactName').value || '') + ' ' + (document.getElementById('contactLastName').value || '')
+            );
+            const phoneProf = normalizePhoneDigits(document.getElementById('contactPhoneProf').value);
+            const phonePess = normalizePhoneDigits(document.getElementById('contactPhonePess').value);
+            const newPhones = [phoneProf, phonePess].filter(Boolean);
+            const company = document.getElementById('contactCompany')?.value || '';
+
+            if (name.trim().length < 3 && !newPhones.length) { box.classList.add('hidden'); return; }
+
+            const dup = contacts.find(c => {
+                if (c.id === editingId) return false;
+                const cPhones = [normalizePhoneDigits(c.phoneProf), normalizePhoneDigits(c.phonePess)].filter(Boolean);
+                if (newPhones.some(p => cPhones.includes(p))) return true;
+                return fuzzyNameMatch(name, normalizeNameForMatch(fullName(c)), company, c.company).match;
+            });
+
+            if (dup) {
+                box.innerHTML = `<i class="ph ph-warning shrink-0"></i> <span>Possível duplicado: <strong>${fullName(dup)}</strong> (#${dup.code || '?'})</span> <button type="button" onclick="closeModal();setTimeout(()=>openHistoryModal('${dup.id}'),200)" class="ml-auto underline hover:text-white transition-colors shrink-0">Ver contato</button>`;
+                box.classList.remove('hidden');
+                box.classList.add('flex');
+            } else {
+                box.classList.add('hidden');
+                box.classList.remove('flex');
+            }
+        }
+
         function editContact(id) {
             const contact = contacts.find(c => c.id === id);
             if (!contact) return;
@@ -13374,6 +13412,7 @@
             document.getElementById('modalTitle').innerText = 'Novo Contato';
             document.getElementById('contactCode').value = `#${getNextContactCode()}`;
             document.getElementById('btnGoToHistoryFromModal').classList.add('hidden');
+            document.getElementById('contactDupWarning').classList.add('hidden');
             currentContactTags = [];
             renderContactTagPills();
             currentContactCustomFields = [];
