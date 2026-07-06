@@ -2998,6 +2998,10 @@
                         <span class="text-sm text-gray-300">Revisão Semanal Guiada</span>
                         <span class="flex gap-1"><kbd class="kbd-key">W</kbd></span>
                     </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-300">No Histórico do Contato: ir para o anterior/próximo</span>
+                        <span class="flex gap-1"><kbd class="kbd-key">←</kbd><kbd class="kbd-key">→</kbd></span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -3022,6 +3026,10 @@
                     </div><!-- /info text -->
                 </div><!-- /avatar+info flex -->
                 <div class="flex items-center gap-3 shrink-0">
+                    <div class="flex items-center gap-1 border-r border-sant-border pr-3 mr-1">
+                        <button onclick="navigateHistoryContact(-1)" class="text-gray-400 hover:text-sant-cyan transition-colors" title="Contato anterior (←)"><i class="ph ph-caret-left text-lg"></i></button>
+                        <button onclick="navigateHistoryContact(1)" class="text-gray-400 hover:text-sant-cyan transition-colors" title="Próximo contato (→)"><i class="ph ph-caret-right text-lg"></i></button>
+                    </div>
                     <button onclick="goToEditFromHistoryModal()" class="text-gray-400 hover:text-sant-cyan transition-colors" title="Editar Cadastro"><i class="ph ph-pencil-simple text-lg"></i></button>
                     <button onclick="exportContactPdf(currentHistoryContactId)" class="text-gray-400 hover:text-sant-cyan transition-colors" title="Exportar briefing PDF"><i class="ph ph-file-pdf text-lg"></i></button>
                     <button onclick="openSendMessageModal(currentHistoryContactId)" class="text-gray-400 hover:text-sant-cyan transition-colors" title="Enviar Mensagem"><i class="ph ph-paper-plane-tilt text-lg"></i></button>
@@ -16285,6 +16293,20 @@
             editContact(id);
         }
 
+        // Navega para o contato anterior/próximo (mesma ordenação da tela de Contatos)
+        function navigateHistoryContact(direction) {
+            if (!currentHistoryContactId) return;
+            const ordered = sortContacts(contacts);
+            const idx = ordered.findIndex(c => c.id === currentHistoryContactId);
+            if (idx === -1) return;
+            const nextIdx = idx + direction;
+            if (nextIdx < 0 || nextIdx >= ordered.length) {
+                showToast(direction < 0 ? 'Este é o primeiro contato.' : 'Este é o último contato.');
+                return;
+            }
+            openHistoryModal(ordered[nextIdx].id);
+        }
+
         function getFrequencyStatus(c) {
             const freq = parseInt(c.contactFrequencyDays) || 0;
             if (!freq) return null;
@@ -17028,6 +17050,12 @@
                     if (!isTyping && (e.key === 'r' || e.key === 'R')) { quickReviewAction('done'); return; }
                     if (!isTyping && (e.key === 'ArrowRight' || e.key === ' ')) { e.preventDefault(); quickReviewAction('skip'); return; }
                     return;
+                }
+
+                // Histórico do Contato: setas navegam entre contatos (ignora quando digitando)
+                if (!isTyping && !document.getElementById('historyModal').classList.contains('hidden')) {
+                    if (e.key === 'ArrowLeft')  { e.preventDefault(); navigateHistoryContact(-1); return; }
+                    if (e.key === 'ArrowRight') { e.preventDefault(); navigateHistoryContact(1); return; }
                 }
 
                 if (e.key === 'Escape') {
