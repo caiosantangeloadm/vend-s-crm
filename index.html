@@ -8298,6 +8298,7 @@
                         ${tagsHtml}
                         ${(dispPhone||waUrl||dispEmail)?`<div class="flex gap-2 mt-3 pt-3 border-t border-sant-border">
                             ${dispPhone?`<a href="tel:${dispPhone.replace(/\D/g,'')}" onclick="event.stopPropagation();logCallAttempt('${c.id}')" class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-sant-cyan/10 text-sant-cyan hover:bg-sant-cyan/20 text-xs font-medium transition-colors" title="Ligar"><i class="ph ph-phone-call"></i> Ligar</a>`:''}
+                            ${dispPhone?`<button onclick="event.stopPropagation();openCallOutcomeModal('${c.id}')" class="shrink-0 flex items-center justify-center px-2 rounded-lg bg-[#141414] border border-sant-border text-gray-400 hover:text-sant-cyan hover:border-sant-cyan/40 transition-colors" title="Registrar ligação manualmente"><i class="ph ph-clipboard-text text-sm"></i></button>`:''}
                             ${waUrl?`<a href="${waUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20 text-xs font-medium transition-colors"><i class="ph ph-whatsapp-logo"></i> WhatsApp</a>`:''}
                             ${dispEmail?`<a href="mailto:${dispEmail}" onclick="event.stopPropagation()" class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-sant-cyan/10 text-sant-cyan hover:bg-sant-cyan/20 text-xs font-medium transition-colors"><i class="ph ph-envelope-simple"></i> E-mail</a>`:''}
                         </div>`:''}
@@ -8327,6 +8328,7 @@
                     </div>
                     <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                         ${dispPhone?`<a href="tel:${dispPhone.replace(/\D/g,'')}" onclick="event.stopPropagation();logCallAttempt('${c.id}')" class="text-sant-cyan hover:text-[#7aafc8] p-1 bg-[#141414] rounded" title="Ligar"><i class="ph ph-phone-call text-xs"></i></a>`:''}
+                        ${dispPhone?`<button onclick="event.stopPropagation();openCallOutcomeModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 bg-[#141414] rounded" title="Registrar ligação manualmente"><i class="ph ph-clipboard-text text-xs"></i></button>`:''}
                         ${waUrl?`<a href="${waUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="text-green-400 hover:text-green-300 p-1 bg-[#141414] rounded" title="WhatsApp"><i class="ph ph-whatsapp-logo text-xs"></i></a>`:''}
                         ${dispEmail?`<a href="mailto:${dispEmail}" onclick="event.stopPropagation()" class="text-sant-cyan hover:text-[#7aafc8] p-1 bg-[#141414] rounded" title="E-mail"><i class="ph ph-envelope-simple text-xs"></i></a>`:''}
                         <button onclick="event.stopPropagation();togglePin('${c.id}')" class="p-1 bg-[#141414] rounded ${c.pinned?'text-amber-400':'text-gray-400 hover:text-amber-400'} transition-colors" title="${c.pinned?'Desafixar':'Fixar no topo'}"><i class="ph ${c.pinned?'ph-push-pin-fill':'ph-push-pin'} text-xs"></i></button>
@@ -8359,6 +8361,7 @@
                 </div>
                 <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                     ${dispPhone?`<a href="tel:${dispPhone.replace(/\D/g,'')}" onclick="event.stopPropagation();logCallAttempt('${c.id}')" class="text-sant-cyan hover:text-[#7aafc8] p-1.5 bg-[#141414] rounded" title="Ligar"><i class="ph ph-phone-call"></i></a>`:''}
+                    ${dispPhone?`<button onclick="event.stopPropagation();openCallOutcomeModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Registrar ligação manualmente"><i class="ph ph-clipboard-text"></i></button>`:''}
                     ${waUrl?`<a href="${waUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="text-green-400 hover:text-green-300 p-1.5 bg-[#141414] rounded" title="WhatsApp"><i class="ph ph-whatsapp-logo"></i></a>`:''}
                     ${dispEmail?`<a href="mailto:${dispEmail}" onclick="event.stopPropagation()" class="text-sant-cyan hover:text-[#7aafc8] p-1.5 bg-[#141414] rounded" title="E-mail"><i class="ph ph-envelope-simple"></i></a>`:''}
                     <button onclick="event.stopPropagation();togglePin('${c.id}')" class="p-1.5 bg-[#141414] rounded ${c.pinned?'text-amber-400':'text-gray-400 hover:text-amber-400'} transition-colors" title="${c.pinned?'Desafixar':'Fixar no topo'}"><i class="ph ${c.pinned?'ph-push-pin-fill':'ph-push-pin'}"></i></button>
