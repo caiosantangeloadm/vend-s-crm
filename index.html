@@ -201,6 +201,9 @@
         /* Dashboard — Modo Personalizar */
         .dash-collapse-btn { display: none; }
         body.dash-customize .dash-collapse-btn { display: flex; }
+        .dash-drag-handle { display: none; }
+        body.dash-customize .dash-drag-handle { display: flex; }
+        .dash-draggable { transition: opacity 0.15s ease; }
         .dash-collapsed-bar { display: none; }
 
         /* Modo Apresentação/Foco */
@@ -5149,6 +5152,7 @@
             const _sb = parseInt(localStorage.getItem('vends_streak_best')||'0');
             const _sh = JSON.parse(localStorage.getItem('vends_streak_history')||'[]');
             renderStreakUI(_sd, _sb, _sh, todayStr);
+            applyDashOrder();
         }
 
         function renderTodayCard(todayStr) {
@@ -5308,7 +5312,7 @@
                     ? '<i class="ph ph-check text-base"></i> Concluir'
                     : '<i class="ph ph-sliders-horizontal text-base"></i> Personalizar';
             }
-            // Adiciona/remove botões de colapso em cada card configurável
+            // Adiciona/remove botões de colapso + alça de arrastar em cada card configurável
             DASH_CARDS.forEach(({ id, title }) => {
                 const card = document.getElementById(id);
                 if (!card) return;
@@ -5321,6 +5325,59 @@
                     card.style.position = 'relative';
                     card.prepend(colBtn);
                 }
+                let dragHandle = card.querySelector('.dash-drag-handle');
+                if (!dragHandle) {
+                    dragHandle = document.createElement('div');
+                    dragHandle.className = 'dash-drag-handle absolute top-3 left-3 z-10 items-center justify-center w-7 h-7 rounded-lg bg-[#1a1a1a] border border-sant-border text-gray-500 hover:text-sant-cyan hover:border-sant-cyan/40 transition-colors cursor-grab';
+                    dragHandle.innerHTML = '<i class="ph ph-dots-six-vertical text-sm"></i>';
+                    card.prepend(dragHandle);
+                }
+                card.classList.toggle('dash-draggable', dashCustomizeMode);
+                card.draggable = dashCustomizeMode;
+                if (dashCustomizeMode) {
+                    card.ondragstart = (e) => { dashDragId = id; card.classList.add('opacity-40'); e.dataTransfer.effectAllowed = 'move'; };
+                    card.ondragend = () => { card.classList.remove('opacity-40'); };
+                    card.ondragover = (e) => e.preventDefault();
+                    card.ondrop = (e) => { e.preventDefault(); if (dashDragId && dashDragId !== id) reorderDashCard(dashDragId, id); };
+                } else {
+                    card.ondragstart = card.ondragend = card.ondragover = card.ondrop = null;
+                }
+            });
+        }
+
+        // ── Dashboard: reordenar cards (drag-and-drop) ───────────────────────
+        let dashDragId = null;
+        function getDashOrder() {
+            const saved = JSON.parse(localStorage.getItem('vends_dash_order') || 'null');
+            const ids = DASH_CARDS.map(c => c.id);
+            if (!saved) return ids;
+            // Garante que cards novos (adicionados depois) apareçam no fim, mesmo que a ordem salva seja antiga
+            const merged = saved.filter(id => ids.includes(id));
+            ids.forEach(id => { if (!merged.includes(id)) merged.push(id); });
+            return merged;
+        }
+        function saveDashOrder(order) {
+            localStorage.setItem('vends_dash_order', JSON.stringify(order));
+            syncPreferencesToSupabase();
+        }
+        function reorderDashCard(draggedId, targetId) {
+            const order = getDashOrder();
+            const from = order.indexOf(draggedId);
+            const to = order.indexOf(targetId);
+            if (from === -1 || to === -1) return;
+            order.splice(from, 1);
+            order.splice(to, 0, draggedId);
+            saveDashOrder(order);
+            applyDashOrder();
+        }
+        function applyDashOrder() {
+            const order = getDashOrder();
+            let anchor = null;
+            order.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                if (anchor) anchor.after(el);
+                anchor = el;
             });
         }
 
@@ -12802,6 +12859,7 @@
                     "density":     localStorage.getItem('sant_crm_density')     || '',
                     "contactSort": localStorage.getItem('sant_crm_contact_sort')|| '',
                     "dashCollapsed": JSON.parse(localStorage.getItem('vends_dash_collapsed') || '[]'),
+                    "dashOrder": JSON.parse(localStorage.getItem('vends_dash_order') || '[]'),
                     "scoreHistory":  JSON.parse(localStorage.getItem('vends_score_history')  || '{}'),
                     "taskPlaybooks": taskPlaybooks,
                     "automationRules": automationRules,
@@ -12837,6 +12895,7 @@
                 if (data.density)                   localStorage.setItem('sant_crm_density', data.density);
                 if (data.contactSort)               localStorage.setItem('sant_crm_contact_sort', data.contactSort);
                 if (data.dashCollapsed?.length)     localStorage.setItem('vends_dash_collapsed', JSON.stringify(data.dashCollapsed));
+                if (data.dashOrder?.length)         { localStorage.setItem('vends_dash_order', JSON.stringify(data.dashOrder)); applyDashOrder(); }
                 if (data.scoreHistory && Object.keys(data.scoreHistory).length) localStorage.setItem('vends_score_history', JSON.stringify(data.scoreHistory));
                 if (data.taskPlaybooks?.length) { taskPlaybooks = data.taskPlaybooks; localStorage.setItem('sant_crm_task_playbooks', JSON.stringify(taskPlaybooks)); }
                 if (data.automationRules?.length) { automationRules = data.automationRules; migrateAutomationRules(); localStorage.setItem('sant_crm_automations', JSON.stringify(automationRules)); }
