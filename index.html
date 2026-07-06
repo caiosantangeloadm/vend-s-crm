@@ -2762,6 +2762,21 @@
         </div>
     </div>
 
+    <!-- Registro rápido de resultado de ligação -->
+    <div id="callOutcomeModal" class="hidden fixed bottom-6 right-6 z-[250] w-80 bg-sant-surface border border-sant-border rounded-2xl shadow-2xl p-4 modalPop">
+        <div class="flex items-center justify-between mb-1">
+            <p class="text-sm font-bold text-white flex items-center gap-2"><i class="ph ph-phone-call text-sant-cyan"></i> Como foi a ligação?</p>
+            <button onclick="closeCallOutcomeModal()" class="text-gray-500 hover:text-white transition-colors"><i class="ph ph-x"></i></button>
+        </div>
+        <p id="callOutcomeContactName" class="text-xs text-gray-500 mb-3"></p>
+        <div class="grid grid-cols-2 gap-2">
+            <button onclick="logCallOutcome('answered')" class="flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 text-xs font-bold transition-colors">✅ Atendeu</button>
+            <button onclick="logCallOutcome('voicemail')" class="flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-sant-purple/10 border border-sant-purple/30 text-sant-purple hover:bg-sant-purple/20 text-xs font-bold transition-colors">📼 Caixa postal</button>
+            <button onclick="logCallOutcome('noanswer')" class="flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-gray-500/10 border border-gray-500/30 text-gray-400 hover:bg-gray-500/20 text-xs font-bold transition-colors">🚫 Não atendeu</button>
+            <button onclick="logCallOutcome('reschedule')" class="flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 text-xs font-bold transition-colors">📅 Reagendar</button>
+        </div>
+    </div>
+
     <!-- Quick Look Popover -->
     <div id="quickLookPopover" class="hidden fixed z-[300] w-72 bg-[#111] border border-sant-border rounded-2xl shadow-2xl overflow-hidden" style="pointer-events:auto">
         <div class="p-4">
@@ -8051,6 +8066,53 @@
             return `https://wa.me/${num}`;
         }
 
+        // ── Registro rápido de resultado de ligação ──────────────────────────
+        let pendingCallContactId = null;
+        let callOutcomeContactId = null;
+
+        function logCallAttempt(contactId) {
+            pendingCallContactId = contactId;
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && pendingCallContactId) {
+                const id = pendingCallContactId;
+                pendingCallContactId = null;
+                setTimeout(() => openCallOutcomeModal(id), 400);
+            }
+        });
+
+        function openCallOutcomeModal(contactId) {
+            const c = contacts.find(x => x.id === contactId);
+            if (!c) return;
+            callOutcomeContactId = contactId;
+            document.getElementById('callOutcomeContactName').textContent = fullName(c);
+            document.getElementById('callOutcomeModal').classList.remove('hidden');
+        }
+
+        function closeCallOutcomeModal() {
+            document.getElementById('callOutcomeModal').classList.add('hidden');
+            callOutcomeContactId = null;
+        }
+
+        function logCallOutcome(outcome) {
+            const c = contacts.find(x => x.id === callOutcomeContactId);
+            if (!c) { closeCallOutcomeModal(); return; }
+            const notesMap = {
+                answered:   'Ligação atendida.',
+                voicemail:  'Caiu na caixa postal.',
+                noanswer:   'Não atendeu.',
+                reschedule: 'Não atendeu — reagendado para amanhã.',
+            };
+            if (!c.interactions) c.interactions = [];
+            c.interactions.push({ id: crypto.randomUUID(), type: 'Ligação', date: getSPTodayStr(), notes: notesMap[outcome] || '' });
+            if (outcome === 'reschedule') c.nextContact = addDaysToDateStr(getSPTodayStr(), 1);
+            saveToStorage(c.id);
+            if (currentView === 'contacts') renderContacts(document.getElementById('searchInput')?.value || '');
+            showToast(`📞 Ligação registrada para ${fullName(c)}!`);
+            closeCallOutcomeModal();
+        }
+
         function calcRelScore(c) {
             const todayMs   = new Date().setHours(0, 0, 0, 0);
             const todayStr  = getSPTodayStr();
@@ -8235,7 +8297,7 @@
                         ${lastInteractionDate?`<p class="text-[10px] text-gray-500 truncate"><i class="ph ph-clock-counter-clockwise mr-1"></i>Última interação: ${lastInteractionDate.split('-').reverse().join('/')}</p>`:''}
                         ${tagsHtml}
                         ${(dispPhone||waUrl||dispEmail)?`<div class="flex gap-2 mt-3 pt-3 border-t border-sant-border">
-                            ${dispPhone?`<a href="tel:${dispPhone.replace(/\D/g,'')}" onclick="event.stopPropagation()" class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-sant-cyan/10 text-sant-cyan hover:bg-sant-cyan/20 text-xs font-medium transition-colors" title="Ligar"><i class="ph ph-phone-call"></i> Ligar</a>`:''}
+                            ${dispPhone?`<a href="tel:${dispPhone.replace(/\D/g,'')}" onclick="event.stopPropagation();logCallAttempt('${c.id}')" class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-sant-cyan/10 text-sant-cyan hover:bg-sant-cyan/20 text-xs font-medium transition-colors" title="Ligar"><i class="ph ph-phone-call"></i> Ligar</a>`:''}
                             ${waUrl?`<a href="${waUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20 text-xs font-medium transition-colors"><i class="ph ph-whatsapp-logo"></i> WhatsApp</a>`:''}
                             ${dispEmail?`<a href="mailto:${dispEmail}" onclick="event.stopPropagation()" class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-sant-cyan/10 text-sant-cyan hover:bg-sant-cyan/20 text-xs font-medium transition-colors"><i class="ph ph-envelope-simple"></i> E-mail</a>`:''}
                         </div>`:''}
@@ -8264,7 +8326,7 @@
                         <div class="text-xs text-gray-400 truncate hidden md:block">${dispEmail||'-'}</div>
                     </div>
                     <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                        ${dispPhone?`<a href="tel:${dispPhone.replace(/\D/g,'')}" onclick="event.stopPropagation()" class="text-sant-cyan hover:text-[#7aafc8] p-1 bg-[#141414] rounded" title="Ligar"><i class="ph ph-phone-call text-xs"></i></a>`:''}
+                        ${dispPhone?`<a href="tel:${dispPhone.replace(/\D/g,'')}" onclick="event.stopPropagation();logCallAttempt('${c.id}')" class="text-sant-cyan hover:text-[#7aafc8] p-1 bg-[#141414] rounded" title="Ligar"><i class="ph ph-phone-call text-xs"></i></a>`:''}
                         ${waUrl?`<a href="${waUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="text-green-400 hover:text-green-300 p-1 bg-[#141414] rounded" title="WhatsApp"><i class="ph ph-whatsapp-logo text-xs"></i></a>`:''}
                         ${dispEmail?`<a href="mailto:${dispEmail}" onclick="event.stopPropagation()" class="text-sant-cyan hover:text-[#7aafc8] p-1 bg-[#141414] rounded" title="E-mail"><i class="ph ph-envelope-simple text-xs"></i></a>`:''}
                         <button onclick="event.stopPropagation();togglePin('${c.id}')" class="p-1 bg-[#141414] rounded ${c.pinned?'text-amber-400':'text-gray-400 hover:text-amber-400'} transition-colors" title="${c.pinned?'Desafixar':'Fixar no topo'}"><i class="ph ${c.pinned?'ph-push-pin-fill':'ph-push-pin'} text-xs"></i></button>
@@ -8296,7 +8358,7 @@
                     <div class="text-xs text-gray-400 truncate">${dispEmail||'-'}</div>
                 </div>
                 <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                    ${dispPhone?`<a href="tel:${dispPhone.replace(/\D/g,'')}" onclick="event.stopPropagation()" class="text-sant-cyan hover:text-[#7aafc8] p-1.5 bg-[#141414] rounded" title="Ligar"><i class="ph ph-phone-call"></i></a>`:''}
+                    ${dispPhone?`<a href="tel:${dispPhone.replace(/\D/g,'')}" onclick="event.stopPropagation();logCallAttempt('${c.id}')" class="text-sant-cyan hover:text-[#7aafc8] p-1.5 bg-[#141414] rounded" title="Ligar"><i class="ph ph-phone-call"></i></a>`:''}
                     ${waUrl?`<a href="${waUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="text-green-400 hover:text-green-300 p-1.5 bg-[#141414] rounded" title="WhatsApp"><i class="ph ph-whatsapp-logo"></i></a>`:''}
                     ${dispEmail?`<a href="mailto:${dispEmail}" onclick="event.stopPropagation()" class="text-sant-cyan hover:text-[#7aafc8] p-1.5 bg-[#141414] rounded" title="E-mail"><i class="ph ph-envelope-simple"></i></a>`:''}
                     <button onclick="event.stopPropagation();togglePin('${c.id}')" class="p-1.5 bg-[#141414] rounded ${c.pinned?'text-amber-400':'text-gray-400 hover:text-amber-400'} transition-colors" title="${c.pinned?'Desafixar':'Fixar no topo'}"><i class="ph ${c.pinned?'ph-push-pin-fill':'ph-push-pin'}"></i></button>
@@ -14638,7 +14700,7 @@
                         ${c.company?`<p><i class="ph ph-briefcase mr-1.5"></i>${c.company}</p>`:''}
                     </div>
                     <div class="flex gap-2 mt-4 pt-4 border-t border-sant-border">
-                        ${dispPhone?`<a href="tel:${dispPhone.replace(/\D/g,'')}" class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-sant-cyan/10 text-sant-cyan hover:bg-sant-cyan/20 text-xs font-medium transition-colors"><i class="ph ph-phone-call"></i> Ligar</a>`:''}
+                        ${dispPhone?`<a href="tel:${dispPhone.replace(/\D/g,'')}" onclick="logCallAttempt('${c.id}')" class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-sant-cyan/10 text-sant-cyan hover:bg-sant-cyan/20 text-xs font-medium transition-colors"><i class="ph ph-phone-call"></i> Ligar</a>`:''}
                         ${waUrl?`<a href="${waUrl}" target="_blank" rel="noopener" class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20 text-xs font-medium transition-colors"><i class="ph ph-whatsapp-logo"></i> WhatsApp</a>`:''}
                         <button onclick="closeQuickReview();openHistoryModal('${c.id}')" class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-[#141414] border border-sant-border text-gray-400 hover:text-sant-cyan text-xs font-medium transition-colors"><i class="ph ph-clock-clockwise"></i> Histórico</button>
                     </div>
