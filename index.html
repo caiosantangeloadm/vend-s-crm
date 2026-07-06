@@ -304,6 +304,9 @@
             <button onclick="switchView('myweek')" id="nav-myweek" class="nav-item tooltip-nav flex items-center justify-center w-full py-4 text-gray-400 hover:text-white transition-colors" data-tip="Minha Semana">
                 <i class="ph ph-calendar-check text-2xl"></i>
             </button>
+            <button onclick="switchView('feed')" id="nav-feed" class="nav-item tooltip-nav flex items-center justify-center w-full py-4 text-gray-400 hover:text-white transition-colors" data-tip="Feed de Atividade">
+                <i class="ph ph-activity text-2xl"></i>
+            </button>
             <button onclick="switchView('contacts')" id="nav-contacts" class="nav-item tooltip-nav flex items-center justify-center w-full py-4 text-gray-400 hover:text-white transition-colors" data-tip="Contatos">
                 <i class="ph ph-users text-2xl"></i>
             </button>
@@ -801,6 +804,22 @@
                     </div>
                 </div>
                 <div id="myWeekContent" class="space-y-4"></div>
+            </div>
+
+            <!-- Feed de Atividade Global -->
+            <div id="view-feed" class="hidden max-w-3xl mx-auto">
+                <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+                    <div>
+                        <h2 class="text-2xl font-bold text-white flex items-center gap-2"><i class="ph ph-activity text-sant-cyan"></i> Feed de Atividade</h2>
+                        <p class="text-sm text-gray-500 mt-1">Interações, notas e edições de todos os contatos, em ordem cronológica</p>
+                    </div>
+                    <div class="flex items-center gap-1.5" id="feedRangeButtons">
+                        <button onclick="setFeedRange(7)" data-days="7" class="feed-range-btn px-3 py-1.5 rounded-lg border border-sant-border text-gray-400 hover:text-sant-cyan text-xs font-bold transition-colors">7 dias</button>
+                        <button onclick="setFeedRange(30)" data-days="30" class="feed-range-btn px-3 py-1.5 rounded-lg border border-sant-border text-gray-400 hover:text-sant-cyan text-xs font-bold transition-colors">30 dias</button>
+                        <button onclick="setFeedRange(90)" data-days="90" class="feed-range-btn px-3 py-1.5 rounded-lg border border-sant-border text-gray-400 hover:text-sant-cyan text-xs font-bold transition-colors">90 dias</button>
+                    </div>
+                </div>
+                <div id="activityFeedContent" class="space-y-1"></div>
             </div>
 
             <div id="view-contacts" class="hidden max-w-6xl mx-auto">
@@ -6991,6 +7010,7 @@
             if(viewId === 'contacts') renderContacts();
             if(viewId === 'dashboard') renderDashboard();
             if(viewId === 'myweek') renderMyWeek();
+            if(viewId === 'feed') renderActivityFeed();
             if(viewId === 'calendar') renderCalendar();
             if(viewId === 'tasks') _refreshCurrentTaskView();
             if(viewId === 'notes') renderNotes();
@@ -7091,6 +7111,91 @@
             }).join('');
 
             document.getElementById('myWeekContent').innerHTML = html;
+        }
+
+        // ── Feed de Atividade Global ──────────────────────────────────────────
+        let feedRangeDays = parseInt(localStorage.getItem('vends_feed_range') || '30');
+
+        function setFeedRange(days) {
+            feedRangeDays = days;
+            localStorage.setItem('vends_feed_range', String(days));
+            renderActivityFeed();
+        }
+
+        function renderActivityFeed() {
+            document.querySelectorAll('.feed-range-btn').forEach(btn => {
+                const active = parseInt(btn.dataset.days) === feedRangeDays;
+                btn.classList.toggle('border-sant-cyan', active);
+                btn.classList.toggle('text-sant-cyan', active);
+                btn.classList.toggle('bg-sant-cyan/10', active);
+            });
+
+            const todayStr = getSPTodayStr();
+            const cutoff = addDaysToDateStr(todayStr, -feedRangeDays);
+            const intIcons = { 'Ligação':'ph-phone','Reunião':'ph-handshake','E-mail':'ph-envelope','WhatsApp':'ph-whatsapp-logo','Visita':'ph-buildings','Outro':'ph-pushpin' };
+            const fieldIcons = { 'Nome':'ph-user', 'Etiquetas':'ph-hash', 'Categoria':'ph-tag', 'Telefone':'ph-phone',
+                'E-mail':'ph-envelope', 'Empresa':'ph-buildings', 'Site':'ph-globe', 'Mesclagem':'ph-git-merge', 'Cargo':'ph-briefcase' };
+
+            const items = [];
+            contacts.forEach(c => {
+                (c.interactions || []).forEach(i => {
+                    if (!i.date || i.date < cutoff) return;
+                    items.push({ date: i.date, sortKey: i.date + 'C', contactId: c.id, contactName: fullName(c),
+                        icon: intIcons[i.type] || 'ph-chat-circle', color: '#5b8fa8',
+                        label: `${i.type || 'Interação'} com ${fullName(c)}`, text: i.notes || '' });
+                });
+                (c.quickNotes || []).forEach(n => {
+                    const d = (n.createdAt || '').substring(0,10);
+                    if (!d || d < cutoff) return;
+                    items.push({ date: d, sortKey: n.createdAt || d, contactId: c.id, contactName: fullName(c),
+                        icon: 'ph-note-pencil', color: '#a78bfa',
+                        label: `Nota rápida em ${fullName(c)}`, text: n.text || '' });
+                });
+                (c.changeLog || []).forEach(entry => {
+                    if (!entry.date || entry.date < cutoff) return;
+                    items.push({ date: entry.date, sortKey: entry.date + 'B', contactId: c.id, contactName: fullName(c),
+                        icon: fieldIcons[entry.field] || 'ph-pencil-simple', color: '#9ca3af',
+                        label: `Editado (${entry.field}) — ${fullName(c)}`,
+                        text: entry.to ? `${entry.from || '—'} → ${entry.to}` : (entry.from || '') });
+                });
+            });
+
+            const box = document.getElementById('activityFeedContent');
+            if (items.length === 0) {
+                box.innerHTML = emptyState('ph-activity', 'Nenhuma atividade no período', `Interações, notas e edições dos últimos ${feedRangeDays} dias aparecerão aqui.`);
+                return;
+            }
+
+            items.sort((a,b) => b.sortKey.localeCompare(a.sortKey));
+
+            const monthNames = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+            const groups = {};
+            items.forEach(item => {
+                const [y,m] = item.date.split('-');
+                const key = `${y}-${m}`;
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(item);
+            });
+
+            let html = '';
+            Object.keys(groups).sort((a,b) => b.localeCompare(a)).forEach(key => {
+                const [y,m] = key.split('-');
+                html += `<p class="text-[10px] font-bold text-gray-600 uppercase tracking-wider pt-4 pb-1 sticky top-0 bg-sant-bg z-10">${monthNames[parseInt(m)-1]} ${y}</p>`;
+                groups[key].forEach(item => {
+                    const [iy,im,id2] = item.date.split('-');
+                    const dayStr = `${id2}/${im}`;
+                    html += `<div onclick="switchView('contacts');openHistoryModal('${item.contactId}')" class="flex gap-3 py-2.5 px-2 -mx-2 rounded-lg border-b border-sant-border/40 last:border-0 hover:bg-sant-surface cursor-pointer transition-colors">
+                        <span class="text-[10px] font-bold text-gray-500 shrink-0 w-10 pt-0.5">${dayStr}</span>
+                        <i class="ph ${item.icon} text-base shrink-0 mt-0.5" style="color:${item.color}"></i>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm text-gray-200 truncate">${item.label}</p>
+                            ${item.text ? `<p class="text-xs text-gray-500 mt-0.5 truncate">${item.text}</p>` : ''}
+                        </div>
+                    </div>`;
+                });
+            });
+
+            box.innerHTML = html;
         }
 
         // ── Notas (estilo Google Keep) ──────────────────────────────────────
