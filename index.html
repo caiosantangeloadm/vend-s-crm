@@ -832,10 +832,12 @@
                         <h2 class="text-2xl font-bold text-white flex items-center gap-2"><i class="ph ph-activity text-sant-cyan"></i> Feed de Atividade</h2>
                         <p class="text-sm text-gray-500 mt-1">Interações, notas e edições de todos os contatos, em ordem cronológica</p>
                     </div>
-                    <div class="flex items-center gap-1.5" id="feedRangeButtons">
+                    <div class="flex items-center gap-1.5 flex-wrap" id="feedRangeButtons">
                         <button onclick="setFeedRange(7)" data-days="7" class="feed-range-btn px-3 py-1.5 rounded-lg border border-sant-border text-gray-400 hover:text-sant-cyan text-xs font-bold transition-colors">7 dias</button>
                         <button onclick="setFeedRange(30)" data-days="30" class="feed-range-btn px-3 py-1.5 rounded-lg border border-sant-border text-gray-400 hover:text-sant-cyan text-xs font-bold transition-colors">30 dias</button>
                         <button onclick="setFeedRange(90)" data-days="90" class="feed-range-btn px-3 py-1.5 rounded-lg border border-sant-border text-gray-400 hover:text-sant-cyan text-xs font-bold transition-colors">90 dias</button>
+                        <button onclick="exportActivityFeedCsv()" title="Exportar CSV" class="p-2 rounded-lg border border-sant-border text-gray-400 hover:text-sant-cyan transition-colors"><i class="ph ph-file-csv text-lg"></i></button>
+                        <button onclick="exportActivityFeedPdf()" title="Exportar/Imprimir PDF" class="p-2 rounded-lg border border-sant-border text-gray-400 hover:text-sant-cyan transition-colors"><i class="ph ph-file-pdf text-lg"></i></button>
                     </div>
                 </div>
                 <div id="activityFeedContent" class="space-y-1"></div>
@@ -7189,6 +7191,63 @@
             renderActivityFeed();
         }
 
+        function collectActivityFeedItems(cutoff) {
+            const intIcons = { 'Ligação':'ph-phone','Reunião':'ph-handshake','E-mail':'ph-envelope','WhatsApp':'ph-whatsapp-logo','Visita':'ph-buildings','Outro':'ph-pushpin' };
+            const fieldIcons = { 'Nome':'ph-user', 'Etiquetas':'ph-hash', 'Categoria':'ph-tag', 'Telefone':'ph-phone',
+                'E-mail':'ph-envelope', 'Empresa':'ph-buildings', 'Site':'ph-globe', 'Mesclagem':'ph-git-merge', 'Cargo':'ph-briefcase' };
+
+            const items = [];
+            contacts.forEach(c => {
+                (c.interactions || []).forEach(i => {
+                    if (!i.date || i.date < cutoff) return;
+                    items.push({ date: i.date, sortKey: i.date + 'C', contactId: c.id, contactName: fullName(c),
+                        icon: intIcons[i.type] || 'ph-chat-circle', color: '#5b8fa8', type: i.type || 'Interação',
+                        label: `${i.type || 'Interação'} com ${fullName(c)}`, text: i.notes || '' });
+                });
+                (c.quickNotes || []).forEach(n => {
+                    const d = (n.createdAt || '').substring(0,10);
+                    if (!d || d < cutoff) return;
+                    items.push({ date: d, sortKey: n.createdAt || d, contactId: c.id, contactName: fullName(c),
+                        icon: 'ph-note-pencil', color: '#a78bfa', type: 'Nota rápida',
+                        label: `Nota rápida em ${fullName(c)}`, text: n.text || '' });
+                });
+                (c.changeLog || []).forEach(entry => {
+                    if (!entry.date || entry.date < cutoff) return;
+                    items.push({ date: entry.date, sortKey: entry.date + 'B', contactId: c.id, contactName: fullName(c),
+                        icon: fieldIcons[entry.field] || 'ph-pencil-simple', color: '#9ca3af', type: `Editado (${entry.field})`,
+                        label: `Editado (${entry.field}) — ${fullName(c)}`,
+                        text: entry.to ? `${entry.from || '—'} → ${entry.to}` : (entry.from || '') });
+                });
+            });
+            items.sort((a,b) => b.sortKey.localeCompare(a.sortKey));
+            return items;
+        }
+
+        function exportActivityFeedCsv() {
+            const todayStr = getSPTodayStr();
+            const cutoff = addDaysToDateStr(todayStr, -feedRangeDays);
+            const items = collectActivityFeedItems(cutoff);
+            if (!items.length) { showToast('Nenhuma atividade para exportar.', 'error'); return; }
+            const headers = ['Data', 'Contato', 'Tipo', 'Detalhes'];
+            const rows = items.map(it => [it.date.split('-').reverse().join('/'), it.contactName, it.type, it.text || '']);
+            const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+            const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `vends_feed_atividade_${todayStr}.csv`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+            showToast(`${items.length} atividades exportadas!`);
+        }
+
+        function exportActivityFeedPdf() {
+            const todayStr = getSPTodayStr();
+            const cutoff = addDaysToDateStr(todayStr, -feedRangeDays);
+            const items = collectActivityFeedItems(cutoff);
+            const rows = items.map(it => [it.date.split('-').reverse().join('/'), it.contactName, it.type, it.text || '']);
+            printReportPdf(`Feed de Atividade — últimos ${feedRangeDays} dias`, ['Data','Contato','Tipo','Detalhes'], rows);
+        }
+
         function renderActivityFeed() {
             document.querySelectorAll('.feed-range-btn').forEach(btn => {
                 const active = parseInt(btn.dataset.days) === feedRangeDays;
@@ -7199,41 +7258,13 @@
 
             const todayStr = getSPTodayStr();
             const cutoff = addDaysToDateStr(todayStr, -feedRangeDays);
-            const intIcons = { 'Ligação':'ph-phone','Reunião':'ph-handshake','E-mail':'ph-envelope','WhatsApp':'ph-whatsapp-logo','Visita':'ph-buildings','Outro':'ph-pushpin' };
-            const fieldIcons = { 'Nome':'ph-user', 'Etiquetas':'ph-hash', 'Categoria':'ph-tag', 'Telefone':'ph-phone',
-                'E-mail':'ph-envelope', 'Empresa':'ph-buildings', 'Site':'ph-globe', 'Mesclagem':'ph-git-merge', 'Cargo':'ph-briefcase' };
-
-            const items = [];
-            contacts.forEach(c => {
-                (c.interactions || []).forEach(i => {
-                    if (!i.date || i.date < cutoff) return;
-                    items.push({ date: i.date, sortKey: i.date + 'C', contactId: c.id, contactName: fullName(c),
-                        icon: intIcons[i.type] || 'ph-chat-circle', color: '#5b8fa8',
-                        label: `${i.type || 'Interação'} com ${fullName(c)}`, text: i.notes || '' });
-                });
-                (c.quickNotes || []).forEach(n => {
-                    const d = (n.createdAt || '').substring(0,10);
-                    if (!d || d < cutoff) return;
-                    items.push({ date: d, sortKey: n.createdAt || d, contactId: c.id, contactName: fullName(c),
-                        icon: 'ph-note-pencil', color: '#a78bfa',
-                        label: `Nota rápida em ${fullName(c)}`, text: n.text || '' });
-                });
-                (c.changeLog || []).forEach(entry => {
-                    if (!entry.date || entry.date < cutoff) return;
-                    items.push({ date: entry.date, sortKey: entry.date + 'B', contactId: c.id, contactName: fullName(c),
-                        icon: fieldIcons[entry.field] || 'ph-pencil-simple', color: '#9ca3af',
-                        label: `Editado (${entry.field}) — ${fullName(c)}`,
-                        text: entry.to ? `${entry.from || '—'} → ${entry.to}` : (entry.from || '') });
-                });
-            });
+            const items = collectActivityFeedItems(cutoff);
 
             const box = document.getElementById('activityFeedContent');
             if (items.length === 0) {
                 box.innerHTML = emptyState('ph-activity', 'Nenhuma atividade no período', `Interações, notas e edições dos últimos ${feedRangeDays} dias aparecerão aqui.`);
                 return;
             }
-
-            items.sort((a,b) => b.sortKey.localeCompare(a.sortKey));
 
             const monthNames = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
             const groups = {};
