@@ -11259,6 +11259,7 @@
                 if (!ev.excludedDates) ev.excludedDates = [];
                 if (!ev.excludedDates.includes(dateStr)) ev.excludedDates.push(dateStr);
                 saveEventsToStorage();
+                cloudSyncEvent(ev);
                 renderCalendar();
                 showToast('Ocorrência excluída — as demais datas da série permanecem.');
                 if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
@@ -11270,6 +11271,7 @@
             const { id } = recurDeleteContext;
             events = events.filter(e => e.id !== id);
             saveEventsToStorage();
+            cloudDeleteEvent(id);
             renderCalendar();
             showToast('Série de compromissos excluída.');
             if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
