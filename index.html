@@ -3215,6 +3215,9 @@
                         <i class="ph ph-upload-simple"></i> <span id="contactAttachUploadLabel">Anexar arquivo (PDF, foto — até 10MB)</span>
                         <input type="file" id="contactAttachFileInput" class="hidden" accept=".pdf,image/*,.doc,.docx,.xls,.xlsx" onchange="uploadContactAttachment(event)">
                     </label>
+                    <button id="voiceNoteBtn" onclick="toggleVoiceRecording()" class="w-full flex items-center justify-center gap-2 border border-dashed border-sant-border hover:border-pink-400 rounded-lg px-3 py-2 text-xs text-gray-400 hover:text-pink-400 cursor-pointer transition-colors mt-2">
+                        <i class="ph ph-microphone"></i> <span id="voiceNoteBtnLabel">Gravar nota de voz</span>
+                    </button>
                 </div>
                 <div class="px-4 pt-3">
                     <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 mb-2">
@@ -16474,7 +16477,14 @@
             };
             const formatSize = (bytes) => !bytes ? '' : bytes < 1024*1024 ? `${(bytes/1024).toFixed(0)}KB` : `${(bytes/1024/1024).toFixed(1)}MB`;
 
-            box.innerHTML = links.map(l => l.isFile
+            box.innerHTML = links.map(l => l.isVoiceNote
+                ? `<div class="flex items-center gap-2 p-2 bg-[#0a0a0a] border border-pink-500/20 rounded-lg">
+                        <i class="ph ph-microphone text-pink-400"></i>
+                        <a href="#" onclick="event.preventDefault();openContactAttachment('${l.id}')" class="text-sm text-pink-300 hover:underline truncate flex-1">${l.title}</a>
+                        <span class="text-[10px] text-gray-600 shrink-0">${formatNoteDate ? formatNoteDate(l.createdAt) : ''}</span>
+                        <button onclick="deleteContactLink('${l.id}')" class="text-gray-500 hover:text-red-500 shrink-0"><i class="ph ph-trash"></i></button>
+                    </div>`
+                : l.isFile
                 ? `<div class="flex items-center gap-2 p-2 bg-[#0a0a0a] border border-sant-border rounded-lg">
                         <i class="ph ${fileIcon(l.title)} text-amber-400"></i>
                         <a href="#" onclick="event.preventDefault();openContactAttachment('${l.id}')" class="text-sm text-amber-300 hover:underline truncate flex-1">${l.title}</a>
@@ -16507,6 +16517,95 @@
             urlInput.value = '';
             renderContactLinks();
             showToast('Link adicionado!');
+        }
+
+        // ── Nota de Voz Rápida ────────────────────────────────────────────────
+        let voiceMediaRecorder = null;
+        let voiceAudioChunks = [];
+        let voiceIsRecording = false;
+        let voiceRecordingStart = 0;
+
+        function toggleVoiceRecording() {
+            if (voiceIsRecording) stopVoiceRecording();
+            else startVoiceRecording();
+        }
+
+        async function startVoiceRecording() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                showToast('Gravação de áudio não é suportada neste navegador.', 'error');
+                return;
+            }
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                voiceAudioChunks = [];
+                voiceMediaRecorder = new MediaRecorder(stream);
+                voiceMediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) voiceAudioChunks.push(e.data); };
+                voiceMediaRecorder.onstop = () => {
+                    stream.getTracks().forEach(t => t.stop());
+                    uploadVoiceNote();
+                };
+                voiceMediaRecorder.start();
+                voiceIsRecording = true;
+                voiceRecordingStart = Date.now();
+                updateVoiceButtonUI(true);
+            } catch (e) {
+                showToast('Não foi possível acessar o microfone: ' + (e.message || 'permissão negada'), 'error');
+            }
+        }
+
+        function stopVoiceRecording() {
+            if (voiceMediaRecorder && voiceIsRecording) {
+                voiceMediaRecorder.stop();
+                voiceIsRecording = false;
+                updateVoiceButtonUI(false);
+            }
+        }
+
+        function updateVoiceButtonUI(recording) {
+            const btn = document.getElementById('voiceNoteBtn');
+            const label = document.getElementById('voiceNoteBtnLabel');
+            if (!btn || !label) return;
+            if (recording) {
+                btn.classList.add('border-red-500', 'text-red-400', 'animate-pulse');
+                btn.classList.remove('hover:border-pink-400', 'hover:text-pink-400');
+                label.textContent = 'Gravando... clique para parar';
+            } else {
+                btn.classList.remove('border-red-500', 'text-red-400', 'animate-pulse');
+                btn.classList.add('hover:border-pink-400', 'hover:text-pink-400');
+                label.textContent = 'Gravar nota de voz';
+            }
+        }
+
+        async function uploadVoiceNote() {
+            const c = contacts.find(x => x.id === currentHistoryContactId);
+            if (!c) return;
+            const sb = getSB();
+            if (!sb || !currentUser) { showToast('Faça login para gravar notas de voz.', 'error'); return; }
+            if (!voiceAudioChunks.length) return;
+
+            const blob = new Blob(voiceAudioChunks, { type: 'audio/webm' });
+            const durationSec = Math.max(1, Math.round((Date.now() - voiceRecordingStart) / 1000));
+            const label = document.getElementById('voiceNoteBtnLabel');
+            if (label) label.textContent = 'Enviando...';
+
+            const storagePath = `${currentUser.id}/${c.id}/${crypto.randomUUID()}.webm`;
+            try {
+                const { error } = await sb.storage.from(ATTACHMENT_BUCKET).upload(storagePath, blob, { upsert: false, contentType: 'audio/webm' });
+                if (error) throw error;
+                if (!c.links) c.links = [];
+                c.links.push({
+                    id: crypto.randomUUID(), title: `Nota de voz (${durationSec}s)`, storagePath,
+                    size: blob.size, isFile: true, isVoiceNote: true, createdAt: new Date().toISOString()
+                });
+                saveToStorage();
+                renderContactLinks();
+                showToast('Nota de voz salva!');
+            } catch (e) {
+                console.warn('Voice note upload:', e.message);
+                showToast('Erro ao salvar nota de voz: ' + (e.message || 'tente novamente'), 'error');
+            } finally {
+                if (label) label.textContent = 'Gravar nota de voz';
+            }
         }
 
         const ATTACHMENT_BUCKET = 'attachments';
