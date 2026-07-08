@@ -840,6 +840,7 @@
                         <button onclick="exportActivityFeedPdf()" title="Exportar/Imprimir PDF" class="p-2 rounded-lg border border-sant-border text-gray-400 hover:text-sant-cyan transition-colors"><i class="ph ph-file-pdf text-lg"></i></button>
                     </div>
                 </div>
+                <div id="feedBirthdaysWidget" class="hidden bg-sant-surface border border-pink-500/20 rounded-2xl p-4 mb-5"></div>
                 <div id="activityFeedContent" class="space-y-1"></div>
             </div>
 
@@ -7200,6 +7201,41 @@
             renderActivityFeed();
         }
 
+        function getUpcomingBirthdays(daysAhead) {
+            const todayStr = getSPTodayStr();
+            const [ty, tm, td] = todayStr.split('-').map(Number);
+            const today = new Date(ty, tm - 1, td);
+            const pad = n => String(n).padStart(2, '0');
+            const res = [];
+            contacts.forEach(c => {
+                if (!c.birth) return;
+                const bm = getBirthMonth(c.birth), bd = getBirthDay(c.birth);
+                let bday = new Date(ty, bm - 1, bd);
+                if (bday < today) bday = new Date(ty + 1, bm - 1, bd);
+                const diff = Math.round((bday - today) / 86400000);
+                if (diff >= 0 && diff <= daysAhead) res.push({ c, diff, bdayFmt: `${pad(bd)}/${pad(bm)}` });
+            });
+            return res.sort((a, b) => a.diff - b.diff);
+        }
+
+        function renderFeedBirthdaysWidget() {
+            const box = document.getElementById('feedBirthdaysWidget');
+            if (!box) return;
+            const upcoming = getUpcomingBirthdays(7);
+            if (!upcoming.length) { box.classList.add('hidden'); return; }
+            box.innerHTML = `
+                <p class="text-xs font-bold text-pink-400 uppercase tracking-wider flex items-center gap-2 mb-2"><i class="ph ph-cake"></i> Aniversariantes da Semana</p>
+                <div class="flex flex-wrap gap-2">
+                    ${upcoming.map(({c, diff, bdayFmt}) => {
+                        const label = diff === 0 ? 'Hoje! 🎉' : diff === 1 ? 'Amanhã' : `em ${diff}d`;
+                        return `<button onclick="switchView('contacts');openHistoryModal('${c.id}')" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-pink-500/10 border border-pink-500/25 text-pink-300 hover:bg-pink-500/20 text-xs font-medium transition-colors">
+                            <i class="ph ph-cake"></i> ${fullName(c)} <span class="text-pink-400/70">— ${bdayFmt} (${label})</span>
+                        </button>`;
+                    }).join('')}
+                </div>`;
+            box.classList.remove('hidden');
+        }
+
         function collectActivityFeedItems(cutoff) {
             const intIcons = { 'Ligação':'ph-phone','Reunião':'ph-handshake','E-mail':'ph-envelope','WhatsApp':'ph-whatsapp-logo','Visita':'ph-buildings','Outro':'ph-pushpin' };
             const fieldIcons = { 'Nome':'ph-user', 'Etiquetas':'ph-hash', 'Categoria':'ph-tag', 'Telefone':'ph-phone',
@@ -7258,6 +7294,7 @@
         }
 
         function renderActivityFeed() {
+            renderFeedBirthdaysWidget();
             document.querySelectorAll('.feed-range-btn').forEach(btn => {
                 const active = parseInt(btn.dataset.days) === feedRangeDays;
                 btn.classList.toggle('border-sant-cyan', active);
