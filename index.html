@@ -1046,6 +1046,7 @@
                         <label class="w-10 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan flex items-center justify-center transition-colors ml-2 cursor-pointer" title="Importar Agenda (.ics)"><i class="ph ph-download-simple"></i><input type="file" accept=".ics" class="hidden" onchange="importCalendarIcs(event)"></label>
                         <button onclick="exportCalendarIcs()" class="w-10 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan flex items-center justify-center transition-colors" title="Exportar Agenda (.ics)"><i class="ph ph-export"></i></button>
                         <button onclick="exportAgendaPdf()" class="w-10 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan flex items-center justify-center transition-colors" title="Exportar Agenda (PDF)"><i class="ph ph-file-pdf"></i></button>
+                        <button id="btnCopyWeek" onclick="copyWeekToNextWeek()" class="hidden items-center gap-2 h-10 px-3 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors text-sm font-medium" title="Copiar todos os compromissos desta semana para a próxima"><i class="ph ph-copy"></i> Copiar Semana</button>
                         <button onclick="openEventModal()" class="bg-sant-purple hover:bg-purple-800 text-white px-5 py-2 rounded-lg flex items-center gap-2 transition-all font-medium">
                             <i class="ph ph-plus"></i> Evento
                         </button>
@@ -10177,6 +10178,8 @@
             document.getElementById('calendarWeekView').classList.toggle('hidden', mode !== 'week');
             document.getElementById('calendarDayView').classList.toggle('hidden', mode !== 'day');
             document.getElementById('calendarListView').classList.toggle('hidden', mode !== 'list');
+            const copyBtn = document.getElementById('btnCopyWeek');
+            if (copyBtn) { copyBtn.classList.toggle('hidden', mode !== 'week'); copyBtn.classList.toggle('flex', mode === 'week'); }
             
             if(mode === 'week') {
                 const d = new Date(currentMonthDate);
@@ -10186,6 +10189,37 @@
             }
             
             renderCalendar();
+        }
+
+        // ── Copiar Semana (agenda) ────────────────────────────────────────────
+        function copyWeekToNextWeek() {
+            if (calViewMode !== 'week') { showToast('Mude para a Visão Semana primeiro.', 'error'); return; }
+            const pad = n => String(n).padStart(2, '0');
+            const toStr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+            const weekStart = new Date(currentMonthDate);
+            const weekStartStr = toStr(weekStart);
+            const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 6);
+            const weekEndStr = toStr(weekEnd);
+
+            const toCopy = events.filter(e => (e.recurrence || 'none') === 'none' && e.startDate >= weekStartStr && e.startDate <= weekEndStr);
+
+            if (!toCopy.length) { showToast('Nenhum compromisso avulso nesta semana para copiar (eventos recorrentes já se repetem sozinhos).', 'error'); return; }
+
+            showConfirm(`Copiar ${toCopy.length} compromisso(s) desta semana para a próxima?`, 'Cada evento avulso será recriado 7 dias depois, no mesmo horário. Eventos recorrentes não são duplicados aqui, pois já se repetem sozinhos.', () => {
+                toCopy.forEach(e => {
+                    const newEv = {
+                        ...e, id: crypto.randomUUID(),
+                        startDate: addDaysToDateStr(e.startDate, 7),
+                        endDate: e.endDate ? addDaysToDateStr(e.endDate, 7) : '',
+                        excludedDates: [], recurrence: 'none', notified: false
+                    };
+                    events.push(newEv);
+                    cloudSyncEvent(newEv);
+                });
+                saveEventsToStorage();
+                renderCalendar();
+                showToast(`${toCopy.length} compromisso(s) copiados para a semana seguinte!`);
+            });
         }
 
         function switchToDayView(dateStr) {
