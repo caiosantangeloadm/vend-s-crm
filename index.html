@@ -10192,6 +10192,30 @@
             renderCalendar();
         }
 
+        // ── Copiar Dia (agenda) ───────────────────────────────────────────────
+        function copyDayToNextWeek(dateStr) {
+            const toCopy = events.filter(e => (e.recurrence || 'none') === 'none' && e.startDate === dateStr);
+            if (!toCopy.length) { showToast('Nenhum compromisso avulso neste dia para copiar (eventos recorrentes já se repetem sozinhos).', 'error'); return; }
+
+            const nextDateStr = addDaysToDateStr(dateStr, 7);
+            const nextFmt = nextDateStr.split('-').reverse().join('/');
+            showConfirm(`Copiar ${toCopy.length} compromisso(s) deste dia para ${nextFmt}?`, 'Cada evento avulso será recriado no mesmo horário, uma semana depois.', () => {
+                toCopy.forEach(e => {
+                    const newEv = {
+                        ...e, id: crypto.randomUUID(),
+                        startDate: nextDateStr,
+                        endDate: e.endDate ? addDaysToDateStr(e.endDate, 7) : '',
+                        excludedDates: [], recurrence: 'none', notified: false
+                    };
+                    events.push(newEv);
+                    cloudSyncEvent(newEv);
+                });
+                saveEventsToStorage();
+                renderCalendar();
+                showToast(`${toCopy.length} compromisso(s) copiados para ${nextFmt}!`);
+            });
+        }
+
         // ── Copiar Semana (agenda) ────────────────────────────────────────────
         function copyWeekToNextWeek() {
             if (calViewMode !== 'week') { showToast('Mude para a Visão Semana primeiro.', 'error'); return; }
@@ -11086,7 +11110,10 @@
                 document.getElementById('dayTimelineHeader').innerHTML = `
                     <div class="flex items-center justify-between mb-2">
                         <h3 class="text-sm font-bold text-white capitalize">${dayLabel}</h3>
-                        <button onclick="openEventModal(null, '${dateStr}')" class="text-xs text-sant-cyan hover:text-[#7aafc8] flex items-center gap-1 transition-colors"><i class="ph ph-plus"></i> Novo evento</button>
+                        <div class="flex items-center gap-3">
+                            <button onclick="copyDayToNextWeek('${dateStr}')" class="text-xs text-gray-400 hover:text-sant-cyan flex items-center gap-1 transition-colors" title="Copiar os compromissos deste dia para o mesmo dia da próxima semana"><i class="ph ph-copy"></i> Copiar Dia</button>
+                            <button onclick="openEventModal(null, '${dateStr}')" class="text-xs text-sant-cyan hover:text-[#7aafc8] flex items-center gap-1 transition-colors"><i class="ph ph-plus"></i> Novo evento</button>
+                        </div>
                     </div>
                     ${bannerHtml ? `<div class="flex flex-wrap gap-2">${bannerHtml}</div>` : ''}`;
 
