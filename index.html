@@ -1246,6 +1246,7 @@
                     <button onclick="switchReportTab('geography')" id="tab-geography" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-map-pin"></i> Regiões</button>
                     <button onclick="switchReportTab('monthly')" id="tab-monthly" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-file-pdf"></i> Relatório Mensal</button>
                     <button onclick="switchReportTab('origins')" id="tab-origins" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-funnel"></i> Origens</button>
+                    <button onclick="switchReportTab('documents')" id="tab-documents" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-file-text"></i> Documentos &amp; Propostas</button>
                 </div>
 
                 <div id="report-birthdays" class="report-content flex flex-col">
@@ -1453,6 +1454,17 @@
                         </div>
                     </div>
                     <div id="originsRepTable" class="pb-10"></div>
+                </div>
+
+                <!-- Relatório de Documentos & Propostas -->
+                <div id="report-documents" class="report-content hidden flex flex-col">
+                    <div class="flex justify-end mb-4 shrink-0">
+                        <button onclick="exportDocumentsReportCsv()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors">
+                            <i class="ph ph-file-csv"></i> Exportar CSV
+                        </button>
+                    </div>
+                    <div id="docsRepSummary" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 shrink-0"></div>
+                    <div id="docsRepTable" class="pb-10"></div>
                 </div>
             </div>
 
@@ -12293,6 +12305,7 @@
             if(tabId === 'geography')  generateGeographyReport();
             if(tabId === 'monthly')   initMonthlyReport();
             if(tabId === 'origins')   generateOriginsReport();
+            if(tabId === 'documents') generateDocumentsReport();
             if(tabId === 'birthdays') {
                 const startInput = document.getElementById('repBirthStart');
                 const endInput = document.getElementById('repBirthEnd');
@@ -13702,6 +13715,74 @@
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
             URL.revokeObjectURL(a.href);
             showToast('CSV de origens exportado!');
+        }
+
+        // ── Relatório consolidado: Documentos & Propostas ────────────────────
+        function collectAllContactDocs() {
+            const rows = [];
+            contacts.forEach(c => {
+                (c.documents || []).forEach(d => {
+                    rows.push({ contactId: c.id, contactName: fullName(c), title: d.title || d.url, url: d.url, status: d.status || 'rascunho', createdAt: d.createdAt || '' });
+                });
+            });
+            return rows;
+        }
+
+        function generateDocumentsReport() {
+            const docs = collectAllContactDocs();
+            const summaryEl = document.getElementById('docsRepSummary');
+            const tableEl = document.getElementById('docsRepTable');
+
+            const counts = { rascunho: 0, enviado: 0, assinado: 0, recusado: 0 };
+            docs.forEach(d => { counts[d.status] = (counts[d.status] || 0) + 1; });
+
+            summaryEl.innerHTML = Object.keys(DOC_STATUS_META).map(k => `
+                <div class="bg-sant-surface border rounded-xl p-4 text-center" style="border-color:${DOC_STATUS_META[k].color}33">
+                    <p class="text-3xl font-bold" style="color:${DOC_STATUS_META[k].color}">${counts[k] || 0}</p>
+                    <p class="text-xs text-gray-500 mt-1">${DOC_STATUS_META[k].label}</p>
+                </div>`).join('');
+
+            if (!docs.length) {
+                tableEl.innerHTML = emptyState('ph-file-text', 'Nenhum documento cadastrado ainda', 'Adicione propostas e contratos no Histórico de cada contato, seção "Documentos & Propostas".');
+                return;
+            }
+
+            const sorted = [...docs].sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||''));
+            tableEl.innerHTML = `<div class="bg-sant-surface border border-sant-border rounded-2xl overflow-hidden">
+                <table class="w-full text-sm">
+                    <thead><tr class="border-b border-sant-border bg-[#0d0d0d]">
+                        <th class="text-left px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Documento</th>
+                        <th class="text-left px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Contato</th>
+                        <th class="text-center px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="text-left px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Criado em</th>
+                    </tr></thead>
+                    <tbody>${sorted.map(d => {
+                        const meta = DOC_STATUS_META[d.status] || DOC_STATUS_META.rascunho;
+                        const dateFmt = d.createdAt ? new Date(d.createdAt).toLocaleDateString('pt-BR') : '—';
+                        return `<tr class="border-b border-sant-border/50 hover:bg-white/3 transition-colors cursor-pointer" onclick="switchView('contacts');openHistoryModal('${d.contactId}')">
+                            <td class="px-4 py-3"><a href="${d.url}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="text-sant-cyan hover:underline">${d.title}</a></td>
+                            <td class="px-4 py-3 text-white">${d.contactName}</td>
+                            <td class="px-3 py-3 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold" style="color:${meta.color};background:${meta.color}18;border:1px solid ${meta.color}33">${meta.label}</span></td>
+                            <td class="px-4 py-3 text-gray-400">${dateFmt}</td>
+                        </tr>`;
+                    }).join('')}</tbody>
+                </table>
+            </div>`;
+        }
+
+        function exportDocumentsReportCsv() {
+            const docs = collectAllContactDocs();
+            if (!docs.length) { showToast('Nenhum documento para exportar.', 'error'); return; }
+            const headers = ['Documento','Contato','Status','Link','Criado em'];
+            const rows = docs.map(d => [d.title, d.contactName, (DOC_STATUS_META[d.status]||DOC_STATUS_META.rascunho).label, d.url, d.createdAt ? new Date(d.createdAt).toLocaleDateString('pt-BR') : '']);
+            const csv = [headers,...rows].map(r => r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+            const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `vends_documentos_propostas_${getSPTodayStr()}.csv`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+            showToast(`${docs.length} documento(s) exportado(s)!`);
         }
         // ── fim Relatório de Origens ──────────────────────────────────────────
 
