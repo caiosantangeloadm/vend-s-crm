@@ -2721,9 +2721,10 @@
                 </div>
                 <p class="text-center text-white font-medium mb-1">Excluir "<span id="recurDeleteTitle"></span>"</p>
                 <p class="text-center text-gray-500 text-sm mb-1">Este é um compromisso recorrente.</p>
-                <p class="text-center text-gray-500 text-sm mb-6">Você quer excluir apenas a ocorrência de <span id="recurDeleteDate" class="text-gray-300 font-medium"></span> ou toda a série?</p>
+                <p class="text-center text-gray-500 text-sm mb-6">Você quer excluir apenas a ocorrência de <span id="recurDeleteDate" class="text-gray-300 font-medium"></span>, esta e as futuras, ou toda a série?</p>
                 <div class="flex flex-col gap-2">
                     <button onclick="confirmDeleteOccurrence()" class="w-full px-4 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white transition-colors text-sm font-bold">Excluir somente esta data</button>
+                    <button onclick="confirmDeleteFuture()" class="w-full px-4 py-2.5 rounded-lg bg-orange-700 hover:bg-orange-800 text-white transition-colors text-sm font-bold">Excluir esta e as futuras</button>
                     <button onclick="confirmDeleteSeries()" class="w-full px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors text-sm font-bold">Excluir toda a série</button>
                     <button onclick="closeRecurDeleteModal()" class="w-full px-4 py-2.5 rounded-lg border border-sant-border text-gray-400 hover:text-white transition-colors text-sm font-medium">Cancelar</button>
                 </div>
@@ -11402,6 +11403,23 @@
                 cloudSyncEvent(ev);
                 renderCalendar();
                 showToast('Ocorrência excluída — as demais datas da série permanecem.');
+                if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
+            }
+            closeRecurDeleteModal();
+        }
+        // Excluir "esta e as futuras": encerra a série um dia antes desta data,
+        // sem apagar nenhuma ocorrência passada nem precisar listar excludedDates uma a uma.
+        function confirmDeleteFuture() {
+            if (!recurDeleteContext) return;
+            const { id, dateStr } = recurDeleteContext;
+            const ev = events.find(e => e.id === id);
+            if (ev) {
+                ev.recurrenceEndType = 'date';
+                ev.recurrenceEndDate = addDaysToDateStr(dateStr, -1);
+                saveEventsToStorage();
+                cloudSyncEvent(ev);
+                renderCalendar();
+                showToast('Ocorrências a partir desta data foram excluídas — as anteriores permanecem.');
                 if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
             }
             closeRecurDeleteModal();
