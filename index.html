@@ -2265,6 +2265,32 @@
                     <input type="file" id="importContactsCsvInput" accept=".csv" class="hidden" onchange="importContactsCsv(event)">
                     <p class="text-[10px] text-gray-600 mt-2">Importa um arquivo .csv exportado do Google Contatos (Contatos → Exportar → formato Google CSV). Apenas adiciona contatos novos — não altera nem apaga os existentes. Contatos com nome ou telefone já cadastrados são ignorados.</p>
                 </div>
+
+                <!-- Sincronização com Google Calendar (feed assinável) -->
+                <div class="border-t border-sant-border pt-4">
+                    <div class="flex items-center gap-2 mb-3">
+                        <i class="ph ph-calendar-check text-sant-cyan"></i>
+                        <span class="text-sm font-semibold text-white">Sincronizar com Google Calendar</span>
+                    </div>
+                    <p class="text-[11px] text-gray-500 mb-3">Assine este link uma vez no Google Calendar e ele acompanha sua Agenda do Vend-s automaticamente — sem precisar exportar o .ics de novo a cada mudança (o Google atualiza sozinho, a cada algumas horas).</p>
+                    <div class="flex gap-2">
+                        <input type="text" id="icsFeedUrlInput" readonly class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-xs text-gray-300 outline-none" placeholder="Carregando link...">
+                        <button onclick="copyIcsFeedUrl()" class="shrink-0 bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+                            <i class="ph ph-copy"></i> Copiar
+                        </button>
+                    </div>
+                    <div class="mt-3 bg-[#141414] border border-sant-border rounded-lg p-3 space-y-1">
+                        <p class="text-[11px] text-gray-400 font-semibold">Como assinar no Google Calendar:</p>
+                        <p class="text-[11px] text-gray-500">1. Copie o link acima</p>
+                        <p class="text-[11px] text-gray-500">2. No Google Calendar (computador), clique no "+" ao lado de "Outras agendas"</p>
+                        <p class="text-[11px] text-gray-500">3. Escolha "Por URL" e cole o link</p>
+                        <p class="text-[11px] text-gray-500">4. Clique em "Adicionar agenda"</p>
+                    </div>
+                    <button onclick="regenerateIcsFeedToken()" class="w-full mt-3 bg-[#141414] border border-sant-border hover:border-red-500/40 text-gray-400 hover:text-red-400 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2">
+                        <i class="ph ph-arrow-clockwise"></i> Gerar novo link (invalida o atual)
+                    </button>
+                    <p class="text-[10px] text-gray-600 mt-2">Quem tiver esse link consegue ver sua agenda — trate-o como uma senha. Se desconfiar que vazou, gere um novo.</p>
+                </div>
             </div>
         </div>
     </div>
@@ -8678,6 +8704,33 @@
         let mergeBaseId = null;
         let mergeTargetId = null;
 
+        // ── Feed .ics assinável (Google Calendar) ────────────────────────────
+        let icsFeedToken = localStorage.getItem('vends_ics_feed_token') || '';
+        function generateIcsFeedToken() {
+            return (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, '');
+        }
+        function buildIcsFeedUrl() {
+            return icsFeedToken ? `${location.origin}/api/calendar-feed?token=${icsFeedToken}` : '';
+        }
+        function loadIcsFeedUrl() {
+            const input = document.getElementById('icsFeedUrlInput');
+            if (input) input.value = buildIcsFeedUrl() || 'Gerando link...';
+        }
+        function copyIcsFeedUrl() {
+            const url = buildIcsFeedUrl();
+            if (!url) { showToast('Link ainda não foi gerado — tente novamente em instantes.', 'error'); return; }
+            navigator.clipboard.writeText(url).then(() => showToast('Link copiado! Cole no Google Calendar.'));
+        }
+        function regenerateIcsFeedToken() {
+            showConfirm('Gerar novo link de assinatura?', 'O link atual deixará de funcionar — se você já assinou no Google Calendar, precisará assinar de novo com o novo link.', () => {
+                icsFeedToken = generateIcsFeedToken();
+                localStorage.setItem('vends_ics_feed_token', icsFeedToken);
+                syncPreferencesToSupabase();
+                loadIcsFeedUrl();
+                showToast('Novo link gerado!');
+            });
+        }
+
         function openMergeModal(contactId) {
             mergeBaseId = contactId;
             mergeTargetId = null;
@@ -13428,6 +13481,7 @@
                     "taskPlaybooks": taskPlaybooks,
                     "automationRules": automationRules,
                     "messageSignature": localStorage.getItem('sant_crm_message_signature') || '',
+                    "icsFeedToken": icsFeedToken || null,
                 };
                 await sb.from('user_preferences').upsert(row, { onConflict: 'user_id' });
                 markSyncSuccess();
@@ -13504,6 +13558,10 @@
                 if (data.bigGoalsPeriod && data.bigGoalsPeriod !== bigGoalsPeriod) { bigGoalsPeriod = data.bigGoalsPeriod; }
                 if (currentView === 'contacts') renderContacts(document.getElementById('searchInput') ? document.getElementById('searchInput').value : '');
                 if (currentView === 'dashboard') renderDashboard();
+                // Token do feed .ics: usa o da nuvem se existir; senão gera um na primeira vez
+                if (data.icsFeedToken) { icsFeedToken = data.icsFeedToken; localStorage.setItem('vends_ics_feed_token', icsFeedToken); }
+                else if (!icsFeedToken) { icsFeedToken = generateIcsFeedToken(); localStorage.setItem('vends_ics_feed_token', icsFeedToken); }
+                loadIcsFeedUrl();
                 // Sincroniza de volta para garantir consistência (streak já foi restaurado do cloud)
                 syncPreferencesToSupabase();
                 markSyncSuccess();
@@ -14959,6 +15017,7 @@
             if (inactSel) inactSel.value = localStorage.getItem('vends_inactivity_days') || '60';
             newBlockDays = [];
             renderScheduleBlocksList();
+            loadIcsFeedUrl();
         }
         function closeCategoryManager() { document.getElementById('categoryModal').classList.add('hidden'); }
 
