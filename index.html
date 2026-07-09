@@ -8778,6 +8778,14 @@
                     localStorage.setItem('sant_crm_tasks',  JSON.stringify(tasks));
                     localStorage.setItem('sant_crm_events', JSON.stringify(events));
                     localStorage.setItem('sant_crm_notes',  JSON.stringify(notes));
+                    // Sincronizar com a nuvem: base atualizado, target excluído, e os
+                    // registros redirecionados (tarefas/eventos/notas) precisam reenviar
+                    // o novo contactId, senão outros dispositivos continuam vendo o antigo.
+                    cloudSyncContact(base);
+                    cloudDeleteContact(mergeTargetId);
+                    tasks.forEach(t  => { if (t.contactId === mergeBaseId) cloudSyncTask(t); });
+                    events.forEach(e => { if (e.contactId === mergeBaseId) cloudSyncEvent(e); });
+                    notes.forEach(n  => { if (n.contactId === mergeBaseId) cloudSyncNote(n); });
                     renderContacts();
                     closeMergeModal();
                     showToast(`Contatos mesclados com sucesso!`, 'success');
