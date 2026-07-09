@@ -1899,6 +1899,30 @@
                         <div id="auditTagList" class="flex flex-wrap gap-2"></div>
                     </div>
 
+                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 mb-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <p class="text-sm font-bold text-white flex items-center gap-2"><i class="ph ph-tag text-amber-400"></i> Contatos Sem Categoria</p>
+                            <span id="auditNoCatCount" class="text-[10px] text-gray-600 bg-[#141414] border border-sant-border rounded-full px-2 py-0.5"></span>
+                        </div>
+                        <div id="auditNoCatBulk" class="hidden flex gap-2 mb-4">
+                            <select id="auditNoCatBulkSelect" class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan"></select>
+                            <button onclick="bulkFillMissingCategory()" class="shrink-0 bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-2 rounded-lg text-sm font-medium transition-colors">Aplicar a todos</button>
+                        </div>
+                        <div id="auditNoCatList" class="space-y-1.5"></div>
+                    </div>
+
+                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 mb-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <p class="text-sm font-bold text-white flex items-center gap-2"><i class="ph ph-map-pin text-sant-cyan"></i> Contatos Sem Origem</p>
+                            <span id="auditNoOriginCount" class="text-[10px] text-gray-600 bg-[#141414] border border-sant-border rounded-full px-2 py-0.5"></span>
+                        </div>
+                        <div id="auditNoOriginBulk" class="hidden flex gap-2 mb-4">
+                            <select id="auditNoOriginBulkSelect" class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan"></select>
+                            <button onclick="bulkFillMissingOrigin()" class="shrink-0 bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-2 rounded-lg text-sm font-medium transition-colors">Aplicar a todos</button>
+                        </div>
+                        <div id="auditNoOriginList" class="space-y-1.5"></div>
+                    </div>
+
                     <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
                         <div class="flex items-center justify-between mb-4">
                             <p class="text-sm font-bold text-white flex items-center gap-2"><i class="ph ph-git-merge text-red-400"></i> Possíveis Contatos Duplicados</p>
@@ -14570,7 +14594,105 @@
         function renderSAudit() {
             renderAuditCategories();
             renderAuditTags();
+            renderAuditNoCategory();
+            renderAuditNoOrigin();
             renderAuditDuplicates();
+        }
+
+        // — Faxina de dados: contatos sem Categoria / sem Origem —
+        function renderAuditNoCategory() {
+            const list = document.getElementById('auditNoCatList');
+            const countEl = document.getElementById('auditNoCatCount');
+            const bulkBox = document.getElementById('auditNoCatBulk');
+            const bulkSel = document.getElementById('auditNoCatBulkSelect');
+            if (!list) return;
+            const missing = contacts.filter(c => !c.category);
+            countEl.textContent = `${missing.length} contato${missing.length!==1?'s':''}`;
+            if (!missing.length) {
+                list.innerHTML = '<p class="text-xs text-gray-600 italic">Todos os contatos têm categoria. ✓</p>';
+                bulkBox.classList.add('hidden');
+                return;
+            }
+            bulkBox.classList.remove('hidden');
+            bulkSel.innerHTML = '<option value="">Escolha uma categoria...</option>' +
+                categories.map(cat => `<option value="${cat}">${cat}</option>`).join('');
+            list.innerHTML = missing.slice(0, 30).map(c => `
+                <div class="flex items-center justify-between gap-2 bg-[#0a0a0a] border border-sant-border rounded-lg px-3 py-2">
+                    <span class="text-xs text-gray-300 truncate flex-1">${fullName(c)} ${c.code?`<span class="text-gray-600 font-mono text-[10px]">#${c.code}</span>`:''}</span>
+                    <select onchange="setContactCategoryInline('${c.id}', this.value)" class="bg-[#141414] border border-sant-border rounded-lg px-2 py-1 text-xs text-white outline-none shrink-0 max-w-[160px]">
+                        <option value="">Sem categoria</option>
+                        ${categories.map(cat => `<option value="${cat}">${cat}</option>`).join('')}
+                    </select>
+                </div>`).join('') + (missing.length > 30 ? `<p class="text-[10px] text-gray-600 text-center pt-1">+${missing.length-30} contato(s) — use "Aplicar a todos" acima para cobrir todos de uma vez</p>` : '');
+        }
+        function setContactCategoryInline(id, cat) {
+            const c = contacts.find(x => x.id === id);
+            if (!c) return;
+            c.category = cat;
+            saveToStorage();
+            cloudSyncContact(c);
+            showToast(`Categoria de ${fullName(c)} atualizada!`);
+            renderAuditNoCategory();
+        }
+        function bulkFillMissingCategory() {
+            const cat = document.getElementById('auditNoCatBulkSelect').value;
+            if (!cat) { showToast('Escolha uma categoria primeiro.', 'error'); return; }
+            const missing = contacts.filter(c => !c.category);
+            if (!missing.length) return;
+            showConfirm(`Aplicar a categoria "${cat}" a ${missing.length} contato(s) sem categoria?`, '', () => {
+                missing.forEach(c => { c.category = cat; cloudSyncContact(c); });
+                saveToStorage();
+                updateCategorySelects();
+                showToast(`${missing.length} contato(s) atualizados!`);
+                renderAuditNoCategory();
+            });
+        }
+
+        function renderAuditNoOrigin() {
+            const list = document.getElementById('auditNoOriginList');
+            const countEl = document.getElementById('auditNoOriginCount');
+            const bulkBox = document.getElementById('auditNoOriginBulk');
+            const bulkSel = document.getElementById('auditNoOriginBulkSelect');
+            if (!list) return;
+            const missing = contacts.filter(c => !c.origin);
+            countEl.textContent = `${missing.length} contato${missing.length!==1?'s':''}`;
+            if (!missing.length) {
+                list.innerHTML = '<p class="text-xs text-gray-600 italic">Todos os contatos têm origem definida. ✓</p>';
+                bulkBox.classList.add('hidden');
+                return;
+            }
+            bulkBox.classList.remove('hidden');
+            bulkSel.innerHTML = '<option value="">Escolha uma origem...</option>' +
+                origins.map(o => `<option value="${o}">${o}</option>`).join('');
+            list.innerHTML = missing.slice(0, 30).map(c => `
+                <div class="flex items-center justify-between gap-2 bg-[#0a0a0a] border border-sant-border rounded-lg px-3 py-2">
+                    <span class="text-xs text-gray-300 truncate flex-1">${fullName(c)} ${c.code?`<span class="text-gray-600 font-mono text-[10px]">#${c.code}</span>`:''}</span>
+                    <select onchange="setContactOriginInline('${c.id}', this.value)" class="bg-[#141414] border border-sant-border rounded-lg px-2 py-1 text-xs text-white outline-none shrink-0 max-w-[160px]">
+                        <option value="">Não informado</option>
+                        ${origins.map(o => `<option value="${o}">${o}</option>`).join('')}
+                    </select>
+                </div>`).join('') + (missing.length > 30 ? `<p class="text-[10px] text-gray-600 text-center pt-1">+${missing.length-30} contato(s) — use "Aplicar a todos" acima para cobrir todos de uma vez</p>` : '');
+        }
+        function setContactOriginInline(id, origin) {
+            const c = contacts.find(x => x.id === id);
+            if (!c) return;
+            c.origin = origin;
+            saveToStorage();
+            cloudSyncContact(c);
+            showToast(`Origem de ${fullName(c)} atualizada!`);
+            renderAuditNoOrigin();
+        }
+        function bulkFillMissingOrigin() {
+            const origin = document.getElementById('auditNoOriginBulkSelect').value;
+            if (!origin) { showToast('Escolha uma origem primeiro.', 'error'); return; }
+            const missing = contacts.filter(c => !c.origin);
+            if (!missing.length) return;
+            showConfirm(`Aplicar a origem "${origin}" a ${missing.length} contato(s) sem origem?`, '', () => {
+                missing.forEach(c => { c.origin = origin; cloudSyncContact(c); });
+                saveToStorage();
+                showToast(`${missing.length} contato(s) atualizados!`);
+                renderAuditNoOrigin();
+            });
         }
 
         function renderAuditCategories() {
