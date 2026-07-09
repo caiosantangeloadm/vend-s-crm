@@ -4298,6 +4298,7 @@
                         fireNotification({ title: ev.title, startTime: ev.startTime, location: ev.location, id: ev.id });
                         ev.notified = true;
                         saveEventsToStorage();
+                        cloudSyncEvent(ev);
                     }
                 });
 
@@ -4312,6 +4313,7 @@
                         fireNotification({ title: t.title, startTime: t.time, location: 'Gestão de Tarefas', id: t.id, _notifType: 'task' });
                         t.notified = true;
                         saveTasksToStorage();
+                        cloudSyncTask(t);
                     }
                 });
 
