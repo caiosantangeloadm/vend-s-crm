@@ -6898,6 +6898,7 @@
                         endDate: event.endDate ? toDate : ''
                     };
                     events.push(copy);
+                    cloudSyncEvent(copy);
                 } else {
                     // Toda a série: desloca startDate (e endDate se existir)
                     const diffMs = new Date(toDate) - new Date(calDragFromDate);
@@ -6911,6 +6912,7 @@
                 if (event.endDate) event.endDate = toDate;
             }
             saveEventsToStorage();
+            cloudSyncEvent(event);
             renderCalendar();
             showToast('Compromisso reagendado!');
             calDragEventId = null;
@@ -7571,7 +7573,7 @@
         }
         function toggleNotePin(id) {
             const n = notes.find(x => x.id === id);
-            if (n) { n.pinned = !n.pinned; saveNotesToStorage(); renderNotes(); }
+            if (n) { n.pinned = !n.pinned; saveNotesToStorage(); cloudSyncNote(n); renderNotes(); }
         }
         function deleteNote(id) {
             if (!confirm('Excluir esta nota permanentemente?')) return;
@@ -7587,6 +7589,7 @@
             n.archived = true;
             n.updatedAt = new Date().toISOString();
             saveNotesToStorage();
+            cloudSyncNote(n);
             renderNotes();
             showToast('Nota arquivada.');
         }
@@ -7597,6 +7600,7 @@
             n.archived = false;
             n.updatedAt = new Date().toISOString();
             saveNotesToStorage();
+            cloudSyncNote(n);
             renderNotes();
             showToast('Nota restaurada.');
         }
@@ -7662,7 +7666,7 @@
 
         function setNoteColor(id, color) {
             const n = notes.find(x => x.id === id);
-            if (n) { n.color = color; n.updatedAt = new Date().toISOString(); saveNotesToStorage(); renderNotes(); }
+            if (n) { n.color = color; n.updatedAt = new Date().toISOString(); saveNotesToStorage(); cloudSyncNote(n); renderNotes(); }
         }
         function startEditNote(id) {
             const n = notes.find(x => x.id === id);
@@ -7974,6 +7978,7 @@
             n.kanbanColumn = col;
             n.updatedAt = new Date().toISOString();
             saveNotesToStorage();
+            cloudSyncNote(n);
             renderNotesKanban();
         }
 
@@ -8849,6 +8854,7 @@
             if (!c.interactions) c.interactions = [];
             c.interactions.push({ id: crypto.randomUUID(), type, date, notes });
             localStorage.setItem('sant_crm_contacts', JSON.stringify(contacts));
+            cloudSyncContact(c);
             closeQuickInteraction();
             renderContacts();
             showToast(`Interação registrada para ${fullName(c)}!`, 'success');
@@ -9393,6 +9399,7 @@
                     const blocks = [...unfolded.matchAll(veventRx)].map(m => m[1]);
 
                     if (!blocks.length) { showToast('Nenhum evento encontrado no arquivo .ics.', 'error'); return; }
+                    const importedIcsEvents = [];
 
                     // Parse a property value (handles VALUE=DATE and timezone prefixes)
                     const parseProp = (block, key) => {
@@ -9481,11 +9488,13 @@
                         events.push(ev);
                         if (uid) existingUids.add(uid);
                         added++;
+                        importedIcsEvents.push(ev);
                     });
 
                     if (added === 0) { showToast(`Nenhum evento novo importado (${skipped} já existia${skipped !== 1 ? 'm' : ''}).`, 'error'); return; }
 
                     localStorage.setItem('sant_crm_events', JSON.stringify(events));
+                    importedIcsEvents.forEach(ev => cloudSyncEvent(ev));
                     renderCalendar();
                     showToast(`${added} evento${added !== 1 ? 's' : ''} importado${added !== 1 ? 's' : ''}!${skipped ? ` (${skipped} ignorado${skipped !== 1 ? 's' : ''})` : ''}`);
                 } catch(err) {
@@ -9786,6 +9795,7 @@
                         toImport.forEach(c => { c.code = nextCode++; });
                         contacts.push(...toImport);
                         saveToStorage();
+                        toImport.forEach(c => cloudSyncContact(c));
                         renderContacts();
                         showToast(`${toImport.length} contato(s) importado(s) com sucesso!`);
                     }
@@ -13964,7 +13974,7 @@
             showConfirm(`Mover ${n} contato${n>1?'s':''} para a categoria "${cat}"?`, '', () => {
                 selectedContactIds.forEach(id => {
                     const c = contacts.find(x => x.id === id);
-                    if (c) c.category = cat;
+                    if (c) { c.category = cat; cloudSyncContact(c); }
                 });
                 saveToStorage();
                 exitBulkMode();
@@ -14016,6 +14026,7 @@
                 selectedContactIds.forEach(id => {
                     const idx = contacts.findIndex(c => c.id === id);
                     if (idx !== -1) contacts.splice(idx, 1);
+                    cloudDeleteContact(id);
                 });
                 saveToStorage();
                 exitBulkMode();
@@ -16073,6 +16084,7 @@
             if (item) {
                 item.done = !item.done;
                 saveTasksToStorage();
+                cloudSyncTask(task);
                 _refreshCurrentTaskView();
                 if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
             }
@@ -17691,6 +17703,8 @@
             }
 
             saveToStorage();
+            cloudSyncContact(c);
+            cloudSyncContact(t);
             document.getElementById('addRelForm').classList.add('hidden');
             renderRelationships(c);
             showToast(`Vínculo "${type}" criado com ${fullName(t)}!`);
@@ -17703,6 +17717,8 @@
             c.relationships = (c.relationships||[]).filter(r => !(r.contactId === targetId && r.type === type));
             if (t) t.relationships = (t.relationships||[]).filter(r => !(r.contactId === cId && r.type === type));
             saveToStorage();
+            cloudSyncContact(c);
+            if (t) cloudSyncContact(t);
             renderRelationships(c);
             showToast('Vínculo removido.');
         }
