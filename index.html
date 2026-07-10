@@ -4880,6 +4880,7 @@
                 "createdAt": toISO(t.createdAt),
                 "changeLog": t.changeLog || [],
                 "comments": t.comments || [],
+                notified: t.notified || false,
             };
         }
 
@@ -4902,6 +4903,7 @@
                 "excludedDates": e.excludedDates || [], uid: e.uid || '',
                 "createdAt": e.createdAt || new Date().toISOString(),
                 "changeLog": e.changeLog || [],
+                notified: e.notified || false,
             };
         }
 
