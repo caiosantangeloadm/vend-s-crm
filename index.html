@@ -4417,7 +4417,7 @@
         function checkUrgentTaskReminders() {
             const todayStr = getSPTodayStr();
             tasks.forEach(t => {
-                if (t.completed || !t.date) return;
+                if (t.completed || !t.date || t.waiting) return;
                 if (t.priority !== 'urgent' && t.priority !== 'high') return;
                 const isOverdue = t.date < todayStr;
                 const isToday   = t.date === todayStr;
@@ -4881,6 +4881,7 @@
                 "changeLog": t.changeLog || [],
                 "comments": t.comments || [],
                 notified: t.notified || false,
+                waiting: t.waiting || false, "waitingNote": t.waitingNote || '',
             };
         }
 
@@ -11853,7 +11854,7 @@
             if (currentTaskContactFilter) filtered = filtered.filter(t => t.contactId === currentTaskContactFilter);
 
             if (taskFocusMode) {
-                filtered = filtered.filter(t => !t.completed && t.date === todayStr);
+                filtered = filtered.filter(t => !t.completed && !t.waiting && t.date === todayStr);
             }
 
             if(searchTerm) {
@@ -11916,6 +11917,7 @@
 
             if (!searchTerm && filter !== 'completed' && currentTaskSort === 'date') {
                 const groups = {
+                    waiting: { label: 'Aguardando Terceiros', icon: 'ph-hourglass-medium', color: 'text-sant-purple', items: [] },
                     overdue: { label: 'Atrasadas', icon: 'ph-warning-circle', color: 'text-red-400', items: [] },
                     today: { label: 'Hoje', icon: 'ph-star', color: 'text-sant-cyan', items: [] },
                     upcoming: { label: 'Próximos dias', icon: 'ph-calendar-blank', color: 'text-gray-400', items: [] },
@@ -11923,12 +11925,13 @@
                 };
                 filtered.forEach(t => {
                     if (t.completed) { groups.upcoming.items.push(t); return; }
+                    if (t.waiting) { groups.waiting.items.push(t); return; }
                     if (!t.date) { groups.nodate.items.push(t); return; }
                     if (t.date < todayStr) groups.overdue.items.push(t);
                     else if (t.date === todayStr) groups.today.items.push(t);
                     else groups.upcoming.items.push(t);
                 });
-                list.innerHTML = ['overdue','today','upcoming','nodate'].map(key => {
+                list.innerHTML = ['waiting','overdue','today','upcoming','nodate'].map(key => {
                     const g = groups[key];
                     if (g.items.length === 0) return '';
                     return `
@@ -11952,7 +11955,7 @@
                 else if (dateStr) dateTimeDisplay = dateStr;
                 else if (timeStr) dateTimeDisplay = timeStr;
 
-                const isOverdue = t.date && !t.completed && t.date < todayStr;
+                const isOverdue = t.date && !t.completed && !t.waiting && t.date < todayStr;
                 const blocker = t.dependsOnId ? tasks.find(x => x.id === t.dependsOnId) : null;
                 const isBlocked = blocker && !blocker.completed;
 
@@ -11993,7 +11996,8 @@
                         <i class="ph ${isBlocked ? 'ph-lock text-red-400/60' : 'ph-check'}"></i>
                     </button>
                     <div class="flex-1 min-w-0 ${t.completed ? 'opacity-50' : ''}">
-                        <h4 class="text-[#fbbf24] font-medium break-words ${t.completed ? 'line-through' : ''}">${t.title} ${t.recurrence && t.recurrence !== 'none' ? '<i class="ph ph-repeat text-sant-cyan text-xs" title="Tarefa recorrente"></i>' : ''}${isBlocked ? `<span class="ml-2 text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded-full"><i class="ph ph-lock"></i> Bloqueada</span>` : ''}</h4>
+                        <h4 class="text-[#fbbf24] font-medium break-words ${t.completed ? 'line-through' : ''}">${t.title} ${t.recurrence && t.recurrence !== 'none' ? '<i class="ph ph-repeat text-sant-cyan text-xs" title="Tarefa recorrente"></i>' : ''}${isBlocked ? `<span class="ml-2 text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded-full"><i class="ph ph-lock"></i> Bloqueada</span>` : ''}${t.waiting ? `<span class="ml-2 text-[10px] font-bold text-sant-purple bg-sant-purple/10 border border-sant-purple/20 px-1.5 py-0.5 rounded-full"><i class="ph ph-hourglass-medium"></i> Aguardando Terceiros</span>` : ''}</h4>
+                        ${t.waiting && t.waitingNote ? `<p class="text-[11px] text-sant-purple/80 mt-1 flex items-center gap-1"><i class="ph ph-chat-circle-dots"></i> ${t.waitingNote}</p>` : ''}
                         ${isBlocked ? `<p class="text-[11px] text-red-400/70 mt-1 flex items-center gap-1"><i class="ph ph-arrow-bend-right-down"></i> Aguardando: <span class="font-medium text-red-400 cursor-pointer hover:underline" onclick="editTask('${blocker.id}')">${blocker.title}</span></p>` : ''}
                         ${isOverdue ? `<p class="text-[11px] text-red-400 mt-1 font-semibold flex items-center gap-1"><i class="ph ph-warning-circle"></i> Vencida — ${dateTimeDisplay}</p>` : (dateTimeDisplay ? `<p class="text-[11px] text-sant-cyan mt-1"><i class="ph ph-calendar-blank"></i> ${dateTimeDisplay}</p>` : '')}
                         ${t.estimatedMinutes ? `<p class="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1"><i class="ph ph-hourglass"></i> ${formatEstimate(t.estimatedMinutes)}</p>` : ''}
@@ -12011,6 +12015,7 @@
                         ${t.priority === 'high' ? '<i class="ph ph-flag text-red-500" title="Alta Prioridade"></i>' : (t.priority==='low' ? '<i class="ph ph-flag text-gray-600" title="Baixa"></i>' : '<i class="ph ph-flag text-sant-cyan" title="Normal"></i>')}
                         <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onclick="toggleTaskSnoozeMenu('${t.id}')" class="text-gray-400 hover:text-amber-400" title="Adiar tarefa"><i class="ph ph-alarm text-lg"></i></button>
+                            <button onclick="toggleTaskWaiting('${t.id}')" class="${t.waiting ? 'text-sant-purple' : 'text-gray-400 hover:text-sant-purple'}" title="${t.waiting ? 'Remover Aguardando Terceiros' : 'Marcar como Aguardando Terceiros'}"><i class="ph ph-hourglass-medium text-lg"></i></button>
                             <button onclick="duplicateTask('${t.id}')" class="text-gray-400 hover:text-sant-cyan" title="Duplicar tarefa"><i class="ph ph-copy text-lg"></i></button>
                             <button onclick="editTask('${t.id}')" class="text-gray-400 hover:text-sant-cyan"><i class="ph ph-pencil-simple text-lg"></i></button>
                             <button onclick="deleteTask('${t.id}')" class="text-gray-400 hover:text-red-500"><i class="ph ph-trash text-lg"></i></button>
@@ -12018,6 +12023,26 @@
                     </div>
                 </div>`;
             })();
+        }
+
+        function toggleTaskWaiting(id) {
+            const t = tasks.find(x => x.id === id);
+            if (!t) return;
+            if (t.waiting) {
+                t.waiting = false;
+                t.waitingNote = '';
+                showToast('Tarefa voltou para a lista ativa.');
+            } else {
+                const note = prompt('Aguardando o quê? (opcional, ex: "Resposta do cliente")', t.waitingNote || '');
+                if (note === null) return; // cancelou
+                t.waiting = true;
+                t.waitingNote = note.trim();
+                showToast('Tarefa marcada como "Aguardando Terceiros".');
+            }
+            saveTasksToStorage();
+            cloudSyncTask(t);
+            _refreshCurrentTaskView();
+            if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
         }
 
         function toggleTaskSnoozeMenu(id) {
