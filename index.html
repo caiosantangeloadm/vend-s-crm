@@ -1167,6 +1167,9 @@
                         <button onclick="toggleTaskFocus()" id="btnTaskFocus" class="px-4 py-1.5 rounded-full border border-[#fbbf24]/40 text-[#fbbf24]/60 hover:text-[#fbbf24] hover:border-[#fbbf24] transition-colors text-sm flex items-center gap-1.5">
                             <i class="ph ph-lightning"></i> Foco do Dia
                         </button>
+                        <button onclick="toggleTaskWaitingFilter()" id="btnTaskWaiting" class="px-4 py-1.5 rounded-full border border-sant-purple/40 text-sant-purple/60 hover:text-sant-purple hover:border-sant-purple transition-colors text-sm flex items-center gap-1.5">
+                            <i class="ph ph-hourglass-medium"></i> Aguardando Terceiros
+                        </button>
                     </div>
                     <div class="flex items-center gap-2 sm:ml-auto flex-wrap">
                         <div class="relative">
@@ -3778,6 +3781,7 @@
         let currentTaskContactFilter = '';
         let currentTaskSort = 'date';
         let taskFocusMode = false;
+        let taskWaitingFilterOnly = false;
 
         function showConfirm(msg, sub, cb) {
             document.getElementById('confirmMessage').innerText = msg;
@@ -11867,8 +11871,11 @@
         function filterTasks(f) {
             currentTaskFilter = f;
             taskFocusMode = false;
+            taskWaitingFilterOnly = false;
             const focusBtn = document.getElementById('btnTaskFocus');
             if (focusBtn) focusBtn.className = 'px-4 py-1.5 rounded-full border border-[#fbbf24]/40 text-[#fbbf24]/60 hover:text-[#fbbf24] hover:border-[#fbbf24] transition-colors text-sm flex items-center gap-1.5';
+            const waitBtn = document.getElementById('btnTaskWaiting');
+            if (waitBtn) waitBtn.className = 'px-4 py-1.5 rounded-full border border-sant-purple/40 text-sant-purple/60 hover:text-sant-purple hover:border-sant-purple transition-colors text-sm flex items-center gap-1.5';
             if (taskViewMode === 'kanban') switchTaskView('list');
             document.querySelectorAll('button[id^="btnFilter"]').forEach(b => { b.className = 'filter-status-btn px-4 py-1.5 rounded-full border border-sant-border text-gray-400 hover:text-white transition-colors text-sm'; });
             const btn = f==='all'? 'btnFilterAll' : f==='pending'? 'btnFilterPending' : 'btnFilterCompleted';
@@ -11886,13 +11893,32 @@
 
         function toggleTaskFocus() {
             taskFocusMode = !taskFocusMode;
+            if (taskFocusMode) taskWaitingFilterOnly = false;
             const focusBtn = document.getElementById('btnTaskFocus');
+            const waitBtn = document.getElementById('btnTaskWaiting');
+            if (waitBtn) waitBtn.className = 'px-4 py-1.5 rounded-full border border-sant-purple/40 text-sant-purple/60 hover:text-sant-purple hover:border-sant-purple transition-colors text-sm flex items-center gap-1.5';
             if (taskFocusMode) {
                 if (focusBtn) focusBtn.className = 'px-4 py-1.5 rounded-full bg-[#fbbf24] text-sant-bg font-semibold transition-colors text-sm flex items-center gap-1.5';
                 if (taskViewMode === 'kanban') switchTaskView('list');
                 renderTasks('pending', '');
             } else {
                 if (focusBtn) focusBtn.className = 'px-4 py-1.5 rounded-full border border-[#fbbf24]/40 text-[#fbbf24]/60 hover:text-[#fbbf24] hover:border-[#fbbf24] transition-colors text-sm flex items-center gap-1.5';
+                renderTasks(currentTaskFilter, document.getElementById('taskSearchInput') ? document.getElementById('taskSearchInput').value : '');
+            }
+        }
+
+        function toggleTaskWaitingFilter() {
+            taskWaitingFilterOnly = !taskWaitingFilterOnly;
+            if (taskWaitingFilterOnly) taskFocusMode = false;
+            const focusBtn = document.getElementById('btnTaskFocus');
+            const waitBtn = document.getElementById('btnTaskWaiting');
+            if (focusBtn) focusBtn.className = 'px-4 py-1.5 rounded-full border border-[#fbbf24]/40 text-[#fbbf24]/60 hover:text-[#fbbf24] hover:border-[#fbbf24] transition-colors text-sm flex items-center gap-1.5';
+            if (taskWaitingFilterOnly) {
+                if (waitBtn) waitBtn.className = 'px-4 py-1.5 rounded-full bg-sant-purple text-white font-semibold transition-colors text-sm flex items-center gap-1.5';
+                if (taskViewMode === 'kanban') switchTaskView('list');
+                renderTasks('pending', '');
+            } else {
+                if (waitBtn) waitBtn.className = 'px-4 py-1.5 rounded-full border border-sant-purple/40 text-sant-purple/60 hover:text-sant-purple hover:border-sant-purple transition-colors text-sm flex items-center gap-1.5';
                 renderTasks(currentTaskFilter, document.getElementById('taskSearchInput') ? document.getElementById('taskSearchInput').value : '');
             }
         }
@@ -11910,6 +11936,10 @@
 
             if (taskFocusMode) {
                 filtered = filtered.filter(t => !t.completed && !t.waiting && t.date === todayStr);
+            }
+
+            if (taskWaitingFilterOnly) {
+                filtered = filtered.filter(t => !t.completed && t.waiting);
             }
 
             if(searchTerm) {
@@ -11965,6 +11995,16 @@
                         if (!isFocus) return card;
                         return `<div class="ring-1 ring-[#fbbf24]/40 rounded-xl relative"><span class="absolute top-2 right-2 z-10 text-[9px] font-bold text-[#fbbf24] bg-[#fbbf24]/10 border border-[#fbbf24]/20 px-1.5 py-0.5 rounded pointer-events-none">⚡ FOCO</span>${card}</div>`;
                     }).join('');
+                return;
+            }
+
+            if (taskWaitingFilterOnly) {
+                if (filtered.length === 0) {
+                    list.innerHTML = emptyState('ph-hourglass-medium', 'Nenhuma tarefa aguardando terceiros', 'As tarefas marcadas com "Aguardando Terceiros" aparecem aqui.');
+                    return;
+                }
+                list.innerHTML = `<div class="mb-3 flex items-center gap-2 text-sant-purple text-xs font-semibold uppercase tracking-wider"><i class="ph ph-hourglass-medium"></i> Aguardando Terceiros — ${filtered.length} tarefa${filtered.length!==1?'s':''}</div>` +
+                    filtered.map(t => taskCardHtml(t, todayStr)).join('');
                 return;
             }
 
