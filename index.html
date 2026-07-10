@@ -15811,8 +15811,19 @@
                         <p class="text-sm text-white font-medium truncate">${b.title}</p>
                         <p class="text-[10px] text-gray-500">${b.startTime || ''}${b.endTime ? ' - ' + b.endTime : ''} · ${b.days.map(d => dayLabels[d]).join(' ')}</p>
                     </div>
+                    <button type="button" onclick="duplicateScheduleBlock('${b.id}')" class="text-gray-400 hover:text-sant-cyan px-2 shrink-0" title="Duplicar"><i class="ph ph-copy"></i></button>
                     <button type="button" onclick="deleteScheduleBlock('${b.id}')" class="text-gray-400 hover:text-red-500 px-2 shrink-0"><i class="ph ph-trash"></i></button>
                 </div>`).join('');
+        }
+
+        function duplicateScheduleBlock(id) {
+            const b = scheduleBlocks.find(x => x.id === id);
+            if (!b) return;
+            scheduleBlocks.push({ id: crypto.randomUUID(), title: `Cópia de ${b.title}`, startTime: b.startTime, endTime: b.endTime, days: [...b.days] });
+            saveScheduleBlocksToStorage();
+            renderScheduleBlocksList();
+            renderCalendar();
+            showToast('Bloqueio duplicado — revise o título e os dias.');
         }
 
         function addScheduleBlock() {
