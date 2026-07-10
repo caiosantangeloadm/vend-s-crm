@@ -525,6 +525,27 @@
                         <div id="dashCallsBar" class="h-2 rounded-full bg-sant-cyan transition-all duration-500" style="width:0%"></div>
                     </div>
                     <p id="dashCallsMsg" class="text-[11px] text-gray-500 mt-2"></p>
+
+                    <div class="mt-4 pt-3 border-t border-sant-border space-y-2.5">
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-[10px] text-gray-500 font-medium">Esta semana: <span id="dashCallsWeekCount" class="text-white font-bold">0</span>/<span id="dashCallsWeekGoalLabel">0</span></span>
+                                <input type="number" id="dashCallsWeekGoalInput" min="1" onchange="setWeeklyCallGoal(this.value)" class="w-12 bg-[#141414] border border-sant-border rounded px-1.5 py-0.5 text-[10px] text-white outline-none text-center focus:border-sant-cyan">
+                            </div>
+                            <div class="w-full bg-[#1f1f1f] rounded-full h-1.5">
+                                <div id="dashCallsWeekBar" class="h-1.5 rounded-full bg-sant-purple transition-all duration-500" style="width:0%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-[10px] text-gray-500 font-medium">Este mês: <span id="dashCallsMonthCount" class="text-white font-bold">0</span>/<span id="dashCallsMonthGoalLabel">0</span></span>
+                                <input type="number" id="dashCallsMonthGoalInput" min="1" onchange="setMonthlyCallGoal(this.value)" class="w-12 bg-[#141414] border border-sant-border rounded px-1.5 py-0.5 text-[10px] text-white outline-none text-center focus:border-sant-cyan">
+                            </div>
+                            <div class="w-full bg-[#1f1f1f] rounded-full h-1.5">
+                                <div id="dashCallsMonthBar" class="h-1.5 rounded-full bg-[#fbbf24] transition-all duration-500" style="width:0%"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Card: Hoje Preciso de Atenção -->
@@ -5468,13 +5489,47 @@
             syncPreferencesToSupabase();
             renderCallsCard();
         }
+        function getWeeklyCallGoal() {
+            return parseInt(localStorage.getItem('vends_weekly_call_goal') || '50') || 50;
+        }
+        function setWeeklyCallGoal(val) {
+            const goal = Math.max(1, parseInt(val) || 50);
+            localStorage.setItem('vends_weekly_call_goal', String(goal));
+            syncPreferencesToSupabase();
+            renderCallsCard();
+        }
+        function getMonthlyCallGoal() {
+            return parseInt(localStorage.getItem('vends_monthly_call_goal') || '200') || 200;
+        }
+        function setMonthlyCallGoal(val) {
+            const goal = Math.max(1, parseInt(val) || 200);
+            localStorage.setItem('vends_monthly_call_goal', String(goal));
+            syncPreferencesToSupabase();
+            renderCallsCard();
+        }
         function renderCallsCard(todayStr) {
             todayStr = todayStr || getSPTodayStr();
             const goal = getDailyCallGoal();
-            let count = 0;
+            const weekGoal = getWeeklyCallGoal();
+            const monthGoal = getMonthlyCallGoal();
+            const [ty, tm] = todayStr.split('-').map(Number);
+            const monthPrefix = `${ty}-${String(tm).padStart(2,'0')}`;
+            // Semana começando na segunda-feira
+            const [y,m,d] = todayStr.split('-').map(Number);
+            const today = new Date(y, m-1, d);
+            const dow = today.getDay(); // 0=domingo..6=sábado
+            const diffToMonday = dow === 0 ? -6 : 1 - dow;
+            const weekStart = new Date(today); weekStart.setDate(weekStart.getDate() + diffToMonday);
+            const pad = n => String(n).padStart(2,'0');
+            const weekStartStr = `${weekStart.getFullYear()}-${pad(weekStart.getMonth()+1)}-${pad(weekStart.getDate())}`;
+
+            let count = 0, weekCount = 0, monthCount = 0;
             contacts.forEach(c => {
                 (c.interactions || []).forEach(i => {
-                    if (i.type === 'Ligação' && i.date === todayStr) count++;
+                    if (i.type !== 'Ligação' || !i.date) return;
+                    if (i.date === todayStr) count++;
+                    if (i.date >= weekStartStr && i.date <= todayStr) weekCount++;
+                    if (i.date.startsWith(monthPrefix)) monthCount++;
                 });
             });
             const pct = Math.min(100, Math.round((count / goal) * 100));
@@ -5488,6 +5543,20 @@
             if (count >= goal) msgEl.innerHTML = '🎉 Meta batida por hoje!';
             else if (count === 0) msgEl.innerHTML = 'Nenhuma ligação registrada ainda hoje.';
             else msgEl.innerHTML = `Faltam ${goal - count} para bater a meta.`;
+
+            document.getElementById('dashCallsWeekCount').textContent = weekCount;
+            document.getElementById('dashCallsWeekGoalLabel').textContent = weekGoal;
+            document.getElementById('dashCallsWeekGoalInput').value = weekGoal;
+            const weekBar = document.getElementById('dashCallsWeekBar');
+            weekBar.style.width = Math.min(100, Math.round((weekCount / weekGoal) * 100)) + '%';
+            weekBar.className = 'h-1.5 rounded-full transition-all duration-500 ' + (weekCount >= weekGoal ? 'bg-green-400' : 'bg-sant-purple');
+
+            document.getElementById('dashCallsMonthCount').textContent = monthCount;
+            document.getElementById('dashCallsMonthGoalLabel').textContent = monthGoal;
+            document.getElementById('dashCallsMonthGoalInput').value = monthGoal;
+            const monthBar = document.getElementById('dashCallsMonthBar');
+            monthBar.style.width = Math.min(100, Math.round((monthCount / monthGoal) * 100)) + '%';
+            monthBar.className = 'h-1.5 rounded-full transition-all duration-500 ' + (monthCount >= monthGoal ? 'bg-green-400' : 'bg-[#fbbf24]');
         }
 
         function renderFollowupRate(todayStr) {
@@ -13493,6 +13562,8 @@
                     "dashCollapsed": JSON.parse(localStorage.getItem('vends_dash_collapsed') || '[]'),
                     "dashOrder": JSON.parse(localStorage.getItem('vends_dash_order') || '[]'),
                     "dailyCallGoal": parseInt(localStorage.getItem('vends_daily_call_goal') || '10'),
+                    "weeklyCallGoal": parseInt(localStorage.getItem('vends_weekly_call_goal') || '50'),
+                    "monthlyCallGoal": parseInt(localStorage.getItem('vends_monthly_call_goal') || '200'),
                     "scoreHistory":  JSON.parse(localStorage.getItem('vends_score_history')  || '{}'),
                     "taskPlaybooks": taskPlaybooks,
                     "automationRules": automationRules,
@@ -13531,6 +13602,8 @@
                 if (data.dashCollapsed?.length)     localStorage.setItem('vends_dash_collapsed', JSON.stringify(data.dashCollapsed));
                 if (data.dashOrder?.length)         { localStorage.setItem('vends_dash_order', JSON.stringify(data.dashOrder)); applyDashOrder(); }
                 if (data.dailyCallGoal)             localStorage.setItem('vends_daily_call_goal', String(data.dailyCallGoal));
+                if (data.weeklyCallGoal)             localStorage.setItem('vends_weekly_call_goal', String(data.weeklyCallGoal));
+                if (data.monthlyCallGoal)            localStorage.setItem('vends_monthly_call_goal', String(data.monthlyCallGoal));
                 if (data.scoreHistory && Object.keys(data.scoreHistory).length) localStorage.setItem('vends_score_history', JSON.stringify(data.scoreHistory));
                 if (data.taskPlaybooks?.length) { taskPlaybooks = data.taskPlaybooks; localStorage.setItem('sant_crm_task_playbooks', JSON.stringify(taskPlaybooks)); }
                 if (data.automationRules?.length) { automationRules = data.automationRules; migrateAutomationRules(); localStorage.setItem('sant_crm_automations', JSON.stringify(automationRules)); }
