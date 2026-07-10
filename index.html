@@ -1268,6 +1268,7 @@
                     <button onclick="switchReportTab('monthly')" id="tab-monthly" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-file-pdf"></i> Relatório Mensal</button>
                     <button onclick="switchReportTab('origins')" id="tab-origins" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-funnel"></i> Origens</button>
                     <button onclick="switchReportTab('documents')" id="tab-documents" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-file-text"></i> Documentos &amp; Propostas</button>
+                    <button onclick="switchReportTab('followups')" id="tab-followups" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-arrow-counter-clockwise"></i> Follow-ups Pendentes</button>
                 </div>
 
                 <div id="report-birthdays" class="report-content flex flex-col">
@@ -1486,6 +1487,20 @@
                     </div>
                     <div id="docsRepSummary" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 shrink-0"></div>
                     <div id="docsRepTable" class="pb-10"></div>
+                </div>
+
+                <!-- Relatório de Follow-ups Pendentes -->
+                <div id="report-followups" class="report-content hidden flex flex-col">
+                    <div class="flex justify-end gap-2 mb-4 shrink-0">
+                        <button onclick="exportFollowupsReportCsv()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors">
+                            <i class="ph ph-file-csv"></i> Exportar CSV
+                        </button>
+                        <button onclick="exportFollowupsReportPdf()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors">
+                            <i class="ph ph-file-pdf"></i> Exportar PDF
+                        </button>
+                    </div>
+                    <div id="followupsRepSummary" class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6 shrink-0"></div>
+                    <div id="followupsRepTable" class="pb-10"></div>
                 </div>
             </div>
 
@@ -12464,6 +12479,7 @@
             if(tabId === 'monthly')   initMonthlyReport();
             if(tabId === 'origins')   generateOriginsReport();
             if(tabId === 'documents') generateDocumentsReport();
+            if(tabId === 'followups') generateFollowupsReport();
             if(tabId === 'birthdays') {
                 const startInput = document.getElementById('repBirthStart');
                 const endInput = document.getElementById('repBirthEnd');
@@ -13952,6 +13968,98 @@
             showToast(`${docs.length} documento(s) exportado(s)!`);
         }
         // ── fim Relatório de Origens ──────────────────────────────────────────
+
+        // ── Relatório de Follow-ups Pendentes ────────────────────────────────
+        function collectFollowupsReport() {
+            const todayStr = getSPTodayStr();
+            const limitStr = addDaysToDateStr(todayStr, 7);
+            return contacts
+                .filter(c => c.nextContact && c.nextContact <= limitStr)
+                .map(c => {
+                    const diff = Math.round((new Date(c.nextContact + 'T00:00:00') - new Date(todayStr + 'T00:00:00')) / 86400000);
+                    let statusLabel, statusColor;
+                    if (diff < 0) { statusLabel = `Vencido há ${-diff} dia${-diff!==1?'s':''}`; statusColor = '#f87171'; }
+                    else if (diff === 0) { statusLabel = 'Hoje'; statusColor = '#fbbf24'; }
+                    else { statusLabel = `Em ${diff} dia${diff!==1?'s':''}`; statusColor = '#22d3ee'; }
+                    return {
+                        id: c.id, name: fullName(c), category: c.category || '',
+                        phone: c.phoneProf || c.phonePess || '', nextContact: c.nextContact,
+                        diff, statusLabel, statusColor,
+                    };
+                })
+                .sort((a,b) => a.nextContact.localeCompare(b.nextContact));
+        }
+
+        function generateFollowupsReport() {
+            const rows = collectFollowupsReport();
+            const summaryEl = document.getElementById('followupsRepSummary');
+            const tableEl = document.getElementById('followupsRepTable');
+
+            const overdue = rows.filter(r => r.diff < 0).length;
+            const today   = rows.filter(r => r.diff === 0).length;
+            const upcoming= rows.filter(r => r.diff > 0).length;
+            summaryEl.innerHTML = `
+                <div class="bg-sant-surface border rounded-xl p-4 text-center" style="border-color:#f8717133">
+                    <p class="text-3xl font-bold" style="color:#f87171">${overdue}</p>
+                    <p class="text-xs text-gray-500 mt-1">Vencidos</p>
+                </div>
+                <div class="bg-sant-surface border rounded-xl p-4 text-center" style="border-color:#fbbf2433">
+                    <p class="text-3xl font-bold" style="color:#fbbf24">${today}</p>
+                    <p class="text-xs text-gray-500 mt-1">Para hoje</p>
+                </div>
+                <div class="bg-sant-surface border rounded-xl p-4 text-center" style="border-color:#22d3ee33">
+                    <p class="text-3xl font-bold" style="color:#22d3ee">${upcoming}</p>
+                    <p class="text-xs text-gray-500 mt-1">Próximos 7 dias</p>
+                </div>`;
+
+            if (!rows.length) {
+                tableEl.innerHTML = emptyState('ph-check-circle', 'Nenhum follow-up pendente', 'Todos os retornos combinados estão em dia — defina um "Próximo Contato" no Histórico de um contato para acompanhar aqui.');
+                return;
+            }
+
+            tableEl.innerHTML = `<div class="bg-sant-surface border border-sant-border rounded-2xl overflow-hidden">
+                <table class="w-full text-sm">
+                    <thead><tr class="border-b border-sant-border bg-[#0d0d0d]">
+                        <th class="text-left px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Contato</th>
+                        <th class="text-left px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Categoria</th>
+                        <th class="text-left px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Telefone</th>
+                        <th class="text-left px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Próximo contato</th>
+                        <th class="text-center px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                    </tr></thead>
+                    <tbody>${rows.map(r => `
+                        <tr class="border-b border-sant-border/50 hover:bg-white/3 transition-colors cursor-pointer" onclick="switchView('contacts');openHistoryModal('${r.id}')">
+                            <td class="px-4 py-3 text-white">${r.name}</td>
+                            <td class="px-4 py-3 text-gray-400">${r.category || '—'}</td>
+                            <td class="px-4 py-3 text-gray-400">${r.phone || '—'}</td>
+                            <td class="px-4 py-3 text-gray-400">${r.nextContact.split('-').reverse().join('/')}</td>
+                            <td class="px-3 py-3 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold" style="color:${r.statusColor};background:${r.statusColor}18;border:1px solid ${r.statusColor}33">${r.statusLabel}</span></td>
+                        </tr>`).join('')}</tbody>
+                </table>
+            </div>`;
+        }
+
+        function exportFollowupsReportCsv() {
+            const rows = collectFollowupsReport();
+            if (!rows.length) { showToast('Nenhum follow-up pendente para exportar.', 'error'); return; }
+            const headers = ['Contato','Categoria','Telefone','Próximo Contato','Status'];
+            const csvRows = rows.map(r => [r.name, r.category, r.phone, r.nextContact.split('-').reverse().join('/'), r.statusLabel]);
+            const csv = [headers,...csvRows].map(r => r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+            const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `vends_followups_pendentes_${getSPTodayStr()}.csv`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+            showToast(`${rows.length} follow-up(s) exportado(s)!`);
+        }
+
+        function exportFollowupsReportPdf() {
+            const rows = collectFollowupsReport();
+            const headers = ['Contato','Categoria','Telefone','Próximo Contato','Status'];
+            const pdfRows = rows.map(r => [r.name, r.category, r.phone, r.nextContact.split('-').reverse().join('/'), r.statusLabel]);
+            printReportPdf('Follow-ups Pendentes', headers, pdfRows);
+        }
+        // ── fim Relatório de Follow-ups Pendentes ────────────────────────────
 
         function exportGeoCsv() {
             const withAddr = contacts.filter(c => c.addressCity || c.addressState);
