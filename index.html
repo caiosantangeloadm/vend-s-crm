@@ -4422,7 +4422,7 @@
                 });
 
                 // Verifica aniversários uma vez por hora (quando minuto === 0)
-                if (parseInt(mStr) === 0) { checkBirthdayReminders(); checkFollowupReminders(); checkNoteReminders(); checkFrequencyReminders(); checkUrgentTaskReminders(); runInactivityAutomations(); }
+                if (parseInt(mStr) === 0) { checkBirthdayReminders(); checkFollowupReminders(); checkNoteReminders(); checkFrequencyReminders(); checkUrgentTaskReminders(); checkWaitingTaskReminders(); runInactivityAutomations(); }
                 checkSnoozedNotifications();
 
                 updateSyncIndicator();
@@ -4435,6 +4435,7 @@
             checkNoteReminders();
             checkFrequencyReminders();
             checkUrgentTaskReminders();
+            checkWaitingTaskReminders();
             runInactivityAutomations();
             checkSnoozedNotifications();
             updateSyncIndicator();
@@ -4456,6 +4457,27 @@
                 const prioLabel = t.priority === 'urgent' ? '🔴 Urgente' : '🟡 Alta';
                 const title = `${prioLabel}: ${t.title}`;
                 const body  = `Tarefa ${label}${t.desc ? ' — ' + t.desc.substring(0, 60) : ''}`;
+
+                addNotification('task', title, body, t.id);
+                showPushNotification(title, body, `task-${t.id}`);
+                localStorage.setItem(notifKey, '1');
+            });
+        }
+
+        // ── Lembrete: tarefa "Aguardando Terceiros" parada há muito tempo ────
+        const WAITING_TASK_REMINDER_DAYS = 3;
+        function checkWaitingTaskReminders() {
+            const todayStr = getSPTodayStr();
+            tasks.forEach(t => {
+                if (t.completed || !t.waiting || !t.waitingSince) return;
+                const daysWaiting = _daysBetween(t.waitingSince, todayStr);
+                if (daysWaiting < WAITING_TASK_REMINDER_DAYS) return;
+
+                const notifKey = `vends_waiting_notified_${t.id}_${todayStr}`;
+                if (localStorage.getItem(notifKey)) return;
+
+                const title = `⏳ Ainda aguardando: ${t.title}`;
+                const body  = `Há ${daysWaiting} dias${t.waitingNote ? ' — ' + t.waitingNote : ''}. Já vale cobrar um retorno?`;
 
                 addNotification('task', title, body, t.id);
                 showPushNotification(title, body, `task-${t.id}`);
@@ -4907,7 +4929,7 @@
                 "changeLog": t.changeLog || [],
                 "comments": t.comments || [],
                 notified: t.notified || false,
-                waiting: t.waiting || false, "waitingNote": t.waitingNote || '',
+                waiting: t.waiting || false, "waitingNote": t.waitingNote || '', "waitingSince": t.waitingSince || '',
             };
         }
 
@@ -12126,12 +12148,14 @@
             if (t.waiting) {
                 t.waiting = false;
                 t.waitingNote = '';
+                t.waitingSince = '';
                 showToast('Tarefa voltou para a lista ativa.');
             } else {
                 const note = prompt('Aguardando o quê? (opcional, ex: "Resposta do cliente")', t.waitingNote || '');
                 if (note === null) return; // cancelou
                 t.waiting = true;
                 t.waitingNote = note.trim();
+                t.waitingSince = getSPTodayStr();
                 showToast('Tarefa marcada como "Aguardando Terceiros".');
             }
             saveTasksToStorage();
