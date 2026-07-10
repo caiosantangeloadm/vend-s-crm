@@ -7912,6 +7912,7 @@
                     <div class="flex items-center flex-wrap gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <div class="flex items-center gap-0.5 mr-0.5">${colorDots}</div>
                         <button onclick="event.stopPropagation(); convertNoteToTask('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-0.5" title="Converter em tarefa"><i class="ph ph-check-square text-sm"></i></button>
+                        <button onclick="event.stopPropagation(); duplicateNote('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-0.5" title="Duplicar nota"><i class="ph ph-copy text-sm"></i></button>
                         <button onclick="event.stopPropagation(); exportNoteTxt('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-0.5" title="Exportar como .txt"><i class="ph ph-file-text text-sm"></i></button>
                         <button onclick="event.stopPropagation(); exportNotePdf('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-0.5" title="Exportar como PDF"><i class="ph ph-file-pdf text-sm"></i></button>
                         <button onclick="startEditNote('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-0.5" title="Editar"><i class="ph ph-pencil-simple text-sm"></i></button>
@@ -7929,6 +7930,28 @@
             document.getElementById('taskDesc').value = n.title ? (n.body || '') : '';
             if (n.contactId) populateContactSelect('taskContactId', n.contactId);
             showToast('Nota convertida em tarefa — revise e salve.');
+        }
+
+        function duplicateNote(noteId) {
+            const n = notes.find(x => x.id === noteId);
+            if (!n) return;
+            const now = new Date().toISOString();
+            const copy = {
+                ...n,
+                id: crypto.randomUUID(),
+                title: n.title ? `Cópia de ${n.title}` : '',
+                pinned: false,
+                archived: false,
+                dueDate: '',
+                tags: [...(n.tags || [])],
+                createdAt: now,
+                updatedAt: now,
+            };
+            notes.unshift(copy);
+            saveNotesToStorage();
+            cloudSyncNote(copy);
+            renderNotes();
+            showToast('Nota duplicada!');
         }
 
         function closeNoteAndOpenContact(contactId) {
