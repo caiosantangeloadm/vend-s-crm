@@ -1534,6 +1534,9 @@
                         <button id="btnNotesArchive" onclick="toggleNotesArchive()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-white transition-colors">
                             <i class="ph ph-archive"></i> Arquivo
                         </button>
+                        <button onclick="exportNotesBatchPdf()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-sant-cyan hover:border-sant-cyan/40 transition-colors" title="Exporta em um só PDF as notas visíveis nesta tela (respeita busca/etiqueta/arquivo)">
+                            <i class="ph ph-file-pdf"></i> Exportar PDF
+                        </button>
                         <div class="relative">
                             <select id="notesSortSelect" onchange="setNotesSort(this.value)" class="appearance-none bg-sant-surface border border-sant-border rounded-lg pl-7 pr-3 py-2 text-sm text-gray-400 outline-none transition-colors cursor-pointer hover:border-sant-cyan">
                                 <option value="newest">Mais recentes</option>
@@ -7836,6 +7839,65 @@
                     <p class="meta">Vend-s Inteligência CRM · Criada em ${created}${updated ? ` · Editada em ${updated}` : ''}</p>
                     ${metaChips.length ? `<div class="chips">${metaChips.map(m => `<span class="chip">${m}</span>`).join('')}</div>` : ''}
                     <div class="body">${(n.body || '').replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>
+                    <scr${''}ipt>window.onload = () => { window.print(); };</scr${''}ipt>
+                </body>
+                </html>
+            `);
+            win.document.close();
+        }
+
+        function getVisibleNotesForExport() {
+            const term = (document.getElementById('notesSearchInput')?.value || '').toLowerCase();
+            let filtered = notes.filter(n => notesShowArchived ? n.archived : !n.archived);
+            filtered = filtered.filter(n => (n.title || '').toLowerCase().includes(term) || (n.body || '').toLowerCase().includes(term));
+            if (notesActiveTagFilter) filtered = filtered.filter(n => n.tags && n.tags.includes(notesActiveTagFilter));
+            if (currentNotesSort === 'newest') filtered.sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||''));
+            else if (currentNotesSort === 'oldest') filtered.sort((a,b) => (a.createdAt||'').localeCompare(b.createdAt||''));
+            else if (currentNotesSort === 'title') filtered.sort((a,b) => (a.title||'').localeCompare(b.title||'','pt-BR'));
+            else if (currentNotesSort === 'color') filtered.sort((a,b) => (a.color||'default').localeCompare(b.color||'default'));
+            return filtered;
+        }
+
+        function exportNotesBatchPdf() {
+            const list = getVisibleNotesForExport();
+            if (!list.length) { showToast('Nenhuma nota visível para exportar.', 'error'); return; }
+            const win = window.open('', '_blank');
+            const sections = list.map(n => {
+                const linkedContact = n.contactId ? contacts.find(x => x.id === n.contactId) : null;
+                const created = new Date(n.createdAt).toLocaleString('pt-BR');
+                const metaChips = [
+                    linkedContact ? `Contato: ${fullName(linkedContact)}` : '',
+                    n.dueDate ? `Lembrete: ${n.dueDate.split('-').reverse().join('/')}` : '',
+                    (n.tags||[]).length ? `Etiquetas: ${n.tags.join(', ')}` : '',
+                ].filter(Boolean);
+                return `
+                    <div class="note-section">
+                        <h1>${n.title || 'Nota sem título'}</h1>
+                        <p class="meta">Criada em ${created}</p>
+                        ${metaChips.length ? `<div class="chips">${metaChips.map(m => `<span class="chip">${m}</span>`).join('')}</div>` : ''}
+                        <div class="body">${(n.body || '').replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>
+                    </div>`;
+            }).join('');
+            win.document.write(`
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>Notas — Vend-s Inteligência CRM</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 32px; color: #111; max-width: 700px; margin: 0 auto; }
+                        h1 { font-size: 20px; margin: 0 0 4px; }
+                        p.meta { font-size: 11px; color: #666; margin: 0 0 20px; }
+                        .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+                        .chip { background: #f0f0f0; border-radius: 999px; padding: 4px 12px; font-size: 11px; color: #333; }
+                        .body { font-size: 14px; line-height: 1.6; white-space: pre-wrap; border-top: 1px solid #ddd; padding-top: 16px; margin-bottom: 24px; }
+                        .note-section { page-break-after: always; }
+                        .note-section:last-child { page-break-after: auto; }
+                        @media print { body { padding: 0; } }
+                    </style>
+                </head>
+                <body>
+                    <p class="meta" style="margin-bottom:24px">Vend-s Inteligência CRM · Exportado em ${new Date().toLocaleString('pt-BR')} · ${list.length} nota${list.length!==1?'s':''}</p>
+                    ${sections}
                     <scr${''}ipt>window.onload = () => { window.print(); };</scr${''}ipt>
                 </body>
                 </html>
