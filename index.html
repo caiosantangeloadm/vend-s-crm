@@ -3150,7 +3150,29 @@
                         <span class="text-sm text-gray-300">No Histórico do Contato: ir para o anterior/próximo</span>
                         <span class="flex gap-1"><kbd class="kbd-key">←</kbd><kbd class="kbd-key">→</kbd></span>
                     </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-300">Nova Nota Rápida (de qualquer tela)</span>
+                        <span class="flex gap-1"><kbd class="kbd-key">Shift</kbd><kbd class="kbd-key">N</kbd></span>
+                    </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE NOTA RÁPIDA (global, de qualquer tela) -->
+    <div id="quickNoteModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeQuickNoteModal()">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-md shadow-2xl">
+            <div class="flex justify-between items-center p-5 border-b border-sant-border">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-note-pencil text-sant-cyan"></i> Nota Rápida</h3>
+                <button onclick="closeQuickNoteModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <div class="p-5 space-y-3">
+                <input type="text" id="quickNoteModalTitle" placeholder="Título (opcional)" class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-2.5 text-sm text-white focus:border-sant-cyan outline-none transition-colors">
+                <textarea id="quickNoteModalBody" rows="5" placeholder="Escreva sua nota..." class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-2.5 text-sm text-white focus:border-sant-cyan outline-none transition-colors resize-none"></textarea>
+            </div>
+            <div class="flex justify-end gap-2 p-5 border-t border-sant-border">
+                <button onclick="closeQuickNoteModal()" class="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Cancelar</button>
+                <button onclick="saveQuickNoteModal()" class="px-4 py-2 rounded-lg bg-sant-cyan hover:bg-cyan-400 text-sant-bg text-sm font-bold transition-colors">Salvar Nota</button>
             </div>
         </div>
     </div>
@@ -7953,6 +7975,33 @@
             cloudSyncNote(copy);
             renderNotes();
             showToast('Nota duplicada!');
+        }
+
+        function openQuickNoteModal() {
+            document.getElementById('quickNoteModalTitle').value = '';
+            document.getElementById('quickNoteModalBody').value = '';
+            document.getElementById('quickNoteModal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('quickNoteModalTitle').focus(), 80);
+        }
+        function closeQuickNoteModal() {
+            document.getElementById('quickNoteModal').classList.add('hidden');
+        }
+        function saveQuickNoteModal() {
+            const title = document.getElementById('quickNoteModalTitle').value.trim();
+            const body = document.getElementById('quickNoteModalBody').value.trim();
+            if (!title && !body) { showToast('Escreva algo antes de salvar.', 'error'); return; }
+            const now = new Date().toISOString();
+            const note = {
+                id: crypto.randomUUID(), title, body, color: 'default', pinned: false,
+                archived: false, tags: [], contactId: '', dueDate: '',
+                createdAt: now, updatedAt: now,
+            };
+            notes.unshift(note);
+            saveNotesToStorage();
+            cloudSyncNote(note);
+            if (currentView === 'notes') renderNotes();
+            closeQuickNoteModal();
+            showToast('Nota rápida salva!');
         }
 
         function closeNoteAndOpenContact(contactId) {
@@ -18296,6 +18345,7 @@
                 if (e.key === 'Escape') {
                     const ql = document.getElementById('quickLookPopover');
                     if (ql && !ql.classList.contains('hidden')) { closeQuickLook(); return; }
+                    if (!document.getElementById('quickNoteModal').classList.contains('hidden')) { closeQuickNoteModal(); return; }
                     if (!document.getElementById('contactModal').classList.contains('hidden')) { closeModal(); return; }
                     if (!document.getElementById('eventModal').classList.contains('hidden')) { closeEventModal(); return; }
                     if (!document.getElementById('taskModal').classList.contains('hidden')) { closeTaskModal(); return; }
@@ -18319,7 +18369,10 @@
                     inp.select();
                 }
 
-                if (!isTyping && (e.key === 'n' || e.key === 'N')) {
+                if (!isTyping && e.shiftKey && (e.key === 'n' || e.key === 'N')) {
+                    e.preventDefault();
+                    openQuickNoteModal();
+                } else if (!isTyping && (e.key === 'n' || e.key === 'N')) {
                     if (currentView === 'contacts') openModal();
                     else if (currentView === 'tasks') openTaskModal();
                     else if (currentView === 'calendar') openEventModal();
