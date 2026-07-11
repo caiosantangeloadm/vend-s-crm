@@ -1285,6 +1285,7 @@
                     <button onclick="switchReportTab('origins')" id="tab-origins" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-funnel"></i> Origens</button>
                     <button onclick="switchReportTab('documents')" id="tab-documents" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-file-text"></i> Documentos &amp; Propostas</button>
                     <button onclick="switchReportTab('followups')" id="tab-followups" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-arrow-counter-clockwise"></i> Follow-ups Pendentes</button>
+                    <button onclick="switchReportTab('taskprod')" id="tab-taskprod" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-list-checks"></i> Produtividade de Tarefas</button>
                 </div>
 
                 <div id="report-birthdays" class="report-content flex flex-col">
@@ -1517,6 +1518,36 @@
                     </div>
                     <div id="followupsRepSummary" class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6 shrink-0"></div>
                     <div id="followupsRepTable" class="pb-10"></div>
+                </div>
+
+                <!-- Relatório de Produtividade de Tarefas -->
+                <div id="report-taskprod" class="report-content hidden flex flex-col">
+                    <div class="bg-sant-surface border border-sant-border rounded-xl p-5 mb-6 flex flex-wrap gap-4 items-end shrink-0">
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1.5">De</label>
+                            <input type="date" id="taskProdFrom" onchange="generateTaskProdReport()" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan transition-colors">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1.5">Até</label>
+                            <input type="date" id="taskProdTo" onchange="generateTaskProdReport()" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan transition-colors">
+                        </div>
+                        <div class="flex gap-1.5 flex-wrap pb-0.5">
+                            <button onclick="setTaskProdPeriod('month')" class="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors">Este mês</button>
+                            <button onclick="setTaskProdPeriod('lastmonth')" class="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors">Mês passado</button>
+                            <button onclick="setTaskProdPeriod('30')" class="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors">Últimos 30d</button>
+                            <button onclick="setTaskProdPeriod('90')" class="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors">Últimos 90d</button>
+                            <button onclick="setTaskProdPeriod('year')" class="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors">Este ano</button>
+                        </div>
+                        <div class="flex-1"></div>
+                        <button onclick="exportTaskProdCsv()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors">
+                            <i class="ph ph-file-csv"></i> Exportar CSV
+                        </button>
+                        <button onclick="exportTaskProdPdf()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors">
+                            <i class="ph ph-file-pdf"></i> Exportar PDF
+                        </button>
+                    </div>
+                    <div id="taskProdSummary" class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6 shrink-0"></div>
+                    <div id="taskProdTable" class="pb-10"></div>
                 </div>
             </div>
 
@@ -12744,6 +12775,7 @@
             if(tabId === 'origins')   generateOriginsReport();
             if(tabId === 'documents') generateDocumentsReport();
             if(tabId === 'followups') generateFollowupsReport();
+            if(tabId === 'taskprod') generateTaskProdReport();
             if(tabId === 'birthdays') {
                 const startInput = document.getElementById('repBirthStart');
                 const endInput = document.getElementById('repBirthEnd');
@@ -16854,6 +16886,125 @@
 
         function hasActiveFilters() {
             return activeFilters.category || activeFilters.isLead || activeFilters.temperature || activeFilters.tag || activeFilters.origin || activeFilters.city || activeFilters.state || activeFilters.intType;
+        }
+
+        function setTaskProdPeriod(preset) {
+            const todayStr = getSPTodayStr();
+            const [ty, tm] = todayStr.split('-').map(Number);
+            const pad = n => String(n).padStart(2,'0');
+            let from = '', to = todayStr;
+            if (preset === 'month') {
+                from = `${ty}-${pad(tm)}-01`;
+                to   = `${ty}-${pad(tm)}-${new Date(ty, tm, 0).getDate()}`;
+            } else if (preset === 'lastmonth') {
+                const pm = tm === 1 ? 12 : tm - 1, py = tm === 1 ? ty - 1 : ty;
+                from = `${py}-${pad(pm)}-01`;
+                to   = `${py}-${pad(pm)}-${new Date(py, pm, 0).getDate()}`;
+            } else if (preset === 'year') {
+                from = `${ty}-01-01`;
+                to   = `${ty}-12-31`;
+            } else {
+                const d = new Date(todayStr + 'T00:00:00');
+                d.setDate(d.getDate() - parseInt(preset));
+                from = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+            }
+            document.getElementById('taskProdFrom').value = from;
+            document.getElementById('taskProdTo').value = to;
+            generateTaskProdReport();
+        }
+
+        const TASK_PRIORITY_META = {
+            urgent: { label: 'Urgente', color: '#ef4444' },
+            high:   { label: 'Alta',    color: '#f87171' },
+            medium: { label: 'Normal',  color: '#22d3ee' },
+            low:    { label: 'Baixa',   color: '#6b7280' },
+        };
+
+        function collectTaskProdRows() {
+            const from = document.getElementById('taskProdFrom')?.value || '0000-00-00';
+            const to   = document.getElementById('taskProdTo')?.value   || '9999-99-99';
+            const created = tasks.filter(t => t.createdAt && t.createdAt.slice(0,10) >= from && t.createdAt.slice(0,10) <= to);
+            const completed = tasks.filter(t => t.completed && t.completedAt && t.completedAt.slice(0,10) >= from && t.completedAt.slice(0,10) <= to);
+            const priorities = ['urgent','high','medium','low'];
+            return priorities.map(p => ({
+                priority: p,
+                label: TASK_PRIORITY_META[p].label,
+                color: TASK_PRIORITY_META[p].color,
+                created: created.filter(t => (t.priority||'medium') === p).length,
+                completed: completed.filter(t => (t.priority||'medium') === p).length,
+            }));
+        }
+
+        function generateTaskProdReport() {
+            if (!document.getElementById('taskProdFrom').value) {
+                const todayStr = getSPTodayStr();
+                const [ty, tm] = todayStr.split('-').map(Number);
+                document.getElementById('taskProdFrom').value = `${ty}-${String(tm).padStart(2,'0')}-01`;
+                document.getElementById('taskProdTo').value = todayStr;
+            }
+            const rows = collectTaskProdRows();
+            const totalCreated = rows.reduce((s,r)=>s+r.created,0);
+            const totalCompleted = rows.reduce((s,r)=>s+r.completed,0);
+            const rate = totalCreated > 0 ? Math.round((totalCompleted/totalCreated)*100) : 0;
+
+            document.getElementById('taskProdSummary').innerHTML = `
+                <div class="bg-sant-surface border border-sant-border rounded-xl p-4 text-center">
+                    <p class="text-3xl font-bold text-sant-cyan">${totalCreated}</p>
+                    <p class="text-xs text-gray-500 mt-1">Tarefas criadas</p>
+                </div>
+                <div class="bg-sant-surface border border-sant-border rounded-xl p-4 text-center">
+                    <p class="text-3xl font-bold text-green-400">${totalCompleted}</p>
+                    <p class="text-xs text-gray-500 mt-1">Tarefas concluídas</p>
+                </div>
+                <div class="bg-sant-surface border border-sant-border rounded-xl p-4 text-center">
+                    <p class="text-3xl font-bold text-[#fbbf24]">${rate}%</p>
+                    <p class="text-xs text-gray-500 mt-1">Taxa de conclusão</p>
+                </div>`;
+
+            const tableEl = document.getElementById('taskProdTable');
+            if (totalCreated === 0 && totalCompleted === 0) {
+                tableEl.innerHTML = emptyState('ph-list-checks', 'Nenhuma tarefa no período', 'Ajuste o período acima para ver os dados de produtividade.');
+                return;
+            }
+            tableEl.innerHTML = `<div class="bg-sant-surface border border-sant-border rounded-2xl overflow-hidden">
+                <table class="w-full text-sm">
+                    <thead><tr class="border-b border-sant-border bg-[#0d0d0d]">
+                        <th class="text-left px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Prioridade</th>
+                        <th class="text-center px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Criadas</th>
+                        <th class="text-center px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Concluídas</th>
+                        <th class="text-center px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Taxa</th>
+                    </tr></thead>
+                    <tbody>${rows.map(r => `
+                        <tr class="border-b border-sant-border/50">
+                            <td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold" style="color:${r.color};background:${r.color}18;border:1px solid ${r.color}33">${r.label}</span></td>
+                            <td class="px-4 py-3 text-center text-white">${r.created}</td>
+                            <td class="px-4 py-3 text-center text-green-400">${r.completed}</td>
+                            <td class="px-4 py-3 text-center text-gray-400">${r.created>0 ? Math.round((r.completed/r.created)*100)+'%' : '—'}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>`;
+        }
+
+        function exportTaskProdCsv() {
+            const rows = collectTaskProdRows();
+            const headers = ['Prioridade','Criadas','Concluídas','Taxa'];
+            const csvRows = rows.map(r => [r.label, r.created, r.completed, r.created>0 ? Math.round((r.completed/r.created)*100)+'%' : '0%']);
+            const csv = [headers,...csvRows].map(r => r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+            const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `vends_produtividade_tarefas_${getSPTodayStr()}.csv`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+            showToast('CSV de produtividade exportado!');
+        }
+
+        function exportTaskProdPdf() {
+            const rows = collectTaskProdRows();
+            const headers = ['Prioridade','Criadas','Concluídas','Taxa'];
+            const pdfRows = rows.map(r => [r.label, r.created, r.completed, r.created>0 ? Math.round((r.completed/r.created)*100)+'%' : '0%']);
+            printReportPdf('Produtividade de Tarefas', headers, pdfRows);
         }
 
         function setIntPeriod(preset) {
