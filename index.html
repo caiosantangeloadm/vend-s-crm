@@ -1713,7 +1713,7 @@
                         <p class="text-xs font-bold text-white uppercase tracking-wide mb-5 flex items-center gap-2"><i class="ph ph-lock-simple text-sant-cyan"></i> Bloqueios de Horário Fixos</p>
                         <div id="s-blk-list" class="space-y-2 mb-5"></div>
                         <div class="border-t border-sant-border pt-5">
-                            <p class="text-xs text-gray-500 mb-3 font-medium uppercase tracking-wide">Adicionar bloqueio</p>
+                            <p class="text-xs text-gray-500 mb-3 font-medium uppercase tracking-wide" id="s-blk-form-label">Adicionar bloqueio</p>
                             <div class="flex flex-col gap-3">
                                 <input id="s-blk-title" type="text" placeholder="Título (ex: Almoço)" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none transition-colors">
                                 <div class="flex gap-3">
@@ -1721,7 +1721,10 @@
                                     <div class="flex-1"><label class="text-xs text-gray-500 mb-1 block">Fim</label><input id="s-blk-end" type="time" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none"></div>
                                 </div>
                                 <div class="flex gap-1" id="s-blk-days"></div>
-                                <button onclick="addSettingsBlock()" class="bg-sant-cyan text-sant-bg py-2 rounded-lg text-sm font-bold hover:bg-cyan-400 transition-colors">Adicionar Bloqueio</button>
+                                <div class="flex gap-2">
+                                    <button id="s-blk-submit-btn" onclick="addSettingsBlock()" class="flex-1 bg-sant-cyan text-sant-bg py-2 rounded-lg text-sm font-bold hover:bg-cyan-400 transition-colors">Adicionar Bloqueio</button>
+                                    <button id="s-blk-cancel-btn" onclick="cancelEditSBlock()" class="hidden px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white border border-sant-border transition-colors">Cancelar</button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -15438,6 +15441,7 @@
                         <p class="text-sm text-white font-medium truncate">${b.title}</p>
                         <p class="text-[10px] text-gray-500">${b.startTime||''}${b.endTime?' – '+b.endTime:''} · ${b.days.map(d=>dl[d]).join(' ')}</p>
                     </div>
+                    <button onclick="editSBlock('${b.id}')" class="text-gray-400 hover:text-sant-cyan px-2 shrink-0" title="Editar"><i class="ph ph-pencil-simple"></i></button>
                     <button onclick="duplicateSBlock('${b.id}')" class="text-gray-400 hover:text-sant-cyan px-2 shrink-0" title="Duplicar"><i class="ph ph-copy"></i></button>
                     <button onclick="deleteSBlock('${b.id}')" class="text-gray-400 hover:text-red-500 px-2 shrink-0"><i class="ph ph-trash"></i></button>
                 </div>`
@@ -15450,7 +15454,40 @@
             saveScheduleBlocksToStorage();
             renderSBlocks();
             renderCalendar();
-            showToast('Bloqueio duplicado — revise o título e os dias.');
+            showToast('Bloqueio duplicado — ajuste o título/horário/dias abaixo e salve.');
+        }
+        let editingSBlockId = null;
+        function editSBlock(id) {
+            const b = scheduleBlocks.find(x => x.id === id);
+            if (!b) return;
+            editingSBlockId = id;
+            document.getElementById('s-blk-title').value = b.title;
+            document.getElementById('s-blk-start').value = b.startTime || '';
+            document.getElementById('s-blk-end').value = b.endTime || '';
+            sBlkDays = [...b.days];
+            document.querySelectorAll('.sBlkDayBtn').forEach(btn => {
+                const d = parseInt(btn.dataset.day);
+                btn.className = sBlkDays.includes(d)
+                    ? 'sBlkDayBtn flex-1 py-1.5 rounded text-xs font-bold border border-sant-cyan bg-sant-cyan/10 text-sant-cyan transition-colors'
+                    : 'sBlkDayBtn flex-1 py-1.5 rounded text-xs font-bold border border-sant-border text-gray-400 hover:border-sant-cyan/40 transition-colors';
+            });
+            document.getElementById('s-blk-form-label').textContent = `Editando "${b.title}"`;
+            document.getElementById('s-blk-submit-btn').textContent = 'Salvar Alterações';
+            document.getElementById('s-blk-cancel-btn').classList.remove('hidden');
+            document.getElementById('s-blk-title').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        function cancelEditSBlock() {
+            editingSBlockId = null;
+            document.getElementById('s-blk-title').value = '';
+            document.getElementById('s-blk-start').value = '';
+            document.getElementById('s-blk-end').value = '';
+            sBlkDays = [];
+            document.querySelectorAll('.sBlkDayBtn').forEach(btn => {
+                btn.className = 'sBlkDayBtn flex-1 py-1.5 rounded text-xs font-bold border border-sant-border text-gray-400 hover:border-sant-cyan/40 transition-colors';
+            });
+            document.getElementById('s-blk-form-label').textContent = 'Adicionar bloqueio';
+            document.getElementById('s-blk-submit-btn').textContent = 'Adicionar Bloqueio';
+            document.getElementById('s-blk-cancel-btn').classList.add('hidden');
         }
         function toggleSBlkDay(i) {
             const idx = sBlkDays.indexOf(i);
@@ -15467,6 +15504,16 @@
             const startTime = document.getElementById('s-blk-start').value;
             const endTime = document.getElementById('s-blk-end').value;
             if (!title || !sBlkDays.length) { showToast('Informe título e selecione ao menos um dia.','error'); return; }
+            if (editingSBlockId) {
+                const b = scheduleBlocks.find(x => x.id === editingSBlockId);
+                if (b) { b.title = title; b.startTime = startTime; b.endTime = endTime; b.days = [...sBlkDays].sort(); }
+                saveScheduleBlocksToStorage();
+                cancelEditSBlock();
+                renderSBlocks();
+                renderCalendar();
+                showToast('Bloqueio atualizado!');
+                return;
+            }
             scheduleBlocks.push({ id: crypto.randomUUID(), title, startTime, endTime, days: [...sBlkDays].sort() });
             saveScheduleBlocksToStorage();
             document.getElementById('s-blk-title').value = '';
@@ -15484,6 +15531,7 @@
             showConfirm('Excluir este bloqueio?', '', () => {
                 scheduleBlocks = scheduleBlocks.filter(b => b.id !== id);
                 saveScheduleBlocksToStorage();
+                if (editingSBlockId === id) cancelEditSBlock();
                 renderSBlocks();
                 renderCalendar();
                 showToast('Bloqueio excluído.');
