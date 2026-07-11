@@ -551,6 +551,15 @@
                     </div>
                 </div>
 
+                <!-- Card: Aguardando Terceiros -->
+                <div id="dashWaitingCard" data-dash-title="Aguardando Terceiros" class="hidden bg-sant-surface border border-sant-border rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase flex items-center gap-2"><i class="ph ph-hourglass-medium text-sant-purple"></i> Aguardando Terceiros</p>
+                        <span id="dashWaitingCount" class="text-[10px] font-bold text-sant-purple bg-sant-purple/10 border border-sant-purple/20 rounded-full px-2 py-0.5"></span>
+                    </div>
+                    <div id="dashWaitingList" class="space-y-2"></div>
+                </div>
+
                 <!-- Card: Hoje Preciso de Atenção -->
                 <div id="dashAttentionCard" class="hidden bg-sant-surface border border-red-500/20 rounded-2xl p-6">
                     <div class="flex items-center justify-between mb-4">
@@ -5521,6 +5530,7 @@
             renderContactRanking();
             renderFollowupRate(todayStr);
             renderCallsCard(todayStr);
+            renderWaitingCard(todayStr);
             // Refresh streak UI quando dashboard abre
             const _sd = parseInt(localStorage.getItem('vends_streak_days')||'0');
             const _sb = parseInt(localStorage.getItem('vends_streak_best')||'0');
@@ -5700,6 +5710,35 @@
             monthBar.className = 'h-1.5 rounded-full transition-all duration-500 ' + (monthCount >= monthGoal ? 'bg-green-400' : 'bg-[#fbbf24]');
         }
 
+        function renderWaitingCard(todayStr) {
+            const card = document.getElementById('dashWaitingCard');
+            if (!card) return;
+            const waiting = tasks.filter(t => t.waiting && !t.completed);
+            if (waiting.length === 0) {
+                card.classList.add('hidden');
+                return;
+            }
+            card.classList.remove('hidden');
+            document.getElementById('dashWaitingCount').textContent = `${waiting.length} parada${waiting.length!==1?'s':''}`;
+
+            const withDays = waiting.map(t => ({
+                t, days: t.waitingSince ? _daysBetween(t.waitingSince, todayStr) : 0
+            })).sort((a,b) => b.days - a.days);
+
+            const avgDays = Math.round(withDays.reduce((s,x)=>s+x.days,0) / withDays.length);
+
+            const list = document.getElementById('dashWaitingList');
+            list.innerHTML = `
+                <p class="text-[11px] text-gray-500 mb-2">Tempo médio de espera: <span class="text-sant-purple font-bold">${avgDays} dia${avgDays!==1?'s':''}</span></p>` +
+                withDays.slice(0, 5).map(({t, days}) => `
+                    <div class="flex items-center gap-2.5 py-1.5 border-b border-sant-border/40 last:border-0 cursor-pointer hover:bg-white/3 transition-colors rounded px-1" onclick="goToWaitingTasks()">
+                        <i class="ph ph-hourglass-medium shrink-0 text-sm text-sant-purple"></i>
+                        <span class="text-xs text-white flex-1 truncate">${t.title}${t.waitingNote ? ` <span class="text-gray-500">— ${t.waitingNote}</span>` : ''}</span>
+                        <span class="text-[10px] font-bold shrink-0 ${days >= WAITING_TASK_REMINDER_DAYS ? 'text-red-400' : 'text-gray-500'}">${days}d</span>
+                    </div>`).join('') +
+                (waiting.length > 5 ? `<p class="text-[10px] text-gray-600 text-center pt-1">+${waiting.length-5} tarefa(s) — clique para ver todas</p>` : '');
+        }
+
         function renderFollowupRate(todayStr) {
             const rateEl   = document.getElementById('dashFollowupRate');
             const totalEl  = document.getElementById('dashFollowupTotal');
@@ -5748,6 +5787,7 @@
         const DASH_CARDS = [
             { id: 'dashTodayCard',          title: 'Briefing de Hoje' },
             { id: 'dashCallsCard',          title: 'Ligações do Dia' },
+            { id: 'dashWaitingCard',        title: 'Aguardando Terceiros' },
             { id: 'dashAttentionCard',      title: 'Hoje Preciso de Atenção' },
             { id: 'dashFollowupCard',       title: 'Taxa de Follow-ups' },
             { id: 'dashLeadsEvolutionCard', title: 'Evolução de Leads' },
@@ -12143,6 +12183,11 @@
                 if (waitBtn) waitBtn.className = 'px-4 py-1.5 rounded-full border border-sant-purple/40 text-sant-purple/60 hover:text-sant-purple hover:border-sant-purple transition-colors text-sm flex items-center gap-1.5';
                 renderTasks(currentTaskFilter, document.getElementById('taskSearchInput') ? document.getElementById('taskSearchInput').value : '');
             }
+        }
+
+        function goToWaitingTasks() {
+            switchView('tasks');
+            if (!taskWaitingFilterOnly) toggleTaskWaitingFilter();
         }
 
         function renderTasks(filter = 'all', searchTerm = '') {
