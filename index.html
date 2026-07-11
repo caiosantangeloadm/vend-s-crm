@@ -16914,24 +16914,26 @@
         }
 
         const TASK_PRIORITY_META = {
-            urgent: { label: 'Urgente', color: '#ef4444' },
-            high:   { label: 'Alta',    color: '#f87171' },
-            medium: { label: 'Normal',  color: '#22d3ee' },
-            low:    { label: 'Baixa',   color: '#6b7280' },
+            high:   { label: 'Alta (Urgente)', color: '#f87171' },
+            medium: { label: 'Normal',         color: '#22d3ee' },
+            low:    { label: 'Baixa',          color: '#6b7280' },
         };
 
         function collectTaskProdRows() {
             const from = document.getElementById('taskProdFrom')?.value || '0000-00-00';
             const to   = document.getElementById('taskProdTo')?.value   || '9999-99-99';
+            // "urgent" é um valor legado de versões antigas — nunca mais gravado pelo formulário
+            // (hoje só existem Baixa/Normal/Alta), então é tratado junto com "high" no relatório.
+            const normPriority = t => (t.priority === 'urgent' ? 'high' : (t.priority || 'medium'));
             const created = tasks.filter(t => t.createdAt && t.createdAt.slice(0,10) >= from && t.createdAt.slice(0,10) <= to);
             const completed = tasks.filter(t => t.completed && t.completedAt && t.completedAt.slice(0,10) >= from && t.completedAt.slice(0,10) <= to);
-            const priorities = ['urgent','high','medium','low'];
+            const priorities = ['high','medium','low'];
             return priorities.map(p => ({
                 priority: p,
                 label: TASK_PRIORITY_META[p].label,
                 color: TASK_PRIORITY_META[p].color,
-                created: created.filter(t => (t.priority||'medium') === p).length,
-                completed: completed.filter(t => (t.priority||'medium') === p).length,
+                created: created.filter(t => normPriority(t) === p).length,
+                completed: completed.filter(t => normPriority(t) === p).length,
             }));
         }
 
