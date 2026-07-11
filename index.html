@@ -1575,6 +1575,9 @@
                             <button id="btnNotesCards" onclick="setNotesViewMode('cards')" class="px-3 py-2 text-xs font-medium text-sant-cyan bg-sant-cyan/10 transition-colors flex items-center gap-1"><i class="ph ph-cards"></i> Cards</button>
                             <button id="btnNotesKanban" onclick="setNotesViewMode('kanban')" class="px-3 py-2 text-xs font-medium text-gray-400 hover:text-white transition-colors flex items-center gap-1"><i class="ph ph-kanban"></i> Kanban</button>
                         </div>
+                        <button id="btnNotesFavorite" onclick="toggleNotesFavoriteFilter()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-[#fbbf24] transition-colors" title="Mostrar só as notas favoritas">
+                            <i class="ph ph-star"></i> Favoritas
+                        </button>
                         <button id="btnNotesArchive" onclick="toggleNotesArchive()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-white transition-colors">
                             <i class="ph ph-archive"></i> Arquivo
                         </button>
@@ -3779,6 +3782,7 @@
         let newNoteTags = [];
         let editNoteTagsTemp = {};
         let notesActiveTagFilter = '';
+        let notesFavoriteFilter = false;
         let notesShowArchived = false;
         let notesViewMode = 'cards';
         let lastNoteId = null;
@@ -5201,7 +5205,7 @@
             return {
                 id: n.id, user_id: currentUser?.id || null,
                 title: n.title || '', body: n.body || '',
-                color: n.color || 'default', pinned: n.pinned || false,
+                color: n.color || 'default', pinned: n.pinned || false, favorite: n.favorite || false,
                 archived: n.archived || false,
                 "contactId": n.contactId || '', "dueDate": n.dueDate || '', "emailAlert": n.emailAlert || '0',
                 "kanbanColumn": n.kanbanColumn || 'inbox',
@@ -7825,6 +7829,10 @@
             const n = notes.find(x => x.id === id);
             if (n) { n.pinned = !n.pinned; saveNotesToStorage(); cloudSyncNote(n); renderNotes(); }
         }
+        function toggleNoteFavorite(id) {
+            const n = notes.find(x => x.id === id);
+            if (n) { n.favorite = !n.favorite; saveNotesToStorage(); cloudSyncNote(n); renderNotes(); }
+        }
         function deleteNote(id) {
             if (!confirm('Excluir esta nota permanentemente?')) return;
             notes = notes.filter(x => x.id !== id);
@@ -7919,6 +7927,7 @@
             let filtered = notes.filter(n => notesShowArchived ? n.archived : !n.archived);
             filtered = filtered.filter(n => (n.title || '').toLowerCase().includes(term) || (n.body || '').toLowerCase().includes(term));
             if (notesActiveTagFilter) filtered = filtered.filter(n => n.tags && n.tags.includes(notesActiveTagFilter));
+            if (notesFavoriteFilter) filtered = filtered.filter(n => n.favorite);
             if (currentNotesSort === 'newest') filtered.sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||''));
             else if (currentNotesSort === 'oldest') filtered.sort((a,b) => (a.createdAt||'').localeCompare(b.createdAt||''));
             else if (currentNotesSort === 'title') filtered.sort((a,b) => (a.title||'').localeCompare(b.title||'','pt-BR'));
@@ -8068,11 +8077,14 @@
                 return `<span class="inline-flex items-center gap-1 px-2 py-0.5 mb-2 rounded text-[10px] font-medium border ${cls}"><i class="ph ${icon}"></i> ${isOverdue ? 'Vencida: ' : isToday ? 'Vence hoje: ' : 'Lembrete: '}${label}</span>`;
             })() : '';
             return `
-            <div id="note-${n.id}" class="${c.bg} ${c.border} border rounded-2xl p-5 flex flex-col group relative min-h-[140px] ${n.archived ? 'opacity-80' : ''}">
+            <div id="note-${n.id}" class="${c.bg} ${n.favorite ? 'border-2 border-[#fbbf24]/60' : c.border + ' border'} rounded-2xl p-5 flex flex-col group relative min-h-[140px] ${n.archived ? 'opacity-80' : ''}">
                 ${n.archived ? `<div class="flex items-center gap-1 text-[10px] text-gray-500 mb-2 font-medium"><i class="ph ph-archive"></i> Arquivada</div>` : ''}
                 <div class="flex justify-between items-start gap-2 mb-1">
                     ${n.title ? `<h3 class="font-bold text-white text-sm break-words flex-1">${n.title}</h3>` : '<div class="flex-1"></div>'}
                     <div class="flex items-center gap-0.5 shrink-0">
+                        <button onclick="event.stopPropagation(); toggleNoteFavorite('${n.id}')" class="text-gray-500 hover:text-[#fbbf24] transition-colors p-1 opacity-0 group-hover:opacity-100 ${n.favorite ? '!opacity-100 text-[#fbbf24]' : ''}" title="${n.favorite ? 'Remover dos favoritos' : 'Marcar como favorita'}">
+                            <i class="ph ${n.favorite ? 'ph-fill' : ''} ph-star text-sm"></i>
+                        </button>
                         <button onclick="event.stopPropagation(); toggleNotePin('${n.id}')" class="text-gray-500 hover:text-sant-cyan transition-colors p-1 opacity-0 group-hover:opacity-100 ${n.pinned ? '!opacity-100 text-sant-cyan' : ''}" title="${n.pinned ? 'Desafixar' : 'Fixar'}">
                             <i class="ph ${n.pinned ? 'ph-fill' : ''} ph-push-pin text-sm"></i>
                         </button>
@@ -8120,6 +8132,7 @@
                 id: crypto.randomUUID(),
                 title: n.title ? `Cópia de ${n.title}` : '',
                 pinned: false,
+                favorite: false,
                 archived: false,
                 dueDate: '',
                 tags: [...(n.tags || [])],
@@ -8216,6 +8229,7 @@
                 (n.title || '').toLowerCase().includes(term) || (n.body || '').toLowerCase().includes(term)
             );
             if (notesActiveTagFilter) filtered = filtered.filter(n => n.tags && n.tags.includes(notesActiveTagFilter));
+            if (notesFavoriteFilter) filtered = filtered.filter(n => n.favorite);
 
             // Ordenação
             if (currentNotesSort === 'newest') filtered.sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||''));
@@ -8350,6 +8364,17 @@
 
         function toggleNotesArchive() {
             notesShowArchived = !notesShowArchived;
+            renderNotes();
+        }
+
+        function toggleNotesFavoriteFilter() {
+            notesFavoriteFilter = !notesFavoriteFilter;
+            const btn = document.getElementById('btnNotesFavorite');
+            if (btn) {
+                btn.className = notesFavoriteFilter
+                    ? 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#fbbf24]/10 text-[#fbbf24] border border-[#fbbf24]/30 transition-colors'
+                    : 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-[#fbbf24] transition-colors';
+            }
             renderNotes();
         }
 
