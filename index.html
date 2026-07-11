@@ -905,6 +905,16 @@
                         </button>
                     </div>
                 </div>
+                <!-- Filtros rápidos de faxina de dados -->
+                <div class="flex flex-wrap gap-2 mb-4">
+                    <button onclick="toggleQuickFilterNoCategory()" id="btnQuickNoCategory" class="px-3 py-1.5 rounded-full border border-amber-400/40 text-amber-400/70 hover:text-amber-400 hover:border-amber-400 transition-colors text-xs font-medium flex items-center gap-1.5">
+                        <i class="ph ph-tag"></i> Sem Categoria
+                    </button>
+                    <button onclick="toggleQuickFilterNoOrigin()" id="btnQuickNoOrigin" class="px-3 py-1.5 rounded-full border border-sant-cyan/40 text-sant-cyan/70 hover:text-sant-cyan hover:border-sant-cyan transition-colors text-xs font-medium flex items-center gap-1.5">
+                        <i class="ph ph-map-pin"></i> Sem Origem
+                    </button>
+                </div>
+
                 <!-- Barra de Seleção Múltipla -->
                 <div id="bulkActionBar" class="hidden mb-4 px-4 py-3 bg-sant-cyan/10 border border-sant-cyan/30 rounded-xl flex flex-wrap items-center gap-3">
                     <span id="bulkCount" class="text-sm font-bold text-sant-cyan">0 selecionados</span>
@@ -3779,6 +3789,8 @@
         let currentPlaybookSteps = [];
         let automationRules = [];
         let activeFilters = { category: '', isLead: '', temperature: '', tag: '', origin: '', city: '', state: '', intType: '', intFrom: '', intTo: '' };
+        let quickFilterNoCategory = false;
+        let quickFilterNoOrigin = false;
         let currentContactTags = [];
         let currentContactCustomFields = [];
         let currentChecklist = [];
@@ -8430,6 +8442,8 @@
                        (c.category && c.category.toLowerCase().includes(term));
             });
 
+            if (quickFilterNoCategory) filtered = filtered.filter(c => !c.category);
+            if (quickFilterNoOrigin) filtered = filtered.filter(c => !c.origin);
             if (activeFilters.category) filtered = filtered.filter(c => (c.category || '') === activeFilters.category);
             if (activeFilters.isLead === 'yes') filtered = filtered.filter(c => c.isLead);
             if (activeFilters.isLead === 'no') filtered = filtered.filter(c => !c.isLead);
@@ -16893,6 +16907,23 @@
         function updateSaveFilterBtn() {
             const btn = document.getElementById('btnSaveFilter');
             if (btn) btn.classList.toggle('hidden', !hasActiveFilters());
+        }
+
+        function toggleQuickFilterNoCategory() {
+            quickFilterNoCategory = !quickFilterNoCategory;
+            const btn = document.getElementById('btnQuickNoCategory');
+            btn.className = quickFilterNoCategory
+                ? 'px-3 py-1.5 rounded-full bg-amber-400 text-sant-bg font-bold transition-colors text-xs flex items-center gap-1.5'
+                : 'px-3 py-1.5 rounded-full border border-amber-400/40 text-amber-400/70 hover:text-amber-400 hover:border-amber-400 transition-colors text-xs font-medium flex items-center gap-1.5';
+            renderContacts(document.getElementById('searchInput') ? document.getElementById('searchInput').value : '');
+        }
+        function toggleQuickFilterNoOrigin() {
+            quickFilterNoOrigin = !quickFilterNoOrigin;
+            const btn = document.getElementById('btnQuickNoOrigin');
+            btn.className = quickFilterNoOrigin
+                ? 'px-3 py-1.5 rounded-full bg-sant-cyan text-sant-bg font-bold transition-colors text-xs flex items-center gap-1.5'
+                : 'px-3 py-1.5 rounded-full border border-sant-cyan/40 text-sant-cyan/70 hover:text-sant-cyan hover:border-sant-cyan transition-colors text-xs font-medium flex items-center gap-1.5';
+            renderContacts(document.getElementById('searchInput') ? document.getElementById('searchInput').value : '');
         }
 
         function applyAdvFilters() {
