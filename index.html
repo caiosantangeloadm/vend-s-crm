@@ -11828,7 +11828,12 @@
             renderCalendar();
             delete modalSnapshots['eventModal'];
             closeEventModal();
-            showToast(id ? 'Compromisso atualizado!' : 'Compromisso agendado!');
+            const conflicts = findConflictingEvents(event, event.startDate);
+            if (conflicts.length) {
+                showToast(`${id ? 'Compromisso atualizado' : 'Compromisso agendado'} — ⚠️ conflita com "${conflicts[0].title}"${conflicts.length>1?` e mais ${conflicts.length-1}`:''}`, 'error');
+            } else {
+                showToast(id ? 'Compromisso atualizado!' : 'Compromisso agendado!');
+            }
             if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
         }
 
@@ -11871,7 +11876,12 @@
                 cloudSyncEvent(original); // atualiza excludedDates no Supabase
                 cloudSyncEvent(single);   // cria evento avulso no Supabase
                 renderCalendar();
-                showToast('Alteração salva apenas para esta data — as demais permanecem.');
+                const conflicts = findConflictingEvents(single, single.startDate);
+                if (conflicts.length) {
+                    showToast(`Alteração salva apenas para esta data — ⚠️ conflita com "${conflicts[0].title}"${conflicts.length>1?` e mais ${conflicts.length-1}`:''}`, 'error');
+                } else {
+                    showToast('Alteração salva apenas para esta data — as demais permanecem.');
+                }
                 if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
             }
             delete modalSnapshots['eventModal'];
@@ -11887,7 +11897,12 @@
             saveEventsToStorage();
             cloudSyncEvent(pendingEventEdit); // sincroniza série completa no Supabase
             renderCalendar();
-            showToast('Compromisso atualizado para toda a série!');
+            const conflicts = findConflictingEvents(pendingEventEdit, pendingEventEdit.startDate);
+            if (conflicts.length) {
+                showToast(`Compromisso atualizado para toda a série — ⚠️ conflita com "${conflicts[0].title}"${conflicts.length>1?` e mais ${conflicts.length-1}`:''}`, 'error');
+            } else {
+                showToast('Compromisso atualizado para toda a série!');
+            }
             if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
             delete modalSnapshots['eventModal'];
             closeEventModal();
