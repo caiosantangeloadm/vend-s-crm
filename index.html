@@ -7125,6 +7125,27 @@
             cell.classList.remove('cal-drop-over');
         }
 
+        // ── Detecção de conflito de horário (usada no drag-and-drop da Agenda) ──
+        function _timeToMin(t) { const [h,m] = t.split(':').map(Number); return h*60 + m; }
+        function getEventTimeRange(e) {
+            if (!e.startTime) return null; // evento sem horário (dia inteiro) não entra na checagem
+            const start = _timeToMin(e.startTime);
+            let end = e.endTime ? _timeToMin(e.endTime) : start + 30;
+            if (end <= start) end = start + 30;
+            return [start, end];
+        }
+        function findConflictingEvents(movedEvent, dateStr) {
+            const range = getEventTimeRange(movedEvent);
+            if (!range) return [];
+            return events.filter(e => {
+                if (e.id === movedEvent.id) return false;
+                if (!isEventOnDate(e, dateStr)) return false;
+                const r2 = getEventTimeRange(e);
+                if (!r2) return false;
+                return range[0] < r2[1] && r2[0] < range[1];
+            });
+        }
+
         function onCalDayDrop(ev, toDate) {
             ev.preventDefault();
             document.querySelectorAll('.cal-drop-over').forEach(el => el.classList.remove('cal-drop-over'));
@@ -7135,6 +7156,7 @@
             }
             const event = events.find(x => x.id === calDragEventId);
             if (!event) { calDragEventId = null; calDragFromDate = null; return; }
+            let checkTarget = event;
 
             if (event.recurrence && event.recurrence !== 'none') {
                 const fromFmt = calDragFromDate.split('-').reverse().join('/');
@@ -7153,6 +7175,7 @@
                     };
                     events.push(copy);
                     cloudSyncEvent(copy);
+                    checkTarget = copy;
                 } else {
                     // Toda a série: desloca startDate (e endDate se existir)
                     const diffMs = new Date(toDate) - new Date(calDragFromDate);
@@ -7168,7 +7191,12 @@
             saveEventsToStorage();
             cloudSyncEvent(event);
             renderCalendar();
-            showToast('Compromisso reagendado!');
+            const conflicts = findConflictingEvents(checkTarget, toDate);
+            if (conflicts.length) {
+                showToast(`Compromisso reagendado — ⚠️ conflita com "${conflicts[0].title}"${conflicts.length>1?` e mais ${conflicts.length-1}`:''}`, 'error');
+            } else {
+                showToast('Compromisso reagendado!');
+            }
             calDragEventId = null;
             calDragFromDate = null;
         }
