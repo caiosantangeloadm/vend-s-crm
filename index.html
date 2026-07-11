@@ -368,7 +368,10 @@
                     </div>
                 </div>
                 <!-- Indicador de Sincronização -->
-                <div id="realtimeDot" onclick="showToast(document.getElementById('realtimeDot').title)" class="hidden w-2 h-2 rounded-full bg-green-400 cursor-pointer" title="Sincronização" style="box-shadow:0 0 6px #4ade80"></div>
+                <div onclick="showToast(document.getElementById('realtimeDot').title)" class="hidden md:flex items-center gap-1.5 cursor-pointer shrink-0" title="Sincronização">
+                    <div id="realtimeDot" class="hidden w-2 h-2 rounded-full bg-green-400" style="box-shadow:0 0 6px #4ade80"></div>
+                    <span id="syncStatusText" class="text-[10px] text-gray-500 whitespace-nowrap"></span>
+                </div>
                 <!-- Streak de uso -->
                 <button onclick="switchView('dashboard');setTimeout(()=>{const el=document.getElementById('dashStreakCard');if(el&&!el.classList.contains('hidden')){el.scrollIntoView({behavior:'smooth',block:'center'});el.style.outline='2px solid #f97316';setTimeout(()=>el.style.outline='',1200);}},200);" id="streakBadge" class="hidden items-center gap-1 px-2.5 py-1.5 rounded-lg border border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/20 transition-colors" title="Streak de uso — clique para ver detalhes">
                     <span class="text-base leading-none">🔥</span>
@@ -5040,6 +5043,19 @@
             dot.title = label;
             dot.classList.remove('hidden');
             dot.classList.toggle('animate-pulse', !navigator.onLine || pendingCount > 0);
+
+            const textEl = document.getElementById('syncStatusText');
+            if (textEl) {
+                let shortLabel;
+                if (!navigator.onLine) shortLabel = 'Offline';
+                else if (pendingCount > 0) shortLabel = `${pendingCount} pendente${pendingCount>1?'s':''}`;
+                else if (lastSync) {
+                    const diffMin = Math.floor((Date.now() - lastSync) / 60000);
+                    shortLabel = diffMin < 1 ? 'Sincronizado agora' : diffMin < 60 ? `Sincronizado há ${diffMin} min` : `Sincronizado há ${Math.floor(diffMin/60)}h`;
+                } else shortLabel = 'Aguardando sync';
+                textEl.textContent = shortLabel;
+                textEl.title = label;
+            }
         }
         function updateOfflineQueueBadge() {
             const n = getOfflineQueue().length;
