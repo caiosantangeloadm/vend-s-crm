@@ -2822,6 +2822,18 @@
                     </div>
                 </div>
 
+                <!-- Anexos -->
+                <div class="hidden" id="taskAttachmentsSection">
+                    <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 mb-2">
+                        <i class="ph ph-paperclip text-sant-cyan"></i> Anexos
+                    </h4>
+                    <div id="taskAttachmentsList" class="space-y-2 mb-2"></div>
+                    <label class="flex items-center justify-center gap-2 border border-dashed border-sant-border hover:border-sant-cyan rounded-lg px-3 py-2 text-xs text-gray-400 hover:text-sant-cyan cursor-pointer transition-colors">
+                        <i class="ph ph-upload-simple"></i> <span id="taskAttachUploadLabel">Anexar arquivo (PDF, foto — até 10MB)</span>
+                        <input type="file" id="taskAttachFileInput" class="hidden" accept=".pdf,image/*,.doc,.docx,.xls,.xlsx" onchange="uploadTaskAttachment(event)">
+                    </label>
+                </div>
+
                 <!-- Comentários -->
                 <div class="hidden" id="taskCommentsSection">
                     <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 mb-2">
@@ -5001,6 +5013,7 @@
                 "comments": t.comments || [],
                 notified: t.notified || false,
                 waiting: t.waiting || false, "waitingNote": t.waitingNote || '', "waitingSince": t.waitingSince || '',
+                attachments: t.attachments || [],
             };
         }
 
@@ -12783,6 +12796,8 @@
             fillTaskTagSuggestions();
             renderTaskTagsInModal();
             renderChangeLogGeneric(t.changeLog, 'taskChangeLog', 'taskChangeLogSection', 'taskChangeLogBadge');
+            document.getElementById('taskAttachmentsSection').classList.remove('hidden');
+            renderTaskAttachments(t.id);
             document.getElementById('taskCommentsSection').classList.remove('hidden');
             renderTaskComments(t.id);
             takeModalSnapshot('taskModal');
@@ -16191,6 +16206,7 @@
             fillTaskTagSuggestions();
             renderTaskTagsInModal();
             document.getElementById('taskChangeLogSection').classList.add('hidden');
+            document.getElementById('taskAttachmentsSection').classList.add('hidden');
             document.getElementById('taskCommentsSection').classList.add('hidden');
             document.getElementById('taskModal').classList.remove('hidden');
             takeModalSnapshot('taskModal');
@@ -18045,6 +18061,89 @@
             c.links = c.links.filter(l => l.id !== linkId);
             saveToStorage();
             renderContactLinks();
+        }
+
+        // ── Anexos da Tarefa ──────────────────────────────────────────────────
+        function renderTaskAttachments(taskId) {
+            const list = document.getElementById('taskAttachmentsList');
+            if (!list) return;
+            const t = tasks.find(x => x.id === taskId);
+            const atts = t?.attachments || [];
+            if (!atts.length) { list.innerHTML = '<p class="text-xs text-gray-600 italic">Nenhum anexo ainda.</p>'; return; }
+            list.innerHTML = atts.map(a => `
+                <div class="flex items-center gap-2 bg-[#141414] border border-sant-border rounded-lg px-3 py-2">
+                    <i class="ph ph-file text-sant-cyan shrink-0"></i>
+                    <span onclick="openTaskAttachment('${taskId}','${a.id}')" class="flex-1 text-sm text-gray-300 truncate cursor-pointer hover:text-sant-cyan transition-colors">${a.title}</span>
+                    <span class="text-[10px] text-gray-600 shrink-0">${a.size ? (a.size/1024/1024).toFixed(1)+'MB' : ''}</span>
+                    <button onclick="deleteTaskAttachment('${taskId}','${a.id}')" class="text-gray-500 hover:text-red-500 transition-colors shrink-0"><i class="ph ph-trash"></i></button>
+                </div>`).join('');
+        }
+
+        async function uploadTaskAttachment(event) {
+            const file = event.target.files[0];
+            event.target.value = '';
+            if (!file) return;
+            if (file.size > ATTACHMENT_MAX_MB * 1024 * 1024) {
+                showToast(`Arquivo muito grande — o limite é ${ATTACHMENT_MAX_MB}MB.`, 'error');
+                return;
+            }
+            const sb = getSB();
+            if (!sb || !currentUser) { showToast('Faça login para anexar arquivos.', 'error'); return; }
+            const taskId = document.getElementById('taskId').value;
+            const t = tasks.find(x => x.id === taskId);
+            if (!t) { showToast('Salve a tarefa antes de anexar arquivos.', 'error'); return; }
+
+            const label = document.getElementById('taskAttachUploadLabel');
+            const originalLabel = label.textContent;
+            label.textContent = 'Enviando...';
+
+            const ext = file.name.split('.').pop();
+            const storagePath = `${currentUser.id}/task-${t.id}/${crypto.randomUUID()}.${ext}`;
+
+            try {
+                const { error } = await sb.storage.from(ATTACHMENT_BUCKET).upload(storagePath, file, { upsert: false });
+                if (error) throw error;
+                if (!t.attachments) t.attachments = [];
+                t.attachments.push({ id: crypto.randomUUID(), title: file.name, storagePath, size: file.size, createdAt: new Date().toISOString() });
+                saveTasksToStorage();
+                cloudSyncTask(t);
+                renderTaskAttachments(t.id);
+                showToast('Arquivo anexado!');
+            } catch(e) {
+                console.warn('Task attachment upload:', e.message);
+                showToast('Erro ao enviar arquivo: ' + (e.message || 'tente novamente'), 'error');
+            } finally {
+                label.textContent = originalLabel;
+            }
+        }
+
+        async function openTaskAttachment(taskId, attId) {
+            const t = tasks.find(x => x.id === taskId);
+            const a = t?.attachments?.find(x => x.id === attId);
+            if (!a || !a.storagePath) return;
+            const sb = getSB();
+            if (!sb) return;
+            try {
+                const { data, error } = await sb.storage.from(ATTACHMENT_BUCKET).createSignedUrl(a.storagePath, 3600);
+                if (error || !data?.signedUrl) throw error || new Error('sem URL');
+                window.open(data.signedUrl, '_blank');
+            } catch(e) {
+                showToast('Erro ao abrir anexo: ' + (e.message || 'tente novamente'), 'error');
+            }
+        }
+
+        function deleteTaskAttachment(taskId, attId) {
+            const t = tasks.find(x => x.id === taskId);
+            if (!t || !t.attachments) return;
+            const a = t.attachments.find(x => x.id === attId);
+            if (a?.storagePath) {
+                const sb = getSB();
+                if (sb) sb.storage.from(ATTACHMENT_BUCKET).remove([a.storagePath]).catch(e => console.warn('Task attachment delete:', e.message));
+            }
+            t.attachments = t.attachments.filter(x => x.id !== attId);
+            saveTasksToStorage();
+            cloudSyncTask(t);
+            renderTaskAttachments(taskId);
         }
 
         function closeHistoryModal() {
