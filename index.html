@@ -4219,13 +4219,19 @@
 
             // ── Busca normal ─────────────────────────────────────────────────
             // Contatos
-            const matchContacts = contacts.filter(c =>
-                fullName(c).toLowerCase().includes(ql) ||
-                (c.phone||'').toLowerCase().includes(ql) ||
-                (c.email||'').toLowerCase().includes(ql) ||
-                (c.company||'').toLowerCase().includes(ql) ||
-                (c.tags||[]).some(t => t.toLowerCase().includes(ql))
-            ).slice(0, 5);
+            // Telefone: compara só dígitos (ignora a máscara "(11) 99999-9999"), assim
+            // buscar por DDD ou por um trecho parcial do número funciona normalmente.
+            const qlDigits = ql.replace(/\D/g, '');
+            const matchContacts = contacts.filter(c => {
+                const phoneMatch = qlDigits.length >= 2 && [c.phoneProf, c.phonePess, c.phone].some(
+                    p => p && p.replace(/\D/g, '').includes(qlDigits)
+                );
+                return fullName(c).toLowerCase().includes(ql) ||
+                    phoneMatch ||
+                    (c.emailProf||c.emailPess||c.email||'').toLowerCase().includes(ql) ||
+                    (c.company||'').toLowerCase().includes(ql) ||
+                    (c.tags||[]).some(t => t.toLowerCase().includes(ql));
+            }).slice(0, 5);
 
             // Tarefas
             const matchTasks = tasks.filter(t =>
@@ -4270,7 +4276,7 @@
                         ${contactAvatarHtml(c, 'w-8 h-8 text-xs')}
                         <div class="min-w-0">
                             <div class="text-sm text-white truncate">${hl(fullName(c))}</div>
-                            <div class="text-xs text-gray-500 truncate">${hl(c.company||c.phone||c.email||'')}</div>
+                            <div class="text-xs text-gray-500 truncate">${hl(c.company||c.phoneProf||c.phonePess||c.phone||c.emailProf||c.emailPess||c.email||'')}</div>
                         </div>
                         <i class="ph ph-arrow-right text-gray-700 ml-auto shrink-0"></i>
                     </div>`).join('');
