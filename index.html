@@ -3254,6 +3254,44 @@
         </div>
     </div>
 
+    <!-- MODAL DE PRÉVIA DE IMPORTAÇÃO CSV -->
+    <div id="csvImportPreviewModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeCsvImportPreview()">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center p-5 border-b border-sant-border shrink-0">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-file-csv text-sant-cyan"></i> Prévia da Importação</h3>
+                <button onclick="closeCsvImportPreview()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <div class="overflow-y-auto custom-scrollbar p-5 space-y-4">
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="bg-[#0a0a0a] border border-green-500/20 rounded-lg p-3 text-center">
+                        <p id="csvPreviewNewCount" class="text-2xl font-bold text-green-400">0</p>
+                        <p class="text-[10px] text-gray-500 mt-1">Novos</p>
+                    </div>
+                    <div class="bg-[#0a0a0a] border border-amber-500/20 rounded-lg p-3 text-center">
+                        <p id="csvPreviewDupCount" class="text-2xl font-bold text-amber-400">0</p>
+                        <p class="text-[10px] text-gray-500 mt-1">Duplicados</p>
+                    </div>
+                    <div class="bg-[#0a0a0a] border border-sant-border rounded-lg p-3 text-center">
+                        <p id="csvPreviewSkipCount" class="text-2xl font-bold text-gray-500">0</p>
+                        <p class="text-[10px] text-gray-500 mt-1">Sem nome</p>
+                    </div>
+                </div>
+                <div id="csvPreviewDupSection" class="hidden">
+                    <p class="text-xs font-bold text-amber-400 uppercase tracking-wider mb-2 flex items-center gap-1.5"><i class="ph ph-warning"></i> Serão ignorados por já existirem</p>
+                    <div id="csvPreviewDupList" class="space-y-1.5 max-h-48 overflow-y-auto"></div>
+                </div>
+                <div id="csvPreviewNewSection">
+                    <p class="text-xs font-bold text-green-400 uppercase tracking-wider mb-2 flex items-center gap-1.5"><i class="ph ph-user-plus"></i> Serão importados</p>
+                    <div id="csvPreviewNewList" class="space-y-1.5 max-h-48 overflow-y-auto"></div>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 p-5 border-t border-sant-border shrink-0">
+                <button onclick="closeCsvImportPreview()" class="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Cancelar</button>
+                <button onclick="confirmCsvImport()" id="csvPreviewImportBtn" class="px-4 py-2 rounded-lg bg-sant-cyan hover:bg-cyan-400 text-sant-bg text-sm font-bold transition-colors">Importar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL DE HISTÓRICO DE INTERAÇÕES -->
     <div id="historyModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4">
         <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-2xl max-h-[95vh] overflow-hidden flex flex-col shadow-2xl">
@@ -10225,6 +10263,7 @@
                 const defaultOrigin = origins.indexOf('Outro') !== -1 ? 'Outro' : (origins[0] || '');
 
                 const toImport = [];
+                const dupDetails = [];
                 let skippedNoName = 0, skippedDup = 0;
 
                 for (let i = 1; i < rows.length; i++) {
@@ -10276,33 +10315,76 @@
                     if (!isValidEmail(contact.emailProf)) contact.emailProf = '';
                     if (!isValidEmail(contact.emailPess)) contact.emailPess = '';
 
-                    if (findPossibleDuplicate(contact)) { skippedDup++; continue; }
+                    const dup = findPossibleDuplicate(contact);
+                    if (dup) { skippedDup++; dupDetails.push({ newName: fullName(contact), existing: dup }); continue; }
 
                     toImport.push(contact);
                 }
 
-                if (toImport.length === 0) {
+                if (toImport.length === 0 && dupDetails.length === 0) {
                     showToast(`Nenhum contato novo para importar (${skippedDup} duplicado(s), ${skippedNoName} sem nome).`, 'info');
                     event.target.value = '';
                     return;
                 }
 
-                showConfirm(
-                    `Importar ${toImport.length} novo(s) contato(s)?`,
-                    `${skippedDup} duplicado(s) e ${skippedNoName} sem nome serão ignorados. Os contatos atuais não serão alterados. Categoria padrão: "${defaultCategory}".`,
-                    () => {
-                        let nextCode = getNextContactCode();
-                        toImport.forEach(c => { c.code = nextCode++; });
-                        contacts.push(...toImport);
-                        saveToStorage();
-                        toImport.forEach(c => cloudSyncContact(c));
-                        renderContacts();
-                        showToast(`${toImport.length} contato(s) importado(s) com sucesso!`);
-                    }
-                );
+                openCsvImportPreview(toImport, dupDetails, skippedNoName, defaultCategory);
                 event.target.value = '';
             };
             reader.readAsText(file, 'UTF-8');
+        }
+
+        // ── Prévia de duplicidade ao importar CSV ────────────────────────────
+        let pendingCsvImport = null;
+        function openCsvImportPreview(toImport, dupDetails, skippedNoName, defaultCategory) {
+            pendingCsvImport = { toImport, defaultCategory };
+            document.getElementById('csvPreviewNewCount').textContent = toImport.length;
+            document.getElementById('csvPreviewDupCount').textContent = dupDetails.length;
+            document.getElementById('csvPreviewSkipCount').textContent = skippedNoName;
+
+            const dupSection = document.getElementById('csvPreviewDupSection');
+            if (dupDetails.length) {
+                dupSection.classList.remove('hidden');
+                document.getElementById('csvPreviewDupList').innerHTML = dupDetails.map(d => `
+                    <div class="flex items-center justify-between gap-2 bg-[#0a0a0a] border border-sant-border rounded-lg px-3 py-2 text-xs">
+                        <span class="text-gray-300 truncate">${d.newName}</span>
+                        <span class="text-gray-600 shrink-0">→ já existe: <span class="text-amber-400">${fullName(d.existing)}</span> ${d.existing.code?`<span class="font-mono">#${d.existing.code}</span>`:''}</span>
+                    </div>`).join('');
+            } else {
+                dupSection.classList.add('hidden');
+            }
+
+            const newListEl = document.getElementById('csvPreviewNewList');
+            if (toImport.length) {
+                newListEl.innerHTML = toImport.slice(0, 50).map(c => `
+                    <div class="bg-[#0a0a0a] border border-sant-border rounded-lg px-3 py-2 text-xs text-gray-300 truncate">${fullName(c)}${c.company?` <span class="text-gray-600">— ${c.company}</span>`:''}</div>`
+                ).join('') + (toImport.length > 50 ? `<p class="text-[10px] text-gray-600 text-center pt-1">+${toImport.length-50} mais</p>` : '');
+                document.getElementById('csvPreviewImportBtn').textContent = `Importar ${toImport.length} contato${toImport.length!==1?'s':''}`;
+                document.getElementById('csvPreviewImportBtn').disabled = false;
+                document.getElementById('csvPreviewImportBtn').classList.remove('opacity-40','cursor-not-allowed');
+            } else {
+                newListEl.innerHTML = '<p class="text-xs text-gray-600 italic">Nenhum contato novo — todos os registros do arquivo já existem ou estão sem nome.</p>';
+                document.getElementById('csvPreviewImportBtn').textContent = 'Nada para importar';
+                document.getElementById('csvPreviewImportBtn').disabled = true;
+                document.getElementById('csvPreviewImportBtn').classList.add('opacity-40','cursor-not-allowed');
+            }
+
+            document.getElementById('csvImportPreviewModal').classList.remove('hidden');
+        }
+        function closeCsvImportPreview() {
+            document.getElementById('csvImportPreviewModal').classList.add('hidden');
+            pendingCsvImport = null;
+        }
+        function confirmCsvImport() {
+            if (!pendingCsvImport || !pendingCsvImport.toImport.length) return;
+            const { toImport, defaultCategory } = pendingCsvImport;
+            let nextCode = getNextContactCode();
+            toImport.forEach(c => { c.code = nextCode++; });
+            contacts.push(...toImport);
+            saveToStorage();
+            toImport.forEach(c => cloudSyncContact(c));
+            renderContacts();
+            showToast(`${toImport.length} contato(s) importado(s) com sucesso!`);
+            closeCsvImportPreview();
         }
 
         function duplicateContact(id) {
@@ -18970,6 +19052,7 @@
                     const ql = document.getElementById('quickLookPopover');
                     if (ql && !ql.classList.contains('hidden')) { closeQuickLook(); return; }
                     if (!document.getElementById('quickNoteModal').classList.contains('hidden')) { closeQuickNoteModal(); return; }
+                    if (!document.getElementById('csvImportPreviewModal').classList.contains('hidden')) { closeCsvImportPreview(); return; }
                     if (!document.getElementById('contactModal').classList.contains('hidden')) { closeModal(); return; }
                     if (!document.getElementById('eventModal').classList.contains('hidden')) { closeEventModal(); return; }
                     if (!document.getElementById('taskModal').classList.contains('hidden')) { closeTaskModal(); return; }
