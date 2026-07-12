@@ -3948,7 +3948,7 @@
 
             contacts.forEach(c => {
                 if (!c.birth) return;
-                const [bm, bd] = c.birth.split('-').map(Number);
+                const bm = getBirthMonth(c.birth), bd = getBirthDay(c.birth);
                 if (!bm || !bd) return;
 
                 // Data do aniversário neste ano
@@ -6728,7 +6728,7 @@
             const [ty, tm, td] = todayStr.split('-').map(Number);
             contacts.forEach(c => {
                 if (!c.birth) return;
-                const [bm, bd] = c.birth.split('-').map(Number);
+                const bm = getBirthMonth(c.birth), bd = getBirthDay(c.birth);
                 let bday = new Date(ty, bm-1, bd);
                 if (bday < new Date(ty, tm-1, td)) bday = new Date(ty+1, bm-1, bd);
                 const diff = Math.round((bday - new Date(todayStr + 'T00:00:00')) / 86400000);
@@ -7475,12 +7475,12 @@
         // ── Aniversariantes do Mês (Dashboard) ───────────────────────────
         function renderMonthBirthdays(todayStr) {
             const container = document.getElementById('dashMonthBirthdays');
-            const currentMonth = todayStr.substring(5, 7);
+            const currentMonth = parseInt(todayStr.substring(5, 7));
             const todayDay = parseInt(todayStr.substring(8, 10));
 
             const monthBdays = contacts
-                .filter(c => c.birth && c.birth.substring(5, 7) === currentMonth)
-                .map(c => ({ c, day: parseInt(c.birth.substring(8, 10)) }))
+                .filter(c => c.birth && getBirthMonth(c.birth) === currentMonth)
+                .map(c => ({ c, day: getBirthDay(c.birth) }))
                 .sort((a, b) => a.day - b.day);
 
             if (monthBdays.length === 0) {
@@ -13091,23 +13091,23 @@
 
             let bdays = contacts.filter(c => {
                 if(!c.birth) return false;
-                const m = parseInt(c.birth.split('-')[1]);
-                const d = parseInt(c.birth.split('-')[2]);
+                const m = getBirthMonth(c.birth);
+                const d = getBirthDay(c.birth);
                 const val = m * 100 + d;
                 if(crossYear) return val >= sVal || val <= eVal;
                 return val >= sVal && val <= eVal;
             });
 
             bdays.sort((a,b) => {
-                const valA = parseInt(a.birth.split('-')[1])*100 + parseInt(a.birth.split('-')[2]);
-                const valB = parseInt(b.birth.split('-')[1])*100 + parseInt(b.birth.split('-')[2]);
+                const valA = getBirthMonth(a.birth)*100 + getBirthDay(a.birth);
+                const valB = getBirthMonth(b.birth)*100 + getBirthDay(b.birth);
                 return valA - valB;
             });
 
             if(bdays.length === 0) { res.innerHTML = '<p class="text-center text-gray-500 mt-10">Nenhum aniversariante no período.</p>'; return; }
 
             res.innerHTML = bdays.map(c => {
-                const d = c.birth.split('-')[2] + '/' + c.birth.split('-')[1];
+                const d = String(getBirthDay(c.birth)).padStart(2,'0') + '/' + String(getBirthMonth(c.birth)).padStart(2,'0');
                 const phone = c.phoneProf || c.phonePess || c.phone;
                 const email = c.emailProf || c.emailPess || c.email;
                 
@@ -18353,7 +18353,7 @@
             if (!c.birth) return '';
             const todayStr = getSPTodayStr();
             const [ty, tm, td] = todayStr.split('-').map(Number);
-            const [bm, bd] = c.birth.split('-').map(Number);
+            const bm = getBirthMonth(c.birth), bd = getBirthDay(c.birth);
             // Data do aniversário neste ano
             let bday = new Date(ty, bm - 1, bd);
             const today = new Date(ty, tm - 1, td);
