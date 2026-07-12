@@ -12727,7 +12727,12 @@
                 completed: false,
                 notified: false,
                 changeLog: existingTask ? (existingTask.changeLog || []) : [],
-                comments: existingTask ? (existingTask.comments || []) : []
+                comments: existingTask ? (existingTask.comments || []) : [],
+                attachments: existingTask ? (existingTask.attachments || []) : [],
+                waiting: existingTask ? (existingTask.waiting || false) : false,
+                waitingNote: existingTask ? (existingTask.waitingNote || '') : '',
+                waitingSince: existingTask ? (existingTask.waitingSince || '') : '',
+                createdAt: existingTask ? (existingTask.createdAt || new Date().toISOString()) : new Date().toISOString(),
             };
 
             if (existingTask) {
