@@ -18362,9 +18362,13 @@
             const diffMs = bday - today;
             const diffDays = Math.round(diffMs / 86400000);
             const advance = parseInt(localStorage.getItem('vends_bday_advance') || '3');
-            const threshold = Math.max(advance, 7); // mostra até 7 dias
-            if (diffDays > threshold) return '';
+            const threshold = Math.max(advance, 7); // destaque forte (rosa) até esse limite
             const dayFmt = `${String(bd).padStart(2,'0')}/${String(bm).padStart(2,'0')}`;
+            if (diffDays > threshold) {
+                // Indicador discreto de longo prazo (até 60 dias) — ajuda a planejar com antecedência
+                if (diffDays > 60) return '';
+                return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-white/5 text-gray-500 border border-white/10" title="Aniversário em ${diffDays} dias (${dayFmt})">🎂 em ${diffDays}d</span>`;
+            }
             if (diffDays === 0) return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-pink-500/15 text-pink-400 border border-pink-500/25" title="Aniversário hoje! (${dayFmt})">🎂 Hoje!</span>`;
             if (diffDays === 1) return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-pink-500/15 text-pink-400 border border-pink-500/25" title="Aniversário amanhã! (${dayFmt})">🎂 Amanhã</span>`;
             return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-pink-500/10 text-pink-400 border border-pink-500/20" title="Aniversário em ${diffDays} dias (${dayFmt})">🎂 em ${diffDays}d</span>`;
