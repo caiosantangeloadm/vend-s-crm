@@ -3364,6 +3364,21 @@
                         class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:border-sant-cyan transition-colors placeholder-gray-700">
                     <button id="historyNextStepClear" onclick="setNextStep('')" title="Limpar" class="hidden text-gray-500 hover:text-red-500 transition-colors p-1 shrink-0"><i class="ph ph-x-circle"></i></button>
                 </div>
+                <!-- Motivo de Recusa/Perda (só para leads) -->
+                <div id="lossReasonSection" class="hidden flex items-center gap-2 flex-wrap">
+                    <i class="ph ph-thumbs-down text-red-400 shrink-0"></i>
+                    <label class="text-xs font-bold text-gray-500 uppercase tracking-wider shrink-0">Motivo de recusa/perda</label>
+                    <select id="historyLossReason" onchange="setLossReason(this.value)" class="bg-[#141414] border border-sant-border rounded-lg px-2 py-1.5 text-sm text-white outline-none focus:border-red-400 transition-colors">
+                        <option value="">Nenhum</option>
+                        <option value="preco">Preço</option>
+                        <option value="timing">Timing / momento errado</option>
+                        <option value="sem_resposta">Sem resposta</option>
+                        <option value="concorrencia">Escolheu concorrente</option>
+                        <option value="sem_orcamento">Sem orçamento</option>
+                        <option value="outro">Outro</option>
+                    </select>
+                    <input type="text" id="historyLossReasonNote" placeholder="Detalhe (opcional)" onchange="setLossReasonNote(this.value)" class="flex-1 min-w-[140px] bg-[#141414] border border-sant-border rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:border-red-400 transition-colors placeholder-gray-700">
+                </div>
                 <!-- Histórico de follow-ups anteriores -->
                 <div id="followUpHistorySection" class="hidden pl-6">
                     <p class="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-1.5">Histórico de follow-ups</p>
@@ -14103,6 +14118,7 @@
                 interactions: c.interactions || [], "changeLog": c.changeLog || [],
                 "followUpHistory": c.followUpHistory || [], relationships: c.relationships || [],
                 "createdAt": c.createdAt || new Date().toISOString(),
+                "lossReason": c.lossReason || '', "lossReasonNote": c.lossReasonNote || '',
             };
         }
 
@@ -17582,6 +17598,12 @@
             const nsClr = document.getElementById('historyNextStepClear');
             if (nsInp) nsInp.value = c.nextStep || '';
             if (nsClr) nsClr.classList.toggle('hidden', !c.nextStep);
+            const lrSection = document.getElementById('lossReasonSection');
+            if (lrSection) lrSection.classList.toggle('hidden', !c.isLead);
+            const lrSel = document.getElementById('historyLossReason');
+            const lrNote = document.getElementById('historyLossReasonNote');
+            if (lrSel) lrSel.value = c.lossReason || '';
+            if (lrNote) lrNote.value = c.lossReasonNote || '';
             renderFollowUpHistory(c);
             renderHistorySmartSummary(c);
             renderOnboardingChecklist(c);
@@ -18521,6 +18543,22 @@
             if (inp)    inp.value = c.nextStep;
             if (clrBtn) clrBtn.classList.toggle('hidden', !c.nextStep);
             showToast(c.nextStep ? 'Próximo passo salvo.' : 'Próximo passo removido.');
+        }
+
+        function setLossReason(value) {
+            if (!currentHistoryContactId) return;
+            const c = contacts.find(x => x.id === currentHistoryContactId);
+            if (!c) return;
+            c.lossReason = value;
+            saveToStorage();
+            showToast(value ? 'Motivo registrado.' : 'Motivo removido.');
+        }
+        function setLossReasonNote(value) {
+            if (!currentHistoryContactId) return;
+            const c = contacts.find(x => x.id === currentHistoryContactId);
+            if (!c) return;
+            c.lossReasonNote = value.trim();
+            saveToStorage();
         }
 
         function savePrivateNotes(value) {
