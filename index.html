@@ -1417,7 +1417,7 @@
                             <i class="ph ph-file-pdf"></i> Exportar PDF
                         </button>
                     </div>
-                    <div id="leadsSummaryCards" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 shrink-0"></div>
+                    <div id="leadsSummaryCards" class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8 shrink-0"></div>
                     <div id="leadsDetailedLists" class="space-y-8 pb-10 pr-2"></div>
                 </div>
 
@@ -13462,7 +13462,25 @@
             const countMorno = leads.filter(c => c.temperature === 'morno').length;
             const countQuente = leads.filter(c => c.temperature === 'quente').length;
 
+            // Tempo médio até a primeira interação (Lead cadastrado → 1º contato registrado)
+            const leadsWithInteraction = leads.filter(c => (c.interactions||[]).length > 0 && c.createdAt);
+            let avgDaysToFirst = null;
+            leadsWithInteraction.forEach(c => {
+                const firstDate = [...c.interactions].map(i => i.date).filter(Boolean).sort()[0];
+                if (!firstDate) return;
+                const days = Math.max(0, _daysBetween(c.createdAt.substring(0,10), firstDate));
+                avgDaysToFirst = (avgDaysToFirst || 0) + days;
+            });
+            if (avgDaysToFirst !== null) avgDaysToFirst = Math.round(avgDaysToFirst / leadsWithInteraction.length);
+            const leadsNoContactYet = leads.filter(c => !(c.interactions||[]).length).length;
+
             summary.innerHTML = `
+                <div class="bg-sant-purple/10 border border-sant-purple/20 rounded-xl p-4 flex flex-col justify-center items-center text-center">
+                    <span class="text-3xl font-bold text-sant-purple mb-1">${avgDaysToFirst !== null ? avgDaysToFirst : '—'}</span>
+                    <span class="text-[10px] font-bold text-sant-purple uppercase tracking-wider">Dias até 1ª interação</span>
+                    ${leadsNoContactYet > 0 ? `<span class="text-[9px] text-gray-500 mt-1">${leadsNoContactYet} sem 1º contato ainda</span>` : ''}
+                </div>`;
+            summary.innerHTML += `
                 <div class="bg-sant-surface border border-sant-border rounded-xl p-4 flex flex-col justify-center items-center text-center">
                     <span class="text-3xl font-bold text-white mb-1">${leads.length}</span>
                     <span class="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Total de Leads</span>
