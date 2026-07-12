@@ -1101,6 +1101,7 @@
                             <button onclick="changeCalendar(-1)" class="w-10 h-10 rounded border border-sant-border hover:bg-sant-surface flex items-center justify-center transition-colors"><i class="ph ph-caret-left"></i></button>
                             <button onclick="changeCalendar(1)" class="w-10 h-10 rounded border border-sant-border hover:bg-sant-surface flex items-center justify-center transition-colors"><i class="ph ph-caret-right"></i></button>
                         </div>
+                        <button id="btnWorkWeek" onclick="toggleWorkWeekMode()" class="hidden px-3 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan text-sm font-medium transition-colors" title="Mostrar só dias úteis (Seg–Sex) na Visão Semana">Seg–Sex</button>
                         <label class="w-10 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan flex items-center justify-center transition-colors ml-2 cursor-pointer" title="Importar Agenda (.ics)"><i class="ph ph-download-simple"></i><input type="file" accept=".ics" class="hidden" onchange="importCalendarIcs(event)"></label>
                         <button onclick="exportCalendarIcs()" class="w-10 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan flex items-center justify-center transition-colors" title="Exportar Agenda (.ics)"><i class="ph ph-export"></i></button>
                         <button onclick="exportAgendaPdf()" class="w-10 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan flex items-center justify-center transition-colors" title="Exportar Agenda (PDF) — respeita o filtro de tipo ativo"><i class="ph ph-file-pdf"></i></button>
@@ -3881,6 +3882,7 @@
         let currentMonthDate;
         let calViewMode = 'month';
         let calFilterType = '';
+        let calWorkWeekMode = localStorage.getItem('vends_cal_workweek') === '1';
         let calFilterContact = '';
         let notificationInterval;
         let currentView = 'dashboard';
@@ -10908,6 +10910,21 @@
             renderCalendar();
         }
 
+        function toggleWorkWeekMode() {
+            calWorkWeekMode = !calWorkWeekMode;
+            localStorage.setItem('vends_cal_workweek', calWorkWeekMode ? '1' : '0');
+            updateWorkWeekBtn();
+            renderCalendar();
+        }
+        function updateWorkWeekBtn() {
+            const btn = document.getElementById('btnWorkWeek');
+            if (!btn) return;
+            btn.className = (calViewMode === 'week' ? '' : 'hidden ') +
+                (calWorkWeekMode
+                    ? 'px-3 h-10 rounded border border-sant-cyan bg-sant-cyan/10 text-sant-cyan text-sm font-medium transition-colors'
+                    : 'px-3 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan text-sm font-medium transition-colors');
+        }
+
         function setCalendarMode(mode) {
             calViewMode = mode;
             const calSrch = document.getElementById('calSearchInput');
@@ -10923,7 +10940,8 @@
             document.getElementById('calendarListView').classList.toggle('hidden', mode !== 'list');
             const copyBtn = document.getElementById('btnCopyWeek');
             if (copyBtn) { copyBtn.classList.toggle('hidden', mode !== 'week'); copyBtn.classList.toggle('flex', mode === 'week'); }
-            
+            updateWorkWeekBtn();
+
             if(mode === 'week') {
                 const d = new Date(currentMonthDate);
                 const day = d.getDay();
@@ -11427,6 +11445,7 @@
         // ── FIM NÍVEL 4 helpers ─────────────────────────────────────────────
 
         function renderCalendar() {
+            updateWorkWeekBtn();
             // Inicializa filtros
             renderCalFilterBar();
             fillCalContactFilter();
@@ -11517,14 +11536,15 @@
                 }
             } else if (calViewMode === 'week') {
                 const startDate = new Date(currentMonthDate);
-                const endDate = new Date(startDate);
-                endDate.setDate(startDate.getDate() + 6);
-                
-                let titleText = `${startDate.getDate()} de ${monthNames[startDate.getMonth()]}`;
-                if(startDate.getMonth() !== endDate.getMonth()) {
-                    titleText += ` - ${endDate.getDate()} de ${monthNames[endDate.getMonth()]} ${endDate.getFullYear()}`;
+                const dayIndexes = calWorkWeekMode ? [1,2,3,4,5] : [0,1,2,3,4,5,6];
+                const visStart = new Date(startDate); visStart.setDate(startDate.getDate() + dayIndexes[0]);
+                const visEnd   = new Date(startDate); visEnd.setDate(startDate.getDate() + dayIndexes[dayIndexes.length-1]);
+
+                let titleText = `${visStart.getDate()} de ${monthNames[visStart.getMonth()]}`;
+                if(visStart.getMonth() !== visEnd.getMonth()) {
+                    titleText += ` - ${visEnd.getDate()} de ${monthNames[visEnd.getMonth()]} ${visEnd.getFullYear()}`;
                 } else {
-                    titleText += ` a ${endDate.getDate()} ${endDate.getFullYear()}`;
+                    titleText += ` a ${visEnd.getDate()} ${visEnd.getFullYear()}`;
                 }
                 monthYearLabel.innerText = titleText;
 
@@ -11552,9 +11572,9 @@
                 const nowY    = ((nowBr.getHours() - GRID_S) + nowBr.getMinutes() / 60) * HOUR_H;
                 const showNow = nowBr.getHours() >= GRID_S && nowBr.getHours() < GRID_E;
 
-                // Collect day data for all 7 columns
+                // Collect day data for the visible columns (7 normalmente, 5 no modo Seg–Sex)
                 const colData = [];
-                for (let i = 0; i < 7; i++) {
+                dayIndexes.forEach(i => {
                     const loopDate = new Date(startDate);
                     loopDate.setDate(startDate.getDate() + i);
                     const d = loopDate.getDate(), mo = loopDate.getMonth() + 1, y = loopDate.getFullYear();
@@ -11565,19 +11585,19 @@
                     const bdays      = contacts.filter(c => c.birth && c.birth.endsWith(monthDayStr));
                     const blks       = getBlocksForDate(dateStr);
                     const dayTasksW  = tasks.filter(t => t.date === dateStr && !t.completed);
-                    colData.push({ dateStr, d, mo, isToday, dayEvs, bdays, blks, dayTasksW });
-                }
+                    colData.push({ dateStr, d, mo, isToday, dayEvs, bdays, blks, dayTasksW, wd: i });
+                });
 
                 // Header row (day names + date numbers)
                 // Also all-day row (birthdays + no-time events + tasks chip)
                 let headerCells  = '';
                 let allDayCells  = '';
 
-                colData.forEach(({dateStr, d, mo, isToday, dayEvs, bdays, dayTasksW}, idx) => {
-                    const isLast = idx === 6;
+                colData.forEach(({dateStr, d, mo, isToday, dayEvs, bdays, dayTasksW, wd}, idx) => {
+                    const isLast = idx === colData.length - 1;
                     // Header cell — flexbox, same width as day columns
                     headerCells += `<div style="flex:1;min-width:0;padding:8px 4px;text-align:center;box-sizing:border-box;border-right:${isLast?'none':'1px solid #1f1f1f'};${isToday?'background:rgba(34,211,238,0.05)':''}">
-                        <p style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;margin:0;">${weekDaysNames[idx]}</p>
+                        <p style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;margin:0;">${weekDaysNames[wd]}</p>
                         <p style="font-size:16px;font-weight:700;margin:2px 0 0 0;${isToday?'display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:#22d3ee;color:#030303;border-radius:50%;':'color:#fff;'}">${d}</p>
                     </div>`;
                     // All-day cell — flexbox, same width as day columns
@@ -11699,8 +11719,8 @@
                     <div style="width:48px;flex-shrink:0;position:relative;height:${TOTAL_H}px;border-right:1px solid #1f1f1f;">
                         ${timeColHtml}
                     </div>
-                    <!-- 7 colunas de dias -->
-                    <div style="flex:1;display:grid;grid-template-columns:repeat(7,1fr);position:relative;height:${TOTAL_H}px;">
+                    <!-- Colunas de dias (7 normalmente, 5 no modo Seg–Sex) -->
+                    <div style="flex:1;display:grid;grid-template-columns:repeat(${colData.length},1fr);position:relative;height:${TOTAL_H}px;">
                         <!-- Linhas de hora (globais) -->
                         ${hourLinesHtml}
                         <!-- Colunas dos dias -->
