@@ -3308,6 +3308,25 @@
         </div>
     </div>
 
+    <!-- MODAL: Copiar Tarefa para vários dias da semana -->
+    <div id="copyTaskWeekdaysModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeCopyTaskWeekdaysModal()">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-md shadow-2xl">
+            <div class="flex justify-between items-center p-5 border-b border-sant-border">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-calendar-plus text-sant-purple"></i> Copiar para dias da semana</h3>
+                <button onclick="closeCopyTaskWeekdaysModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <div class="p-5 space-y-4">
+                <p class="text-sm text-gray-300" id="copyTaskWeekdaysTitle"></p>
+                <p class="text-xs text-gray-500">Escolha os dias em que uma cópia desta tarefa (mesmo horário, prioridade e checklist zerado) será criada:</p>
+                <div class="flex gap-1.5" id="copyTaskWeekdaysDays"></div>
+            </div>
+            <div class="flex justify-end gap-2 p-5 border-t border-sant-border">
+                <button onclick="closeCopyTaskWeekdaysModal()" class="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Cancelar</button>
+                <button onclick="confirmCopyTaskWeekdays()" class="px-4 py-2 rounded-lg bg-sant-purple hover:bg-purple-700 text-white text-sm font-bold transition-colors">Copiar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL DE HISTÓRICO DE INTERAÇÕES -->
     <div id="historyModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4">
         <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-2xl max-h-[95vh] overflow-hidden flex flex-col shadow-2xl">
@@ -12621,6 +12640,7 @@
                             <button onclick="toggleTaskSnoozeMenu('${t.id}')" class="text-gray-400 hover:text-amber-400" title="Adiar tarefa"><i class="ph ph-alarm text-lg"></i></button>
                             <button onclick="toggleTaskWaiting('${t.id}')" class="${t.waiting ? 'text-sant-purple' : 'text-gray-400 hover:text-sant-purple'}" title="${t.waiting ? 'Remover Aguardando Terceiros' : 'Marcar como Aguardando Terceiros'}"><i class="ph ph-hourglass-medium text-lg"></i></button>
                             <button onclick="duplicateTask('${t.id}')" class="text-gray-400 hover:text-sant-cyan" title="Duplicar tarefa"><i class="ph ph-copy text-lg"></i></button>
+                            <button onclick="openCopyTaskWeekdaysModal('${t.id}')" class="text-gray-400 hover:text-sant-purple" title="Copiar para vários dias da semana"><i class="ph ph-calendar-plus text-lg"></i></button>
                             <button onclick="editTask('${t.id}')" class="text-gray-400 hover:text-sant-cyan"><i class="ph ph-pencil-simple text-lg"></i></button>
                             <button onclick="deleteTask('${t.id}')" class="text-gray-400 hover:text-red-500"><i class="ph ph-trash text-lg"></i></button>
                         </div>
@@ -13109,6 +13129,82 @@
             renderTaskTagsInModal();
             takeModalSnapshot('taskModal');
             showToast('Tarefa duplicada — revise e salve.', 'info');
+        }
+
+        // ── Copiar Tarefa para vários dias da semana de uma vez ──────────────
+        let copyTaskWeekdaysId = null;
+        let copyTaskWeekdaysSelected = [];
+        function openCopyTaskWeekdaysModal(id) {
+            const t = tasks.find(x => x.id === id);
+            if (!t) return;
+            copyTaskWeekdaysId = id;
+            copyTaskWeekdaysSelected = [];
+            document.getElementById('copyTaskWeekdaysTitle').textContent = t.title;
+
+            const baseStr = t.date || getSPTodayStr();
+            const [y, m, d] = baseStr.split('-').map(Number);
+            const base = new Date(y, m - 1, d);
+            const weekStart = new Date(base);
+            weekStart.setDate(base.getDate() - base.getDay());
+            const dayLabels = ['D','S','T','Q','Q','S','S'];
+            const pad = n => String(n).padStart(2,'0');
+
+            const daysEl = document.getElementById('copyTaskWeekdaysDays');
+            daysEl.innerHTML = '';
+            for (let i = 0; i < 7; i++) {
+                const dt = new Date(weekStart);
+                dt.setDate(weekStart.getDate() + i);
+                const dateStr = `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`;
+                const isOriginal = dateStr === baseStr;
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.dataset.date = dateStr;
+                btn.disabled = isOriginal;
+                btn.className = isOriginal
+                    ? 'flex-1 py-2 rounded-lg text-xs font-bold border border-sant-border text-gray-700 cursor-not-allowed'
+                    : 'flex-1 py-2 rounded-lg text-xs font-bold border border-sant-border text-gray-400 hover:border-sant-purple/40 transition-colors';
+                btn.innerHTML = `${dayLabels[i]}<br><span style="font-size:9px">${pad(dt.getDate())}/${pad(dt.getMonth()+1)}</span>`;
+                if (!isOriginal) btn.onclick = () => toggleCopyTaskWeekday(dateStr, btn);
+                daysEl.appendChild(btn);
+            }
+            document.getElementById('copyTaskWeekdaysModal').classList.remove('hidden');
+        }
+        function toggleCopyTaskWeekday(dateStr, btn) {
+            const idx = copyTaskWeekdaysSelected.indexOf(dateStr);
+            if (idx === -1) {
+                copyTaskWeekdaysSelected.push(dateStr);
+                btn.className = 'flex-1 py-2 rounded-lg text-xs font-bold border border-sant-purple bg-sant-purple/10 text-sant-purple transition-colors';
+            } else {
+                copyTaskWeekdaysSelected.splice(idx, 1);
+                btn.className = 'flex-1 py-2 rounded-lg text-xs font-bold border border-sant-border text-gray-400 hover:border-sant-purple/40 transition-colors';
+            }
+        }
+        function closeCopyTaskWeekdaysModal() {
+            document.getElementById('copyTaskWeekdaysModal').classList.add('hidden');
+            copyTaskWeekdaysId = null;
+            copyTaskWeekdaysSelected = [];
+        }
+        function confirmCopyTaskWeekdays() {
+            if (!copyTaskWeekdaysId || !copyTaskWeekdaysSelected.length) { showToast('Escolha ao menos um dia.', 'error'); return; }
+            const t = tasks.find(x => x.id === copyTaskWeekdaysId);
+            if (!t) return;
+            copyTaskWeekdaysSelected.forEach(dateStr => {
+                const copy = {
+                    ...t, id: crypto.randomUUID(), date: dateStr,
+                    completed: false, completedAt: null, notified: false,
+                    recurrence: 'none', recurrenceInterval: 1,
+                    checklist: (t.checklist || []).map(i => ({ ...i, id: crypto.randomUUID(), done: false })),
+                    changeLog: [], comments: [], attachments: [],
+                    waiting: false, waitingNote: '', waitingSince: '',
+                    createdAt: new Date().toISOString(),
+                };
+                tasks.push(copy);
+                cloudSyncTask(copy);
+            });
+            saveTasksToStorage();
+            _refreshCurrentTaskView();
+            showToast(`${copyTaskWeekdaysSelected.length} cópia(s) criada(s)!`);
+            closeCopyTaskWeekdaysModal();
         }
 
         function deleteTask(id) {
@@ -19242,6 +19338,7 @@
                     if (ql && !ql.classList.contains('hidden')) { closeQuickLook(); return; }
                     if (!document.getElementById('quickNoteModal').classList.contains('hidden')) { closeQuickNoteModal(); return; }
                     if (!document.getElementById('csvImportPreviewModal').classList.contains('hidden')) { closeCsvImportPreview(); return; }
+                    if (!document.getElementById('copyTaskWeekdaysModal').classList.contains('hidden')) { closeCopyTaskWeekdaysModal(); return; }
                     if (!document.getElementById('contactModal').classList.contains('hidden')) { closeModal(); return; }
                     if (!document.getElementById('eventModal').classList.contains('hidden')) { closeEventModal(); return; }
                     if (!document.getElementById('taskModal').classList.contains('hidden')) { closeTaskModal(); return; }
