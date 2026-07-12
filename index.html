@@ -5132,6 +5132,7 @@
                 "createdAt": e.createdAt || new Date().toISOString(),
                 "changeLog": e.changeLog || [],
                 notified: e.notified || false,
+                "realizedDates": e.realizedDates || [],
             };
         }
 
@@ -11868,17 +11869,19 @@
                     const isConflict = e._totalCols > 1;
                     const borderCls = isConflict ? 'border-orange-500/70' : m.border;
                     const conflictIcon = isConflict ? `<i class="ph ph-warning text-orange-400 text-[10px] shrink-0" title="Conflito de horário"></i>` : '';
-                    return `<div class="absolute rounded-lg border ${borderCls} ${m.bg} overflow-hidden cursor-pointer hover:brightness-110 transition-all group/ev z-10"
+                    const realized = (e.realizedDates||[]).includes(dateStr);
+                    return `<div class="absolute rounded-lg border ${borderCls} ${m.bg} overflow-hidden cursor-pointer hover:brightness-110 transition-all group/ev z-10 ${realized?'opacity-60':''}"
                         style="top:${e.sMin*PX_PER_MIN}px;height:${h}px;left:${lft};width:${colW};padding:3px 6px"
                         onclick="openEventModal(events.find(x=>x.id==='${e.id}'),'${dateStr}')">
                         <div class="flex items-start justify-between gap-1 h-full overflow-hidden">
                             <div class="min-w-0 flex-1 overflow-hidden">
-                                <p class="text-xs font-bold truncate leading-tight text-sant-cyan flex items-center gap-1">${e.title}${conflictIcon}</p>
+                                <p class="text-xs font-bold truncate leading-tight text-sant-cyan flex items-center gap-1 ${realized?'line-through':''}">${realized?'<i class="ph ph-check-circle text-green-400 shrink-0"></i> ':''}${e.title}${conflictIcon}</p>
                                 ${h>34?`<p class="text-[10px] text-gray-500 mt-0.5 leading-tight">${e.startTime}${e.endTime?' – '+e.endTime:''}</p>`:''}
                                 ${h>54&&e.location?`<p class="text-[10px] text-gray-500 mt-0.5 truncate leading-tight"><i class="ph ph-map-pin"></i> ${e.location}</p>`:''}
                                 ${h>74&&linkedC?`<p class="text-[10px] text-gray-500 mt-0.5 truncate leading-tight"><i class="ph ph-user"></i> ${fullName(linkedC)}</p>`:''}
                             </div>
                             <div class="flex flex-col gap-0.5 opacity-0 group-hover/ev:opacity-100 transition-opacity shrink-0">
+                                <button onclick="event.stopPropagation();toggleEventRealized('${e.id}','${dateStr}')" class="${realized?'text-green-400':'text-gray-500 hover:text-green-400'} text-[11px] leading-none" title="${realized?'Desmarcar como realizado':'Marcar como realizado'}"><i class="ph ph-check-circle"></i></button>
                                 <button onclick="event.stopPropagation();openEventModal(events.find(x=>x.id==='${e.id}'),'${dateStr}')" class="text-gray-500 hover:text-sant-cyan text-[11px] leading-none"><i class="ph ph-pencil-simple"></i></button>
                                 <button onclick="event.stopPropagation();deleteEvent('${e.id}','${dateStr}')" class="text-gray-500 hover:text-red-500 text-[11px] leading-none"><i class="ph ph-trash"></i></button>
                             </div>
@@ -11989,6 +11992,11 @@
             if (id) {
                 const original = events.find(e => e.id === id);
                 event.changeLog = original ? (original.changeLog || []) : [];
+                event.excludedDates = original ? (original.excludedDates || []) : [];
+                event.realizedDates = original ? (original.realizedDates || []) : [];
+                event.uid = original ? (original.uid || '') : '';
+                event.createdAt = original ? (original.createdAt || new Date().toISOString()) : new Date().toISOString();
+                event.notified = original ? (original.notified || false) : false;
                 if (original && (original.recurrence || 'none') !== 'none' && eventEditDateContext) {
                     pendingEventEdit = event;
                     showRecurEditModal(original, eventEditDateContext);
@@ -12112,6 +12120,18 @@
             const copy = { ...e, id: '', title: 'Cópia de ' + e.title, recurrence: 'none', excludedDates: [] };
             openEventModal(copy, null);
             showToast('Evento duplicado — revise e salve.', 'info');
+        }
+
+        function toggleEventRealized(id, dateStr) {
+            const ev = events.find(e => e.id === id);
+            if (!ev) return;
+            if (!ev.realizedDates) ev.realizedDates = [];
+            const idx = ev.realizedDates.indexOf(dateStr);
+            if (idx === -1) { ev.realizedDates.push(dateStr); showToast('Compromisso marcado como realizado!'); }
+            else { ev.realizedDates.splice(idx, 1); showToast('Marcação de realizado removida.'); }
+            saveEventsToStorage();
+            cloudSyncEvent(ev);
+            renderCalendar();
         }
 
         function deleteEvent(id, dateStr) {
