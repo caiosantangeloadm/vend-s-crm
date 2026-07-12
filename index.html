@@ -381,6 +381,20 @@
                 <button onclick="openShortcutsModal()" class="relative w-10 h-10 rounded-xl flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-sant-border" title="Central de Ajuda (?)">
                     <i class="ph ph-question text-xl"></i>
                 </button>
+                <!-- Botão Silenciar Notificações (Não Perturbe) -->
+                <div class="relative">
+                    <button onclick="toggleDndMenu()" id="btnDnd" class="relative w-10 h-10 rounded-xl flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-sant-border" title="Silenciar notificações">
+                        <i class="ph ph-moon text-xl"></i>
+                    </button>
+                    <div id="dndMenu" class="hidden absolute right-0 mt-2 w-56 bg-[#141414] border border-sant-border rounded-xl shadow-2xl z-30 overflow-hidden">
+                        <p class="px-4 pt-3 pb-1 text-[10px] font-bold tracking-widest text-gray-600 uppercase">Silenciar notificações</p>
+                        <button onclick="setDnd(60);toggleDndMenu()" class="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 transition-colors">Por 1 hora</button>
+                        <button onclick="setDnd(180);toggleDndMenu()" class="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 transition-colors">Por 3 horas</button>
+                        <button onclick="setDnd(1440);toggleDndMenu()" class="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 transition-colors">Até amanhã</button>
+                        <button id="dndOffOption" onclick="clearDnd();toggleDndMenu()" class="hidden w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-white/5 transition-colors border-t border-sant-border">Reativar notificações</button>
+                        <p id="dndUntilLabel" class="hidden px-4 py-2 text-[10px] text-sant-purple border-t border-sant-border"></p>
+                    </div>
+                </div>
                 <!-- Botão sino -->
                 <button onclick="toggleNotifPanel()" class="relative w-10 h-10 rounded-xl flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-sant-border" id="notifBell" title="Notificações">
                     <i class="ph ph-bell text-xl"></i>
@@ -4488,6 +4502,7 @@
             updateTaskBadge();
             updateNotifBadge();
             startNotificationEngine();
+            updateDndUI();
             checkBackupWarning();
             registerServiceWorker();
         }
@@ -4823,7 +4838,8 @@
         // ── FIM CENTRAL DE NOTIFICAÇÕES ────────────────────────────────────────
 
         function fireNotification(ev) {
-            try {
+            const dnd = isDndActive();
+            if (!dnd) try {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
                 
                 const osc1 = ctx.createOscillator();
@@ -4848,13 +4864,14 @@
             } catch(e) { console.warn('Audio erro', e); }
             
             const body = `${ev.startTime ? 'Horário: ' + ev.startTime : ''}${ev.location ? ' · ' + ev.location : ''}`.trim();
-            showToast(`Lembrete: ${ev.title}${ev.startTime ? ' às ' + ev.startTime : ''}`, 'info');
+            if (!dnd) showToast(`Lembrete: ${ev.title}${ev.startTime ? ' às ' + ev.startTime : ''}`, 'info');
 
-            // Salva na Central de Notificações
+            // Salva na Central de Notificações — sempre, mesmo com Não Perturbe ativo,
+            // pra não perder o registro, só evita som/toast/notificação nativa.
             const notifType = ev._notifType || 'event';
             addNotification(notifType, ev.title, body || 'Compromisso agendado', ev.id);
 
-            if ("Notification" in window && Notification.permission === "granted") {
+            if (!dnd && "Notification" in window && Notification.permission === "granted") {
                 new Notification("Vend-s CRM - Lembrete", {
                     body: `${ev.title}\n${body}`,
                     icon: "https://cdn-icons-png.flaticon.com/512/833/833602.png"
@@ -4890,7 +4907,47 @@
             });
         }
 
+        // ── Silenciar Notificações (Não Perturbe) ────────────────────────────
+        function isDndActive() {
+            const until = parseInt(localStorage.getItem('vends_dnd_until') || '0');
+            return until > Date.now();
+        }
+        function setDnd(minutes) {
+            const until = Date.now() + minutes * 60000;
+            localStorage.setItem('vends_dnd_until', String(until));
+            const label = minutes >= 1440 ? `até amanhã` : minutes >= 60 ? `por ${Math.round(minutes/60)}h` : `por ${minutes}min`;
+            showToast(`🔕 Notificações silenciadas ${label}.`);
+            updateDndUI();
+        }
+        function clearDnd() {
+            localStorage.removeItem('vends_dnd_until');
+            showToast('🔔 Notificações reativadas.');
+            updateDndUI();
+        }
+        function toggleDndMenu() {
+            document.getElementById('dndMenu').classList.toggle('hidden');
+        }
+        function updateDndUI() {
+            const btn = document.getElementById('btnDnd');
+            const menu = document.getElementById('dndMenu');
+            if (!btn) return;
+            const active = isDndActive();
+            btn.classList.toggle('text-sant-purple', active);
+            btn.classList.toggle('text-gray-400', !active);
+            const untilLabel = document.getElementById('dndUntilLabel');
+            if (active && untilLabel) {
+                const until = parseInt(localStorage.getItem('vends_dnd_until') || '0');
+                untilLabel.textContent = `Ativo até ${new Date(until).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}`;
+                untilLabel.classList.remove('hidden');
+            } else if (untilLabel) {
+                untilLabel.classList.add('hidden');
+            }
+            const offBtn = document.getElementById('dndOffOption');
+            if (offBtn) offBtn.classList.toggle('hidden', !active);
+        }
+
         function showPushNotification(title, body, tag) {
+            if (isDndActive()) return;
             if (!('Notification' in window) || Notification.permission !== 'granted') return;
             // Usa Service Worker se disponível (melhor suporte a clique)
             if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
@@ -7853,6 +7910,11 @@
             const ql = document.getElementById('quickLookPopover');
             if (ql && !ql.classList.contains('hidden') && !e.target.closest('#quickLookPopover')) {
                 closeQuickLook();
+            }
+            // Fechar menu de Silenciar Notificações ao clicar fora
+            const dndMenu = document.getElementById('dndMenu');
+            if (dndMenu && !dndMenu.classList.contains('hidden') && !e.target.closest('#dndMenu') && !e.target.closest('#btnDnd')) {
+                dndMenu.classList.add('hidden');
             }
         });
         function applyNoteTemplate(key) {
