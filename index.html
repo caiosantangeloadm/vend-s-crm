@@ -13464,7 +13464,7 @@
             const box = document.getElementById('lossReasonSection');
             const bars = document.getElementById('lossReasonBars');
             if (!box || !bars) return;
-            const cold = leads.filter(c => c.temperature === 'frio' && c.lossReason);
+            const cold = leads.filter(c => c.lossReason);
             if (!cold.length) { box.classList.add('hidden'); return; }
             box.classList.remove('hidden');
 
@@ -13488,7 +13488,7 @@
                         <div class="h-2 rounded-full" style="width:${pct}%;background:${color}"></div>
                     </div>
                 </div>`;
-            }).join('') + `<p class="text-[10px] text-gray-600 pt-1">${total} lead${total!==1?'s':''} frio${total!==1?'s':''} com motivo registrado</p>`;
+            }).join('') + `<p class="text-[10px] text-gray-600 pt-1">${total} lead${total!==1?'s':''} com motivo registrado</p>`;
         }
 
         function generateLeadsReport() {
