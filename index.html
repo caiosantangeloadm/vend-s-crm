@@ -623,6 +623,10 @@
                             <div id="dashFollowupEmpty" class="hidden text-[11px] text-gray-500 italic">Nenhum follow-up vencido ainda.</div>
                         </div>
                     </div>
+                    <div id="followupStreakBox" class="hidden mt-4 pt-3 border-t border-sant-border items-center gap-2">
+                        <span id="followupStreakEmoji" class="text-lg"></span>
+                        <span class="text-xs text-gray-400"><span id="followupStreakDays" class="text-white font-bold"></span> dia(s) seguidos sem follow-up vencido</span>
+                    </div>
                 </div>
 
                 <!-- Card: Esta Semana -->
@@ -5910,6 +5914,7 @@
                 honoredEl.textContent = '0';
                 barEl.style.width = '0%';
                 emptyEl.classList.remove('hidden');
+                checkFollowupStreak(todayStr, 0);
                 return;
             }
             emptyEl.classList.add('hidden');
@@ -5930,6 +5935,34 @@
             honoredEl.style.color = color;
             barEl.style.width = pct + '%';
             barEl.style.backgroundColor = color;
+
+            checkFollowupStreak(todayStr, withDue.length - honored.length);
+        }
+
+        // ── Streak de Follow-ups em Dia ───────────────────────────────────────
+        function checkFollowupStreak(todayStr, pendingOverdueCount) {
+            const box = document.getElementById('followupStreakBox');
+            if (!box) return;
+            const lastStr = localStorage.getItem('vends_followup_streak_last') || '';
+            let days = parseInt(localStorage.getItem('vends_followup_streak_days') || '0');
+
+            if (lastStr !== todayStr) {
+                const yesterday = addDaysToDateStr(todayStr, -1);
+                if (pendingOverdueCount === 0) {
+                    days = (lastStr === yesterday) ? days + 1 : 1;
+                } else {
+                    days = 0;
+                }
+                localStorage.setItem('vends_followup_streak_last', todayStr);
+                localStorage.setItem('vends_followup_streak_days', String(days));
+            }
+
+            if (days < 1) { box.classList.add('hidden'); box.classList.remove('flex'); return; }
+            box.classList.remove('hidden');
+            box.classList.add('flex');
+            document.getElementById('followupStreakDays').textContent = days;
+            document.getElementById('followupStreakEmoji').textContent =
+                days >= 30 ? '🏆' : days >= 14 ? '⚡' : days >= 7 ? '🔥' : '✨';
         }
 
         // ── Metas Semanais ───────────────────────────────────────────────────
@@ -9681,6 +9714,7 @@
                 documents: existing ? (existing.documents || []) : [],
                 lossReason: existing ? (existing.lossReason || '') : '',
                 lossReasonNote: existing ? (existing.lossReasonNote || '') : '',
+                tempSnoozeUntil: existing ? (existing.tempSnoozeUntil || '') : '',
                 dealValue: parseFloat(document.getElementById('contactDealValue').value) || (existing ? existing.dealValue || 0 : 0),
                 changeLog: existing ? (existing.changeLog || []) : [],
                 createdAt: existing ? (existing.createdAt || new Date().toISOString()) : new Date().toISOString(),
@@ -13498,6 +13532,20 @@
             }).join('') + `<p class="text-[10px] text-gray-600 pt-1">${total} lead${total!==1?'s':''} com motivo registrado</p>`;
         }
 
+        function snoozeLeadTemperature(id) {
+            const c = contacts.find(x => x.id === id);
+            if (!c) return;
+            const days = prompt('Adiar a reavaliação deste lead frio por quantos dias? (ele some dos relatórios até lá)', '15');
+            if (days === null) return;
+            const n = parseInt(days);
+            if (!n || n < 1) { showToast('Informe um número de dias válido.', 'error'); return; }
+            c.tempSnoozeUntil = addDaysToDateStr(getSPTodayStr(), n);
+            saveToStorage();
+            cloudSyncContact(c);
+            showToast(`Lead adiado por ${n} dia(s) — some dos relatórios até ${c.tempSnoozeUntil.split('-').reverse().join('/')}.`);
+            generateLeadsReport();
+        }
+
         function generateLeadsReport() {
             const summary = document.getElementById('leadsSummaryCards');
             const lists = document.getElementById('leadsDetailedLists');
@@ -13553,19 +13601,28 @@
                 { id: 'frio', title: '❄️ Leads Frios (Prospecção)', color: 'text-blue-500', border: 'border-blue-500/30' }
             ];
 
+            const todayStrLeads = getSPTodayStr();
             lists.innerHTML = sections.map(sec => {
                 let secLeads = leads.filter(c => c.temperature === sec.id);
                 if (secLeads.length === 0) return '';
-                
+
+                let snoozedCount = 0;
+                if (sec.id === 'frio') {
+                    snoozedCount = secLeads.filter(c => c.tempSnoozeUntil && c.tempSnoozeUntil > todayStrLeads).length;
+                    secLeads = secLeads.filter(c => !c.tempSnoozeUntil || c.tempSnoozeUntil <= todayStrLeads);
+                }
+                if (secLeads.length === 0 && snoozedCount === 0) return '';
+
                 secLeads.sort((a,b) => fullName(a).localeCompare(fullName(b), 'pt-BR'));
-                
+
                 const listHtml = secLeads.map(c => {
                     const phone = c.phoneProf || c.phonePess || c.phone || '';
                     const email = c.emailProf || c.emailPess || c.email || '';
                     const jobStr = [c.job, c.company].filter(Boolean).join(' @ ');
-                    
+
                     const wppBtn = phone ? `<a href="https://wa.me/55${phone.replace(/\D/g,'')}" target="_blank" onclick="event.stopPropagation()" class="w-8 h-8 rounded bg-[#25D366]/10 hover:bg-[#25D366] text-[#25D366] hover:text-white flex items-center justify-center transition-all border border-[#25D366]/20" title="WhatsApp"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256"><path d="M187.58,144.84l-32-16a8,8,0,0,0-8,.5l-14.69,9.8a40.55,40.55,0,0,1-16-16l9.8-14.69a8,8,0,0,0,.5-8l-16-32A8,8,0,0,0,104,64a40,40,0,0,0-40,40,88.1,88.1,0,0,0,88,88,40,40,0,0,0,40-40A8,8,0,0,0,187.58,144.84ZM152,176a72.08,72.08,0,0,1-72-72A24,24,0,0,1,99.29,80.46l11.48,23-10.11,15.16a8,8,0,0,0-.44,8.51,56.63,56.63,0,0,0,24.11,24.11,8,8,0,0,0,8.51-.44l15.16-10.11,23,11.48A24,24,0,0,1,152,176ZM239.91,128a111.7,111.7,0,0,1-32.06,78.89l-2.07,2.15-5.94,22.25A24,24,0,0,1,176.47,249.6L154,243.68l-2.22,2.09A111.9,111.9,0,1,1,239.91,128Zm-16,0A95.9,95.9,0,1,0,51.81,173.08a8,8,0,0,1,1.55,6.59l-6.42,24a8,8,0,0,0,7.85,10.1l24-6.43a8,8,0,0,1,6.59,1.55A95.9,95.9,0,0,0,223.91,128Z"></path></svg></a>` : '';
                     const mailBtn = email ? `<a href="mailto:${email}" onclick="event.stopPropagation()" class="w-8 h-8 rounded bg-sant-cyan/10 hover:bg-sant-cyan text-sant-cyan hover:text-sant-bg flex items-center justify-center transition-all border border-sant-cyan/20" title="E-mail"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256"><path d="M224,48H32a16,16,0,0,0-16,16V192a16,16,0,0,0,16,16H224a16,16,0,0,0,16-16V64A16,16,0,0,0,224,48ZM203.43,64,128,133.15,52.57,64ZM224,192H32V74.89l86.18,79.08a16,16,0,0,0,21.64,0L224,74.89Z"></path></svg></a>` : '';
+                    const snoozeBtn = sec.id === 'frio' ? `<button onclick="event.stopPropagation();snoozeLeadTemperature('${c.id}')" class="w-8 h-8 rounded bg-[#141414] hover:bg-sant-purple/20 text-gray-500 hover:text-sant-purple flex items-center justify-center transition-all border border-sant-border" title="Adiar reavaliação (snooze)"><i class="ph ph-clock-countdown text-sm"></i></button>` : '';
 
                     return `
                     <div class="flex items-center justify-between p-4 bg-[#141414] rounded-lg border border-sant-border hover:${sec.border} transition-colors cursor-pointer group" onclick="editContact('${c.id}')">
@@ -13573,13 +13630,13 @@
                             <p class="font-bold text-white text-sm truncate group-hover:${sec.color} transition-colors">${fullName(c)}</p>
                             ${jobStr ? `<p class="text-xs text-gray-400 truncate mt-0.5">${jobStr}</p>` : ''}
                         </div>
-                        <div class="flex items-center gap-2">${mailBtn}${wppBtn}</div>
+                        <div class="flex items-center gap-2">${mailBtn}${wppBtn}${snoozeBtn}</div>
                     </div>`;
                 }).join('');
 
                 return `
                 <div class="mb-4">
-                    <h3 class="text-sm font-bold ${sec.color} uppercase tracking-wider mb-3 border-b border-sant-border pb-2">${sec.title}</h3>
+                    <h3 class="text-sm font-bold ${sec.color} uppercase tracking-wider mb-3 border-b border-sant-border pb-2 flex items-center gap-2">${sec.title}${snoozedCount > 0 ? `<span class="text-[10px] font-normal text-gray-500 normal-case">— ${snoozedCount} adiado${snoozedCount!==1?'s':''} (snooze)</span>` : ''}</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">${listHtml}</div>
                 </div>`;
             }).join('');
@@ -14281,6 +14338,7 @@
                 "followUpHistory": c.followUpHistory || [], relationships: c.relationships || [],
                 "createdAt": c.createdAt || new Date().toISOString(),
                 "lossReason": c.lossReason || '', "lossReasonNote": c.lossReasonNote || '',
+                "tempSnoozeUntil": c.tempSnoozeUntil || '',
             };
         }
 
