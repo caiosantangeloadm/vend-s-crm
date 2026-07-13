@@ -1418,6 +1418,10 @@
                         </button>
                     </div>
                     <div id="leadsSummaryCards" class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8 shrink-0"></div>
+                    <div id="lossReasonSection" class="hidden bg-sant-surface border border-sant-border rounded-2xl p-5 mb-8 shrink-0">
+                        <p class="text-xs font-bold text-white uppercase tracking-wide mb-4 flex items-center gap-2"><i class="ph ph-thumbs-down text-red-400"></i> Motivos de Recusa/Perda</p>
+                        <div id="lossReasonBars" class="space-y-3"></div>
+                    </div>
                     <div id="leadsDetailedLists" class="space-y-8 pb-10 pr-2"></div>
                 </div>
 
@@ -13452,6 +13456,41 @@
             }).join('');
         }
 
+        const LOSS_REASON_LABELS = {
+            preco: 'Preço', timing: 'Timing / momento errado', sem_resposta: 'Sem resposta',
+            concorrencia: 'Escolheu concorrente', sem_orcamento: 'Sem orçamento', outro: 'Outro',
+        };
+        function renderLossReasonSection(leads) {
+            const box = document.getElementById('lossReasonSection');
+            const bars = document.getElementById('lossReasonBars');
+            if (!box || !bars) return;
+            const cold = leads.filter(c => c.temperature === 'frio' && c.lossReason);
+            if (!cold.length) { box.classList.add('hidden'); return; }
+            box.classList.remove('hidden');
+
+            const counts = {};
+            cold.forEach(c => { counts[c.lossReason] = (counts[c.lossReason] || 0) + 1; });
+            const entries = Object.entries(counts).sort((a,b) => b[1] - a[1]);
+            const total = cold.length;
+            const colors = ['#f87171','#fbbf24','#60a5fa','#a78bfa','#34d399','#f472b6'];
+
+            bars.innerHTML = entries.map(([key, count], i) => {
+                const pct = Math.round((count/total)*100);
+                const label = LOSS_REASON_LABELS[key] || key;
+                const color = colors[i % colors.length];
+                return `
+                <div>
+                    <div class="flex justify-between text-xs font-semibold mb-1">
+                        <span class="text-gray-300">${label}</span>
+                        <span style="color:${color}">${pct}% <span class="text-gray-500 font-normal">(${count})</span></span>
+                    </div>
+                    <div class="w-full bg-[#141414] rounded-full h-2">
+                        <div class="h-2 rounded-full" style="width:${pct}%;background:${color}"></div>
+                    </div>
+                </div>`;
+            }).join('') + `<p class="text-[10px] text-gray-600 pt-1">${total} lead${total!==1?'s':''} frio${total!==1?'s':''} com motivo registrado</p>`;
+        }
+
         function generateLeadsReport() {
             const summary = document.getElementById('leadsSummaryCards');
             const lists = document.getElementById('leadsDetailedLists');
@@ -13473,6 +13512,8 @@
             });
             if (avgDaysToFirst !== null) avgDaysToFirst = Math.round(avgDaysToFirst / leadsWithInteraction.length);
             const leadsNoContactYet = leads.filter(c => !(c.interactions||[]).length).length;
+
+            renderLossReasonSection(leads);
 
             summary.innerHTML = `
                 <div class="bg-sant-purple/10 border border-sant-purple/20 rounded-xl p-4 flex flex-col justify-center items-center text-center">
