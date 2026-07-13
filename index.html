@@ -13013,6 +13013,7 @@
                 if(index !== -1) {
                     const wasCompleted = tasks[index].completed;
                     task.completed = wasCompleted;
+                    task.completedAt = tasks[index].completedAt || null;
                     if (task.completed) task.kanbanColumn = 'done';
                     tasks[index] = task;
                 }
