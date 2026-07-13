@@ -9262,9 +9262,9 @@
                     ${bulkMode?`<input type="checkbox" onclick="event.stopPropagation();toggleContactSelect('${c.id}')" ${selectedContactIds.has(c.id)?'checked':''} class="w-4 h-4 accent-sant-cyan cursor-pointer shrink-0 rounded">`:''}
                     ${c.pinned&&!bulkMode?`<i class="ph ph-push-pin-fill text-amber-400 text-[10px] shrink-0" title="Fixado"></i>`:''}
                     ${contactAvatarHtml(c, 'w-6 h-6 text-[10px]')}
-                    <div class="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4 items-center min-w-0">
-                        <div class="min-w-0 flex items-center gap-1.5">
-                            <h3 class="font-bold text-white text-xs truncate" title="${fullName(c)}">${fullName(c)}</h3>
+                    <div class="flex-1 grid grid-cols-1 md:grid-cols-[2.2fr_1fr_1fr_1fr] gap-4 items-center min-w-0">
+                        <div class="min-w-0 flex items-center gap-1.5 flex-wrap">
+                            <h3 class="font-bold text-white text-xs truncate max-w-full" title="${fullName(c)}">${fullName(c)}</h3>
                             ${c.code?`<span class="text-gray-500 font-mono text-[9px] shrink-0">#${c.code}</span>`:''}
                             ${newBadge} ${leadTag} ${scoreBadge} ${qualBadge} ${dealBadge} ${accessBadge} ${inact} ${freqBadge} ${bdayBadge} ${nextStepBadge}
                         </div>
@@ -9293,7 +9293,7 @@
                 ${bulkMode?`<input type="checkbox" onclick="event.stopPropagation();toggleContactSelect('${c.id}')" ${selectedContactIds.has(c.id)?'checked':''} class="w-4 h-4 accent-sant-cyan cursor-pointer shrink-0 rounded">`:''}
                 ${c.pinned&&!bulkMode?`<i class="ph ph-push-pin-fill text-amber-400 text-xs shrink-0" title="Fixado"></i>`:''}
                 ${contactAvatarHtml(c, 'w-8 h-8 text-xs')}
-                <div class="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4 items-center min-w-0">
+                <div class="flex-1 grid grid-cols-1 md:grid-cols-[2.2fr_1fr_1fr_1fr] gap-4 items-center min-w-0">
                     <div class="min-w-0">
                         <h3 class="font-bold text-white text-sm truncate" title="${fullName(c)}">${fullName(c)} ${c.code?`<span class="text-gray-500 font-mono text-[10px] font-normal">#${c.code}</span>`:''}</h3>
                         <div class="flex flex-wrap items-center gap-1 mt-0.5">
