@@ -17193,11 +17193,13 @@
                         <div class="flex items-start gap-2 mb-1">
                             <h4 class="text-sm font-medium leading-snug flex-1 ${col.id === 'done' ? 'line-through text-gray-500' : 'text-[#fbbf24]'}">${t.title}</h4>
                             <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                <button onclick="toggleTaskWaiting('${t.id}')" class="${t.waiting ? 'text-sant-purple' : 'text-gray-500 hover:text-sant-purple'} p-0.5" title="${t.waiting ? 'Remover Aguardando Terceiros' : 'Marcar como Aguardando Terceiros'}"><i class="ph ph-hourglass-medium text-sm"></i></button>
                                 <button onclick="duplicateTask('${t.id}')" class="text-gray-500 hover:text-sant-cyan p-0.5" title="Duplicar"><i class="ph ph-copy text-sm"></i></button>
                                 <button onclick="editTask('${t.id}')" class="text-gray-500 hover:text-sant-cyan p-0.5"><i class="ph ph-pencil-simple text-sm"></i></button>
                                 <button onclick="deleteTask('${t.id}')" class="text-gray-500 hover:text-red-500 p-0.5"><i class="ph ph-trash text-sm"></i></button>
                             </div>
                         </div>
+                        ${t.waiting ? `<div class="mb-1.5"><span class="text-[9px] font-bold text-sant-purple bg-sant-purple/10 border border-sant-purple/25 px-1.5 py-0.5 rounded-full"><i class="ph ph-hourglass-medium"></i> Aguardando Terceiros${t.waitingNote ? ' — '+t.waitingNote : ''}</span></div>` : ''}
                         ${prioBadge ? `<div class="mb-1.5">${prioBadge}</div>` : ''}
                         ${dateFmt ? `<p class="text-[10px] ${isOverdue ? 'text-red-400 font-semibold' : 'text-sant-cyan'} flex items-center gap-1 mb-0.5">
                             <i class="ph ${isOverdue ? 'ph-warning-circle' : 'ph-calendar-blank'}"></i> ${dateFmt}
