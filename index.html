@@ -1008,6 +1008,12 @@
                             </select>
                         </div>
                         <div>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1.5">Lista</label>
+                            <select id="filterList" onchange="applyAdvFilters()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none appearance-none">
+                                <option value="">Todas</option>
+                            </select>
+                        </div>
+                        <div>
                             <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1.5">Cidade</label>
                             <select id="filterCity" onchange="applyAdvFilters()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none appearance-none">
                                 <option value="">Todas</option>
@@ -1721,6 +1727,7 @@
                 <div class="flex gap-1 mb-8 border-b border-sant-border overflow-x-auto pb-0 shrink-0">
                     <button onclick="switchSettingsTab('categories')" id="stab-categories" class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-sant-cyan text-sant-cyan">Categorias</button>
                     <button onclick="switchSettingsTab('origins')"    id="stab-origins"    class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Origens</button>
+                    <button onclick="switchSettingsTab('lists')"      id="stab-lists"       class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Listas</button>
                     <button onclick="switchSettingsTab('eventtypes')" id="stab-eventtypes" class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Tipos de Evento</button>
                     <button onclick="switchSettingsTab('tags')"       id="stab-tags"       class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Tags</button>
                     <button onclick="switchSettingsTab('templates')"  id="stab-templates"  class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Templates</button>
@@ -1752,6 +1759,20 @@
                             <button onclick="addSettingsOrigin()" class="bg-sant-cyan text-sant-bg px-4 py-2 rounded-lg text-sm font-bold hover:bg-cyan-400 transition-colors"><i class="ph ph-plus"></i></button>
                         </div>
                         <div id="s-orig-list" class="space-y-2"></div>
+                    </div>
+                </div>
+
+                <!-- Painel: Listas -->
+                <div id="spanel-lists" class="settings-panel hidden">
+                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
+                        <p class="text-xs font-bold text-white uppercase tracking-wide mb-2 flex items-center gap-2"><i class="ph ph-list-bullets text-sant-cyan"></i> Listas de Contatos</p>
+                        <p class="text-xs text-gray-500 mb-5">Agrupe contatos livremente (ex: "Convidados Evento Julho", "Clientes VIP"), fora do fluxo normal de Categoria/Origem. Vincule contatos a uma lista no cadastro.</p>
+                        <div class="flex gap-2 mb-4">
+                            <input id="s-list-input" type="text" placeholder="Nova lista..." class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none transition-colors"
+                                onkeydown="if(event.key==='Enter'){event.preventDefault();addSettingsContactList()}">
+                            <button onclick="addSettingsContactList()" class="bg-sant-cyan text-sant-bg px-4 py-2 rounded-lg text-sm font-bold hover:bg-cyan-400 transition-colors"><i class="ph ph-plus"></i></button>
+                        </div>
+                        <div id="s-list-list" class="space-y-2"></div>
                     </div>
                 </div>
 
@@ -2304,6 +2325,20 @@
                                 onkeydown="if(event.key==='Enter'){event.preventDefault();addTagToContact()}">
                             <datalist id="tagSuggestions"></datalist>
                             <button type="button" onclick="addTagToContact()" class="bg-sant-purple/20 hover:bg-sant-purple text-sant-purple hover:text-white px-3 py-2 rounded-lg text-sm transition-colors border border-sant-purple/30 shrink-0">
+                                <i class="ph ph-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-2"><i class="ph ph-list-bullets text-sant-cyan"></i> Listas</label>
+                        <div id="contactListsContainer" class="flex flex-wrap gap-2 min-h-[36px] p-2 bg-[#141414] border border-sant-border rounded-lg mb-2"></div>
+                        <div class="flex gap-2">
+                            <input type="text" id="contactListInput" placeholder="Adicionar a uma lista (Ex: Clientes VIP)..." list="contactListSuggestions"
+                                class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none transition-colors"
+                                onkeydown="if(event.key==='Enter'){event.preventDefault();addContactList()}">
+                            <datalist id="contactListSuggestions"></datalist>
+                            <button type="button" onclick="addContactList()" class="bg-sant-cyan/20 hover:bg-sant-cyan text-sant-cyan hover:text-sant-bg px-3 py-2 rounded-lg text-sm transition-colors border border-sant-cyan/30 shrink-0">
                                 <i class="ph ph-plus"></i>
                             </button>
                         </div>
@@ -3870,6 +3905,7 @@
         let currentContactSort = 'name';
         let categories = [];
         let origins = [];
+        let contactLists = [];
         let tasks = [];
         let events = [];
         let scheduleBlocks = [];
@@ -3948,10 +3984,11 @@
         let taskPlaybooks = [];
         let currentPlaybookSteps = [];
         let automationRules = [];
-        let activeFilters = { category: '', isLead: '', temperature: '', tag: '', origin: '', city: '', state: '', intType: '', intFrom: '', intTo: '' };
+        let activeFilters = { category: '', isLead: '', temperature: '', tag: '', origin: '', list: '', city: '', state: '', intType: '', intFrom: '', intTo: '' };
         let quickFilterNoCategory = false;
         let quickFilterNoOrigin = false;
         let currentContactTags = [];
+        let currentContactLists = [];
         let currentContactCustomFields = [];
         let currentChecklist = [];
         let currentTaskTags = [];
@@ -5031,6 +5068,7 @@
             currentContactSort = localStorage.getItem('sant_crm_contact_sort') || 'name';
             categories = JSON.parse(localStorage.getItem('sant_crm_categories') || JSON.stringify(defaultCategories));
             origins = JSON.parse(localStorage.getItem('sant_crm_origins') || JSON.stringify(defaultOrigins));
+            contactLists = JSON.parse(localStorage.getItem('sant_crm_contact_lists') || '[]');
             tasks = JSON.parse(localStorage.getItem('sant_crm_tasks') || '[]');
             events = JSON.parse(localStorage.getItem('sant_crm_events') || '[]');
             tags = JSON.parse(localStorage.getItem('sant_crm_tags') || '[]');
@@ -5123,6 +5161,7 @@
         }
         function saveCategoriesToStorage() { localStorage.setItem('sant_crm_categories', JSON.stringify(categories)); syncPreferencesToSupabase(); }
         function saveOriginsToStorage() { localStorage.setItem('sant_crm_origins', JSON.stringify(origins)); syncPreferencesToSupabase(); }
+        function saveContactListsToStorage() { localStorage.setItem('sant_crm_contact_lists', JSON.stringify(contactLists)); syncPreferencesToSupabase(); }
         function saveMessageTemplatesToStorage() { localStorage.setItem('sant_crm_message_templates', JSON.stringify(messageTemplates)); syncPreferencesToSupabase(); }
         function migrateContactOrigins() {
             let changed = false;
@@ -5421,7 +5460,7 @@
         // ─────────────────────────────────────────────────────────────────────
 
         function exportData() {
-            const data = { contacts, categories, origins, tasks, events, tags, notes, notifications, messageTemplates, scheduleBlocks, eventTypeLabels, eventTypeIcons,
+            const data = { contacts, categories, origins, contactLists, tasks, events, tags, notes, notifications, messageTemplates, scheduleBlocks, eventTypeLabels, eventTypeIcons,
                 streakDays: parseInt(localStorage.getItem('vends_streak_days')||'0'),
                 streakBest: parseInt(localStorage.getItem('vends_streak_best')||'0'),
                 streakLast: localStorage.getItem('vends_streak_last')||'',
@@ -5457,6 +5496,7 @@
                     if (data.contacts) contacts = data.contacts;
                     if (data.categories) categories = data.categories;
                     if (data.origins) origins = data.origins;
+                    if (data.contactLists) contactLists = data.contactLists;
                     if (data.tasks) tasks = data.tasks;
                     if (data.events) events = data.events;
                     if (data.tags) tags = data.tags;
@@ -5477,7 +5517,7 @@
                     if (data.weeklyGoals)                { weeklyGoals  = data.weeklyGoals;  localStorage.setItem('vends_weekly_goals',  JSON.stringify(weeklyGoals)); }
                     if (data.monthlyGoals)               { monthlyGoals = data.monthlyGoals; localStorage.setItem('vends_monthly_goals', JSON.stringify(monthlyGoals)); }
                     if (data.quarterlyGoals)             { quarterlyGoals = data.quarterlyGoals; localStorage.setItem('vends_quarterly_goals', JSON.stringify(quarterlyGoals)); }
-                    saveToStorage(); saveCategoriesToStorage(); saveOriginsToStorage(); saveTasksToStorage(); saveEventsToStorage(); saveTagsToStorage(); saveNotesToStorage(); saveMessageTemplatesToStorage(); saveScheduleBlocksToStorage();
+                    saveToStorage(); saveCategoriesToStorage(); saveOriginsToStorage(); saveContactListsToStorage(); saveTasksToStorage(); saveEventsToStorage(); saveTagsToStorage(); saveNotesToStorage(); saveMessageTemplatesToStorage(); saveScheduleBlocksToStorage();
                     localStorage.setItem('vends_notifications', JSON.stringify(notifications));
                     init();
                     showToast('Dados importados com sucesso!');
@@ -8788,6 +8828,7 @@
             if (activeFilters.temperature) filtered = filtered.filter(c => c.isLead && c.temperature === activeFilters.temperature);
             if (activeFilters.tag)    filtered = filtered.filter(c => c.tags && c.tags.includes(activeFilters.tag));
             if (activeFilters.origin) filtered = filtered.filter(c => (c.origin || '') === activeFilters.origin);
+            if (activeFilters.list)   filtered = filtered.filter(c => (c.lists || []).includes(activeFilters.list));
             if (activeFilters.city)   filtered = filtered.filter(c => (c.addressCity  || '').trim().toLowerCase() === activeFilters.city.toLowerCase());
             if (activeFilters.state)  filtered = filtered.filter(c => (c.addressState || '').trim().toUpperCase()  === activeFilters.state.toUpperCase());
             if (activeFilters.intType) {
@@ -9698,6 +9739,7 @@
                 dealValue: parseFloat(document.getElementById('contactDealValue').value) || 0,
                 photo: document.getElementById('contactPhoto').value.trim(),
                 tags: [...currentContactTags],
+                lists: [...currentContactLists],
                 customFields: currentContactCustomFields.filter(f => f.label.trim() || f.value.trim()).map(f => ({ label: f.label.trim(), value: f.value.trim() })),
                 interactions: existing ? (existing.interactions || []) : [],
                 links: existing ? (existing.links || []) : [],
@@ -9925,6 +9967,9 @@
             }
             currentContactTags = contact.tags ? [...contact.tags] : [];
             renderContactTagPills();
+            currentContactLists = contact.lists ? [...contact.lists] : [];
+            renderContactListPills();
+            fillContactListOptions();
             currentContactCustomFields = contact.customFields ? contact.customFields.map(f => ({...f})) : [];
             renderContactCustomFields();
             takeModalSnapshot('contactModal');
@@ -10572,6 +10617,8 @@
             document.getElementById('contactSite').value = c.site || '';
             currentContactTags = c.tags ? [...c.tags] : [];
             renderContactTagPills();
+            currentContactLists = c.lists ? [...c.lists] : [];
+            renderContactListPills();
             currentContactCustomFields = c.customFields ? c.customFields.map(f => ({...f})) : [];
             renderContactCustomFields();
             takeModalSnapshot('contactModal');
@@ -14332,7 +14379,7 @@
                 "addressZip": c.addressZip || '',
                 "accessCount": c.accessCount || 0, "lastAccessed": c.lastAccessed || '',
                 pinned: c.pinned || false,
-                tags: c.tags || [], "customFields": c.customFields || [],
+                tags: c.tags || [], lists: c.lists || [], "customFields": c.customFields || [],
                 links: c.links || [], "quickNotes": c.quickNotes || [], documents: c.documents || [],
                 interactions: c.interactions || [], "changeLog": c.changeLog || [],
                 "followUpHistory": c.followUpHistory || [], relationships: c.relationships || [],
@@ -14439,6 +14486,7 @@
                 const row = {
                     user_id: currentUser.id,
                     categories, origins, tags,
+                    "contactLists": contactLists,
                     "messageTemplates": messageTemplates,
                     "scheduleBlocks": scheduleBlocks,
                     "eventTypeLabels": eventTypeLabels,
@@ -14484,6 +14532,7 @@
                 if (error || !data) return;
                 if (data.categories?.length)        { categories = data.categories; localStorage.setItem('sant_crm_categories', JSON.stringify(categories)); }
                 if (data.origins?.length)           { origins = data.origins; localStorage.setItem('sant_crm_origins', JSON.stringify(origins)); }
+                if (data.contactLists?.length)       { contactLists = data.contactLists; localStorage.setItem('sant_crm_contact_lists', JSON.stringify(contactLists)); }
                 if (data.tags?.length)              { tags = data.tags; localStorage.setItem('sant_crm_tags', JSON.stringify(tags)); }
                 if (data.tagColors && Object.keys(data.tagColors).length) { tagColors = data.tagColors; localStorage.setItem('sant_crm_tag_colors', JSON.stringify(tagColors)); }
                 if (data.messageTemplates?.length)  { messageTemplates = data.messageTemplates; localStorage.setItem('sant_crm_message_templates', JSON.stringify(messageTemplates)); }
@@ -15248,6 +15297,9 @@
             document.getElementById('contactDupWarning').classList.add('hidden');
             currentContactTags = [];
             renderContactTagPills();
+            currentContactLists = [];
+            renderContactListPills();
+            fillContactListOptions();
             currentContactCustomFields = [];
             renderContactCustomFields();
             previewContactPhoto('');
@@ -15294,6 +15346,7 @@
         function renderSettingsTabContent(tab) {
             if (tab === 'categories')  renderSCategories();
             if (tab === 'origins')     renderSOrigins();
+            if (tab === 'lists')       renderSContactLists();
             if (tab === 'eventtypes')  renderSEventTypes();
             if (tab === 'tags')        renderSTags();
             if (tab === 'templates')   renderSTemplates();
@@ -15992,6 +16045,48 @@
             });
         }
 
+        // — Listas de Contatos —
+        function renderSContactLists() {
+            const el = document.getElementById('s-list-list');
+            if (!el) return;
+            if (!contactLists.length) { el.innerHTML = '<p class="text-xs text-gray-600 italic">Nenhuma lista cadastrada.</p>'; return; }
+            const sorted = [...contactLists].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+            el.innerHTML = sorted.map(l => {
+                const count = contacts.filter(c => (c.lists || []).includes(l)).length;
+                return `<div class="flex items-center justify-between bg-[#141414] border border-sant-border rounded-lg px-4 py-2.5">
+                    <span class="text-sm text-white flex items-center gap-2"><i class="ph ph-list-bullets text-sant-purple"></i> ${l} <span class="text-[10px] text-gray-500 font-normal">(${count} contato${count!==1?'s':''})</span></span>
+                    <button onclick="deleteSContactList('${l.replace(/'/g,"\\'")}')" class="text-gray-500 hover:text-red-500 transition-colors"><i class="ph ph-trash text-sm"></i></button>
+                </div>`;
+            }).join('');
+        }
+        function addSettingsContactList() {
+            const inp = document.getElementById('s-list-input');
+            const v = inp.value.trim();
+            if (!v) return;
+            if (contactLists.includes(v)) { showToast('Lista já existe.','error'); return; }
+            contactLists.push(v);
+            saveContactListsToStorage();
+            inp.value = '';
+            renderSContactLists();
+            fillContactListOptions && fillContactListOptions();
+            fillLocationFilters && fillLocationFilters();
+            showToast('Lista criada!');
+        }
+        function deleteSContactList(name) {
+            showConfirm(`Excluir lista "${name}"?`, 'Os contatos vinculados a ela permanecem, apenas o vínculo com esta lista será removido.', () => {
+                contactLists = contactLists.filter(l => l !== name);
+                contacts.forEach(c => {
+                    if (c.lists && c.lists.includes(name)) { c.lists = c.lists.filter(l => l !== name); cloudSyncContact(c); }
+                });
+                saveContactListsToStorage();
+                saveToStorage();
+                renderSContactLists();
+                fillContactListOptions && fillContactListOptions();
+                fillLocationFilters && fillLocationFilters();
+                showToast('Lista excluída.');
+            });
+        }
+
         // — Tipos de Evento —
         function renderSEventTypes() {
             const el = document.getElementById('s-evt-body');
@@ -16265,6 +16360,7 @@
                 contacts: JSON.parse(localStorage.getItem('sant_crm_contacts') || '[]'),
                 categories: JSON.parse(localStorage.getItem('sant_crm_categories') || '[]'),
                 origins: JSON.parse(localStorage.getItem('sant_crm_origins') || '[]'),
+                contactLists: JSON.parse(localStorage.getItem('sant_crm_contact_lists') || '[]'),
                 tasks: JSON.parse(localStorage.getItem('sant_crm_tasks') || '[]'),
                 events: JSON.parse(localStorage.getItem('sant_crm_events') || '[]'),
                 tags: JSON.parse(localStorage.getItem('sant_crm_tags') || '[]'),
@@ -16353,6 +16449,7 @@
                         if (Array.isArray(data.contacts)) localStorage.setItem('sant_crm_contacts', JSON.stringify(data.contacts));
                         if (Array.isArray(data.categories)) localStorage.setItem('sant_crm_categories', JSON.stringify(data.categories));
                         if (Array.isArray(data.origins)) localStorage.setItem('sant_crm_origins', JSON.stringify(data.origins));
+                        if (Array.isArray(data.contactLists)) localStorage.setItem('sant_crm_contact_lists', JSON.stringify(data.contactLists));
                         if (Array.isArray(data.tasks)) localStorage.setItem('sant_crm_tasks', JSON.stringify(data.tasks));
                         if (Array.isArray(data.events)) localStorage.setItem('sant_crm_events', JSON.stringify(data.events));
                         if (Array.isArray(data.tags)) localStorage.setItem('sant_crm_tags', JSON.stringify(data.tags));
@@ -17425,7 +17522,7 @@
             // Aplicar filtros salvos
             activeFilters = { ...sf.filters };
             // Preencher os selects/inputs do painel
-            ['filterCategory','filterLead','filterTemp','filterTag','filterOrigin',
+            ['filterCategory','filterLead','filterTemp','filterTag','filterOrigin','filterList',
              'filterCity','filterState','filterIntType','filterIntFrom','filterIntTo'].forEach(elId => {
                 const el = document.getElementById(elId);
                 if (el) el.value = activeFilters[elId.replace('filter','').charAt(0).toLowerCase() + elId.replace('filter','').slice(1)] || '';
@@ -17433,7 +17530,7 @@
             // Mapeamento correto dos campos
             const fieldMap = {
                 filterCategory: 'category', filterLead: 'isLead', filterTemp: 'temperature',
-                filterTag: 'tag', filterOrigin: 'origin', filterCity: 'city',
+                filterTag: 'tag', filterOrigin: 'origin', filterList: 'list', filterCity: 'city',
                 filterState: 'state', filterIntType: 'intType', filterIntFrom: 'intFrom', filterIntTo: 'intTo'
             };
             Object.entries(fieldMap).forEach(([elId, key]) => {
@@ -17477,7 +17574,7 @@
         // ── fim Filtros Salvos ────────────────────────────────────────────────
 
         function hasActiveFilters() {
-            return activeFilters.category || activeFilters.isLead || activeFilters.temperature || activeFilters.tag || activeFilters.origin || activeFilters.city || activeFilters.state || activeFilters.intType;
+            return activeFilters.category || activeFilters.isLead || activeFilters.temperature || activeFilters.tag || activeFilters.origin || activeFilters.list || activeFilters.city || activeFilters.state || activeFilters.intType;
         }
 
         function setTaskProdPeriod(preset) {
@@ -17639,6 +17736,13 @@
                     origins.map(o => `<option value="${o}">${o}</option>`).join('');
                 if (cur) origEl.value = cur;
             }
+            const listEl = document.getElementById('filterList');
+            if (listEl) {
+                const cur = listEl.value;
+                listEl.innerHTML = '<option value="">Todas</option>' +
+                    [...contactLists].sort((a,b) => a.localeCompare(b,'pt-BR')).map(l => `<option value="${l}">${l}</option>`).join('');
+                if (cur) listEl.value = cur;
+            }
             const cities  = [...new Set(contacts.map(c => (c.addressCity  || '').trim()).filter(Boolean))].sort((a,b) => a.localeCompare(b,'pt-BR'));
             const states  = [...new Set(contacts.map(c => (c.addressState || '').trim().toUpperCase()).filter(Boolean))].sort();
             const cityEl  = document.getElementById('filterCity');
@@ -17693,6 +17797,7 @@
             activeFilters.temperature = document.getElementById('filterTemp').value;
             activeFilters.tag         = document.getElementById('filterTag').value;
             activeFilters.origin      = document.getElementById('filterOrigin')?.value  || '';
+            activeFilters.list        = document.getElementById('filterList')?.value    || '';
             activeFilters.city        = document.getElementById('filterCity')?.value    || '';
             activeFilters.state       = document.getElementById('filterState')?.value   || '';
             activeFilters.intType     = document.getElementById('filterIntType')?.value || '';
@@ -17704,8 +17809,8 @@
         }
 
         function clearAdvFilters() {
-            activeFilters = { category: '', isLead: '', temperature: '', tag: '', origin: '', city: '', state: '', intType: '', intFrom: '', intTo: '' };
-            ['filterCategory','filterLead','filterTemp','filterTag','filterOrigin','filterCity','filterState','filterIntType','filterIntFrom','filterIntTo'].forEach(id => {
+            activeFilters = { category: '', isLead: '', temperature: '', tag: '', origin: '', list: '', city: '', state: '', intType: '', intFrom: '', intTo: '' };
+            ['filterCategory','filterLead','filterTemp','filterTag','filterOrigin','filterList','filterCity','filterState','filterIntType','filterIntFrom','filterIntTo'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.value = '';
             });
@@ -17771,6 +17876,40 @@
                 <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20">
                     ${t}
                     <button type="button" onclick="removeTagFromContact('${t}')" class="hover:text-red-400 transition-colors leading-none">&times;</button>
+                </span>`).join('');
+        }
+
+        function fillContactListOptions() {
+            const dl = document.getElementById('contactListSuggestions');
+            if (dl) dl.innerHTML = contactLists.map(l => `<option value="${l}">`).join('');
+        }
+
+        function addContactList() {
+            const input = document.getElementById('contactListInput');
+            const val = input.value.trim();
+            if (!val || currentContactLists.includes(val)) { input.value = ''; return; }
+            currentContactLists.push(val);
+            if (!contactLists.includes(val)) { contactLists.push(val); saveContactListsToStorage(); fillContactListOptions(); }
+            input.value = '';
+            renderContactListPills();
+        }
+
+        function removeContactList(name) {
+            currentContactLists = currentContactLists.filter(l => l !== name);
+            renderContactListPills();
+        }
+
+        function renderContactListPills() {
+            const container = document.getElementById('contactListsContainer');
+            if (!container) return;
+            if (currentContactLists.length === 0) {
+                container.innerHTML = '<span class="text-[11px] text-gray-600 italic">Nenhuma lista vinculada</span>';
+                return;
+            }
+            container.innerHTML = currentContactLists.map(l => `
+                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-sant-purple/10 text-sant-purple border border-sant-purple/20">
+                    <i class="ph ph-list-bullets"></i> ${l}
+                    <button type="button" onclick="removeContactList('${l.replace(/'/g,"\\'")}')" class="hover:text-red-400 transition-colors leading-none">&times;</button>
                 </span>`).join('');
         }
 
