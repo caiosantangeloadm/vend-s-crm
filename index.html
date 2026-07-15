@@ -12744,9 +12744,9 @@
                             <button onclick="snoozeTask('${t.id}','nextweek')" class="px-2 py-1 rounded-lg bg-[#141414] border border-sant-border hover:border-amber-400 text-[10px] text-gray-400 hover:text-amber-400 transition-colors">Semana que vem</button>
                         </div>
                     </div>
-                    <div class="flex flex-col items-end gap-2 shrink-0">
+                    <div class="flex flex-col items-end gap-2 shrink-0 max-w-[110px] sm:max-w-none">
                         ${t.priority === 'high' ? '<i class="ph ph-flag text-red-500" title="Alta Prioridade"></i>' : (t.priority==='low' ? '<i class="ph ph-flag text-gray-600" title="Baixa"></i>' : '<i class="ph ph-flag text-sant-cyan" title="Normal"></i>')}
-                        <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div class="flex flex-wrap justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onclick="toggleTaskSnoozeMenu('${t.id}')" class="text-gray-400 hover:text-amber-400" title="Adiar tarefa"><i class="ph ph-alarm text-lg"></i></button>
                             <button onclick="toggleTaskWaiting('${t.id}')" class="${t.waiting ? 'text-sant-purple' : 'text-gray-400 hover:text-sant-purple'}" title="${t.waiting ? 'Remover Aguardando Terceiros' : 'Marcar como Aguardando Terceiros'}"><i class="ph ph-hourglass-medium text-lg"></i></button>
                             <button onclick="duplicateTask('${t.id}')" class="text-gray-400 hover:text-sant-cyan" title="Duplicar tarefa"><i class="ph ph-copy text-lg"></i></button>
