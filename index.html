@@ -9311,6 +9311,7 @@
                         <div class="min-w-0 flex items-center gap-1.5 flex-wrap">
                             <h3 class="font-bold text-white text-xs truncate max-w-full" title="${fullName(c)}${c.nickname?' — chame de: '+c.nickname:''}">${fullName(c)}</h3>
                             ${c.code?`<span class="text-gray-500 font-mono text-[9px] shrink-0">#${c.code}</span>`:''}
+                            ${c.nickname?`<span class="text-gray-500 font-normal text-[10px] italic shrink-0">"${c.nickname}"</span>`:''}
                             ${newBadge} ${leadTag} ${scoreBadge} ${qualBadge} ${dealBadge} ${accessBadge} ${inact} ${freqBadge} ${bdayBadge} ${nextStepBadge}
                         </div>
                         <div class="text-xs text-sant-cyan truncate hidden md:block">${dispJob||'-'}</div>
@@ -9342,6 +9343,7 @@
                     <div class="min-w-0">
                         <h3 class="font-bold text-white text-sm truncate" title="${fullName(c)}${c.nickname?' — chame de: '+c.nickname:''}">${fullName(c)} ${c.code?`<span class="text-gray-500 font-mono text-[10px] font-normal">#${c.code}</span>`:''}</h3>
                         <div class="flex flex-wrap items-center gap-1 mt-0.5">
+                            ${c.nickname?`<span class="text-gray-500 text-[10px] italic">"${c.nickname}"</span>`:''}
                             ${c.category?`<span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-purple/20 text-sant-purple border border-sant-purple/30">${c.category}</span>`:''}
                             ${newBadge} ${leadTag} ${listTagsHtml} ${scoreBadge} ${qualBadge} ${dealBadge} ${accessBadge} ${inact} ${bdayBadge} ${nextStepBadge}
                         </div>
