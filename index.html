@@ -5099,8 +5099,6 @@
             loadBigGoals();
             setupOnlineOfflineHandlers();
             checkStreak();
-            // Sincroniza streak 3s após init — dá tempo do loadPreferencesFromSupabase restaurar o valor correto
-            setTimeout(() => { if (currentUser) syncPreferencesToSupabase(); }, 3000);
             initPushNotifications();
             renderSavedFilters();
             applyDashCollapsed();
@@ -5120,7 +5118,11 @@
                     loadTasksFromSupabase();
                     loadEventsFromSupabase();
                     loadNotesFromSupabase();
-                    loadPreferencesFromSupabase();
+                    await loadPreferencesFromSupabase();
+                    // Só sincroniza o streak DEPOIS da reconciliação acima terminar — evita
+                    // que este dispositivo empurre um valor de streak desatualizado (menor)
+                    // por cima do valor maior/correto vindo da nuvem (condição de corrida).
+                    syncPreferencesToSupabase();
                 })();
             }
         }
