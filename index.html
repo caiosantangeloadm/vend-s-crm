@@ -8396,15 +8396,15 @@
                 <div class="flex justify-between items-start gap-2 mb-1">
                     ${n.title ? `<h3 class="font-bold text-white text-sm break-words flex-1">${n.title}</h3>` : '<div class="flex-1"></div>'}
                     <div class="flex items-center gap-0.5 shrink-0">
-                        <button onclick="event.stopPropagation(); toggleNoteFavorite('${n.id}')" class="text-gray-500 hover:text-[#fbbf24] transition-colors p-1 opacity-0 group-hover:opacity-100 ${n.favorite ? '!opacity-100 text-[#fbbf24]' : ''}" title="${n.favorite ? 'Remover dos favoritos' : 'Marcar como favorita'}">
+                        <button onclick="event.stopPropagation(); toggleNoteFavorite('${n.id}')" class="text-gray-500 hover:text-[#fbbf24] transition-colors p-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 ${n.favorite ? '!opacity-100 text-[#fbbf24]' : ''}" title="${n.favorite ? 'Remover dos favoritos' : 'Marcar como favorita'}">
                             <i class="ph ${n.favorite ? 'ph-fill' : ''} ph-star text-sm"></i>
                         </button>
-                        <button onclick="event.stopPropagation(); toggleNotePin('${n.id}')" class="text-gray-500 hover:text-sant-cyan transition-colors p-1 opacity-0 group-hover:opacity-100 ${n.pinned ? '!opacity-100 text-sant-cyan' : ''}" title="${n.pinned ? 'Desafixar' : 'Fixar'}">
+                        <button onclick="event.stopPropagation(); toggleNotePin('${n.id}')" class="text-gray-500 hover:text-sant-cyan transition-colors p-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 ${n.pinned ? '!opacity-100 text-sant-cyan' : ''}" title="${n.pinned ? 'Desafixar' : 'Fixar'}">
                             <i class="ph ${n.pinned ? 'ph-fill' : ''} ph-push-pin text-sm"></i>
                         </button>
                         ${n.archived
-                            ? `<button onclick="event.stopPropagation(); unarchiveNote('${n.id}')" class="text-gray-500 hover:text-sant-cyan transition-colors p-1 opacity-0 group-hover:opacity-100" title="Restaurar nota"><i class="ph ph-arrow-counter-clockwise text-sm"></i></button>`
-                            : `<button onclick="event.stopPropagation(); archiveNote('${n.id}')" class="text-gray-500 hover:text-amber-400 transition-colors p-1 opacity-0 group-hover:opacity-100" title="Arquivar nota"><i class="ph ph-archive text-sm"></i></button>`
+                            ? `<button onclick="event.stopPropagation(); unarchiveNote('${n.id}')" class="text-gray-500 hover:text-sant-cyan transition-colors p-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100" title="Restaurar nota"><i class="ph ph-arrow-counter-clockwise text-sm"></i></button>`
+                            : `<button onclick="event.stopPropagation(); archiveNote('${n.id}')" class="text-gray-500 hover:text-amber-400 transition-colors p-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100" title="Arquivar nota"><i class="ph ph-archive text-sm"></i></button>`
                         }
                     </div>
                 </div>
@@ -8414,7 +8414,7 @@
                 ${n.body ? `<div class="text-sm text-gray-300 break-words mb-3 cursor-text leading-relaxed note-md-body" onclick="startEditNote('${n.id}')">${mdToHtml(n.body)}</div>` : `<div class="flex-1 cursor-text" onclick="startEditNote('${n.id}')"></div>`}
                 <div class="mt-auto pt-2 flex flex-col gap-1.5">
                     <span class="text-[10px] text-gray-500 whitespace-nowrap">${formatNoteDate(n.updatedAt || n.createdAt)}</span>
-                    <div class="flex items-center flex-wrap gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div class="flex items-center flex-wrap gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         <div class="flex items-center gap-0.5 mr-0.5">${colorDots}</div>
                         <button onclick="event.stopPropagation(); convertNoteToTask('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-0.5" title="Converter em tarefa"><i class="ph ph-check-square text-sm"></i></button>
                         <button onclick="event.stopPropagation(); duplicateNote('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-0.5" title="Duplicar nota"><i class="ph ph-copy text-sm"></i></button>
@@ -8647,7 +8647,7 @@
                 class="${c.bg} ${c.border} border rounded-xl p-3 cursor-grab active:cursor-grabbing group">
                 <div class="flex items-start justify-between gap-2">
                     ${n.title ? `<p class="text-sm font-bold text-white leading-snug break-words flex-1">${n.title}</p>` : '<div class="flex-1"></div>'}
-                    <div class="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div class="flex items-center gap-1 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         <button onclick="event.stopPropagation(); moveNoteToColumn('${n.id}','${colNext[curCol]}')" class="text-gray-400 hover:text-sant-cyan p-0.5 text-xs" title="Mover para ${colLabel[curCol]}"><i class="ph ph-arrow-right"></i></button>
                         <button onclick="event.stopPropagation(); startEditNote('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-0.5 text-xs" title="Editar"><i class="ph ph-pencil-simple"></i></button>
                         <button onclick="event.stopPropagation(); deleteNote('${n.id}')" class="text-gray-400 hover:text-red-500 p-0.5 text-xs" title="Excluir"><i class="ph ph-trash"></i></button>
@@ -12048,7 +12048,7 @@
                         <div class="flex items-start justify-between h-full overflow-hidden">
                             <div class="min-w-0"><p class="text-[10px] text-gray-500 font-medium truncate"><i class="ph ph-lock-simple mr-0.5"></i>${e.title}</p>
                             ${h>30?`<p class="text-[9px] text-gray-600">${e.startTime}${e.endTime?' – '+e.endTime:''}</p>`:''}</div>
-                            <button onclick="skipScheduleBlockOnDate('${e.blockId}','${dateStr}')" class="text-[9px] text-gray-600 hover:text-sant-cyan opacity-0 group-hover/blk:opacity-100 shrink-0 mt-0.5 transition-opacity">Liberar</button>
+                            <button onclick="skipScheduleBlockOnDate('${e.blockId}','${dateStr}')" class="text-[9px] text-gray-600 hover:text-sant-cyan opacity-100 sm:opacity-0 sm:group-hover/blk:opacity-100 shrink-0 mt-0.5 transition-opacity">Liberar</button>
                         </div>
                     </div>`;
                 }).join('');
@@ -12074,7 +12074,7 @@
                                 ${h>54&&e.location?`<p class="text-[10px] text-gray-500 mt-0.5 truncate leading-tight"><i class="ph ph-map-pin"></i> ${e.location}</p>`:''}
                                 ${h>74&&linkedC?`<p class="text-[10px] text-gray-500 mt-0.5 truncate leading-tight"><i class="ph ph-user"></i> ${fullName(linkedC)}</p>`:''}
                             </div>
-                            <div class="flex flex-col gap-0.5 opacity-0 group-hover/ev:opacity-100 transition-opacity shrink-0">
+                            <div class="flex flex-col gap-0.5 opacity-100 sm:opacity-0 sm:group-hover/ev:opacity-100 transition-opacity shrink-0">
                                 <button onclick="event.stopPropagation();toggleEventRealized('${e.id}','${dateStr}')" class="${realized?'text-green-400':'text-gray-500 hover:text-green-400'} text-[11px] leading-none" title="${realized?'Desmarcar como realizado':'Marcar como realizado'}"><i class="ph ph-check-circle"></i></button>
                                 <button onclick="event.stopPropagation();openEventModal(events.find(x=>x.id==='${e.id}'),'${dateStr}')" class="text-gray-500 hover:text-sant-cyan text-[11px] leading-none"><i class="ph ph-pencil-simple"></i></button>
                                 <button onclick="event.stopPropagation();deleteEvent('${e.id}','${dateStr}')" class="text-gray-500 hover:text-red-500 text-[11px] leading-none"><i class="ph ph-trash"></i></button>
@@ -17375,7 +17375,7 @@
                          class="kanban-card bg-[#141414] border border-sant-border border-l-4 ${prioBorder} rounded-xl p-3 cursor-grab active:cursor-grabbing group hover:border-sant-cyan/30 transition-all">
                         <div class="flex items-start gap-2 mb-1">
                             <h4 class="text-sm font-medium leading-snug flex-1 ${col.id === 'done' ? 'line-through text-gray-500' : 'text-[#fbbf24]'}">${t.title}</h4>
-                            <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                            <div class="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
                                 <button onclick="toggleTaskWaiting('${t.id}')" class="${t.waiting ? 'text-sant-purple' : 'text-gray-500 hover:text-sant-purple'} p-0.5" title="${t.waiting ? 'Remover Aguardando Terceiros' : 'Marcar como Aguardando Terceiros'}"><i class="ph ph-hourglass-medium text-sm"></i></button>
                                 <button onclick="duplicateTask('${t.id}')" class="text-gray-500 hover:text-sant-cyan p-0.5" title="Duplicar"><i class="ph ph-copy text-sm"></i></button>
                                 <button onclick="editTask('${t.id}')" class="text-gray-500 hover:text-sant-cyan p-0.5"><i class="ph ph-pencil-simple text-sm"></i></button>
