@@ -442,7 +442,7 @@
             <i class="ph ph-wifi-slash"></i> <span id="offlineBannerText">Sem conexão — suas alterações estão sendo salvas neste dispositivo e serão sincronizadas quando a internet voltar.</span>
         </div>
 
-        <div id="mainContentArea" class="flex-1 overflow-y-auto p-8 pt-28 pb-24">
+        <div id="mainContentArea" class="flex-1 overflow-y-auto px-3 sm:px-8 pt-28 pb-24">
 
             <div id="view-dashboard" class="hidden max-w-6xl mx-auto space-y-6">
 
@@ -12724,7 +12724,7 @@
                     </div>`;
 
                 return `
-                <div class="flex items-start gap-4 p-4 bg-sant-surface border rounded-xl group transition-colors ${isBlocked ? 'border-red-500/30 bg-red-500/5 hover:border-red-500/50' : 'border-sant-border hover:border-sant-cyan/30'} ${isOverdue ? 'overdue-task' : ''} ${allDone && !t.completed ? 'border-sant-cyan/20' : ''}">
+                <div class="flex items-start gap-2 sm:gap-4 p-3 sm:p-4 bg-sant-surface border rounded-xl group transition-colors ${isBlocked ? 'border-red-500/30 bg-red-500/5 hover:border-red-500/50' : 'border-sant-border hover:border-sant-cyan/30'} ${isOverdue ? 'overdue-task' : ''} ${allDone && !t.completed ? 'border-sant-cyan/20' : ''}">
                     <button onclick="toggleTask('${t.id}')" class="w-6 h-6 rounded border ${t.completed ? 'bg-sant-cyan border-sant-cyan text-sant-bg' : isBlocked ? 'border-red-500/50 text-transparent cursor-not-allowed' : 'border-gray-500 text-transparent'} flex items-center justify-center shrink-0 mt-0.5 transition-colors" ${isBlocked ? 'title="Bloqueada — conclua a tarefa anterior primeiro"' : ''}>
                         <i class="ph ${isBlocked ? 'ph-lock text-red-400/60' : 'ph-check'}"></i>
                     </button>
@@ -12744,9 +12744,9 @@
                             <button onclick="snoozeTask('${t.id}','nextweek')" class="px-2 py-1 rounded-lg bg-[#141414] border border-sant-border hover:border-amber-400 text-[10px] text-gray-400 hover:text-amber-400 transition-colors">Semana que vem</button>
                         </div>
                     </div>
-                    <div class="flex flex-col items-end gap-2 shrink-0 max-w-[110px] sm:max-w-none">
+                    <div class="flex flex-col items-end gap-2 shrink-0 max-w-[64px] sm:max-w-none">
                         ${t.priority === 'high' ? '<i class="ph ph-flag text-red-500" title="Alta Prioridade"></i>' : (t.priority==='low' ? '<i class="ph ph-flag text-gray-600" title="Baixa"></i>' : '<i class="ph ph-flag text-sant-cyan" title="Normal"></i>')}
-                        <div class="flex flex-wrap justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div class="flex flex-wrap justify-end gap-1.5 sm:gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onclick="toggleTaskSnoozeMenu('${t.id}')" class="text-gray-400 hover:text-amber-400" title="Adiar tarefa"><i class="ph ph-alarm text-lg"></i></button>
                             <button onclick="toggleTaskWaiting('${t.id}')" class="${t.waiting ? 'text-sant-purple' : 'text-gray-400 hover:text-sant-purple'}" title="${t.waiting ? 'Remover Aguardando Terceiros' : 'Marcar como Aguardando Terceiros'}"><i class="ph ph-hourglass-medium text-lg"></i></button>
                             <button onclick="duplicateTask('${t.id}')" class="text-gray-400 hover:text-sant-cyan" title="Duplicar tarefa"><i class="ph ph-copy text-lg"></i></button>
