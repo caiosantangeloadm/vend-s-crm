@@ -2220,6 +2220,10 @@
                                 <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Website</label>
                                 <input type="url" id="contactSite" placeholder="https://" class="w-full bg-[#141414] border border-sant-border rounded-md px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none">
                             </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Fundação da Empresa</label>
+                                <input type="date" id="contactCompanyFounded" class="w-full bg-[#141414] border border-sant-border rounded-md px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none">
+                            </div>
                         </div>
                     </div>
 
@@ -4082,6 +4086,53 @@
                 localStorage.setItem(notifKey, '1');
             });
         }
+
+        function checkCompanyAnniversaryReminders() {
+            const antecedenciaDias = parseInt(localStorage.getItem('vends_bday_advance') || '3');
+            const todayStr = getSPTodayStr();
+            const [ty, tm, td] = todayStr.split('-').map(Number);
+
+            contacts.forEach(c => {
+                if (!c.companyFounded || !c.company) return;
+                const bm = getBirthMonth(c.companyFounded), bd = getBirthDay(c.companyFounded);
+                if (!bm || !bd) return;
+
+                let annivYear = ty;
+                let annivDate = new Date(ty, bm - 1, bd);
+                const today = new Date(ty, tm - 1, td);
+
+                if (annivDate < today) {
+                    annivYear = ty + 1;
+                    annivDate = new Date(annivYear, bm - 1, bd);
+                }
+
+                const diffDays = Math.round((annivDate - today) / (1000 * 60 * 60 * 24));
+                if (diffDays > antecedenciaDias) return;
+
+                const notifKey = `vends_company_anniv_notified_${c.id}_${todayStr}`;
+                if (localStorage.getItem(notifKey)) return;
+
+                const yearsText = (() => {
+                    const p = c.companyFounded.split('-').map(Number);
+                    if (p.length < 3) return '';
+                    const years = annivYear - p[0];
+                    return years > 0 ? ` (${years} ano${years!==1?'s':''})` : '';
+                })();
+
+                let msg = '';
+                if (diffDays === 0) {
+                    msg = `🏢 Hoje é aniversário da empresa ${c.company}${yearsText}!`;
+                } else if (diffDays === 1) {
+                    msg = `🏢 Amanhã é aniversário da empresa ${c.company}${yearsText}.`;
+                } else {
+                    msg = `🏢 Aniversário de ${c.company}${yearsText} em ${diffDays} dias (${String(bd).padStart(2,'0')}/${String(bm).padStart(2,'0')}).`;
+                }
+
+                addNotification('birthday', `Aniversário de empresa: ${c.company}`, msg, c.id);
+                showPushNotification(`🏢 ${c.company}`, msg, `companyanniv-${c.id}`);
+                localStorage.setItem(notifKey, '1');
+            });
+        }
         // ─────────────────────────────────────────────────────────────
 
         // ── Busca Global ──────────────────────────────────────────────
@@ -4656,7 +4707,7 @@
                 });
 
                 // Verifica aniversários uma vez por hora (quando minuto === 0)
-                if (parseInt(mStr) === 0) { checkBirthdayReminders(); checkFollowupReminders(); checkNoteReminders(); checkFrequencyReminders(); checkUrgentTaskReminders(); checkWaitingTaskReminders(); runInactivityAutomations(); }
+                if (parseInt(mStr) === 0) { checkBirthdayReminders(); checkCompanyAnniversaryReminders(); checkFollowupReminders(); checkNoteReminders(); checkFrequencyReminders(); checkUrgentTaskReminders(); checkWaitingTaskReminders(); runInactivityAutomations(); }
                 checkSnoozedNotifications();
 
                 updateSyncIndicator();
@@ -4665,6 +4716,7 @@
 
             // Verifica imediatamente ao abrir o app
             checkBirthdayReminders();
+            checkCompanyAnniversaryReminders();
             checkFollowupReminders();
             checkNoteReminders();
             checkFrequencyReminders();
@@ -9233,6 +9285,7 @@
             const inact = neverContactedBadgeHtml(c) || inactivityBadgeHtml(c);
             const freqBadge = frequencyBadgeHtml(c);
             const bdayBadge = birthdayBadgeHtml(c);
+            const companyAnnivBadge = companyAnniversaryBadgeHtml(c);
             const accessBadge = (!c.accessCount || c.accessCount === 0) && c.nextContact
                 ? `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-gray-500/10 text-gray-500 border border-gray-500/20" title="Perfil nunca acessado — mas tem follow-up agendado"><i class="ph ph-eye-slash shrink-0"></i>Nunca acessado</span>`
                 : '';
@@ -9288,6 +9341,7 @@
                                 ${newBadge} ${leadTag} ${scoreBadge} ${qualBadge} ${dealBadge} ${accessBadge}
                                 ${inact?`<div>${inact}</div>`:''}
                                 ${bdayBadge?`<div>${bdayBadge}</div>`:''}
+                                ${companyAnnivBadge?`<div>${companyAnnivBadge}</div>`:''}
                                 ${nextStepBadge?`<div class="w-full mt-0.5">${nextStepBadge}</div>`:''}
                             </div>
                         </div>
@@ -9323,7 +9377,7 @@
                             <h3 class="font-bold text-white text-xs truncate max-w-full" title="${fullName(c)}${c.nickname?' — chame de: '+c.nickname:''}">${fullName(c)}</h3>
                             ${c.code?`<span class="text-gray-500 font-mono text-[9px] shrink-0">#${c.code}</span>`:''}
                             ${c.nickname?`<span class="text-gray-500 font-normal text-[10px] italic shrink-0">"${c.nickname}"</span>`:''}
-                            ${newBadge} ${leadTag} ${scoreBadge} ${qualBadge} ${dealBadge} ${accessBadge} ${inact} ${freqBadge} ${bdayBadge} ${nextStepBadge}
+                            ${newBadge} ${leadTag} ${scoreBadge} ${qualBadge} ${dealBadge} ${accessBadge} ${inact} ${freqBadge} ${bdayBadge} ${companyAnnivBadge} ${nextStepBadge}
                         </div>
                         <div class="text-xs text-sant-cyan truncate hidden md:block">${dispJob||'-'}</div>
                         <div class="text-xs text-gray-400 truncate hidden md:block">${dispPhone||'-'}</div>
@@ -9356,7 +9410,7 @@
                         <div class="flex flex-wrap items-center gap-1 mt-0.5">
                             ${c.nickname?`<span class="text-gray-500 text-[10px] italic">"${c.nickname}"</span>`:''}
                             ${c.category?`<span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-purple/20 text-sant-purple border border-sant-purple/30">${c.category}</span>`:''}
-                            ${newBadge} ${leadTag} ${listTagsHtml} ${scoreBadge} ${qualBadge} ${dealBadge} ${accessBadge} ${inact} ${bdayBadge} ${nextStepBadge}
+                            ${newBadge} ${leadTag} ${listTagsHtml} ${scoreBadge} ${qualBadge} ${dealBadge} ${accessBadge} ${inact} ${bdayBadge} ${companyAnnivBadge} ${nextStepBadge}
                         </div>
                     </div>
                     <div class="text-xs text-sant-cyan truncate">${dispJob||'-'}</div>
@@ -9738,6 +9792,7 @@
                 category: document.getElementById('contactCategory').value,
                 origin: document.getElementById('contactOrigin').value,
                 company: document.getElementById('contactCompany').value,
+                companyFounded: document.getElementById('contactCompanyFounded').value,
                 job: document.getElementById('contactJob').value,
                 emailProf: document.getElementById('contactEmailProf').value,
                 phoneProf: document.getElementById('contactPhoneProf').value,
@@ -9958,6 +10013,7 @@
             }
             document.getElementById('contactOrigin').value = contact.origin || '';
             document.getElementById('contactCompany').value = contact.company || '';
+            document.getElementById('contactCompanyFounded').value = contact.companyFounded || '';
             document.getElementById('contactJob').value = contact.job || '';
             document.getElementById('contactEmailProf').value = contact.emailProf || contact.email || '';
             document.getElementById('contactPhoneProf').value = contact.phoneProf || contact.phone || '';
@@ -10632,6 +10688,7 @@
             document.getElementById('contactCategory').value = c.category || '';
             document.getElementById('contactOrigin').value = c.origin || '';
             document.getElementById('contactCompany').value = c.company || '';
+            document.getElementById('contactCompanyFounded').value = c.companyFounded || '';
             document.getElementById('contactJob').value = c.job || '';
             document.getElementById('contactSite').value = c.site || '';
             currentContactTags = c.tags ? [...c.tags] : [];
@@ -14385,7 +14442,7 @@
                 name: c.name || '', "lastName": c.lastName || '', nickname: c.nickname || '',
                 phone: c.phone || '', "phoneProf": c.phoneProf || '', "phonePess": c.phonePess || '',
                 email: c.email || '', "emailProf": c.emailProf || '', "emailPess": c.emailPess || '',
-                company: c.company || '', job: c.job || '', site: c.site || '',
+                company: c.company || '', "companyFounded": c.companyFounded || '', job: c.job || '', site: c.site || '',
                 category: c.category || '', "isLead": c.isLead || false,
                 temperature: c.temperature || 'frio', "dealValue": c.dealValue || 0,
                 birth: c.birth || '', notes: c.notes || '', origin: c.origin || '',
@@ -18963,6 +19020,21 @@
             if (diffDays === 0) return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-pink-500/15 text-pink-400 border border-pink-500/25" title="Aniversário hoje! (${dayFmt})">🎂 Hoje!</span>`;
             if (diffDays === 1) return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-pink-500/15 text-pink-400 border border-pink-500/25" title="Aniversário amanhã! (${dayFmt})">🎂 Amanhã</span>`;
             return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-pink-500/10 text-pink-400 border border-pink-500/20" title="Aniversário em ${diffDays} dias (${dayFmt})">🎂 em ${diffDays}d</span>`;
+        }
+
+        function companyAnniversaryBadgeHtml(c) {
+            if (!c.companyFounded || !c.company) return '';
+            const todayStr = getSPTodayStr();
+            const [ty, tm, td] = todayStr.split('-').map(Number);
+            const bm = getBirthMonth(c.companyFounded), bd = getBirthDay(c.companyFounded);
+            let anniv = new Date(ty, bm - 1, bd);
+            const today = new Date(ty, tm - 1, td);
+            if (anniv < today) anniv = new Date(ty + 1, bm - 1, bd);
+            const diffDays = Math.round((anniv - today) / 86400000);
+            const dayFmt = `${String(bd).padStart(2,'0')}/${String(bm).padStart(2,'0')}`;
+            if (diffDays > 14) return '';
+            if (diffDays === 0) return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-500/15 text-indigo-400 border border-indigo-500/25" title="Aniversário da empresa hoje! (${dayFmt})">🏢 Hoje!</span>`;
+            return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20" title="Aniversário da empresa em ${diffDays} dias (${dayFmt})">🏢 em ${diffDays}d</span>`;
         }
 
         function setContactFrequency(days) {
