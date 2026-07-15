@@ -943,6 +943,9 @@
                     <button onclick="toggleQuickFilterNoOrigin()" id="btnQuickNoOrigin" class="px-3 py-1.5 rounded-full border border-sant-cyan/40 text-sant-cyan/70 hover:text-sant-cyan hover:border-sant-cyan transition-colors text-xs font-medium flex items-center gap-1.5">
                         <i class="ph ph-map-pin"></i> Sem Origem
                     </button>
+                    <button onclick="toggleQuickFilterNeverContacted()" id="btnQuickNeverContacted" class="px-3 py-1.5 rounded-full border border-red-400/40 text-red-400/70 hover:text-red-400 hover:border-red-400 transition-colors text-xs font-medium flex items-center gap-1.5">
+                        <i class="ph ph-chat-circle-dots"></i> Nunca Contatado
+                    </button>
                 </div>
 
                 <!-- Barra de Seleção Múltipla -->
@@ -3991,6 +3994,7 @@
         let activeFilters = { category: '', isLead: '', temperature: '', tag: '', origin: '', list: '', city: '', state: '', intType: '', intFrom: '', intTo: '' };
         let quickFilterNoCategory = false;
         let quickFilterNoOrigin = false;
+        let quickFilterNeverContacted = false;
         let currentContactTags = [];
         let currentContactLists = [];
         let currentContactCustomFields = [];
@@ -8826,6 +8830,7 @@
 
             if (quickFilterNoCategory) filtered = filtered.filter(c => !c.category);
             if (quickFilterNoOrigin) filtered = filtered.filter(c => !c.origin);
+            if (quickFilterNeverContacted) filtered = filtered.filter(c => !c.interactions || c.interactions.length === 0);
             if (activeFilters.category) filtered = filtered.filter(c => (c.category || '') === activeFilters.category);
             if (activeFilters.isLead === 'yes') filtered = filtered.filter(c => c.isLead);
             if (activeFilters.isLead === 'no') filtered = filtered.filter(c => !c.isLead);
@@ -9219,7 +9224,7 @@
                 else if (c.temperature === 'frio') leadTag = `<span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-500/20 text-blue-500 border border-blue-500/30" title="Lead Frio">❄️${mode==='grid'?' Frio':''}</span>`;
                 else leadTag = `<span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#fbbf24]/20 text-[#fbbf24] border border-[#fbbf24]/30" title="Lead Morno">☀️${mode==='grid'?' Morno':''}</span>`;
             }
-            const inact = inactivityBadgeHtml(c);
+            const inact = neverContactedBadgeHtml(c) || inactivityBadgeHtml(c);
             const freqBadge = frequencyBadgeHtml(c);
             const bdayBadge = birthdayBadgeHtml(c);
             const accessBadge = (!c.accessCount || c.accessCount === 0) && c.nextContact
@@ -16672,6 +16677,15 @@
             });
         }
 
+        function neverContactedBadgeHtml(c) {
+            if (c.interactions && c.interactions.length > 0) return '';
+            if (!c.createdAt) return '';
+            const created = new Date(c.createdAt);
+            const days = Math.floor((Date.now() - created.getTime()) / 86400000);
+            if (days < 3) return '';
+            return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/15 text-red-400 border border-red-500/30" title="Cadastrado há ${days} dias e nenhuma interação foi registrada ainda"><i class="ph ph-chat-circle-dots"></i> Nunca contatado</span>`;
+        }
+
         function inactivityBadgeHtml(c) {
             const threshold = parseInt(localStorage.getItem('vends_inactivity_days') || '60');
             if (!threshold) return '';
@@ -17796,6 +17810,14 @@
             btn.className = quickFilterNoOrigin
                 ? 'px-3 py-1.5 rounded-full bg-sant-cyan text-sant-bg font-bold transition-colors text-xs flex items-center gap-1.5'
                 : 'px-3 py-1.5 rounded-full border border-sant-cyan/40 text-sant-cyan/70 hover:text-sant-cyan hover:border-sant-cyan transition-colors text-xs font-medium flex items-center gap-1.5';
+            renderContacts(document.getElementById('searchInput') ? document.getElementById('searchInput').value : '');
+        }
+        function toggleQuickFilterNeverContacted() {
+            quickFilterNeverContacted = !quickFilterNeverContacted;
+            const btn = document.getElementById('btnQuickNeverContacted');
+            btn.className = quickFilterNeverContacted
+                ? 'px-3 py-1.5 rounded-full bg-red-400 text-sant-bg font-bold transition-colors text-xs flex items-center gap-1.5'
+                : 'px-3 py-1.5 rounded-full border border-red-400/40 text-red-400/70 hover:text-red-400 hover:border-red-400 transition-colors text-xs font-medium flex items-center gap-1.5';
             renderContacts(document.getElementById('searchInput') ? document.getElementById('searchInput').value : '');
         }
 
