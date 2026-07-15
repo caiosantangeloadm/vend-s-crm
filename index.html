@@ -2171,9 +2171,13 @@
                             <input type="text" id="contactNickname" placeholder="Ex: Zé, Bia, Dr. Marcos..." class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-2.5 text-sm text-white focus:border-sant-cyan outline-none transition-colors">
                         </div>
                         <div class="md:col-span-1">
-                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Foto (URL)</label>
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Foto</label>
                             <div class="flex gap-3 items-center">
-                                <input type="url" id="contactPhoto" placeholder="https://exemplo.com/foto.jpg" oninput="previewContactPhoto(this.value)" class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-4 py-2.5 text-sm text-white focus:border-sant-cyan outline-none transition-colors">
+                                <input type="url" id="contactPhoto" placeholder="Cole uma URL ou envie um arquivo" oninput="previewContactPhoto(this.value)" class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-4 py-2.5 text-sm text-white focus:border-sant-cyan outline-none transition-colors">
+                                <label id="contactPhotoUploadLabel" class="shrink-0 cursor-pointer bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan px-3 py-2.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5" title="Enviar foto do computador/celular">
+                                    <i class="ph ph-upload-simple"></i>
+                                    <input type="file" accept="image/*" class="hidden" onchange="uploadContactPhoto(event)">
+                                </label>
                                 <div id="contactPhotoPreview" class="w-10 h-10 rounded-full bg-sant-cyan/10 border border-sant-cyan/20 shrink-0 overflow-hidden flex items-center justify-center"><i class="ph ph-user text-gray-600" style="font-size:18px"></i></div>
                             </div>
                         </div>
@@ -18693,6 +18697,42 @@
 
         const ATTACHMENT_BUCKET = 'attachments';
         const ATTACHMENT_MAX_MB = 10;
+        const AVATAR_BUCKET = 'avatars';
+        const AVATAR_MAX_MB = 5;
+
+        async function uploadContactPhoto(event) {
+            const file = event.target.files[0];
+            event.target.value = '';
+            if (!file) return;
+            if (!file.type.startsWith('image/')) { showToast('Selecione um arquivo de imagem.', 'error'); return; }
+            if (file.size > AVATAR_MAX_MB * 1024 * 1024) {
+                showToast(`Imagem muito grande — o limite é ${AVATAR_MAX_MB}MB.`, 'error');
+                return;
+            }
+            const sb = getSB();
+            if (!sb || !currentUser) { showToast('Faça login para enviar uma foto.', 'error'); return; }
+
+            const label = document.getElementById('contactPhotoUploadLabel');
+            const originalHtml = label.innerHTML;
+            label.innerHTML = '<i class="ph ph-spinner-gap animate-spin"></i>';
+
+            const ext = file.name.split('.').pop();
+            const storagePath = `${currentUser.id}/${crypto.randomUUID()}.${ext}`;
+
+            try {
+                const { error } = await sb.storage.from(AVATAR_BUCKET).upload(storagePath, file, { upsert: false });
+                if (error) throw error;
+                const { data } = sb.storage.from(AVATAR_BUCKET).getPublicUrl(storagePath);
+                document.getElementById('contactPhoto').value = data.publicUrl;
+                previewContactPhoto(data.publicUrl);
+                showToast('Foto enviada!');
+            } catch(e) {
+                console.warn('Avatar upload:', e.message);
+                showToast('Erro ao enviar foto: ' + (e.message || 'tente novamente'), 'error');
+            } finally {
+                label.innerHTML = originalHtml;
+            }
+        }
 
         async function uploadContactAttachment(event) {
             const file = event.target.files[0];
