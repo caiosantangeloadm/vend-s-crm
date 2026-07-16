@@ -2523,6 +2523,11 @@
                     </select>
                 </div>
 
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Cor personalizada (opcional)</label>
+                    <div id="eventColorSwatches" class="flex flex-wrap items-center gap-2"></div>
+                </div>
+
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Início</label>
@@ -5318,7 +5323,7 @@
         function eventToRow(e) {
             return {
                 id: e.id, user_id: currentUser?.id || null,
-                title: e.title || '', type: e.type || 'other',
+                title: e.title || '', type: e.type || 'other', "customColor": e.customColor || '',
                 "startDate": e.startDate || '', "startTime": e.startTime || '',
                 "endDate": e.endDate || '', "endTime": e.endTime || '',
                 location: e.location || '', "virtualLocation": e.virtualLocation || '', "contactId": e.contactId || '',
@@ -11342,6 +11347,27 @@
         // ── NÍVEL 4: Recorrência Avançada ──────────────────────────────────────
         let selectedWeekdays = [];
         let currentEventParticipants = []; // array de contact IDs
+        let currentEventColor = '';
+        const eventColorPalette = ['#22d3ee','#a855f7','#f87171','#fbbf24','#34d399','#60a5fa','#f472b6','#facc15','#4ade80','#fb923c'];
+
+        function renderEventColorSwatches() {
+            const box = document.getElementById('eventColorSwatches');
+            if (!box) return;
+            box.innerHTML = eventColorPalette.map(c => `
+                <button type="button" onclick="selectEventColor('${c}')" title="${c}"
+                    class="w-6 h-6 rounded-full border-2 transition-transform ${currentEventColor === c ? 'border-white scale-110' : 'border-transparent'}"
+                    style="background:${c}"></button>
+            `).join('') + `
+                <button type="button" onclick="selectEventColor('')" title="Sem cor personalizada (usar cor do Tipo)"
+                    class="w-6 h-6 rounded-full border-2 flex items-center justify-center text-gray-500 hover:text-white transition-colors ${currentEventColor === '' ? 'border-white' : 'border-sant-border'}">
+                    <i class="ph ph-x text-xs"></i>
+                </button>`;
+        }
+
+        function selectEventColor(color) {
+            currentEventColor = color;
+            renderEventColorSwatches();
+        }
         let eventEditDateContext = null; // data da ocorrência sendo editada (eventos recorrentes)
 
         function _diffDays(a, b) { return Math.round((b - a) / 86400000); }
@@ -11469,7 +11495,14 @@
         }
         function getEventTypeMeta(ev) {
             if (ev.isBirthday) return eventTypeMeta.birthday;
-            return eventTypeMeta[ev.type] || eventTypeMeta.other;
+            const base = eventTypeMeta[ev.type] || eventTypeMeta.other;
+            if (ev.customColor) {
+                return {
+                    label: base.label, icon: base.icon, dot: ev.customColor,
+                    bg: `bg-[${ev.customColor}]/10`, text: `text-[${ev.customColor}]`, border: `border-[${ev.customColor}]/20`
+                };
+            }
+            return base;
         }
         function openEventTypeLabelsModal() {
             document.getElementById('eventTypeLabelsModal').classList.remove('hidden');
@@ -12295,6 +12328,7 @@
                 id: id || crypto.randomUUID(),
                 title: title,
                 type: document.getElementById('eventType').value || 'other',
+                customColor: currentEventColor || '',
                 startDate: startDate,
                 startTime: document.getElementById('eventStartTime').value,
                 endDate: document.getElementById('eventEndDate').value,
@@ -16890,6 +16924,8 @@
             document.getElementById('eventModalTitle').innerText = ev ? 'Editar Compromisso' : 'Novo Compromisso';
             document.getElementById('eventTitle').value = ev ? ev.title : '';
             document.getElementById('eventType').value = ev ? (ev.type || 'other') : 'meeting';
+            currentEventColor = ev ? (ev.customColor || '') : '';
+            renderEventColorSwatches();
             document.getElementById('eventStartDate').value = ev ? ev.startDate : getSPTodayStr();
             document.getElementById('eventStartTime').value = ev ? (ev.startTime || '') : '';
             document.getElementById('eventEndDate').value = ev ? (ev.endDate || '') : '';
