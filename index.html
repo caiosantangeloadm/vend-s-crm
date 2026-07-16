@@ -3427,8 +3427,8 @@
             <div class="border-b border-sant-border bg-[#0a0a0a] shrink-0">
                 <button onclick="toggleNextStepsSection()" id="nextStepsToggle"
                     class="w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold text-gray-400 hover:text-sant-cyan transition-colors">
-                    <span class="flex items-center gap-2"><i class="ph ph-bell-ringing text-sant-cyan"></i> Próximo Contato, Passo &amp; Frequência</span>
-                    <i id="nextStepsChevron" class="ph ph-caret-down text-gray-600 transition-transform"></i>
+                    <span class="flex items-center gap-2 min-w-0"><i class="ph ph-bell-ringing text-sant-cyan shrink-0"></i> <span class="shrink-0">Próximo Contato, Passo &amp; Frequência</span><span id="nextStepsSummary" class="text-gray-600 font-normal normal-case truncate"></span></span>
+                    <i id="nextStepsChevron" class="ph ph-caret-down text-gray-600 transition-transform shrink-0"></i>
                 </button>
             <div id="nextStepsBody" class="hidden px-4 pb-3 space-y-3">
                 <div class="flex items-center gap-2">
@@ -18078,7 +18078,15 @@
             const lrNote = document.getElementById('historyLossReasonNote');
             if (lrSel) lrSel.value = c.lossReason || '';
             if (lrNote) lrNote.value = c.lossReasonNote || '';
-            toggleNextStepsSection(!!(c.nextContact || c.nextStep || c.contactFrequencyDays || c.lossReason));
+            toggleNextStepsSection(false);
+            const nsSummaryEl = document.getElementById('nextStepsSummary');
+            if (nsSummaryEl) {
+                const parts = [];
+                if (c.nextContact) parts.push(`📅 ${c.nextContact.split('-').reverse().join('/')}`);
+                if (c.nextStep) parts.push(`➜ ${c.nextStep}`);
+                if (c.contactFrequencyDays) parts.push(`🔁 ${c.contactFrequencyDays}d`);
+                nsSummaryEl.textContent = parts.length ? ' — ' + parts.join(' · ') : '';
+            }
             renderFollowUpHistory(c);
             renderHistorySmartSummary(c);
             renderOnboardingChecklist(c);
