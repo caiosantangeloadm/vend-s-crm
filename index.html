@@ -16215,12 +16215,34 @@
             const sorted = [...contactLists].sort((a, b) => a.localeCompare(b, 'pt-BR'));
             el.innerHTML = sorted.map(l => {
                 const count = contacts.filter(c => (c.lists || []).includes(l)).length;
+                const safe = l.replace(/'/g,"\\'");
                 return `<div class="flex items-center justify-between bg-[#141414] border border-sant-border rounded-lg px-4 py-2.5">
                     <span class="text-sm text-white flex items-center gap-2"><i class="ph ph-list-bullets text-sant-purple"></i> ${l} <span class="text-[10px] text-gray-500 font-normal">(${count} contato${count!==1?'s':''})</span></span>
-                    <button onclick="deleteSContactList('${l.replace(/'/g,"\\'")}')" class="text-gray-500 hover:text-red-500 transition-colors"><i class="ph ph-trash text-sm"></i></button>
+                    <div class="flex items-center gap-3">
+                        <button onclick="exportContactListByName('${safe}','vcf')" title="Exportar vCard (.vcf)" class="text-gray-500 hover:text-sant-cyan transition-colors"><i class="ph ph-address-book text-sm"></i></button>
+                        <button onclick="exportContactListByName('${safe}','csv')" title="Exportar CSV" class="text-gray-500 hover:text-sant-cyan transition-colors"><i class="ph ph-file-csv text-sm"></i></button>
+                        <button onclick="exportContactListByName('${safe}','pdf')" title="Exportar PDF" class="text-gray-500 hover:text-sant-cyan transition-colors"><i class="ph ph-file-pdf text-sm"></i></button>
+                        <button onclick="deleteSContactList('${safe}')" class="text-gray-500 hover:text-red-500 transition-colors" title="Excluir lista"><i class="ph ph-trash text-sm"></i></button>
+                    </div>
                 </div>`;
             }).join('');
         }
+        function exportContactListByName(listName, format) {
+            const list = contacts.filter(c => (c.lists || []).includes(listName));
+            if (!list.length) { showToast('Nenhum contato nessa lista para exportar.', 'error'); return; }
+            const safeLabel = listName.trim().replace(/[^\w\s-]/g, '').replace(/\s+/g, '_') || 'lista';
+            if (format === 'vcf') {
+                exportContactListVcf(list, safeLabel);
+            } else if (format === 'csv') {
+                exportContactListCsv(list, safeLabel);
+            } else if (format === 'pdf') {
+                const rows = list
+                    .sort((a, b) => fullName(a).localeCompare(fullName(b), 'pt-BR'))
+                    .map(c => [fullName(c), c.company || '-', c.phoneProf || c.phonePess || '-', c.emailProf || c.emailPess || '-']);
+                printReportPdf(`Lista: ${listName}`, ['Nome', 'Empresa', 'Telefone', 'E-mail'], rows);
+            }
+        }
+
         function addSettingsContactList() {
             const inp = document.getElementById('s-list-input');
             const v = inp.value.trim();
