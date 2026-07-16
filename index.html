@@ -9511,7 +9511,7 @@
             });
         }
 
-        function openMergeModal(contactId) {
+        function openMergeModal(contactId, suggestedTargetId) {
             mergeBaseId = contactId;
             mergeTargetId = null;
             const c = contacts.find(x => x.id === contactId);
@@ -9528,7 +9528,11 @@
             document.getElementById('btnConfirmMerge').classList.add('opacity-40','cursor-not-allowed');
             renderMergeCandidates();
             document.getElementById('mergeContactModal').classList.remove('hidden');
-            setTimeout(() => document.getElementById('mergeSearchInput').focus(), 80);
+            if (suggestedTargetId && contacts.find(x => x.id === suggestedTargetId)) {
+                selectMergeTarget(suggestedTargetId);
+            } else {
+                setTimeout(() => document.getElementById('mergeSearchInput').focus(), 80);
+            }
         }
 
         function closeMergeModal() {
@@ -16027,35 +16031,48 @@
             renderAuditTags();
         }
 
+        function dismissDuplicatePair(key) {
+            const dismissed = JSON.parse(localStorage.getItem('vends_dismissed_dup_pairs') || '[]');
+            if (!dismissed.includes(key)) dismissed.push(key);
+            localStorage.setItem('vends_dismissed_dup_pairs', JSON.stringify(dismissed));
+            showToast('Par ignorado — não vai mais aparecer nesta lista.');
+            renderAuditDuplicates();
+        }
+
         function renderAuditDuplicates() {
             const list = document.getElementById('auditDupList');
             const countEl = document.getElementById('auditDupCount');
             if (!list) return;
+            const dismissed = new Set(JSON.parse(localStorage.getItem('vends_dismissed_dup_pairs') || '[]'));
             const pairs = [];
             const seen = new Set();
             for (let i = 0; i < contacts.length; i++) {
                 for (let j = i + 1; j < contacts.length; j++) {
                     const a = contacts[i], b = contacts[j];
+                    const key = [a.id, b.id].sort().join('|');
+                    if (dismissed.has(key)) continue;
                     const nameA = normalizeNameForMatch(fullName(a)), nameB = normalizeNameForMatch(fullName(b));
                     const phonesA = [normalizePhoneDigits(a.phoneProf), normalizePhoneDigits(a.phonePess)].filter(Boolean);
                     const phonesB = [normalizePhoneDigits(b.phoneProf), normalizePhoneDigits(b.phonePess)].filter(Boolean);
                     const samePhone = phonesA.some(p => phonesB.includes(p));
                     const fuzzy = fuzzyNameMatch(nameA, nameB, a.company, b.company);
                     if (fuzzy.match || samePhone) {
-                        const key = [a.id, b.id].sort().join('|');
-                        if (!seen.has(key)) { seen.add(key); pairs.push({ a, b, reason: samePhone ? 'telefone igual' : fuzzy.reason }); }
+                        if (!seen.has(key)) { seen.add(key); pairs.push({ a, b, key, reason: samePhone ? 'telefone igual' : fuzzy.reason }); }
                     }
                 }
             }
             countEl.textContent = `${pairs.length} par${pairs.length!==1?'es':''}`;
             if (!pairs.length) { list.innerHTML = '<p class="text-xs text-gray-600 italic">Nenhum possível duplicado encontrado. ✓</p>'; return; }
-            list.innerHTML = pairs.slice(0, 30).map(({a, b, reason}) => `
+            list.innerHTML = pairs.slice(0, 30).map(({a, b, key, reason}) => `
                 <div class="bg-[#0a0a0a] border border-sant-border rounded-lg p-3 flex items-center justify-between gap-3">
                     <div class="min-w-0">
                         <p class="text-sm text-white truncate">${fullName(a)} <span class="text-gray-600">#${a.code||''}</span> <span class="text-gray-700">×</span> ${fullName(b)} <span class="text-gray-600">#${b.code||''}</span></p>
                         <p class="text-[10px] text-red-400/80 mt-0.5">${reason}</p>
                     </div>
-                    <button onclick="openMergeModal('${a.id}')" class="shrink-0 text-[11px] bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-1.5 rounded-lg font-medium transition-colors">Mesclar</button>
+                    <div class="flex gap-2 shrink-0">
+                        <button onclick="dismissDuplicatePair('${key}')" class="text-[11px] bg-[#141414] border border-sant-border hover:border-gray-500 text-gray-400 hover:text-white px-3 py-1.5 rounded-lg font-medium transition-colors">Ignorar</button>
+                        <button onclick="openMergeModal('${a.id}','${b.id}')" class="text-[11px] bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-1.5 rounded-lg font-medium transition-colors">Mesclar</button>
+                    </div>
                 </div>`).join('') + (pairs.length > 30 ? `<p class="text-[10px] text-gray-600 text-center pt-1">+${pairs.length-30} outros pares encontrados</p>` : '');
         }
 
