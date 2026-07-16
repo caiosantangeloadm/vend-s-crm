@@ -2661,6 +2661,18 @@
                 </div>
 
                 <div class="flex items-center gap-3 bg-[#141414] border border-sant-border rounded-md px-3 py-2">
+                    <i class="ph ph-car text-gray-500"></i>
+                    <select id="eventTravelTime" title="Avisa com antecedência extra pra sair a tempo (útil pra compromissos com endereço)" class="bg-transparent border-none outline-none w-full text-sm text-white appearance-none">
+                        <option value="0">Sem alerta de deslocamento</option>
+                        <option value="15">Sair em 15 minutos</option>
+                        <option value="30">Sair em 30 minutos</option>
+                        <option value="45">Sair em 45 minutos</option>
+                        <option value="60">Sair em 1 hora</option>
+                        <option value="90">Sair em 1h30</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center gap-3 bg-[#141414] border border-sant-border rounded-md px-3 py-2">
                     <i class="ph ph-envelope text-gray-500"></i>
                     <select id="eventEmailAlert" class="bg-transparent border-none outline-none w-full text-sm text-white appearance-none">
                         <option value="0">Sem alerta por e-mail</option>
@@ -4744,6 +4756,27 @@
                     }
                 });
 
+                events.forEach(ev => {
+                    if (!ev.travelTime || ev.travelTime === "0" || ev.travelNotified || !isEventOnDate(ev, currentStr) || !ev.startTime) return;
+
+                    const [h, m] = ev.startTime.split(':').map(Number);
+                    const eventMin = h * 60 + m;
+                    const travelAlertMin = eventMin - parseInt(ev.travelTime);
+
+                    if (currentMin >= travelAlertMin && currentMin < eventMin) {
+                        fireNotification({
+                            title: `🚗 Hora de sair — ${ev.title}`,
+                            startTime: ev.startTime,
+                            location: ev.location,
+                            id: ev.id,
+                            _notifType: 'event'
+                        });
+                        ev.travelNotified = true;
+                        saveEventsToStorage();
+                        cloudSyncEvent(ev);
+                    }
+                });
+
                 tasks.forEach(t => {
                     if(t.completed || !t.notification || t.notification === "0" || t.notified || t.date !== currentStr || !t.time) return;
 
@@ -5328,7 +5361,7 @@
                 "endDate": e.endDate || '', "endTime": e.endTime || '',
                 location: e.location || '', "virtualLocation": e.virtualLocation || '', "contactId": e.contactId || '',
                 participants: e.participants || [],
-                notification: e.notification || '0', "emailAlert": e.emailAlert || '0', "desc": e.desc || '',
+                notification: e.notification || '0', "travelTime": e.travelTime || '0', "travelNotified": e.travelNotified || false, "emailAlert": e.emailAlert || '0', "desc": e.desc || '',
                 recurrence: e.recurrence || 'none', "recurrenceInterval": e.recurrenceInterval || 1,
                 "recurrenceWeekdays": e.recurrenceWeekdays || [],
                 "recurrenceMonthlyMode": e.recurrenceMonthlyMode || 'date',
@@ -12346,6 +12379,7 @@
                 contactId: currentEventParticipants[0] || '',
                 participants: [...currentEventParticipants],
                 notification: document.getElementById('eventNotification').value,
+                travelTime: document.getElementById('eventTravelTime').value || '0',
                 emailAlert: document.getElementById('eventEmailAlert').value || '0',
                 desc: document.getElementById('eventDesc').value,
                 notified: false,
@@ -12360,6 +12394,7 @@
                 event.uid = original ? (original.uid || '') : '';
                 event.createdAt = original ? (original.createdAt || new Date().toISOString()) : new Date().toISOString();
                 event.notified = original ? (original.notified || false) : false;
+                event.travelNotified = original ? (original.travelNotified || false) : false;
                 if (original && (original.recurrence || 'none') !== 'none' && eventEditDateContext) {
                     pendingEventEdit = event;
                     showRecurEditModal(original, eventEditDateContext);
@@ -16934,6 +16969,7 @@
             document.getElementById('eventLocation').value = ev ? (ev.location || '') : '';
             document.getElementById('eventVirtualLocation').value = ev ? (ev.virtualLocation || '') : '';
             document.getElementById('eventNotification').value = ev ? (ev.notification || '0') : '0';
+            document.getElementById('eventTravelTime').value = ev ? (ev.travelTime || '0') : '0';
             document.getElementById('eventEmailAlert').value = ev ? (ev.emailAlert || '0') : '0';
             document.getElementById('eventDesc').value = ev ? (ev.desc || '') : '';
             // Participantes
