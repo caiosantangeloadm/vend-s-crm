@@ -2193,6 +2193,12 @@
                                 <option value="">Não informado</option>
                             </select>
                         </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1"><i class="ph ph-share-network text-sant-purple"></i> Indicado por (contato)</label>
+                            <select id="contactReferredBy" class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-2.5 text-sm text-white focus:border-sant-cyan outline-none transition-colors appearance-none">
+                                <option value="">Ninguém / não veio de indicação</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="p-4 rounded-xl border border-sant-border bg-[#141414]/50 space-y-4">
@@ -3652,6 +3658,12 @@
                             <button onclick="document.getElementById('addRelForm').classList.add('hidden')" class="flex-1 border border-sant-border text-gray-400 py-1.5 rounded-lg text-xs hover:text-white transition-colors">Cancelar</button>
                         </div>
                     </div>
+                </div>
+
+                <!-- Indicações -->
+                <div class="px-4 pt-3 pb-2 hidden" id="referralsSection">
+                    <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 mb-2"><i class="ph ph-share-network text-sant-cyan"></i> Indicações <span id="referralsCount" class="text-[10px] font-bold text-gray-600 bg-sant-surface border border-sant-border rounded-full px-2 py-0.5"></span></h4>
+                    <div id="referralsList" class="space-y-1.5"></div>
                 </div>
 
                 <!-- Observações Internas (privadas) -->
@@ -9811,6 +9823,7 @@
                 nickname: document.getElementById('contactNickname').value.trim(),
                 category: document.getElementById('contactCategory').value,
                 origin: document.getElementById('contactOrigin').value,
+                referredByContactId: document.getElementById('contactReferredBy').value,
                 company: document.getElementById('contactCompany').value,
                 companyFounded: document.getElementById('contactCompanyFounded').value,
                 job: document.getElementById('contactJob').value,
@@ -10032,6 +10045,7 @@
                 catSelect.value = contact.category;
             }
             document.getElementById('contactOrigin').value = contact.origin || '';
+            populateContactSelect('contactReferredBy', contact.referredByContactId);
             document.getElementById('contactCompany').value = contact.company || '';
             document.getElementById('contactCompanyFounded').value = contact.companyFounded || '';
             document.getElementById('contactJob').value = contact.job || '';
@@ -14466,6 +14480,7 @@
                 category: c.category || '', "isLead": c.isLead || false,
                 temperature: c.temperature || 'frio', "dealValue": c.dealValue || 0,
                 birth: c.birth || '', notes: c.notes || '', origin: c.origin || '',
+                "referredByContactId": c.referredByContactId || '',
                 "nextContact": c.nextContact || '', "nextStep": c.nextStep || '',
                 "contactFrequencyDays": c.contactFrequencyDays || 0,
                 photo: c.photo || '', "privateNotes": c.privateNotes || '',
@@ -15396,6 +15411,7 @@
             currentContactLists = [];
             renderContactListPills();
             fillContactListOptions();
+            populateContactSelect('contactReferredBy', '');
             currentContactCustomFields = [];
             renderContactCustomFields();
             previewContactPhoto('');
@@ -18093,6 +18109,7 @@
             renderRelationshipSummary(c);
             renderFrequencyChart(c);
             renderRelationships(c);
+            renderReferrals(c);
             // Observações internas
             const pnInp = document.getElementById('privateNotesInput');
             const pnCnt = document.getElementById('privateNotesCount');
@@ -19621,6 +19638,27 @@
             'cliente de': 'ph-currency-circle-dollar', 'parceiro de': 'ph-link',
             'amigo de': 'ph-smiley', 'fornecedor de': 'ph-package'
         };
+
+        function renderReferrals(c) {
+            const section = document.getElementById('referralsSection');
+            const list = document.getElementById('referralsList');
+            const countEl = document.getElementById('referralsCount');
+            if (!section || !list) return;
+            const referred = contacts.filter(x => x.referredByContactId === c.id);
+            if (referred.length === 0) { section.classList.add('hidden'); return; }
+            section.classList.remove('hidden');
+            countEl.textContent = `${referred.length} contato${referred.length !== 1 ? 's' : ''}`;
+            list.innerHTML = referred
+                .sort((a, b) => fullName(a).localeCompare(fullName(b), 'pt-BR'))
+                .map(t => `<div class="flex items-center gap-2 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 cursor-pointer hover:border-sant-cyan/40 transition-colors"
+                        onclick="closeHistoryModal(); setTimeout(()=>openHistoryModal('${t.id}'),100)">
+                    ${contactAvatarHtml(t, 'w-6 h-6 text-[9px] shrink-0')}
+                    <div class="flex-1 min-w-0">
+                        <p class="text-xs font-medium text-white truncate">${fullName(t)}</p>
+                        ${t.company ? `<p class="text-[10px] text-gray-600 truncate">${t.company}</p>` : ''}
+                    </div>
+                </div>`).join('');
+        }
 
         function renderRelationships(c) {
             const list = document.getElementById('relationshipsList');
