@@ -2230,6 +2230,14 @@
                                 <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Fundação da Empresa</label>
                                 <input type="date" id="contactCompanyFounded" class="w-full bg-[#141414] border border-sant-border rounded-md px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none">
                             </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-1 flex items-center gap-1"><i class="ph ph-instagram-logo"></i> Instagram</label>
+                                <input type="text" id="contactInstagram" placeholder="@usuario ou link" class="w-full bg-[#141414] border border-sant-border rounded-md px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-1 flex items-center gap-1"><i class="ph ph-linkedin-logo"></i> LinkedIn</label>
+                                <input type="text" id="contactLinkedin" placeholder="usuario/empresa ou link" class="w-full bg-[#141414] border border-sant-border rounded-md px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none">
+                            </div>
                         </div>
                     </div>
 
@@ -3405,6 +3413,10 @@
                         <button id="tempSuggestionChip" onclick="applyTemperatureSuggestion()" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-400/40 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20 transition-colors items-center gap-1" title="Clique para aplicar"></button>
                     </div>
                     <a id="historyContactAddress" href="#" target="_blank" rel="noopener" class="hidden text-xs text-sant-cyan hover:underline mt-1 items-center gap-1"><i class="ph ph-map-pin"></i> <span></span></a>
+                    <div class="flex items-center gap-3 mt-1">
+                        <a id="historyContactInstagram" href="#" target="_blank" rel="noopener" class="hidden text-xs text-pink-400 hover:underline items-center gap-1"><i class="ph ph-instagram-logo"></i> Instagram</a>
+                        <a id="historyContactLinkedin" href="#" target="_blank" rel="noopener" class="hidden text-xs text-sant-cyan hover:underline items-center gap-1"><i class="ph ph-linkedin-logo"></i> LinkedIn</a>
+                    </div>
                     <div id="historyCustomFields" class="flex flex-wrap gap-1.5 mt-1.5"></div>
                     <div id="contactStatsBar" class="hidden flex items-center gap-3 mt-2 flex-wrap"></div>
                     </div><!-- /info text -->
@@ -9725,6 +9737,20 @@
             return addr ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}` : '';
         }
 
+        function getInstagramUrl(c) {
+            if (!c.instagram) return '';
+            const v = c.instagram.trim();
+            if (/^https?:\/\//i.test(v)) return v;
+            return `https://instagram.com/${v.replace(/^@/, '')}`;
+        }
+
+        function getLinkedinUrl(c) {
+            if (!c.linkedin) return '';
+            const v = c.linkedin.trim();
+            if (/^https?:\/\//i.test(v)) return v;
+            return `https://www.linkedin.com/in/${v.replace(/^@/, '')}`;
+        }
+
         function isValidEmail(email) {
             if (!email) return true; // campo opcional
             return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -9830,6 +9856,8 @@
                 emailProf: document.getElementById('contactEmailProf').value,
                 phoneProf: document.getElementById('contactPhoneProf').value,
                 site: document.getElementById('contactSite').value,
+                instagram: document.getElementById('contactInstagram').value.trim(),
+                linkedin: document.getElementById('contactLinkedin').value.trim(),
                 addressStreet: document.getElementById('contactAddressStreet').value,
                 addressNumber: document.getElementById('contactAddressNumber').value,
                 addressNeighborhood: document.getElementById('contactAddressNeighborhood').value,
@@ -10052,6 +10080,8 @@
             document.getElementById('contactEmailProf').value = contact.emailProf || contact.email || '';
             document.getElementById('contactPhoneProf').value = contact.phoneProf || contact.phone || '';
             document.getElementById('contactSite').value = contact.site || '';
+            document.getElementById('contactInstagram').value = contact.instagram || '';
+            document.getElementById('contactLinkedin').value = contact.linkedin || '';
             document.getElementById('contactAddressStreet').value = contact.addressStreet || '';
             document.getElementById('contactAddressNumber').value = contact.addressNumber || '';
             document.getElementById('contactAddressNeighborhood').value = contact.addressNeighborhood || '';
@@ -10725,6 +10755,8 @@
             document.getElementById('contactCompanyFounded').value = c.companyFounded || '';
             document.getElementById('contactJob').value = c.job || '';
             document.getElementById('contactSite').value = c.site || '';
+            document.getElementById('contactInstagram').value = c.instagram || '';
+            document.getElementById('contactLinkedin').value = c.linkedin || '';
             currentContactTags = c.tags ? [...c.tags] : [];
             renderContactTagPills();
             currentContactLists = c.lists ? [...c.lists] : [];
@@ -14477,6 +14509,7 @@
                 phone: c.phone || '', "phoneProf": c.phoneProf || '', "phonePess": c.phonePess || '',
                 email: c.email || '', "emailProf": c.emailProf || '', "emailPess": c.emailPess || '',
                 company: c.company || '', "companyFounded": c.companyFounded || '', job: c.job || '', site: c.site || '',
+                instagram: c.instagram || '', linkedin: c.linkedin || '',
                 category: c.category || '', "isLead": c.isLead || false,
                 temperature: c.temperature || 'frio', "dealValue": c.dealValue || 0,
                 birth: c.birth || '', notes: c.notes || '', origin: c.origin || '',
@@ -18077,6 +18110,12 @@
                 addrLink.classList.add('hidden');
                 addrLink.classList.remove('inline-flex');
             }
+            const igLink = document.getElementById('historyContactInstagram');
+            const igUrl = getInstagramUrl(c);
+            if (igLink) { igLink.href = igUrl; igLink.classList.toggle('hidden', !igUrl); igLink.classList.toggle('inline-flex', !!igUrl); }
+            const liLink = document.getElementById('historyContactLinkedin');
+            const liUrl = getLinkedinUrl(c);
+            if (liLink) { liLink.href = liUrl; liLink.classList.toggle('hidden', !liUrl); liLink.classList.toggle('inline-flex', !!liUrl); }
             const customFieldsBox = document.getElementById('historyCustomFields');
             customFieldsBox.innerHTML = (c.customFields || []).filter(f => f.label || f.value).map(f =>
                 `<span class="px-2 py-0.5 rounded text-[10px] font-medium bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20"><b>${f.label || '?'}:</b> ${f.value || '-'}</span>`
