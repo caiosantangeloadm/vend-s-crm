@@ -3562,14 +3562,24 @@
                     <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 mb-2">
                         <i class="ph ph-file-text"></i> Documentos &amp; Propostas
                     </h4>
-                    <div id="contactDocsList" class="space-y-2 mb-2"></div>
-                    <div class="flex gap-2 flex-wrap">
-                        <input type="text" id="contactDocTitle" placeholder="Ex: Proposta Comercial v1" class="flex-1 min-w-[140px] bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
-                        <input type="url" id="contactDocUrl" placeholder="https://... (link do documento)" class="flex-1 min-w-[140px] bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none" onkeydown="if(event.key==='Enter'){event.preventDefault();addContactDoc()}">
-                        <input type="date" id="contactDocExpiry" title="Validade (opcional)" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
-                        <button onclick="addContactDoc()" class="bg-sant-cyan/20 hover:bg-sant-cyan text-sant-cyan hover:text-sant-bg px-3 py-2 rounded-lg text-sm font-bold transition-colors border border-sant-cyan/30 shrink-0"><i class="ph ph-plus"></i></button>
+                    <div id="contactDocsList" class="space-y-2 mb-3"></div>
+                    <div class="bg-[#0a0a0a] border border-sant-border rounded-lg p-3 space-y-2">
+                        <div>
+                            <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Título</label>
+                            <input type="text" id="contactDocTitle" placeholder="Ex: Proposta Comercial v1" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Link do documento</label>
+                            <input type="url" id="contactDocUrl" placeholder="https://..." class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none" onkeydown="if(event.key==='Enter'){event.preventDefault();addContactDoc()}">
+                        </div>
+                        <div class="flex items-end gap-2">
+                            <div class="flex-1">
+                                <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Validade (opcional)</label>
+                                <input type="date" id="contactDocExpiry" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                            </div>
+                            <button onclick="addContactDoc()" class="bg-sant-cyan/20 hover:bg-sant-cyan text-sant-cyan hover:text-sant-bg px-4 py-2 rounded-lg text-sm font-bold transition-colors border border-sant-cyan/30 shrink-0 flex items-center gap-1.5"><i class="ph ph-plus"></i> Adicionar</button>
+                        </div>
                     </div>
-                    <p class="text-[10px] text-gray-600 mt-1">O campo de data é a validade do documento (opcional) — deixe em branco se não expira.</p>
                 </div>
                 <div class="px-4 pt-3">
                     <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 mb-2">
@@ -18571,12 +18581,16 @@
                         expiryBadge = `<span class="text-[10px] text-gray-500 shrink-0" title="Validade">${fmt}</span>`;
                     }
                 }
-                return `<div class="flex items-center gap-2 p-2 bg-[#0a0a0a] border ${meta.border} rounded-lg">
-                    <i class="ph ph-file-text" style="color:${meta.color}"></i>
-                    <a href="${d.url}" target="_blank" rel="noopener" class="text-sm hover:underline truncate flex-1" style="color:${meta.color}">${d.title || d.url}</a>
-                    <button onclick="setContactDocExpiry('${d.id}')" class="shrink-0" title="Definir/editar validade">${expiryBadge || '<span class="text-[10px] text-gray-600 hover:text-sant-cyan">+ validade</span>'}</button>
-                    <select onchange="updateContactDocStatus('${d.id}', this.value)" class="text-[10px] font-bold rounded-full px-2 py-1 border outline-none cursor-pointer ${meta.bg} ${meta.border}" style="color:${meta.color}">${opts}</select>
-                    <button onclick="deleteContactDoc('${d.id}')" class="text-gray-500 hover:text-red-500 shrink-0"><i class="ph ph-trash"></i></button>
+                return `<div class="p-2 bg-[#0a0a0a] border ${meta.border} rounded-lg">
+                    <div class="flex items-center gap-2">
+                        <i class="ph ph-file-text shrink-0" style="color:${meta.color}"></i>
+                        <a href="${d.url}" target="_blank" rel="noopener" class="text-sm hover:underline truncate flex-1" style="color:${meta.color}">${d.title || d.url}</a>
+                        <button onclick="deleteContactDoc('${d.id}')" class="text-gray-500 hover:text-red-500 shrink-0 p-1" title="Excluir"><i class="ph ph-trash"></i></button>
+                    </div>
+                    <div class="flex items-center flex-wrap gap-2 mt-2 pl-6">
+                        <button onclick="setContactDocExpiry('${d.id}')" class="shrink-0" title="Definir/editar validade">${expiryBadge || '<span class="text-[10px] text-gray-600 hover:text-sant-cyan">+ validade</span>'}</button>
+                        <select onchange="updateContactDocStatus('${d.id}', this.value)" class="text-[10px] font-bold rounded-full px-2 py-1 border outline-none cursor-pointer ${meta.bg} ${meta.border}" style="color:${meta.color}">${opts}</select>
+                    </div>
                 </div>`;
             }).join('');
         }
