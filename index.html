@@ -3563,21 +3563,21 @@
                         <i class="ph ph-file-text"></i> Documentos &amp; Propostas
                     </h4>
                     <div id="contactDocsList" class="space-y-2 mb-3"></div>
-                    <div class="bg-[#0a0a0a] border border-sant-border rounded-lg p-3 space-y-2">
+                    <div class="bg-[#0a0a0a] border border-sant-border rounded-lg p-4 space-y-3">
                         <div>
-                            <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Título</label>
-                            <input type="text" id="contactDocTitle" placeholder="Ex: Proposta Comercial v1" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                            <label class="block text-xs font-semibold text-gray-400 uppercase mb-1.5">Título</label>
+                            <input type="text" id="contactDocTitle" placeholder="Ex: Proposta Comercial v1" class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-3 text-base text-white outline-none focus:border-sant-cyan transition-colors">
                         </div>
                         <div>
-                            <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Link do documento</label>
-                            <input type="url" id="contactDocUrl" placeholder="https://..." class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none" onkeydown="if(event.key==='Enter'){event.preventDefault();addContactDoc()}">
+                            <label class="block text-xs font-semibold text-gray-400 uppercase mb-1.5">Link do documento</label>
+                            <input type="url" id="contactDocUrl" placeholder="https://..." class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-3 text-base text-white outline-none focus:border-sant-cyan transition-colors" onkeydown="if(event.key==='Enter'){event.preventDefault();addContactDoc()}">
                         </div>
-                        <div class="flex items-end gap-2">
-                            <div class="flex-1">
-                                <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Validade (opcional)</label>
-                                <input type="date" id="contactDocExpiry" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
-                            </div>
-                            <button onclick="addContactDoc()" class="bg-sant-cyan/20 hover:bg-sant-cyan text-sant-cyan hover:text-sant-bg px-4 py-2 rounded-lg text-sm font-bold transition-colors border border-sant-cyan/30 shrink-0 flex items-center gap-1.5"><i class="ph ph-plus"></i> Adicionar</button>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 uppercase mb-1.5">Validade (opcional)</label>
+                            <input type="date" id="contactDocExpiry" class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-3 text-base text-white outline-none focus:border-sant-cyan transition-colors">
+                        </div>
+                        <div>
+                            <button onclick="addContactDoc()" class="w-full bg-sant-cyan/20 hover:bg-sant-cyan text-sant-cyan hover:text-sant-bg px-4 py-3 rounded-lg text-sm font-bold transition-colors border border-sant-cyan/30 flex items-center justify-center gap-1.5"><i class="ph ph-plus"></i> Adicionar Documento</button>
                         </div>
                     </div>
                 </div>
