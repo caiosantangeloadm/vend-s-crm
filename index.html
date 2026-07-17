@@ -1354,6 +1354,7 @@
                     <button onclick="switchReportTab('documents')" id="tab-documents" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-file-text"></i> Documentos &amp; Propostas</button>
                     <button onclick="switchReportTab('followups')" id="tab-followups" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-arrow-counter-clockwise"></i> Follow-ups Pendentes</button>
                     <button onclick="switchReportTab('taskprod')" id="tab-taskprod" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-list-checks"></i> Produtividade de Tarefas</button>
+                    <button onclick="switchReportTab('compare')" id="tab-compare" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-arrows-left-right"></i> Comparar Períodos</button>
                 </div>
 
                 <div id="report-birthdays" class="report-content flex flex-col">
@@ -1620,6 +1621,22 @@
                     </div>
                     <div id="taskProdSummary" class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6 shrink-0"></div>
                     <div id="taskProdTable" class="pb-10"></div>
+                </div>
+
+                <div id="report-compare" class="report-content hidden flex flex-col">
+                    <div class="bg-sant-surface border border-sant-border rounded-xl p-5 mb-6 flex flex-wrap gap-4 items-end shrink-0">
+                        <div class="flex gap-1.5 flex-wrap pb-0.5">
+                            <button onclick="setComparePeriod('month')" id="cmpBtnMonth" class="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-sant-purple text-white transition-colors">Mês vs mês anterior</button>
+                            <button onclick="setComparePeriod('quarter')" id="cmpBtnQuarter" class="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors">Trimestre vs anterior</button>
+                            <button onclick="setComparePeriod('year')" id="cmpBtnYear" class="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors">Ano vs ano anterior</button>
+                        </div>
+                        <div class="flex-1"></div>
+                        <button onclick="exportComparePdf()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors">
+                            <i class="ph ph-file-pdf"></i> Exportar PDF
+                        </button>
+                    </div>
+                    <p id="compareLabels" class="text-xs text-gray-500 mb-4 shrink-0"></p>
+                    <div id="compareTable" class="pb-10"></div>
                 </div>
             </div>
 
@@ -6900,6 +6917,158 @@
             }
         }
         // ── fim Metas Maiores ────────────────────────────────────────────────
+
+        // ── Comparativo de Períodos (Relatórios) ────────────────────────────
+        let comparePeriod = localStorage.getItem('vends_compare_period') || 'month';
+
+        function setComparePeriod(p) {
+            comparePeriod = p;
+            localStorage.setItem('vends_compare_period', p);
+            generateCompareReport();
+        }
+
+        function getCompareRanges() {
+            const todayStr = getSPTodayStr();
+            const [ty, tm] = todayStr.split('-').map(Number);
+            const toDateStr = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            const monthNamesPt = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+            let aStart, aEnd, bStart, bEnd, aLabel, bLabel;
+            if (comparePeriod === 'month') {
+                aStart = new Date(ty, tm-1, 1); aEnd = new Date(ty, tm, 0);
+                bStart = new Date(ty, tm-2, 1); bEnd = new Date(ty, tm-1, 0);
+                aLabel = `${monthNamesPt[tm-1]} de ${ty}`;
+                bLabel = `${monthNamesPt[bStart.getMonth()]} de ${bStart.getFullYear()}`;
+            } else if (comparePeriod === 'quarter') {
+                const q = Math.floor((tm-1)/3);
+                aStart = new Date(ty, q*3, 1); aEnd = new Date(ty, q*3+3, 0);
+                bStart = new Date(ty, q*3-3, 1); bEnd = new Date(ty, q*3, 0);
+                aLabel = `${q+1}º Trimestre de ${ty}`;
+                const bq = Math.floor(bStart.getMonth()/3);
+                bLabel = `${bq+1}º Trimestre de ${bStart.getFullYear()}`;
+            } else {
+                aStart = new Date(ty, 0, 1); aEnd = new Date(ty, 11, 31);
+                bStart = new Date(ty-1, 0, 1); bEnd = new Date(ty-1, 11, 31);
+                aLabel = `Ano de ${ty}`;
+                bLabel = `Ano de ${ty-1}`;
+            }
+            return {
+                aStart: toDateStr(aStart), aEnd: toDateStr(aEnd < new Date(todayStr) ? aEnd : new Date(todayStr)),
+                bStart: toDateStr(bStart), bEnd: toDateStr(bEnd),
+                aLabel, bLabel
+            };
+        }
+
+        function calcPeriodMetrics(from, to) {
+            const tasksDone = tasks.filter(t => {
+                if (!t.completed) return false;
+                const ref = t.completedAt ? t.completedAt.substring(0,10) : (t.date||'');
+                return ref >= from && ref <= to;
+            }).length;
+            const interactions = contacts.reduce((acc, c) =>
+                acc + (c.interactions||[]).filter(i => i.date >= from && i.date <= to).length, 0);
+            const followups = contacts.filter(c => {
+                if (!c.nextContact || c.nextContact < from || c.nextContact > to) return false;
+                return (c.interactions||[]).some(i => i.date >= c.nextContact);
+            }).length;
+            const newContacts = contacts.filter(c => {
+                const d = c.createdAt ? c.createdAt.substring(0,10) : '';
+                return d >= from && d <= to;
+            }).length;
+            const fromD = new Date(from), toD = new Date(to);
+            const events_ = events.filter(e => {
+                const d = e.startDate || '';
+                return d >= from && d <= to && e.recurrence === 'none';
+            }).length + events.filter(e => e.recurrence && e.recurrence !== 'none').reduce((acc, e) => {
+                let d = new Date(fromD);
+                while (d <= toD) {
+                    if (isEventOnDate(e, d.toISOString().substring(0,10))) acc++;
+                    d.setDate(d.getDate() + 1);
+                }
+                return acc;
+            }, 0);
+            const leadsWon = contacts.filter(c => c.isLead && c.temperature === 'hot' && c.createdAt && c.createdAt.substring(0,10) >= from && c.createdAt.substring(0,10) <= to).length;
+            return { tasksDone, interactions, followups, newContacts, events: events_, leadsWon };
+        }
+
+        function generateCompareReport() {
+            ['cmpBtnMonth','cmpBtnQuarter','cmpBtnYear'].forEach(id => {
+                const btn = document.getElementById(id);
+                if (!btn) return;
+                const active = (id === 'cmpBtnMonth' && comparePeriod === 'month') ||
+                                (id === 'cmpBtnQuarter' && comparePeriod === 'quarter') ||
+                                (id === 'cmpBtnYear' && comparePeriod === 'year');
+                btn.classList.toggle('bg-sant-purple', active);
+                btn.classList.toggle('text-white', active);
+                btn.classList.toggle('bg-sant-surface', !active);
+                btn.classList.toggle('border', !active);
+                btn.classList.toggle('border-sant-border', !active);
+                btn.classList.toggle('text-gray-400', !active);
+            });
+
+            const r = getCompareRanges();
+            const a = calcPeriodMetrics(r.aStart, r.aEnd);
+            const b = calcPeriodMetrics(r.bStart, r.bEnd);
+
+            const labelsEl = document.getElementById('compareLabels');
+            const brDate = s => { const [y,m,d] = s.split('-'); return `${d}/${m}/${y}`; };
+            if (labelsEl) labelsEl.textContent = `Período atual: ${r.aLabel} (${brDate(r.aStart)} – ${brDate(r.aEnd)})  ·  Período anterior: ${r.bLabel} (${brDate(r.bStart)} – ${brDate(r.bEnd)})`;
+
+            const rows = [
+                { label: 'Novos contatos', icon: 'ph-user-plus', color: '#34d399', a: a.newContacts, b: b.newContacts },
+                { label: 'Tarefas concluídas', icon: 'ph-check-square', color: '#5b8fa8', a: a.tasksDone, b: b.tasksDone },
+                { label: 'Interações registradas', icon: 'ph-handshake', color: '#fbbf24', a: a.interactions, b: b.interactions },
+                { label: 'Follow-ups realizados', icon: 'ph-arrow-counter-clockwise', color: '#a78bfa', a: a.followups, b: b.followups },
+                { label: 'Compromissos realizados', icon: 'ph-calendar-check', color: '#7aafc8', a: a.events, b: b.events },
+                { label: 'Leads quentes gerados', icon: 'ph-fire', color: '#f87171', a: a.leadsWon, b: b.leadsWon },
+            ];
+
+            const tableEl = document.getElementById('compareTable');
+            if (!tableEl) return;
+            tableEl.innerHTML = `
+                <div class="bg-sant-surface border border-sant-border rounded-xl overflow-hidden">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-sant-border text-left text-[10px] font-bold text-gray-500 uppercase">
+                                <th class="px-5 py-3">Métrica</th>
+                                <th class="px-5 py-3 text-right">${r.aLabel}</th>
+                                <th class="px-5 py-3 text-right">${r.bLabel}</th>
+                                <th class="px-5 py-3 text-right">Variação</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows.map(m => {
+                                const diff = m.a - m.b;
+                                const pct = m.b > 0 ? Math.round((diff / m.b) * 100) : (m.a > 0 ? 100 : 0);
+                                const diffColor = diff > 0 ? 'text-green-400' : diff < 0 ? 'text-red-400' : 'text-gray-500';
+                                const diffIcon = diff > 0 ? 'ph-trend-up' : diff < 0 ? 'ph-trend-down' : 'ph-equals';
+                                return `<tr class="border-b border-sant-border/50 last:border-0">
+                                    <td class="px-5 py-3 flex items-center gap-2 text-gray-300"><i class="ph ${m.icon}" style="color:${m.color}"></i> ${m.label}</td>
+                                    <td class="px-5 py-3 text-right text-white font-bold">${m.a}</td>
+                                    <td class="px-5 py-3 text-right text-gray-500">${m.b}</td>
+                                    <td class="px-5 py-3 text-right ${diffColor} font-medium"><i class="ph ${diffIcon}"></i> ${diff > 0 ? '+' : ''}${diff} (${pct > 0 ? '+' : ''}${pct}%)</td>
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>`;
+        }
+
+        function exportComparePdf() {
+            const r = getCompareRanges();
+            const a = calcPeriodMetrics(r.aStart, r.aEnd);
+            const b = calcPeriodMetrics(r.bStart, r.bEnd);
+            const rows = [
+                ['Novos contatos', a.newContacts, b.newContacts],
+                ['Tarefas concluídas', a.tasksDone, b.tasksDone],
+                ['Interações registradas', a.interactions, b.interactions],
+                ['Follow-ups realizados', a.followups, b.followups],
+                ['Compromissos realizados', a.events, b.events],
+                ['Leads quentes gerados', a.leadsWon, b.leadsWon],
+            ].map(row => [row[0], String(row[1]), String(row[2]), String(row[1]-row[2])]);
+            printReportPdf(`Comparativo — ${r.aLabel} vs ${r.bLabel}`, ['Métrica', r.aLabel, r.bLabel, 'Variação'], rows);
+        }
+        // ── fim Comparativo de Períodos ──────────────────────────────────────
 
         function renderWeekStats(todayStr) {
             // Início da semana atual: segunda-feira
@@ -13798,6 +13967,7 @@
             if(tabId === 'documents') generateDocumentsReport();
             if(tabId === 'followups') generateFollowupsReport();
             if(tabId === 'taskprod') generateTaskProdReport();
+            if(tabId === 'compare') generateCompareReport();
             if(tabId === 'birthdays') {
                 const startInput = document.getElementById('repBirthStart');
                 const endInput = document.getElementById('repBirthEnd');
