@@ -845,6 +845,15 @@
                     <div id="dashContactRanking" class="space-y-2"></div>
                 </div>
 
+                <!-- Card: Ranking de Engajamento -->
+                <div id="dashEngagementRankingCard" data-dash-title="Ranking de Engajamento" class="bg-sant-surface border border-sant-border rounded-2xl p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <p class="text-xs font-bold text-white tracking-wide uppercase flex items-center gap-2"><i class="ph ph-fire text-sant-cyan text-lg"></i> Ranking de Engajamento</p>
+                        <span class="text-[10px] text-gray-600">score de relacionamento</span>
+                    </div>
+                    <div id="dashEngagementRanking" class="space-y-2"></div>
+                </div>
+
                 <div id="dashFunnelCard" class="hidden bg-sant-surface border border-sant-border rounded-2xl p-6 flex flex-col cursor-pointer hover:border-sant-cyan/50 transition-colors" onclick="switchView('reports'); switchReportTab('leads')">
                     <div class="flex justify-between items-center mb-6 shrink-0">
                         <p class="text-xs font-bold text-white tracking-wide uppercase flex items-center gap-2"><i class="ph ph-funnel text-sant-cyan text-lg"></i> Funil de Leads</p>
@@ -5944,6 +5953,7 @@
             renderHealthDashboard();
             renderWeekStats(todayStr);
             renderContactRanking();
+            renderEngagementRanking();
             renderFollowupRate(todayStr);
             renderCallsCard(todayStr);
             renderTaskGoalCard(todayStr);
@@ -6261,6 +6271,7 @@
             { id: 'dashTodayCard',          title: 'Briefing de Hoje' },
             { id: 'dashCallsCard',          title: 'Ligações do Dia' },
             { id: 'dashTaskGoalCard',       title: 'Meta de Tarefas do Dia' },
+            { id: 'dashEngagementRankingCard', title: 'Ranking de Engajamento' },
             { id: 'dashWaitingCard',        title: 'Aguardando Terceiros' },
             { id: 'dashAttentionCard',      title: 'Hoje Preciso de Atenção' },
             { id: 'dashFollowupCard',       title: 'Taxa de Follow-ups' },
@@ -6982,6 +6993,37 @@
                         </div>
                     </div>
                     <span class="text-xs text-gray-500 shrink-0">${x.count}×</span>
+                </div>`;
+            }).join('');
+        }
+
+        function renderEngagementRanking() {
+            const el = document.getElementById('dashEngagementRanking');
+            if (!el) return;
+            const ranked = contacts
+                .map(c => ({ c, rs: calcRelScore(c) }))
+                .filter(x => x.rs.score > 0)
+                .sort((a, b) => b.rs.score - a.rs.score)
+                .slice(0, 8);
+
+            if (!ranked.length) {
+                el.innerHTML = '<p class="text-xs text-gray-600 text-center py-3">Registre interações para construir o ranking</p>';
+                return;
+            }
+            el.innerHTML = ranked.map((x, i) => {
+                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `<span class="text-gray-600 text-xs font-bold">#${i+1}</span>`;
+                return `<div class="flex items-center gap-3 cursor-pointer hover:bg-white/5 rounded-lg px-2 py-1 transition-colors" onclick="addRecentContact('${x.c.id}');openHistoryModal('${x.c.id}')">
+                    <span class="w-6 text-center text-sm">${medal}</span>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm text-white font-medium truncate">${fullName(x.c)}</span>
+                            <span class="text-[10px] shrink-0" style="color:${x.rs.color}">${x.rs.emoji} ${x.rs.label}</span>
+                        </div>
+                        <div class="w-full bg-[#1f1f1f] rounded-full h-1 mt-1">
+                            <div class="h-1 rounded-full" style="width:${x.rs.score}%;background:${x.rs.color}"></div>
+                        </div>
+                    </div>
+                    <span class="text-xs text-gray-500 shrink-0">${x.rs.score}</span>
                 </div>`;
             }).join('');
         }
