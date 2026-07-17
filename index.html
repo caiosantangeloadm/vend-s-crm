@@ -1215,6 +1215,7 @@
                         <button onclick="filterTasks('all')" id="btnFilterAll" class="filter-status-btn px-4 py-1.5 rounded-full bg-sant-cyan text-sant-bg font-semibold text-sm transition-colors">Todas</button>
                         <button onclick="filterTasks('pending')" id="btnFilterPending" class="filter-status-btn px-4 py-1.5 rounded-full border border-sant-border text-gray-400 hover:text-white transition-colors text-sm">Pendentes</button>
                         <button onclick="filterTasks('completed')" id="btnFilterCompleted" class="filter-status-btn px-4 py-1.5 rounded-full border border-sant-border text-gray-400 hover:text-white transition-colors text-sm">Concluídas</button>
+                        <button onclick="filterTasks('archived')" id="btnFilterArchived" class="filter-status-btn px-4 py-1.5 rounded-full border border-sant-border text-gray-400 hover:text-white transition-colors text-sm flex items-center gap-1.5"><i class="ph ph-archive"></i> Arquivadas</button>
                         <button onclick="toggleTaskFocus()" id="btnTaskFocus" class="px-4 py-1.5 rounded-full border border-[#fbbf24]/40 text-[#fbbf24]/60 hover:text-[#fbbf24] hover:border-[#fbbf24] transition-colors text-sm flex items-center gap-1.5">
                             <i class="ph ph-lightning"></i> Foco do Dia
                         </button>
@@ -5350,6 +5351,7 @@
                 notified: t.notified || false,
                 waiting: t.waiting || false, "waitingNote": t.waitingNote || '', "waitingSince": t.waitingSince || '',
                 attachments: t.attachments || [],
+                archived: t.archived || false,
             };
         }
 
@@ -12715,7 +12717,7 @@
             if (waitBtn) waitBtn.className = 'px-4 py-1.5 rounded-full border border-sant-purple/40 text-sant-purple/60 hover:text-sant-purple hover:border-sant-purple transition-colors text-sm flex items-center gap-1.5';
             if (taskViewMode === 'kanban') switchTaskView('list');
             document.querySelectorAll('button[id^="btnFilter"]').forEach(b => { b.className = 'filter-status-btn px-4 py-1.5 rounded-full border border-sant-border text-gray-400 hover:text-white transition-colors text-sm'; });
-            const btn = f==='all'? 'btnFilterAll' : f==='pending'? 'btnFilterPending' : 'btnFilterCompleted';
+            const btn = f==='all'? 'btnFilterAll' : f==='pending'? 'btnFilterPending' : f==='completed' ? 'btnFilterCompleted' : 'btnFilterArchived';
             document.getElementById(btn).className = 'filter-status-btn px-4 py-1.5 rounded-full bg-sant-cyan text-sant-bg font-semibold text-sm transition-colors';
             const searchVal = document.getElementById('taskSearchInput') ? document.getElementById('taskSearchInput').value : '';
             renderTasks(f, searchVal);
@@ -12769,9 +12771,9 @@
             currentTaskFilter = filter;
             const list = document.getElementById('tasksList');
             const todayStr = getSPTodayStr();
-            let filtered = tasks;
-            if(filter === 'pending') filtered = tasks.filter(t => !t.completed);
-            if(filter === 'completed') filtered = tasks.filter(t => t.completed);
+            let filtered = filter === 'archived' ? tasks.filter(t => t.archived) : tasks.filter(t => !t.archived);
+            if(filter === 'pending') filtered = filtered.filter(t => !t.completed);
+            if(filter === 'completed') filtered = filtered.filter(t => t.completed);
 
             if (currentTaskTagFilter) filtered = filtered.filter(t => t.tags && t.tags.includes(currentTaskTagFilter));
             if (currentTaskContactFilter) filtered = filtered.filter(t => t.contactId === currentTaskContactFilter);
@@ -12954,6 +12956,9 @@
                             <button onclick="toggleTaskSnoozeMenu('${t.id}')" class="text-gray-400 hover:text-amber-400" title="Adiar tarefa"><i class="ph ph-alarm text-lg"></i></button>
                             <button onclick="toggleTaskWaiting('${t.id}')" class="${t.waiting ? 'text-sant-purple' : 'text-gray-400 hover:text-sant-purple'}" title="${t.waiting ? 'Remover Aguardando Terceiros' : 'Marcar como Aguardando Terceiros'}"><i class="ph ph-hourglass-medium text-lg"></i></button>
                             <button onclick="duplicateTask('${t.id}')" class="text-gray-400 hover:text-sant-cyan" title="Duplicar tarefa"><i class="ph ph-copy text-lg"></i></button>
+                            ${t.archived
+                                ? `<button onclick="unarchiveTask('${t.id}')" class="text-gray-400 hover:text-sant-cyan" title="Restaurar tarefa"><i class="ph ph-arrow-counter-clockwise text-lg"></i></button>`
+                                : `<button onclick="archiveTask('${t.id}')" class="text-gray-400 hover:text-amber-400" title="Arquivar tarefa"><i class="ph ph-archive text-lg"></i></button>`}
                             <button onclick="openCopyTaskWeekdaysModal('${t.id}')" class="text-gray-400 hover:text-sant-purple" title="Copiar para vários dias da semana"><i class="ph ph-calendar-plus text-lg"></i></button>
                             <button onclick="editTask('${t.id}')" class="text-gray-400 hover:text-sant-cyan"><i class="ph ph-pencil-simple text-lg"></i></button>
                             <button onclick="deleteTask('${t.id}')" class="text-gray-400 hover:text-red-500"><i class="ph ph-trash text-lg"></i></button>
@@ -13296,6 +13301,7 @@
                 waitingNote: existingTask ? (existingTask.waitingNote || '') : '',
                 waitingSince: existingTask ? (existingTask.waitingSince || '') : '',
                 createdAt: existingTask ? (existingTask.createdAt || new Date().toISOString()) : new Date().toISOString(),
+                archived: existingTask ? (existingTask.archived || false) : false,
             };
 
             if (existingTask) {
@@ -13420,6 +13426,26 @@
             saveTasksToStorage();
             cloudSyncTask(t);
             renderTaskComments(taskId);
+        }
+
+        function archiveTask(id) {
+            const t = tasks.find(x => x.id === id);
+            if (!t) return;
+            t.archived = true;
+            saveTasksToStorage();
+            cloudSyncTask(t);
+            _refreshCurrentTaskView();
+            showToast('Tarefa arquivada.');
+        }
+
+        function unarchiveTask(id) {
+            const t = tasks.find(x => x.id === id);
+            if (!t) return;
+            t.archived = false;
+            saveTasksToStorage();
+            cloudSyncTask(t);
+            _refreshCurrentTaskView();
+            showToast('Tarefa restaurada.');
         }
 
         function duplicateTask(id) {
@@ -17505,7 +17531,7 @@
         }
 
         function renderKanban(searchTerm = '') {
-            let filtered = tasks;
+            let filtered = tasks.filter(t => !t.archived);
             if (currentTaskTagFilter) filtered = filtered.filter(t => t.tags && t.tags.includes(currentTaskTagFilter));
             if (searchTerm) {
                 const term = searchTerm.toLowerCase();
@@ -17624,6 +17650,7 @@
                             <div class="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
                                 <button onclick="toggleTaskWaiting('${t.id}')" class="${t.waiting ? 'text-sant-purple' : 'text-gray-500 hover:text-sant-purple'} p-0.5" title="${t.waiting ? 'Remover Aguardando Terceiros' : 'Marcar como Aguardando Terceiros'}"><i class="ph ph-hourglass-medium text-sm"></i></button>
                                 <button onclick="duplicateTask('${t.id}')" class="text-gray-500 hover:text-sant-cyan p-0.5" title="Duplicar"><i class="ph ph-copy text-sm"></i></button>
+                                ${col.id === 'done' ? `<button onclick="archiveTask('${t.id}')" class="text-gray-500 hover:text-amber-400 p-0.5" title="Arquivar tarefa"><i class="ph ph-archive text-sm"></i></button>` : ''}
                                 <button onclick="editTask('${t.id}')" class="text-gray-500 hover:text-sant-cyan p-0.5"><i class="ph ph-pencil-simple text-sm"></i></button>
                                 <button onclick="deleteTask('${t.id}')" class="text-gray-500 hover:text-red-500 p-0.5"><i class="ph ph-trash text-sm"></i></button>
                             </div>
