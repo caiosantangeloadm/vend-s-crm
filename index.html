@@ -167,6 +167,7 @@
             100% { box-shadow: 0 0 0 0 rgba(91,143,168,0); }
         }
         .note-save-pulse { animation: noteSavePulse 0.55s ease; }
+        .note-drag-over { outline: 2px dashed #5b8fa8; outline-offset: 2px; }
 
         .cal-event-chip { cursor: grab; transition: opacity 0.15s ease; }
         .cal-event-chip:active { cursor: grabbing; }
@@ -1689,6 +1690,7 @@
                                 <option value="oldest">Mais antigas</option>
                                 <option value="title">Título A–Z</option>
                                 <option value="color">Por cor</option>
+                                <option value="manual">Manual (arrastar)</option>
                             </select>
                             <i class="ph ph-sort-ascending absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none text-sm"></i>
                         </div>
@@ -5677,6 +5679,7 @@
                 "kanbanColumn": n.kanbanColumn || 'inbox',
                 tags: n.tags || [],
                 checklist: n.checklist || [],
+                "sortOrder": n.sortOrder ?? null,
                 "createdAt": n.createdAt || new Date().toISOString(),
                 "updatedAt": n.updatedAt || new Date().toISOString(),
             };
@@ -8890,6 +8893,7 @@
             else if (currentNotesSort === 'oldest') filtered.sort((a,b) => (a.createdAt||'').localeCompare(b.createdAt||''));
             else if (currentNotesSort === 'title') filtered.sort((a,b) => (a.title||'').localeCompare(b.title||'','pt-BR'));
             else if (currentNotesSort === 'color') filtered.sort((a,b) => (a.color||'default').localeCompare(b.color||'default'));
+            else if (currentNotesSort === 'manual') filtered.sort((a,b) => (a.sortOrder ?? 999999) - (b.sortOrder ?? 999999));
             return filtered;
         }
 
@@ -8940,6 +8944,37 @@
             win.document.close();
         }
 
+        let draggedNoteId = null;
+        function onNoteDragStart(event, id) {
+            draggedNoteId = id;
+            event.dataTransfer.effectAllowed = 'move';
+        }
+        function onNoteDrop(event, targetId) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('note-drag-over');
+            if (!draggedNoteId || draggedNoteId === targetId) return;
+            const dragged = notes.find(x => x.id === draggedNoteId);
+            const target = notes.find(x => x.id === targetId);
+            if (!dragged || !target) return;
+            // Só reordena dentro do mesmo grupo (fixadas x demais), pra não misturar seções
+            if (!!dragged.pinned !== !!target.pinned) { showToast('Arraste apenas dentro da mesma seção (Fixadas ou Outras).', 'error'); draggedNoteId = null; return; }
+
+            const group = notes.filter(n => !!n.pinned === !!dragged.pinned && (notesShowArchived ? n.archived : !n.archived));
+            const fromIdx = group.findIndex(n => n.id === draggedNoteId);
+            const toIdx = group.findIndex(n => n.id === targetId);
+            group.splice(fromIdx, 1);
+            group.splice(toIdx, 0, dragged);
+            group.forEach((n, i) => { n.sortOrder = i; });
+
+            currentNotesSort = 'manual';
+            const sortSel = document.getElementById('notesSortSelect');
+            if (sortSel) sortSel.value = 'manual';
+
+            saveNotesToStorage();
+            group.forEach(n => cloudSyncNote(n));
+            draggedNoteId = null;
+            renderNotes();
+        }
         function toggleNoteChecklistItem(noteId, itemId) {
             const n = notes.find(x => x.id === noteId);
             if (!n || !n.checklist) return;
@@ -9113,7 +9148,7 @@
                     </div>`).join('')}</div>`
                 : '';
             return `
-            <div id="note-${n.id}" class="${c.bg} ${n.favorite ? 'border-2 border-[#fbbf24]/60' : c.border + ' border'} rounded-2xl p-5 flex flex-col group relative min-h-[140px] ${n.archived ? 'opacity-80' : ''}">
+            <div id="note-${n.id}" draggable="true" ondragstart="onNoteDragStart(event,'${n.id}')" ondragover="event.preventDefault(); this.classList.add('note-drag-over')" ondragleave="this.classList.remove('note-drag-over')" ondrop="onNoteDrop(event,'${n.id}')" ondragend="this.classList.remove('note-drag-over')" class="${c.bg} ${n.favorite ? 'border-2 border-[#fbbf24]/60' : c.border + ' border'} rounded-2xl p-5 flex flex-col group relative min-h-[140px] ${n.archived ? 'opacity-80' : ''}">
                 ${n.archived ? `<div class="flex items-center gap-1 text-[10px] text-gray-500 mb-2 font-medium"><i class="ph ph-archive"></i> Arquivada</div>` : ''}
                 <div class="flex justify-between items-start gap-2 mb-1">
                     ${n.title ? `<h3 class="font-bold text-white text-sm break-words flex-1">${n.title}</h3>` : '<div class="flex-1"></div>'}
@@ -9278,6 +9313,7 @@
             else if (currentNotesSort === 'oldest') filtered.sort((a,b) => (a.createdAt||'').localeCompare(b.createdAt||''));
             else if (currentNotesSort === 'title') filtered.sort((a,b) => (a.title||'').localeCompare(b.title||'','pt-BR'));
             else if (currentNotesSort === 'color') filtered.sort((a,b) => (a.color||'default').localeCompare(b.color||'default'));
+            else if (currentNotesSort === 'manual') filtered.sort((a,b) => (a.sortOrder ?? 999999) - (b.sortOrder ?? 999999));
 
             const pinned = filtered.filter(n => n.pinned && !notesShowArchived);
             const others = filtered.filter(n => !n.pinned || notesShowArchived);
