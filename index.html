@@ -466,8 +466,8 @@
                     <button onclick="toggleDashCustomize()" id="dashCustomizeBtn" class="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-sant-border text-gray-400 hover:text-white hover:border-sant-cyan transition-colors text-sm font-medium">
                         <i class="ph ph-sliders-horizontal text-base"></i> Personalizar
                     </button>
-                    <button id="dashReportBtn" onclick="printDashboardPdf()" class="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-sant-border text-gray-400 hover:text-white hover:border-sant-cyan transition-colors text-sm font-medium">
-                        <i class="ph ph-printer text-base"></i> Gerar Relatório
+                    <button id="dashReportBtn" onclick="exportDashboardPdfRich()" class="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-sant-border text-gray-400 hover:text-white hover:border-sant-cyan transition-colors text-sm font-medium">
+                        <i class="ph ph-file-pdf text-base"></i> Gerar Relatório
                     </button>
                 </div>
 
@@ -14357,6 +14357,138 @@
             const countEl = document.getElementById('dashPrintContactCount');
             if (countEl) countEl.textContent = `${contacts.length} contato${contacts.length !== 1 ? 's' : ''} na base`;
             window.print();
+        }
+
+        function exportDashboardPdfRich() {
+            const spToday = getSPTodayStr();
+            const todayMonthDay = spToday.substring(5);
+            const todayLong = new Date().toLocaleDateString('pt-BR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+            // KPIs gerais
+            const leads = contacts.filter(c => c.isLead);
+            const leadsHot  = leads.filter(c => c.temperature === 'quente').length;
+            const leadsWarm = leads.filter(c => c.temperature === 'morno').length;
+            const leadsCold = leads.filter(c => c.temperature === 'frio').length;
+            const pipelineTotal = leads.reduce((sum, c) => sum + (c.dealValue || 0), 0);
+            const todayEvents = events.filter(e => isEventOnDate(e, spToday)).length;
+            const todayBdays = contacts.filter(c => c.birth && c.birth.endsWith(todayMonthDay)).length;
+            const pendingTasks = tasks.filter(t => !t.completed && !t.archived).length;
+
+            // Esta semana
+            const [ty, tm, td] = spToday.split('-').map(Number);
+            const todayD = new Date(ty, tm-1, td);
+            const dow = todayD.getDay();
+            const weekStart = new Date(todayD);
+            weekStart.setDate(todayD.getDate() + (dow === 0 ? -6 : 1 - dow));
+            const weekStartStr = weekStart.toISOString().substring(0,10);
+            const weekTasks = calcPeriodMetrics(weekStartStr, spToday);
+
+            // Metas do período ativo (Metas Maiores)
+            const goalsMap = { month: monthlyGoals, quarter: quarterlyGoals, year: yearlyGoals };
+            const goalsLabelMap = { month: 'do Mês', quarter: 'do Trimestre', year: 'do Ano' };
+            const goals = goalsMap[bigGoalsPeriod] || {};
+            const goalsLabel = goalsLabelMap[bigGoalsPeriod] || '';
+            const goalsRows = [
+                ['Tarefas concluídas', weekTasks.tasksDone, goals.tasks || 0],
+                ['Interações registradas', weekTasks.interactions, goals.interactions || 0],
+                ['Follow-ups realizados', weekTasks.followups, goals.followups || 0],
+                ['Novos contatos', weekTasks.newContacts, goals.newContacts || 0],
+            ].filter(r => r[2] > 0);
+
+            // Categorias
+            const catCounts = {};
+            contacts.forEach(c => { const cat = c.category || 'Sem Categoria'; catCounts[cat] = (catCounts[cat]||0) + 1; });
+            const catRows = Object.entries(catCounts).sort((a,b) => b[1]-a[1]).slice(0, 8);
+
+            // Aniversariantes do mês
+            const curMonth = tm;
+            const bdayList = contacts.filter(c => c.birth && getBirthMonth(c.birth) === curMonth)
+                .sort((a,b) => getBirthDay(a.birth) - getBirthDay(b.birth))
+                .slice(0, 12);
+
+            // Top 5 Engajamento
+            const topEngaged = contacts.map(c => ({ c, rs: calcRelScore(c) }))
+                .filter(x => x.rs.score > 0)
+                .sort((a,b) => b.rs.score - a.rs.score)
+                .slice(0, 5);
+
+            const win = window.open('', '_blank');
+            const kpiCard = (label, value) => `<div class="kpi"><div class="kpi-value">${value}</div><div class="kpi-label">${label}</div></div>`;
+            const barRow = (label, cur, goal) => {
+                const pct = goal ? Math.min(Math.round((cur/goal)*100), 100) : 0;
+                return `<div class="bar-row">
+                    <div class="bar-head"><span>${label}</span><span>${cur}/${goal} (${pct}%)</span></div>
+                    <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+                </div>`;
+            };
+
+            win.document.write(`
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>Relatório do Dashboard</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 28px; color: #111; }
+                        h1 { font-size: 20px; margin: 0 0 2px; }
+                        h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: #444; margin: 26px 0 10px; border-bottom: 1px solid #ddd; padding-bottom: 6px; }
+                        p.meta { font-size: 11px; color: #666; margin: 0 0 18px; }
+                        .kpis { display: flex; flex-wrap: wrap; gap: 12px; }
+                        .kpi { flex: 1 1 130px; border: 1px solid #ddd; border-radius: 8px; padding: 12px 14px; }
+                        .kpi-value { font-size: 22px; font-weight: bold; }
+                        .kpi-label { font-size: 10px; color: #666; text-transform: uppercase; margin-top: 2px; }
+                        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+                        th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
+                        th { background: #f0f0f0; }
+                        .bar-row { margin-bottom: 10px; }
+                        .bar-head { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px; }
+                        .bar-track { background: #eee; border-radius: 6px; height: 8px; overflow: hidden; }
+                        .bar-fill { background: #5b8fa8; height: 100%; }
+                        @media print { body { padding: 0; } h2 { break-before: auto; } }
+                    </style>
+                </head>
+                <body>
+                    <h1>Relatório do Dashboard — Vend-s Inteligência CRM</h1>
+                    <p class="meta">${todayLong} · ${contacts.length} contato${contacts.length !== 1 ? 's' : ''} na base</p>
+
+                    <div class="kpis">
+                        ${kpiCard('Total de Contatos', contacts.length)}
+                        ${kpiCard('Leads Ativos', leads.length)}
+                        ${kpiCard('Quente / Morno / Frio', `${leadsHot} / ${leadsWarm} / ${leadsCold}`)}
+                        ${kpiCard('Pipeline (R$)', pipelineTotal ? pipelineTotal.toLocaleString('pt-BR') : '—')}
+                        ${kpiCard('Compromissos Hoje', todayEvents)}
+                        ${kpiCard('Aniversários Hoje', todayBdays)}
+                        ${kpiCard('Tarefas Pendentes', pendingTasks)}
+                    </div>
+
+                    <h2>Esta Semana (produtividade)</h2>
+                    <div class="kpis">
+                        ${kpiCard('Tarefas Concluídas', weekTasks.tasksDone)}
+                        ${kpiCard('Eventos Realizados', weekTasks.events)}
+                        ${kpiCard('Interações Registradas', weekTasks.interactions)}
+                    </div>
+
+                    ${goalsRows.length ? `<h2>Metas ${goalsLabel}</h2>${goalsRows.map(r => barRow(r[0], r[1], r[2])).join('')}` : ''}
+
+                    <h2>Contatos por Categoria</h2>
+                    <table><thead><tr><th>Categoria</th><th>Contatos</th><th>%</th></tr></thead><tbody>
+                        ${catRows.map(([cat,count]) => `<tr><td>${cat}</td><td>${count}</td><td>${Math.round((count/contacts.length)*100)}%</td></tr>`).join('')}
+                    </tbody></table>
+
+                    ${bdayList.length ? `<h2>Aniversariantes do Mês</h2>
+                    <table><thead><tr><th>Nome</th><th>Dia</th></tr></thead><tbody>
+                        ${bdayList.map(c => `<tr><td>${fullName(c)}</td><td>${String(getBirthDay(c.birth)).padStart(2,'0')}/${String(curMonth).padStart(2,'0')}</td></tr>`).join('')}
+                    </tbody></table>` : ''}
+
+                    ${topEngaged.length ? `<h2>Top 5 — Ranking de Engajamento</h2>
+                    <table><thead><tr><th>#</th><th>Nome</th><th>Score</th></tr></thead><tbody>
+                        ${topEngaged.map((x,i) => `<tr><td>${i+1}</td><td>${fullName(x.c)}</td><td>${x.rs.score}/100</td></tr>`).join('')}
+                    </tbody></table>` : ''}
+
+                    <scr${''}ipt>window.onload = () => { window.print(); };</scr${''}ipt>
+                </body>
+                </html>
+            `);
+            win.document.close();
         }
 
         function printReportPdf(title, headers, rows) {
