@@ -8795,6 +8795,31 @@
             showToast('Nota restaurada.');
         }
 
+        function buildNoteShareText(n) {
+            const lines = [];
+            if (n.title) lines.push(`*${n.title}*`);
+            if (n.body) lines.push(n.body);
+            if (n.checklist && n.checklist.length) lines.push(...n.checklist.map(it => `${it.done ? '✅' : '⬜'} ${it.text}`));
+            return lines.join('\n').trim();
+        }
+        function copyNoteToClipboard(id) {
+            const n = notes.find(x => x.id === id);
+            if (!n) return;
+            const text = buildNoteShareText(n);
+            if (!text) { showToast('Nota vazia.', 'error'); return; }
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('Conteúdo copiado!');
+            }).catch(() => showToast('Não foi possível copiar.', 'error'));
+        }
+        function shareNoteWhatsapp(id) {
+            const n = notes.find(x => x.id === id);
+            if (!n) return;
+            const linkedContact = n.contactId ? contacts.find(x => x.id === n.contactId) : null;
+            const phone = linkedContact ? (linkedContact.phoneProf || linkedContact.phonePess || linkedContact.phone) : '';
+            if (!phone) { showToast('Este contato não tem telefone cadastrado.', 'error'); return; }
+            const text = buildNoteShareText(n);
+            window.open(`https://wa.me/55${phone.replace(/\D/g,'')}?text=${encodeURIComponent(text)}`, '_blank');
+        }
         function exportNoteTxt(id) {
             const n = notes.find(x => x.id === id);
             if (!n) return;
@@ -9114,6 +9139,11 @@
                     <span class="text-[10px] text-gray-500 whitespace-nowrap">${formatNoteDate(n.updatedAt || n.createdAt)}</span>
                     <div class="flex items-center flex-wrap gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         <div class="flex items-center gap-0.5 mr-0.5">${colorDots}</div>
+                        <button onclick="event.stopPropagation(); copyNoteToClipboard('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-0.5" title="Copiar conteúdo"><i class="ph ph-clipboard-text text-sm"></i></button>
+                        ${(() => {
+                            const phone = linkedContact ? (linkedContact.phoneProf || linkedContact.phonePess || linkedContact.phone) : '';
+                            return phone ? `<button onclick="event.stopPropagation(); shareNoteWhatsapp('${n.id}')" class="text-gray-400 hover:text-[#25D366] p-0.5" title="Enviar por WhatsApp"><i class="ph ph-whatsapp-logo text-sm"></i></button>` : '';
+                        })()}
                         <button onclick="event.stopPropagation(); convertNoteToTask('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-0.5" title="Converter em tarefa"><i class="ph ph-check-square text-sm"></i></button>
                         <button onclick="event.stopPropagation(); duplicateNote('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-0.5" title="Duplicar nota"><i class="ph ph-copy text-sm"></i></button>
                         <button onclick="event.stopPropagation(); exportNoteTxt('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-0.5" title="Exportar como .txt"><i class="ph ph-file-text text-sm"></i></button>
