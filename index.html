@@ -565,6 +565,25 @@
                     </div>
                 </div>
 
+                <!-- Card: Meta de Tarefas do Dia -->
+                <div id="dashTaskGoalCard" data-dash-title="Meta de Tarefas do Dia" class="bg-sant-surface border border-sant-border rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase flex items-center gap-2"><i class="ph ph-check-square text-sant-cyan"></i> Meta de Tarefas do Dia</p>
+                        <div class="flex items-center gap-1.5">
+                            <input type="number" id="dashTaskGoalInput" min="1" onchange="setDailyTaskGoal(this.value)" class="w-14 bg-[#141414] border border-sant-border rounded-lg px-2 py-1 text-xs text-white outline-none text-center focus:border-sant-cyan">
+                            <span class="text-[10px] text-gray-600">meta/dia</span>
+                        </div>
+                    </div>
+                    <div class="flex items-end gap-3 mb-2">
+                        <p id="dashTaskGoalToday" class="text-4xl font-bold text-white leading-none">0</p>
+                        <span id="dashTaskGoalLabel" class="text-xs text-gray-500 mb-1 font-medium"></span>
+                    </div>
+                    <div class="w-full bg-[#1f1f1f] rounded-full h-2">
+                        <div id="dashTaskGoalBar" class="h-2 rounded-full bg-sant-cyan transition-all duration-500" style="width:0%"></div>
+                    </div>
+                    <p id="dashTaskGoalMsg" class="text-[11px] text-gray-500 mt-2"></p>
+                </div>
+
                 <!-- Card: Aguardando Terceiros -->
                 <div id="dashWaitingCard" data-dash-title="Aguardando Terceiros" class="hidden bg-sant-surface border border-sant-border rounded-2xl p-6">
                     <div class="flex items-center justify-between mb-3">
@@ -5895,6 +5914,7 @@
             renderContactRanking();
             renderFollowupRate(todayStr);
             renderCallsCard(todayStr);
+            renderTaskGoalCard(todayStr);
             renderWaitingCard(todayStr);
             // Refresh streak UI quando dashboard abre
             const _sd = parseInt(localStorage.getItem('vends_streak_days')||'0');
@@ -6075,6 +6095,33 @@
             monthBar.className = 'h-1.5 rounded-full transition-all duration-500 ' + (monthCount >= monthGoal ? 'bg-green-400' : 'bg-[#fbbf24]');
         }
 
+        // ── Meta de Tarefas do Dia ────────────────────────────────────────────
+        function getDailyTaskGoal() {
+            return parseInt(localStorage.getItem('vends_daily_task_goal') || '5') || 5;
+        }
+        function setDailyTaskGoal(val) {
+            const goal = Math.max(1, parseInt(val) || 5);
+            localStorage.setItem('vends_daily_task_goal', String(goal));
+            syncPreferencesToSupabase();
+            renderTaskGoalCard();
+        }
+        function renderTaskGoalCard(todayStr) {
+            todayStr = todayStr || getSPTodayStr();
+            const goal = getDailyTaskGoal();
+            const count = tasks.filter(t => t.completed && (t.completedAt || '').startsWith(todayStr)).length;
+            const pct = Math.min(100, Math.round((count / goal) * 100));
+            document.getElementById('dashTaskGoalToday').textContent = count;
+            document.getElementById('dashTaskGoalLabel').textContent = `de ${goal} tarefas hoje`;
+            document.getElementById('dashTaskGoalInput').value = goal;
+            const bar = document.getElementById('dashTaskGoalBar');
+            bar.style.width = pct + '%';
+            bar.className = 'h-2 rounded-full transition-all duration-500 ' + (count >= goal ? 'bg-green-400' : 'bg-sant-cyan');
+            const msgEl = document.getElementById('dashTaskGoalMsg');
+            if (count >= goal) msgEl.innerHTML = '🎉 Meta batida por hoje!';
+            else if (count === 0) msgEl.innerHTML = 'Nenhuma tarefa concluída ainda hoje.';
+            else msgEl.innerHTML = `Faltam ${goal - count} para bater a meta.`;
+        }
+
         function renderWaitingCard(todayStr) {
             const card = document.getElementById('dashWaitingCard');
             if (!card) return;
@@ -6181,6 +6228,7 @@
         const DASH_CARDS = [
             { id: 'dashTodayCard',          title: 'Briefing de Hoje' },
             { id: 'dashCallsCard',          title: 'Ligações do Dia' },
+            { id: 'dashTaskGoalCard',       title: 'Meta de Tarefas do Dia' },
             { id: 'dashWaitingCard',        title: 'Aguardando Terceiros' },
             { id: 'dashAttentionCard',      title: 'Hoje Preciso de Atenção' },
             { id: 'dashFollowupCard',       title: 'Taxa de Follow-ups' },
@@ -14828,6 +14876,7 @@
                     "dashCollapsed": JSON.parse(localStorage.getItem('vends_dash_collapsed') || '[]'),
                     "dashOrder": JSON.parse(localStorage.getItem('vends_dash_order') || '[]'),
                     "dailyCallGoal": parseInt(localStorage.getItem('vends_daily_call_goal') || '10'),
+                    "dailyTaskGoal": parseInt(localStorage.getItem('vends_daily_task_goal') || '5'),
                     "weeklyCallGoal": parseInt(localStorage.getItem('vends_weekly_call_goal') || '50'),
                     "monthlyCallGoal": parseInt(localStorage.getItem('vends_monthly_call_goal') || '200'),
                     "scoreHistory":  JSON.parse(localStorage.getItem('vends_score_history')  || '{}'),
@@ -14869,6 +14918,7 @@
                 if (data.dashCollapsed?.length)     localStorage.setItem('vends_dash_collapsed', JSON.stringify(data.dashCollapsed));
                 if (data.dashOrder?.length)         { localStorage.setItem('vends_dash_order', JSON.stringify(data.dashOrder)); applyDashOrder(); }
                 if (data.dailyCallGoal)             localStorage.setItem('vends_daily_call_goal', String(data.dailyCallGoal));
+                if (data.dailyTaskGoal)              localStorage.setItem('vends_daily_task_goal', String(data.dailyTaskGoal));
                 if (data.weeklyCallGoal)             localStorage.setItem('vends_weekly_call_goal', String(data.weeklyCallGoal));
                 if (data.monthlyCallGoal)            localStorage.setItem('vends_monthly_call_goal', String(data.monthlyCallGoal));
                 if (data.scoreHistory && Object.keys(data.scoreHistory).length) localStorage.setItem('vends_score_history', JSON.stringify(data.scoreHistory));
