@@ -1706,6 +1706,7 @@
                 <div id="newNoteBox" class="bg-sant-surface border border-sant-border rounded-2xl p-5 mb-6 shrink-0 cursor-text transition-colors hover:border-sant-cyan/30" onclick="expandNewNote()">
                     <input type="text" id="newNoteTitle" placeholder="Título" class="hidden w-full bg-transparent border-none outline-none text-white font-bold mb-3 placeholder-gray-600 text-base">
                     <textarea id="newNoteBody" rows="2" placeholder="Criar uma nota..." class="w-full bg-transparent border-none outline-none text-sm text-gray-300 placeholder-gray-600 resize-none"></textarea>
+                    <div id="newNoteChecklistBox" class="hidden mb-2"></div>
                     <div id="newNoteTagsContainer" class="hidden flex-wrap gap-1.5 mb-2"></div>
                     <div id="newNoteTagInputWrap" class="hidden gap-2 mb-2">
                         <input type="text" id="newNoteTagInput" placeholder="Adicionar etiqueta (Ex: Financeiro, Ideias, Urgente)..." list="noteTagSuggestions"
@@ -1717,6 +1718,9 @@
                     <div id="newNoteActions" class="hidden mt-3 pt-3 border-t border-sant-border flex items-center justify-between flex-wrap gap-2">
                         <div class="flex items-center gap-2 flex-wrap">
                             <div class="flex items-center gap-2" id="newNoteColors"></div>
+                            <button type="button" onclick="event.stopPropagation(); toggleNewNoteChecklistMode()" id="newNoteChecklistToggle" class="flex items-center gap-1.5 text-xs text-gray-400 hover:text-sant-cyan transition-colors border border-sant-border rounded-lg px-2 py-1.5" title="Transformar em checklist">
+                                <i class="ph ph-list-checks"></i> Checklist
+                            </button>
                             <select id="newNoteContact" onclick="event.stopPropagation()" class="bg-[#141414] border border-sant-border rounded-lg px-2 py-1.5 text-xs text-gray-300 outline-none max-w-[160px]">
                                 <option value="">Sem contato vinculado</option>
                             </select>
@@ -4086,6 +4090,7 @@
         let newNoteColor = '';
         let newNoteTags = [];
         let editNoteTagsTemp = {};
+        let editNoteChecklistTemp = {};
         let notesActiveTagFilter = '';
         let notesFavoriteFilter = false;
         let notesShowArchived = false;
@@ -5671,6 +5676,7 @@
                 "contactId": n.contactId || '', "dueDate": n.dueDate || '', "emailAlert": n.emailAlert || '0',
                 "kanbanColumn": n.kanbanColumn || 'inbox',
                 tags: n.tags || [],
+                checklist: n.checklist || [],
                 "createdAt": n.createdAt || new Date().toISOString(),
                 "updatedAt": n.updatedAt || new Date().toISOString(),
             };
@@ -8649,6 +8655,52 @@
                 });
             }
         }
+        let newNoteChecklistMode = false;
+        let newNoteChecklist = [];
+
+        function toggleNewNoteChecklistMode() {
+            newNoteChecklistMode = !newNoteChecklistMode;
+            const body = document.getElementById('newNoteBody');
+            const box = document.getElementById('newNoteChecklistBox');
+            const btn = document.getElementById('newNoteChecklistToggle');
+            if (newNoteChecklistMode) {
+                // Converte linhas existentes do corpo em itens de checklist
+                const lines = body.value.split('\n').map(l => l.trim()).filter(Boolean);
+                newNoteChecklist = lines.map(text => ({ id: crypto.randomUUID(), text, done: false }));
+                body.value = '';
+                body.classList.add('hidden');
+                box.classList.remove('hidden');
+                btn.classList.add('text-sant-cyan', 'border-sant-cyan/40');
+                renderNewNoteChecklist();
+            } else {
+                body.classList.remove('hidden');
+                box.classList.add('hidden');
+                btn.classList.remove('text-sant-cyan', 'border-sant-cyan/40');
+                newNoteChecklist = [];
+            }
+        }
+        function renderNewNoteChecklist() {
+            const box = document.getElementById('newNoteChecklistBox');
+            if (!box) return;
+            box.innerHTML = newNoteChecklist.map((item, i) => `
+                <div class="flex items-center gap-2 mb-1.5" onclick="event.stopPropagation()">
+                    <i class="ph ph-square text-gray-500 text-sm shrink-0"></i>
+                    <input type="text" value="${(item.text||'').replace(/"/g,'&quot;')}" oninput="newNoteChecklist[${i}].text=this.value" class="flex-1 bg-transparent border-b border-sant-border focus:border-sant-cyan outline-none text-sm text-gray-300 py-0.5">
+                    <button type="button" onclick="newNoteChecklist.splice(${i},1); renderNewNoteChecklist()" class="text-gray-600 hover:text-red-400 shrink-0"><i class="ph ph-x text-xs"></i></button>
+                </div>`).join('') + `
+                <div class="flex items-center gap-2" onclick="event.stopPropagation()">
+                    <i class="ph ph-plus text-gray-500 text-sm shrink-0"></i>
+                    <input type="text" id="newNoteChecklistInput" placeholder="Adicionar item..." class="flex-1 bg-transparent border-b border-sant-border focus:border-sant-cyan outline-none text-sm text-gray-300 py-0.5 placeholder-gray-600" onkeydown="if(event.key==='Enter'){event.preventDefault();addNewNoteChecklistItem()}">
+                </div>`;
+        }
+        function addNewNoteChecklistItem() {
+            const input = document.getElementById('newNoteChecklistInput');
+            const text = input.value.trim();
+            if (!text) return;
+            newNoteChecklist.push({ id: crypto.randomUUID(), text, done: false });
+            renderNewNoteChecklist();
+            document.getElementById('newNoteChecklistInput').focus();
+        }
         function collapseNewNote() {
             document.getElementById('newNoteTitle').classList.add('hidden');
             document.getElementById('newNoteActions').classList.add('hidden');
@@ -8659,18 +8711,24 @@
             document.getElementById('newNoteTitle').value = '';
             document.getElementById('newNoteBody').value = '';
             document.getElementById('newNoteBody').rows = 2;
+            document.getElementById('newNoteBody').classList.remove('hidden');
+            document.getElementById('newNoteChecklistBox').classList.add('hidden');
+            document.getElementById('newNoteChecklistToggle')?.classList.remove('text-sant-cyan', 'border-sant-cyan/40');
             document.getElementById('newNoteContact').value = '';
             document.getElementById('newNoteTagInput').value = '';
             document.getElementById('newNoteDueDate').value = '';
             newNoteColor = '';
             newNoteTags = [];
+            newNoteChecklistMode = false;
+            newNoteChecklist = [];
             renderNewNoteTagPills();
         }
         function saveNewNote() {
             const title = document.getElementById('newNoteTitle').value.trim();
             const body = document.getElementById('newNoteBody').value.trim();
+            const checklist = newNoteChecklistMode ? newNoteChecklist.filter(it => it.text.trim()) : [];
             const contactId = document.getElementById('newNoteContact').value || null;
-            if (!title && !body) { collapseNewNote(); return; }
+            if (!title && !body && !checklist.length) { collapseNewNote(); return; }
             const now = new Date().toISOString();
             const newNoteDueDate = document.getElementById('newNoteDueDate').value || '';
             const newNoteEmailAlert = document.getElementById('newNoteEmailAlert').value || '0';
@@ -8678,6 +8736,7 @@
             notes.unshift({
                 id: newId,
                 title, body,
+                checklist,
                 color: newNoteColor,
                 pinned: false,
                 contactId,
@@ -8742,6 +8801,7 @@
             const lines = [];
             if (n.title) lines.push(n.title, '');
             if (n.body) lines.push(n.body, '');
+            if (n.checklist && n.checklist.length) lines.push(...n.checklist.map(it => `[${it.done ? 'x' : ' '}] ${it.text}`), '');
             if (n.dueDate) lines.push(`Lembrete: ${n.dueDate.split('-').reverse().join('/')}`, '');
             const linkedContact = n.contactId ? contacts.find(x => x.id === n.contactId) : null;
             if (linkedContact) lines.push(`Contato: ${fullName(linkedContact)}`, '');
@@ -8855,6 +8915,17 @@
             win.document.close();
         }
 
+        function toggleNoteChecklistItem(noteId, itemId) {
+            const n = notes.find(x => x.id === noteId);
+            if (!n || !n.checklist) return;
+            const item = n.checklist.find(it => it.id === itemId);
+            if (!item) return;
+            item.done = !item.done;
+            n.updatedAt = new Date().toISOString();
+            saveNotesToStorage();
+            cloudSyncNote(n);
+            renderNotes();
+        }
         function setNoteColor(id, color) {
             const n = notes.find(x => x.id === id);
             if (n) { n.color = color; n.updatedAt = new Date().toISOString(); saveNotesToStorage(); cloudSyncNote(n); renderNotes(); }
@@ -8864,10 +8935,16 @@
             if (!n) return;
             lastNoteId = id;
             editNoteTagsTemp[id] = [...(n.tags || [])];
+            editNoteChecklistTemp[id] = (n.checklist || []).map(it => ({...it}));
             const card = document.getElementById('note-' + id);
+            const hasChecklist = editNoteChecklistTemp[id].length > 0;
             card.innerHTML = `
                 <input type="text" id="editNoteTitle-${id}" value="${(n.title||'').replace(/"/g,'&quot;')}" placeholder="Título" class="w-full bg-transparent border-none outline-none text-white font-bold mb-2 placeholder-gray-600">
-                <textarea id="editNoteBody-${id}" rows="8" placeholder="Nota..." class="w-full bg-transparent border-none outline-none text-sm text-gray-300 placeholder-gray-600 resize-none">${n.body||''}</textarea>
+                <textarea id="editNoteBody-${id}" rows="8" placeholder="Nota..." class="w-full bg-transparent border-none outline-none text-sm text-gray-300 placeholder-gray-600 resize-none ${hasChecklist ? 'hidden' : ''}">${n.body||''}</textarea>
+                <div id="editNoteChecklistBox-${id}" class="${hasChecklist ? '' : 'hidden'} mb-2"></div>
+                <button type="button" onclick="toggleEditNoteChecklistMode('${id}')" id="editNoteChecklistToggle-${id}" class="mb-2 flex items-center gap-1.5 text-xs ${hasChecklist ? 'text-sant-cyan border-sant-cyan/40' : 'text-gray-400'} hover:text-sant-cyan transition-colors border border-sant-border rounded-lg px-2 py-1.5">
+                    <i class="ph ph-list-checks"></i> Checklist
+                </button>
                 <div id="editNoteTagsContainer-${id}" class="flex flex-wrap gap-1.5 mb-2"></div>
                 <div class="flex gap-2 mb-2">
                     <input type="text" id="editNoteTagInput-${id}" placeholder="Adicionar etiqueta..." list="noteTagSuggestions"
@@ -8903,17 +8980,66 @@
             fillNoteContactSelect(document.getElementById('editNoteContact-'+id), n.contactId || '');
             fillNoteTagSuggestions();
             renderEditNoteTagPills(id);
+            if (hasChecklist) renderEditNoteChecklist(id);
+        }
+        function toggleEditNoteChecklistMode(id) {
+            const box = document.getElementById('editNoteChecklistBox-'+id);
+            const body = document.getElementById('editNoteBody-'+id);
+            const btn = document.getElementById('editNoteChecklistToggle-'+id);
+            const nowChecklist = box.classList.contains('hidden');
+            if (nowChecklist) {
+                if (!editNoteChecklistTemp[id] || !editNoteChecklistTemp[id].length) {
+                    const lines = body.value.split('\n').map(l => l.trim()).filter(Boolean);
+                    editNoteChecklistTemp[id] = lines.map(text => ({ id: crypto.randomUUID(), text, done: false }));
+                    body.value = '';
+                }
+                body.classList.add('hidden');
+                box.classList.remove('hidden');
+                btn.classList.add('text-sant-cyan', 'border-sant-cyan/40');
+                renderEditNoteChecklist(id);
+            } else {
+                body.classList.remove('hidden');
+                box.classList.add('hidden');
+                btn.classList.remove('text-sant-cyan', 'border-sant-cyan/40');
+                editNoteChecklistTemp[id] = [];
+            }
+        }
+        function renderEditNoteChecklist(id) {
+            const box = document.getElementById('editNoteChecklistBox-'+id);
+            if (!box) return;
+            const items = editNoteChecklistTemp[id] || [];
+            box.innerHTML = items.map((item, i) => `
+                <div class="flex items-center gap-2 mb-1.5">
+                    <i class="ph ${item.done ? 'ph-check-square text-sant-cyan' : 'ph-square text-gray-500'} text-sm shrink-0 cursor-pointer" onclick="editNoteChecklistTemp['${id}'][${i}].done=!editNoteChecklistTemp['${id}'][${i}].done; renderEditNoteChecklist('${id}')"></i>
+                    <input type="text" value="${(item.text||'').replace(/"/g,'&quot;')}" oninput="editNoteChecklistTemp['${id}'][${i}].text=this.value" class="flex-1 bg-transparent border-b border-sant-border focus:border-sant-cyan outline-none text-sm text-gray-300 py-0.5">
+                    <button type="button" onclick="editNoteChecklistTemp['${id}'].splice(${i},1); renderEditNoteChecklist('${id}')" class="text-gray-600 hover:text-red-400 shrink-0"><i class="ph ph-x text-xs"></i></button>
+                </div>`).join('') + `
+                <div class="flex items-center gap-2">
+                    <i class="ph ph-plus text-gray-500 text-sm shrink-0"></i>
+                    <input type="text" id="editNoteChecklistInput-${id}" placeholder="Adicionar item..." class="flex-1 bg-transparent border-b border-sant-border focus:border-sant-cyan outline-none text-sm text-gray-300 py-0.5 placeholder-gray-600" onkeydown="if(event.key==='Enter'){event.preventDefault();addEditNoteChecklistItem('${id}')}">
+                </div>`;
+        }
+        function addEditNoteChecklistItem(id) {
+            const input = document.getElementById('editNoteChecklistInput-'+id);
+            const text = input.value.trim();
+            if (!text) return;
+            if (!editNoteChecklistTemp[id]) editNoteChecklistTemp[id] = [];
+            editNoteChecklistTemp[id].push({ id: crypto.randomUUID(), text, done: false });
+            renderEditNoteChecklist(id);
+            document.getElementById('editNoteChecklistInput-'+id).focus();
         }
         function saveEditNote(id) {
             const n = notes.find(x => x.id === id);
             if (!n) return;
             n.title = document.getElementById('editNoteTitle-'+id).value.trim();
             n.body = document.getElementById('editNoteBody-'+id).value.trim();
+            n.checklist = (editNoteChecklistTemp[id] || []).filter(it => it.text.trim());
             n.contactId = document.getElementById('editNoteContact-'+id).value || null;
             n.tags = [...(editNoteTagsTemp[id] || [])];
             n.dueDate = document.getElementById('editNoteDueDate-'+id).value || '';
             n.emailAlert = document.getElementById('editNoteEmailAlert-'+id)?.value || '0';
             delete editNoteTagsTemp[id];
+            delete editNoteChecklistTemp[id];
             n.updatedAt = new Date().toISOString();
             saveNotesToStorage();
             cloudSyncNote(n);
@@ -8949,6 +9075,18 @@
                 const icon = isOverdue ? 'ph-warning-circle' : 'ph-bell';
                 return `<span class="inline-flex items-center gap-1 px-2 py-0.5 mb-2 rounded text-[10px] font-medium border ${cls}"><i class="ph ${icon}"></i> ${isOverdue ? 'Vencida: ' : isToday ? 'Vence hoje: ' : 'Lembrete: '}${label}</span>`;
             })() : '';
+            const hasChecklist = n.checklist && n.checklist.length > 0;
+            const checklistDone = hasChecklist ? n.checklist.filter(it => it.done).length : 0;
+            const checklistBadge = hasChecklist
+                ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 mb-2 rounded text-[10px] font-medium border text-gray-400 border-sant-border bg-[#0a0a0a]"><i class="ph ph-list-checks"></i> ${checklistDone}/${n.checklist.length}</span>`
+                : '';
+            const checklistBody = hasChecklist
+                ? `<div class="mb-3">${n.checklist.map(it => `
+                    <div class="flex items-start gap-2 mb-1 cursor-pointer" onclick="event.stopPropagation(); toggleNoteChecklistItem('${n.id}','${it.id}')">
+                        <i class="ph ${it.done ? 'ph-check-square' : 'ph-square'} text-sm mt-0.5 shrink-0 ${it.done ? 'text-sant-cyan' : 'text-gray-500'}"></i>
+                        <span class="text-sm break-words ${it.done ? 'text-gray-600 line-through' : 'text-gray-300'}">${(it.text||'').replace(/</g,'&lt;')}</span>
+                    </div>`).join('')}</div>`
+                : '';
             return `
             <div id="note-${n.id}" class="${c.bg} ${n.favorite ? 'border-2 border-[#fbbf24]/60' : c.border + ' border'} rounded-2xl p-5 flex flex-col group relative min-h-[140px] ${n.archived ? 'opacity-80' : ''}">
                 ${n.archived ? `<div class="flex items-center gap-1 text-[10px] text-gray-500 mb-2 font-medium"><i class="ph ph-archive"></i> Arquivada</div>` : ''}
@@ -8969,8 +9107,9 @@
                 </div>
                 ${contactBadge}
                 ${dueBadge}
+                ${checklistBadge}
                 ${tagPills}
-                ${n.body ? `<div class="text-sm text-gray-300 break-words mb-3 cursor-text leading-relaxed note-md-body" onclick="startEditNote('${n.id}')">${mdToHtml(n.body)}</div>` : `<div class="flex-1 cursor-text" onclick="startEditNote('${n.id}')"></div>`}
+                ${hasChecklist ? checklistBody : (n.body ? `<div class="text-sm text-gray-300 break-words mb-3 cursor-text leading-relaxed note-md-body" onclick="startEditNote('${n.id}')">${mdToHtml(n.body)}</div>` : `<div class="flex-1 cursor-text" onclick="startEditNote('${n.id}')"></div>`)}
                 <div class="mt-auto pt-2 flex flex-col gap-1.5">
                     <span class="text-[10px] text-gray-500 whitespace-nowrap">${formatNoteDate(n.updatedAt || n.createdAt)}</span>
                     <div class="flex items-center flex-wrap gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
