@@ -7012,18 +7012,15 @@
             }
             el.innerHTML = ranked.map((x, i) => {
                 const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `<span class="text-gray-600 text-xs font-bold">#${i+1}</span>`;
-                return `<div class="flex items-center gap-3 cursor-pointer hover:bg-white/5 rounded-lg px-2 py-1 transition-colors" onclick="addRecentContact('${x.c.id}');openHistoryModal('${x.c.id}')">
+                return `<div class="flex items-center gap-3 cursor-pointer hover:bg-white/5 rounded-lg px-2 py-1 transition-colors" onclick="addRecentContact('${x.c.id}');openHistoryModal('${x.c.id}')" title="Score de relacionamento: ${x.rs.score}/100 — ${x.rs.label}">
                     <span class="w-6 text-center text-sm">${medal}</span>
                     <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2">
-                            <span class="text-sm text-white font-medium truncate">${fullName(x.c)}</span>
-                            <span class="text-[10px] shrink-0" style="color:${x.rs.color}">${x.rs.emoji} ${x.rs.label}</span>
-                        </div>
+                        <span class="text-sm text-white font-medium truncate block">${fullName(x.c)}</span>
                         <div class="w-full bg-[#1f1f1f] rounded-full h-1 mt-1">
-                            <div class="h-1 rounded-full" style="width:${x.rs.score}%;background:${x.rs.color}"></div>
+                            <div class="h-1 rounded-full bg-sant-purple" style="width:${x.rs.score}%"></div>
                         </div>
                     </div>
-                    <span class="text-xs text-gray-500 shrink-0">${x.rs.score}</span>
+                    <span class="text-xs text-gray-500 shrink-0">${x.rs.score}/100</span>
                 </div>`;
             }).join('');
         }
