@@ -3403,6 +3403,17 @@
         </div>
     </div>
 
+    <!-- MODAL: Cadeia de Dependências de Tarefa -->
+    <div id="taskDependencyModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeTaskDependencyModal()">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-md max-h-[85vh] overflow-hidden flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center p-5 border-b border-sant-border shrink-0">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-flow-arrow text-sant-purple"></i> Cadeia de Dependências</h3>
+                <button onclick="closeTaskDependencyModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <div id="taskDependencyChainBody" class="p-5 overflow-y-auto flex-1 custom-scrollbar"></div>
+        </div>
+    </div>
+
     <!-- MODAL: Copiar Tarefa para vários dias da semana -->
     <div id="copyTaskWeekdaysModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeCopyTaskWeekdaysModal()">
         <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-md shadow-2xl">
@@ -12885,6 +12896,58 @@
             list.innerHTML = filtered.map(t => taskCardHtml(t, todayStr)).join('');
         }
 
+        // ── Cadeia de Dependências entre Tarefas ─────────────────────────────
+        function getDependencyChain(taskId) {
+            // Sobe até a raiz (tarefa mais antiga da cadeia)
+            const ancestors = [];
+            let cur = tasks.find(x => x.id === taskId);
+            if (!cur) return [];
+            const seen = new Set([cur.id]);
+            let walker = cur;
+            while (walker.dependsOnId) {
+                const parent = tasks.find(x => x.id === walker.dependsOnId);
+                if (!parent || seen.has(parent.id)) break; // evita loop infinito
+                ancestors.unshift(parent);
+                seen.add(parent.id);
+                walker = parent;
+            }
+            // Desce um nível: tarefas que dependem diretamente da atual
+            const children = tasks.filter(x => x.dependsOnId === cur.id);
+            return [...ancestors, cur, ...children.map(c => ({ ...c, _isChild: true }))];
+        }
+
+        function openTaskDependencyModal(taskId) {
+            const chain = getDependencyChain(taskId);
+            const body = document.getElementById('taskDependencyChainBody');
+            if (chain.length <= 1) {
+                body.innerHTML = '<p class="text-sm text-gray-500 italic">Esta tarefa não tem nenhuma dependência vinculada.</p>';
+            } else {
+                body.innerHTML = chain.map((t, i) => {
+                    const isCurrent = t.id === taskId;
+                    const status = t.completed ? { icon: 'ph-check-circle', color: '#4ade80', label: 'Concluída' }
+                        : (t.dependsOnId && !tasks.find(x=>x.id===t.dependsOnId)?.completed) ? { icon: 'ph-lock', color: '#f87171', label: 'Bloqueada' }
+                        : { icon: 'ph-circle-dashed', color: '#fbbf24', label: 'Pendente' };
+                    const isLast = i === chain.length - 1;
+                    return `
+                    <div class="flex gap-3">
+                        <div class="flex flex-col items-center shrink-0">
+                            <i class="ph ${status.icon}" style="color:${status.color}"></i>
+                            ${!isLast ? `<div class="w-px flex-1 bg-sant-border my-1" style="min-height:24px"></div>` : ''}
+                        </div>
+                        <div class="pb-4 min-w-0 flex-1">
+                            <p class="text-sm font-medium truncate cursor-pointer hover:underline ${isCurrent ? 'text-sant-cyan font-bold' : 'text-white'}" onclick="closeTaskDependencyModal();editTask('${t.id}')">${t.title}${isCurrent ? ' <span class="text-[10px] text-gray-500 font-normal">(esta tarefa)</span>' : ''}</p>
+                            <p class="text-[10px] font-semibold" style="color:${status.color}">${status.label}</p>
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+            document.getElementById('taskDependencyModal').classList.remove('hidden');
+        }
+
+        function closeTaskDependencyModal() {
+            document.getElementById('taskDependencyModal').classList.add('hidden');
+        }
+
         function taskCardHtml(t, todayStr) {
             return (() => {
                 const dateStr = t.date ? t.date.split('-').reverse().join('/') : '';
@@ -12897,6 +12960,7 @@
                 const isOverdue = t.date && !t.completed && !t.waiting && t.date < todayStr;
                 const blocker = t.dependsOnId ? tasks.find(x => x.id === t.dependsOnId) : null;
                 const isBlocked = blocker && !blocker.completed;
+                const hasChainLink = !!t.dependsOnId || tasks.some(x => x.dependsOnId === t.id);
 
                 const cl = t.checklist || [];
                 const clTotal = cl.length;
@@ -12938,6 +13002,7 @@
                         <h4 class="text-[#fbbf24] font-medium break-words ${t.completed ? 'line-through' : ''}">${t.title} ${t.recurrence && t.recurrence !== 'none' ? '<i class="ph ph-repeat text-sant-cyan text-xs" title="Tarefa recorrente"></i>' : ''}${isBlocked ? `<span class="ml-2 text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded-full"><i class="ph ph-lock"></i> Bloqueada</span>` : ''}${t.waiting ? `<span class="ml-2 text-[10px] font-bold text-sant-purple bg-sant-purple/10 border border-sant-purple/20 px-1.5 py-0.5 rounded-full"><i class="ph ph-hourglass-medium"></i> Aguardando Terceiros</span>` : ''}</h4>
                         ${t.waiting && t.waitingNote ? `<p class="text-[11px] text-sant-purple/80 mt-1 flex items-center gap-1"><i class="ph ph-chat-circle-dots"></i> ${t.waitingNote}</p>` : ''}
                         ${isBlocked ? `<p class="text-[11px] text-red-400/70 mt-1 flex items-center gap-1"><i class="ph ph-arrow-bend-right-down"></i> Aguardando: <span class="font-medium text-red-400 cursor-pointer hover:underline" onclick="editTask('${blocker.id}')">${blocker.title}</span></p>` : ''}
+                        ${hasChainLink ? `<button onclick="openTaskDependencyModal('${t.id}')" class="text-[11px] text-sant-purple/80 hover:text-sant-purple mt-1 flex items-center gap-1"><i class="ph ph-flow-arrow"></i> Ver cadeia de dependências</button>` : ''}
                         ${isOverdue ? `<p class="text-[11px] text-red-400 mt-1 font-semibold flex items-center gap-1"><i class="ph ph-warning-circle"></i> Vencida — ${dateTimeDisplay}</p>` : (dateTimeDisplay ? `<p class="text-[11px] text-sant-cyan mt-1"><i class="ph ph-calendar-blank"></i> ${dateTimeDisplay}</p>` : '')}
                         ${t.estimatedMinutes ? `<p class="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1"><i class="ph ph-hourglass"></i> ${formatEstimate(t.estimatedMinutes)}</p>` : ''}
                         ${(() => { const c = t.contactId ? contacts.find(x => x.id === t.contactId) : null; return c ? `<p class="text-[11px] text-sant-purple mt-1 flex items-center gap-1"><i class="ph ph-user-circle"></i> ${fullName(c)}</p>` : ''; })()}
