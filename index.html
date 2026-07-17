@@ -4824,7 +4824,7 @@
                 });
 
                 // Verifica aniversários uma vez por hora (quando minuto === 0)
-                if (parseInt(mStr) === 0) { checkBirthdayReminders(); checkCompanyAnniversaryReminders(); checkFollowupReminders(); checkNoteReminders(); checkDocumentExpiryReminders(); checkFrequencyReminders(); checkUrgentTaskReminders(); checkWaitingTaskReminders(); runInactivityAutomations(); }
+                if (parseInt(mStr) === 0) { checkBirthdayReminders(); checkCompanyAnniversaryReminders(); checkFollowupReminders(); checkNoteReminders(); checkDocumentExpiryReminders(); checkFrequencyReminders(); checkUrgentTaskReminders(); checkWaitingTaskReminders(); checkStalledTaskReminders(); runInactivityAutomations(); }
                 checkSnoozedNotifications();
 
                 updateSyncIndicator();
@@ -4840,6 +4840,7 @@
             checkFrequencyReminders();
             checkUrgentTaskReminders();
             checkWaitingTaskReminders();
+            checkStalledTaskReminders();
             runInactivityAutomations();
             checkSnoozedNotifications();
             updateSyncIndicator();
@@ -4870,6 +4871,37 @@
 
         // ── Lembrete: tarefa "Aguardando Terceiros" parada há muito tempo ────
         const WAITING_TASK_REMINDER_DAYS = 3;
+        const STALLED_TASK_REMINDER_DAYS = 5;
+
+        function getTaskLastActivityDateStr(t) {
+            let last = t.createdAt ? String(t.createdAt).substring(0, 10) : null;
+            if (t.changeLog && t.changeLog.length > 0) {
+                const lastLog = [...t.changeLog].sort((a,b) => (b.date||'').localeCompare(a.date||''))[0].date;
+                if (lastLog && (!last || lastLog > last)) last = lastLog;
+            }
+            return last;
+        }
+
+        function checkStalledTaskReminders() {
+            const todayStr = getSPTodayStr();
+            tasks.forEach(t => {
+                if (t.completed || t.waiting || t.archived) return;
+                const lastActivity = getTaskLastActivityDateStr(t);
+                if (!lastActivity) return;
+                const daysStalled = _daysBetween(lastActivity, todayStr);
+                if (daysStalled < STALLED_TASK_REMINDER_DAYS) return;
+
+                const notifKey = `vends_stalled_notified_${t.id}_${todayStr}`;
+                if (localStorage.getItem(notifKey)) return;
+
+                const title = `🕸️ Tarefa parada: ${t.title}`;
+                const body  = `Sem nenhuma atualização há ${daysStalled} dias. Ainda vale a pena?`;
+
+                addNotification('task', title, body, t.id);
+                showPushNotification(title, body, `stalled-${t.id}`);
+                localStorage.setItem(notifKey, '1');
+            });
+        }
         function checkWaitingTaskReminders() {
             const todayStr = getSPTodayStr();
             tasks.forEach(t => {
@@ -13042,13 +13074,22 @@
                         }).join('')}
                     </div>`;
 
+                let stalledDays = 0;
+                if (!t.completed && !t.waiting && !t.archived) {
+                    const lastAct = getTaskLastActivityDateStr(t);
+                    if (lastAct) stalledDays = _daysBetween(lastAct, todayStr);
+                }
+                const stalledBadge = stalledDays >= STALLED_TASK_REMINDER_DAYS
+                    ? `<span class="ml-2 text-[10px] font-bold text-gray-400 bg-gray-500/10 border border-gray-500/20 px-1.5 py-0.5 rounded-full" title="Sem atualização há ${stalledDays} dias"><i class="ph ph-clock-countdown"></i> Parada há ${stalledDays}d</span>`
+                    : '';
+
                 return `
                 <div class="flex items-start gap-2 sm:gap-4 p-3 sm:p-4 bg-sant-surface border rounded-xl group transition-colors ${isBlocked ? 'border-red-500/30 bg-red-500/5 hover:border-red-500/50' : 'border-sant-border hover:border-sant-cyan/30'} ${isOverdue ? 'overdue-task' : ''} ${allDone && !t.completed ? 'border-sant-cyan/20' : ''}">
                     <button onclick="toggleTask('${t.id}')" class="w-6 h-6 rounded border ${t.completed ? 'bg-sant-cyan border-sant-cyan text-sant-bg' : isBlocked ? 'border-red-500/50 text-transparent cursor-not-allowed' : 'border-gray-500 text-transparent'} flex items-center justify-center shrink-0 mt-0.5 transition-colors" ${isBlocked ? 'title="Bloqueada — conclua a tarefa anterior primeiro"' : ''}>
                         <i class="ph ${isBlocked ? 'ph-lock text-red-400/60' : 'ph-check'}"></i>
                     </button>
                     <div class="flex-1 min-w-0 ${t.completed ? 'opacity-50' : ''}">
-                        <h4 class="text-[#fbbf24] font-medium break-words ${t.completed ? 'line-through' : ''}">${t.title} ${t.recurrence && t.recurrence !== 'none' ? '<i class="ph ph-repeat text-sant-cyan text-xs" title="Tarefa recorrente"></i>' : ''}${isBlocked ? `<span class="ml-2 text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded-full"><i class="ph ph-lock"></i> Bloqueada</span>` : ''}${t.waiting ? `<span class="ml-2 text-[10px] font-bold text-sant-purple bg-sant-purple/10 border border-sant-purple/20 px-1.5 py-0.5 rounded-full"><i class="ph ph-hourglass-medium"></i> Aguardando Terceiros</span>` : ''}</h4>
+                        <h4 class="text-[#fbbf24] font-medium break-words ${t.completed ? 'line-through' : ''}">${t.title} ${t.recurrence && t.recurrence !== 'none' ? '<i class="ph ph-repeat text-sant-cyan text-xs" title="Tarefa recorrente"></i>' : ''}${isBlocked ? `<span class="ml-2 text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded-full"><i class="ph ph-lock"></i> Bloqueada</span>` : ''}${t.waiting ? `<span class="ml-2 text-[10px] font-bold text-sant-purple bg-sant-purple/10 border border-sant-purple/20 px-1.5 py-0.5 rounded-full"><i class="ph ph-hourglass-medium"></i> Aguardando Terceiros</span>` : ''}${stalledBadge}</h4>
                         ${t.waiting && t.waitingNote ? `<p class="text-[11px] text-sant-purple/80 mt-1 flex items-center gap-1"><i class="ph ph-chat-circle-dots"></i> ${t.waitingNote}</p>` : ''}
                         ${isBlocked ? `<p class="text-[11px] text-red-400/70 mt-1 flex items-center gap-1"><i class="ph ph-arrow-bend-right-down"></i> Aguardando: <span class="font-medium text-red-400 cursor-pointer hover:underline" onclick="editTask('${blocker.id}')">${blocker.title}</span></p>` : ''}
                         ${hasChainLink ? `<button onclick="openTaskDependencyModal('${t.id}')" class="text-[11px] text-sant-purple/80 hover:text-sant-purple mt-1 flex items-center gap-1"><i class="ph ph-flow-arrow"></i> Ver cadeia de dependências</button>` : ''}
