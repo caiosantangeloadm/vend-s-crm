@@ -12795,8 +12795,9 @@
                         const m2 = getEventTypeMeta(e);
                         adHtml += `<div style="font-size:9px;background:${m2.dot+'22'};color:${m2.dot};padding:1px 4px;border-radius:4px;margin-bottom:2px;border:1px solid ${m2.dot+'44'};cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" onclick="event.stopPropagation();openEventModal(events.find(x=>x.id==='${e.id}'),'${dateStr}')">${e.title}</div>`;
                     });
-                    if (dayTasksW.length > 0) {
-                        adHtml += `<div style="font-size:9px;background:rgba(245,158,11,0.1);color:#fbbf24;padding:1px 4px;border-radius:4px;margin-bottom:2px;border:1px solid rgba(245,158,11,0.2);cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" onclick="event.stopPropagation();switchView('tasks')">✓ ${dayTasksW.length} tarefa${dayTasksW.length>1?'s':''}</div>`;
+                    const untimedTasksW = dayTasksW.filter(t => !t.time);
+                    if (untimedTasksW.length > 0) {
+                        adHtml += `<div style="font-size:9px;background:rgba(245,158,11,0.1);color:#fbbf24;padding:1px 4px;border-radius:4px;margin-bottom:2px;border:1px solid rgba(245,158,11,0.2);cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" onclick="event.stopPropagation();switchView('tasks')">✓ ${untimedTasksW.length} tarefa${untimedTasksW.length>1?'s':''}</div>`;
                     }
                     allDayCells += `<div style="flex:1;min-width:0;padding:4px;overflow:hidden;border-right:${isLast?'none':'1px solid #1f1f1f'};box-sizing:border-box;${isToday?'background:rgba(34,211,238,0.05)':''}">${adHtml}</div>`;
                 });
@@ -12826,7 +12827,7 @@
 
                 // Day columns with event blocks
                 let dayColsHtml = '';
-                colData.forEach(({dateStr, isToday, dayEvs, blks}) => {
+                colData.forEach(({dateStr, isToday, dayEvs, blks, dayTasksW}) => {
                     let colHtml = '';
 
                     // Schedule blocks (striped)
@@ -12883,6 +12884,37 @@
                             <div style="font-size:10px;font-weight:700;line-height:1.2;overflow:hidden;">${e.startTime} ${e.title}</div>
                             ${evH > 36 && e.location ? `<div style="font-size:9px;opacity:0.7;overflow:hidden;white-space:nowrap;">📍 ${e.location}</div>` : ''}
                             ${hasConflict ? '<div style="position:absolute;top:2px;right:3px;font-size:9px;">⚠️</div>' : ''}
+                        </div>`;
+                    });
+
+                    // Tarefas com horário (time-blocking)
+                    const timedTasksW = (dayTasksW || []).filter(t => t.time);
+                    const twColEnds = [];
+                    timedTasksW.sort((a,b) => _calTimeToMin(a.time) - _calTimeToMin(b.time)).forEach(ti => {
+                        const sMin = _calTimeToMin(ti.time), eMin = sMin + (ti.estimatedMinutes || 30);
+                        let c = 0;
+                        while (c < twColEnds.length && twColEnds[c] > sMin) c++;
+                        ti._col = c; ti._sMin = sMin; ti._eMin = eMin;
+                        twColEnds[c] = eMin;
+                    });
+                    timedTasksW.forEach(ti => {
+                        let maxC = ti._col;
+                        timedTasksW.forEach(o => { if (o !== ti && o._sMin < ti._eMin && o._eMin > ti._sMin) maxC = Math.max(maxC, o._col); });
+                        ti._totalCols = maxC + 1;
+                    });
+                    timedTasksW.forEach(ti => {
+                        const yTop = toY(ti.time);
+                        if (yTop === null || yTop < 0) return;
+                        const durMin = Math.max(20, ti._eMin - ti._sMin);
+                        const tH = Math.max(18, (durMin / 60) * HOUR_H);
+                        const colW  = `calc(100% / ${ti._totalCols})`;
+                        const lft   = `calc(${ti._col} * 100% / ${ti._totalCols})`;
+                        const prioColors = { urgent:'#f87171', high:'#fb923c', medium:'#fbbf24', low:'#94a3b8' };
+                        const pc = prioColors[ti.priority] || '#fbbf24';
+                        colHtml += `<div class="cal-time-event" onclick="event.stopPropagation();editTask('${ti.id}')"
+                            style="top:${yTop}px;height:${tH}px;left:${lft};width:calc(${colW} - 4px);background:${pc}18;border:2px dashed ${pc}88;border-left:2px dashed ${pc}88;color:${pc};"
+                            title="Tarefa: ${ti.title} (${ti.time})">
+                            <div style="font-size:10px;font-weight:700;line-height:1.2;overflow:hidden;"><i class="ph ph-check-square"></i> ${ti.title}</div>
                         </div>`;
                     });
 
@@ -13045,6 +13077,27 @@
                     ev._totalCols = maxC + 1;
                 });
 
+                // Tarefas com horário definido (time-blocking) — viram blocos na linha do tempo
+                const taskItems = tasks
+                    .filter(t => t.date === dateStr && t.time && !t.completed)
+                    .map(t => {
+                        const sMin = _calTimeToMin(t.time);
+                        const eMin = sMin + (t.estimatedMinutes || 30);
+                        return { ...t, sMin, eMin };
+                    });
+                const tColEnds = [];
+                taskItems.sort((a,b) => a.sMin - b.sMin).forEach(ti => {
+                    let c = 0;
+                    while (c < tColEnds.length && tColEnds[c] > ti.sMin) c++;
+                    ti._col = c;
+                    tColEnds[c] = ti.eMin;
+                });
+                taskItems.forEach(ti => {
+                    let maxC = ti._col;
+                    taskItems.forEach(o => { if (o !== ti && o.sMin < ti.eMin && o.eMin > ti.sMin) maxC = Math.max(maxC, o._col); });
+                    ti._totalCols = maxC + 1;
+                });
+
                 // Current time
                 const nowLocal     = new Date();
                 const currentMin   = nowLocal.getHours() * 60 + nowLocal.getMinutes();
@@ -13135,11 +13188,26 @@
                     </div>`;
                 }).join('');
 
+                // Blocos de tarefas com horário (time-blocking) — coluna estreita à direita dos eventos
+                const taskHtml = taskItems.map(ti => {
+                    const h = Math.max((ti.eMin - ti.sMin) * PX_PER_MIN, 22);
+                    const colW  = `calc((100% - 56px) / ${ti._totalCols})`;
+                    const lft   = `calc(52px + ${ti._col} * (100% - 56px) / ${ti._totalCols})`;
+                    const prioColors = { urgent:'#f87171', high:'#fb923c', medium:'#fbbf24', low:'#94a3b8' };
+                    const pc = prioColors[ti.priority] || '#fbbf24';
+                    return `<div class="absolute rounded-lg border-2 border-dashed overflow-hidden cursor-pointer hover:brightness-110 transition-all z-10"
+                        style="top:${ti.sMin*PX_PER_MIN}px;height:${h}px;left:${lft};width:${colW};padding:3px 6px;border-color:${pc}88;background:${pc}15"
+                        onclick="editTask('${ti.id}')" title="Tarefa: ${ti.title} (${ti.time})">
+                        <p class="text-xs font-bold truncate leading-tight flex items-center gap-1" style="color:${pc}"><i class="ph ph-check-square shrink-0"></i> ${ti.title}</p>
+                        ${h>34?`<p class="text-[10px] text-gray-500 mt-0.5 leading-tight">${ti.time}</p>`:''}
+                    </div>`;
+                }).join('');
+
                 const totalH = 24 * PX_PER_HOUR;
                 const tl = document.getElementById('dayTimeline');
-                tl.innerHTML = evOnly.length === 0 && blkOnly.length === 0 && allDayBanner.filter(e=>!e.isBirthday).length === 0
+                tl.innerHTML = evOnly.length === 0 && blkOnly.length === 0 && taskItems.length === 0 && allDayBanner.filter(e=>!e.isBirthday).length === 0
                     ? `<div class="absolute inset-0 flex items-center justify-center pointer-events-none">${emptyState('ph-calendar-blank','Nenhum compromisso neste dia','Clique em "+ Evento" acima para agendar.')}</div><div class="relative" style="height:${totalH}px">${gridHtml}${nowLineHtml}</div>`
-                    : `<div class="relative select-none" style="height:${totalH}px">${gridHtml}${nowLineHtml}${blkHtml}${evHtml}</div>`;
+                    : `<div class="relative select-none" style="height:${totalH}px">${gridHtml}${nowLineHtml}${blkHtml}${evHtml}${taskHtml}</div>`;
 
                 // Scroll to current time (today) or first event
                 requestAnimationFrame(() => {
