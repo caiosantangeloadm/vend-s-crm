@@ -12811,12 +12811,13 @@
                     });
                     const dayTasks = tasks.filter(t => t.date === dateStr && !t.completed);
 
-                    if (dayEvents.length === 0 && dayTasks.length === 0) continue;
+                    const listHoliday = getBrazilianHoliday(dateStr);
+                    if (dayEvents.length === 0 && dayTasks.length === 0 && !listHoliday) continue;
                     hasAny = true;
 
                     const weekdayNames = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
                     html += `<div>
-                        <h4 class="text-sm font-bold mb-2 ${isToday ? 'text-sant-cyan' : 'text-gray-300'} flex items-center gap-2">${isToday ? '<span class="px-2 py-0.5 rounded-full bg-sant-cyan text-sant-bg text-[10px]">HOJE</span>' : ''} ${weekdayNames[d.getDay()]}, ${d.getDate()} de ${monthNames[d.getMonth()]}</h4>
+                        <h4 class="text-sm font-bold mb-2 ${isToday ? 'text-sant-cyan' : 'text-gray-300'} flex items-center gap-2">${isToday ? '<span class="px-2 py-0.5 rounded-full bg-sant-cyan text-sant-bg text-[10px]">HOJE</span>' : ''} ${weekdayNames[d.getDay()]}, ${d.getDate()} de ${monthNames[d.getMonth()]}${listHoliday ? `<span class="text-[10px] font-bold text-pink-400 bg-pink-500/10 border border-pink-500/20 rounded-full px-2 py-0.5"><i class="ph ph-flag"></i> ${listHoliday}</span>` : ''}</h4>
                         <div class="space-y-2">`;
 
                     dayEvents.forEach(e => {
@@ -12926,9 +12927,10 @@
                         <i class="ph ${m.icon}"></i><span>${e.title}</span>${actions}
                     </div>`;
                 }).join('');
+                const dayHoliday = getBrazilianHoliday(dateStr);
                 document.getElementById('dayTimelineHeader').innerHTML = `
                     <div class="flex items-center justify-between mb-2">
-                        <h3 class="text-sm font-bold text-white capitalize">${dayLabel}</h3>
+                        <h3 class="text-sm font-bold text-white capitalize flex items-center gap-2">${dayLabel}${dayHoliday ? `<span class="text-[10px] font-bold text-pink-400 bg-pink-500/10 border border-pink-500/20 rounded-full px-2 py-0.5 normal-case flex items-center gap-1"><i class="ph ph-flag"></i> ${dayHoliday}</span>` : ''}</h3>
                         <div class="flex items-center gap-3">
                             <button onclick="copyDayToNextWeek('${dateStr}')" class="text-xs text-gray-400 hover:text-sant-cyan flex items-center gap-1 transition-colors" title="Copiar os compromissos deste dia para o mesmo dia da próxima semana"><i class="ph ph-copy"></i> Copiar Dia</button>
                             <button onclick="openEventModal(null, '${dateStr}')" class="text-xs text-sant-cyan hover:text-[#7aafc8] flex items-center gap-1 transition-colors"><i class="ph ph-plus"></i> Novo evento</button>
