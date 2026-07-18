@@ -2769,6 +2769,30 @@
                     <textarea id="eventDesc" rows="2" placeholder="Adicionar descrição, pauta da reunião ou notas..." class="w-full bg-[#141414] border border-sant-border rounded-md px-3 py-2 text-sm text-white outline-none resize-none"></textarea>
                 </div>
 
+                <!-- Checklist de Preparação -->
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide flex items-center gap-1.5"><i class="ph ph-list-checks text-sant-cyan"></i> Checklist de Preparação</label>
+                        <span id="eventChecklistProgressLabel" class="text-[10px] font-bold text-gray-600"></span>
+                    </div>
+                    <div id="eventChecklistItemsContainer" class="space-y-1.5 mb-2"></div>
+                    <div class="flex gap-2">
+                        <input type="text" id="eventChecklistInput" placeholder="Ex: Levar contrato, revisar proposta..." class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none" onkeydown="if(event.key==='Enter'){event.preventDefault();addEventChecklistItem()}">
+                        <button type="button" onclick="addEventChecklistItem()" class="bg-sant-cyan/20 hover:bg-sant-cyan text-sant-cyan hover:text-sant-bg px-3 py-2 rounded-lg text-sm transition-colors border border-sant-cyan/30 shrink-0"><i class="ph ph-plus"></i></button>
+                    </div>
+                </div>
+
+                <!-- Links & Anexos do Evento -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5"><i class="ph ph-paperclip text-sant-cyan"></i> Links &amp; Anexos</label>
+                    <div id="eventLinksItemsContainer" class="space-y-1.5 mb-2"></div>
+                    <div class="flex gap-2">
+                        <input type="text" id="eventLinkTitle" placeholder="Descrição (Ex: Pauta, Proposta...)" class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                        <input type="url" id="eventLinkUrl" placeholder="https://..." class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none" onkeydown="if(event.key==='Enter'){event.preventDefault();addEventLink()}">
+                        <button type="button" onclick="addEventLink()" class="bg-sant-cyan/20 hover:bg-sant-cyan text-sant-cyan hover:text-sant-bg px-3 py-2 rounded-lg text-sm transition-colors border border-sant-cyan/30 shrink-0"><i class="ph ph-plus"></i></button>
+                    </div>
+                </div>
+
                 <!-- Histórico de Alterações -->
                 <div class="hidden" id="eventChangeLogSection">
                     <div class="flex items-center justify-between mb-3">
@@ -5521,6 +5545,8 @@
                 "changeLog": e.changeLog || [],
                 notified: e.notified || false,
                 "realizedDates": e.realizedDates || [],
+                checklist: e.checklist || [],
+                links: e.links || [],
             };
         }
 
@@ -12063,6 +12089,8 @@
         // ── NÍVEL 4: Recorrência Avançada ──────────────────────────────────────
         let selectedWeekdays = [];
         let currentEventParticipants = []; // array de contact IDs
+        let currentEventChecklist = [];
+        let currentEventLinks = [];
         let currentEventColor = '';
         const eventColorPalette = ['#22d3ee','#a855f7','#f87171','#fbbf24','#34d399','#60a5fa','#f472b6','#facc15','#4ade80','#fb923c'];
 
@@ -12948,6 +12976,10 @@
                                     ${e.location ? `<p class="text-xs text-gray-400 mt-0.5 flex items-center gap-1"><i class="ph ph-map-pin"></i> ${e.location}</p>` : ''}
                                     ${e.virtualLocation ? `<a href="${e.virtualLocation}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="text-xs text-sant-cyan hover:underline mt-0.5 flex items-center gap-1 w-fit"><i class="ph ph-video-camera"></i> Entrar na reunião</a>` : ''}
                                     ${(e.participants && e.participants.length > 0) ? `<div class="flex flex-wrap gap-1 mt-1.5">${e.participants.map(pid => { const pc = contacts.find(x => x.id === pid); return pc ? `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-sant-cyan/10 border border-sant-cyan/20 text-sant-cyan text-[10px] cursor-pointer hover:bg-sant-cyan/20 transition-colors" onclick="event.stopPropagation();openHistoryModal('${pid}')"><i class="ph ph-user text-[9px]"></i> ${fullName(pc)}</span>` : ''; }).join('')}</div>` : ''}
+                                    ${((e.checklist && e.checklist.length) || (e.links && e.links.length)) ? `<div class="flex items-center gap-2 mt-1">
+                                        ${e.checklist && e.checklist.length ? `<span class="text-[10px] text-gray-500 flex items-center gap-1"><i class="ph ph-list-checks"></i> ${e.checklist.filter(i=>i.done).length}/${e.checklist.length}</span>` : ''}
+                                        ${e.links && e.links.length ? `<span class="text-[10px] text-gray-500 flex items-center gap-1"><i class="ph ph-paperclip"></i> ${e.links.length}</span>` : ''}
+                                    </div>` : ''}
                                 </div>
                             </div>`;
                         }
@@ -13168,6 +13200,71 @@
                 sorted.map(c => `<option value="${c.id}">${fullName(c)}${c.company ? ' — ' + c.company : ''}</option>`).join('');
         }
 
+        function addEventChecklistItem() {
+            const input = document.getElementById('eventChecklistInput');
+            const text = input.value.trim();
+            if (!text) return;
+            currentEventChecklist.push({ id: crypto.randomUUID(), text, done: false });
+            input.value = '';
+            renderEventChecklistInModal();
+            input.focus();
+        }
+        function removeEventChecklistItem(itemId) {
+            currentEventChecklist = currentEventChecklist.filter(i => i.id !== itemId);
+            renderEventChecklistInModal();
+        }
+        function toggleEventChecklistItemModal(itemId) {
+            const item = currentEventChecklist.find(i => i.id === itemId);
+            if (item) { item.done = !item.done; renderEventChecklistInModal(); }
+        }
+        function renderEventChecklistInModal() {
+            const container = document.getElementById('eventChecklistItemsContainer');
+            const label = document.getElementById('eventChecklistProgressLabel');
+            if (!container) return;
+            const total = currentEventChecklist.length;
+            const done = currentEventChecklist.filter(i => i.done).length;
+            if (label) label.innerText = total > 0 ? `${done}/${total}` : '';
+            if (total === 0) {
+                container.innerHTML = '<p class="text-[11px] text-gray-600 italic">Nenhum item ainda.</p>';
+                return;
+            }
+            container.innerHTML = currentEventChecklist.map(item => `
+                <div class="flex items-center gap-2 group/cl">
+                    <button type="button" onclick="toggleEventChecklistItemModal('${item.id}')" class="w-5 h-5 rounded border ${item.done ? 'bg-sant-cyan border-sant-cyan text-sant-bg' : 'border-gray-600 text-transparent'} flex items-center justify-center shrink-0 transition-colors">
+                        <i class="ph ph-check text-xs"></i>
+                    </button>
+                    <span class="flex-1 text-sm ${item.done ? 'line-through text-gray-500' : 'text-gray-300'}">${item.text}</span>
+                    <button type="button" onclick="removeEventChecklistItem('${item.id}')" class="text-gray-600 hover:text-red-500 opacity-0 group-hover/cl:opacity-100 transition-all shrink-0"><i class="ph ph-x text-xs"></i></button>
+                </div>`).join('');
+        }
+        function addEventLink() {
+            const titleEl = document.getElementById('eventLinkTitle');
+            const urlEl = document.getElementById('eventLinkUrl');
+            let url = urlEl.value.trim();
+            if (!url) return;
+            if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+            currentEventLinks.push({ id: crypto.randomUUID(), title: titleEl.value.trim() || url, url, createdAt: new Date().toISOString() });
+            titleEl.value = ''; urlEl.value = '';
+            renderEventLinksInModal();
+        }
+        function removeEventLink(linkId) {
+            currentEventLinks = currentEventLinks.filter(l => l.id !== linkId);
+            renderEventLinksInModal();
+        }
+        function renderEventLinksInModal() {
+            const container = document.getElementById('eventLinksItemsContainer');
+            if (!container) return;
+            if (!currentEventLinks.length) {
+                container.innerHTML = '<p class="text-[11px] text-gray-600 italic">Nenhum link ainda.</p>';
+                return;
+            }
+            container.innerHTML = currentEventLinks.map(l => `
+                <div class="flex items-center gap-2 group/cl">
+                    <a href="${l.url}" target="_blank" rel="noopener" class="flex-1 min-w-0 text-sm text-sant-cyan hover:underline truncate flex items-center gap-1.5"><i class="ph ph-link shrink-0"></i> ${l.title}</a>
+                    <button type="button" onclick="removeEventLink('${l.id}')" class="text-gray-600 hover:text-red-500 opacity-0 group-hover/cl:opacity-100 transition-all shrink-0"><i class="ph ph-x text-xs"></i></button>
+                </div>`).join('');
+        }
+
         function saveEvent() {
             const id = document.getElementById('eventId').value;
             const title = document.getElementById('eventTitle').value;
@@ -13202,6 +13299,8 @@
                 travelTime: document.getElementById('eventTravelTime').value || '0',
                 emailAlert: document.getElementById('eventEmailAlert').value || '0',
                 desc: document.getElementById('eventDesc').value,
+                checklist: currentEventChecklist.filter(it => it.text.trim()),
+                links: [...currentEventLinks],
                 notified: false,
                 changeLog: []
             };
@@ -18084,6 +18183,10 @@
             document.getElementById('eventTravelTime').value = ev ? (ev.travelTime || '0') : '0';
             document.getElementById('eventEmailAlert').value = ev ? (ev.emailAlert || '0') : '0';
             document.getElementById('eventDesc').value = ev ? (ev.desc || '') : '';
+            currentEventChecklist = ev ? (ev.checklist || []).map(i => ({...i})) : [];
+            renderEventChecklistInModal();
+            currentEventLinks = ev ? (ev.links || []).map(i => ({...i})) : [];
+            renderEventLinksInModal();
             // Participantes
             currentEventParticipants = ev ? [...(ev.participants || (ev.contactId ? [ev.contactId] : []))] : [];
             fillEventParticipantSelect();
