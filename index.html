@@ -2032,6 +2032,20 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
+                            <p class="text-xs font-bold text-white uppercase tracking-wide mb-2 flex items-center gap-2"><i class="ph ph-timer text-sant-cyan"></i> Cadência Personalizada</p>
+                            <p class="text-xs text-gray-500 mb-4">Defina um limite de inatividade diferente do padrão para uma Lista ou Etiqueta específica — ex: "Clientes VIP: 15 dias", "Família: 90 dias". Quando um contato pertence a mais de uma regra, vale a mais rígida (menor número de dias).</p>
+                            <div id="cadenceOverridesList" class="space-y-2 mb-3"></div>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <select id="cadenceTargetType" onchange="fillCadenceTargetValueSelect()" class="bg-[#141414] border border-sant-border rounded-lg px-2 py-2 text-xs text-white outline-none">
+                                    <option value="list">Lista</option>
+                                    <option value="tag">Etiqueta</option>
+                                </select>
+                                <select id="cadenceTargetValue" class="flex-1 min-w-[140px] bg-[#141414] border border-sant-border rounded-lg px-2 py-2 text-xs text-white outline-none"></select>
+                                <input type="number" id="cadenceTargetDays" min="1" placeholder="dias" class="w-20 bg-[#141414] border border-sant-border rounded-lg px-2 py-2 text-xs text-white outline-none">
+                                <button onclick="addCadenceOverride()" class="bg-sant-cyan/20 hover:bg-sant-cyan text-sant-cyan hover:text-sant-bg px-3 py-2 rounded-lg text-xs font-bold transition-colors border border-sant-cyan/30"><i class="ph ph-plus"></i> Adicionar</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -4060,6 +4074,7 @@
         let categories = [];
         let origins = [];
         let contactLists = [];
+        let cadenceOverrides = JSON.parse(localStorage.getItem('vends_cadence_overrides') || '{}');
         let tasks = [];
         let events = [];
         let scheduleBlocks = [];
@@ -5735,6 +5750,7 @@
                 monthlyGoals: JSON.parse(localStorage.getItem('vends_monthly_goals')||'{}'),
                 quarterlyGoals: JSON.parse(localStorage.getItem('vends_quarterly_goals')||'{}'),
                 yearlyGoals: JSON.parse(localStorage.getItem('vends_yearly_goals')||'{}'),
+                cadenceOverrides: JSON.parse(localStorage.getItem('vends_cadence_overrides')||'{}'),
             };
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -5783,6 +5799,7 @@
                     if (data.monthlyGoals)               { monthlyGoals = data.monthlyGoals; localStorage.setItem('vends_monthly_goals', JSON.stringify(monthlyGoals)); }
                     if (data.quarterlyGoals)             { quarterlyGoals = data.quarterlyGoals; localStorage.setItem('vends_quarterly_goals', JSON.stringify(quarterlyGoals)); }
                     if (data.yearlyGoals)                 { yearlyGoals = data.yearlyGoals; localStorage.setItem('vends_yearly_goals', JSON.stringify(yearlyGoals)); }
+                    if (data.cadenceOverrides)             { cadenceOverrides = data.cadenceOverrides; localStorage.setItem('vends_cadence_overrides', JSON.stringify(cadenceOverrides)); }
                     saveToStorage(); saveCategoriesToStorage(); saveOriginsToStorage(); saveContactListsToStorage(); saveTasksToStorage(); saveEventsToStorage(); saveTagsToStorage(); saveNotesToStorage(); saveMessageTemplatesToStorage(); saveScheduleBlocksToStorage();
                     localStorage.setItem('vends_notifications', JSON.stringify(notifications));
                     init();
@@ -7337,7 +7354,7 @@
             const inactivityThreshold = parseInt(localStorage.getItem('vends_inactivity_days') || '60');
             const inactive = contacts.filter(c => {
                 const days = getInactivityDays(c);
-                return days !== null && days >= (inactivityThreshold || 60);
+                return days !== null && days >= getEffectiveInactivityThreshold(c);
             }).length;
 
             const items = [
@@ -7448,7 +7465,7 @@
             // ── 6. Contatos inativos (acima do limite) ──────────────────────
             if (inactDays > 0) {
                 contacts
-                    .filter(c => (getInactivityDays(c) || 0) >= inactDays * 1.5) // 1.5× o limite = crítico
+                    .filter(c => (getInactivityDays(c) || 0) >= getEffectiveInactivityThreshold(c) * 1.5) // 1.5× o limite (personalizado ou global) = crítico
                     .sort((a,b) => (getInactivityDays(b)||0) - (getInactivityDays(a)||0))
                     .slice(0, 3)
                     .forEach(c => {
@@ -15594,6 +15611,7 @@
                     "bigGoalsPeriod": localStorage.getItem('vends_big_goals_period') || 'month',
                     "bdayAdvance":    parseInt(localStorage.getItem('vends_bday_advance')    || '3'),
                     "inactivityDays": parseInt(localStorage.getItem('vends_inactivity_days') || '60'),
+                    "cadenceOverrides": cadenceOverrides,
                     "maxPinned":      parseInt(localStorage.getItem('vends_max_pinned')      || '10'),
                     "viewMode":    localStorage.getItem('sant_crm_view_mode')    || '',
                     "density":     localStorage.getItem('sant_crm_density')     || '',
@@ -15637,6 +15655,7 @@
                 if (data.bigGoalsPeriod)            { localStorage.setItem('vends_big_goals_period', data.bigGoalsPeriod); }
                 if (data.bdayAdvance !== undefined && data.bdayAdvance !== null)    localStorage.setItem('vends_bday_advance', String(data.bdayAdvance));
                 if (data.inactivityDays !== undefined && data.inactivityDays !== null) localStorage.setItem('vends_inactivity_days', String(data.inactivityDays));
+                if (data.cadenceOverrides && Object.keys(data.cadenceOverrides).length) { cadenceOverrides = data.cadenceOverrides; localStorage.setItem('vends_cadence_overrides', JSON.stringify(cadenceOverrides)); }
                 if (data.maxPinned !== undefined && data.maxPinned !== null)        localStorage.setItem('vends_max_pinned', String(data.maxPinned));
                 if (data.viewMode)                  localStorage.setItem('sant_crm_view_mode', data.viewMode);
                 if (data.density)                   localStorage.setItem('sant_crm_density', data.density);
@@ -17463,6 +17482,8 @@
             if (inactEl) inactEl.value = localStorage.getItem('vends_inactivity_days') || '60';
             const pinEl = document.getElementById('s-max-pinned');
             if (pinEl) pinEl.value = localStorage.getItem('vends_max_pinned') || '10';
+            fillCadenceTargetValueSelect();
+            renderCadenceOverridesList();
         }
         // ── fim Painel de Configurações ──────────────────────────────────────
 
@@ -17509,6 +17530,7 @@
                 monthlyGoals:  JSON.parse(localStorage.getItem('vends_monthly_goals')  ||'{}'),
                 quarterlyGoals:JSON.parse(localStorage.getItem('vends_quarterly_goals')||'{}'),
                 yearlyGoals:JSON.parse(localStorage.getItem('vends_yearly_goals')||'{}'),
+                cadenceOverrides: JSON.parse(localStorage.getItem('vends_cadence_overrides')||'{}'),
             };
             const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -17625,6 +17647,67 @@
             const lastDate = new Date(y, m - 1, d);
             const today = new Date(getSPTodayStr().split('-').map(Number)[0], getSPTodayStr().split('-').map(Number)[1] - 1, getSPTodayStr().split('-').map(Number)[2]);
             return Math.floor((today - lastDate) / (1000 * 60 * 60 * 24));
+        }
+
+        // ── Cadência Personalizada por Lista/Etiqueta ─────────────────────────
+        function saveCadenceOverrides() {
+            localStorage.setItem('vends_cadence_overrides', JSON.stringify(cadenceOverrides));
+            syncPreferencesToSupabase();
+        }
+        function getEffectiveInactivityThreshold(c) {
+            const global = parseInt(localStorage.getItem('vends_inactivity_days') || '60') || 60;
+            const candidates = [];
+            (c.lists || []).forEach(l => { const v = cadenceOverrides['list:' + l]; if (v) candidates.push(v); });
+            (c.tags || []).forEach(t => { const v = cadenceOverrides['tag:' + t]; if (v) candidates.push(v); });
+            return candidates.length ? Math.min(...candidates) : global;
+        }
+        function fillCadenceTargetValueSelect() {
+            const type = document.getElementById('cadenceTargetType')?.value || 'list';
+            const sel = document.getElementById('cadenceTargetValue');
+            if (!sel) return;
+            const options = type === 'list'
+                ? [...contactLists].sort((a,b) => a.localeCompare(b,'pt-BR'))
+                : [...tags].sort((a,b) => a.localeCompare(b,'pt-BR'));
+            sel.innerHTML = options.length
+                ? options.map(v => `<option value="${v}">${v}</option>`).join('')
+                : `<option value="">Nenhuma ${type === 'list' ? 'lista' : 'etiqueta'} cadastrada</option>`;
+        }
+        function addCadenceOverride() {
+            const type = document.getElementById('cadenceTargetType').value;
+            const value = document.getElementById('cadenceTargetValue').value;
+            const days = parseInt(document.getElementById('cadenceTargetDays').value);
+            if (!value) { showToast('Cadastre uma lista ou etiqueta primeiro.', 'error'); return; }
+            if (!days || days < 1) { showToast('Informe um número de dias válido.', 'error'); return; }
+            cadenceOverrides[type + ':' + value] = days;
+            saveCadenceOverrides();
+            document.getElementById('cadenceTargetDays').value = '';
+            renderCadenceOverridesList();
+            showToast('Cadência personalizada salva!');
+        }
+        function deleteCadenceOverride(key) {
+            delete cadenceOverrides[key];
+            saveCadenceOverrides();
+            renderCadenceOverridesList();
+        }
+        function renderCadenceOverridesList() {
+            const box = document.getElementById('cadenceOverridesList');
+            if (!box) return;
+            const entries = Object.entries(cadenceOverrides);
+            if (!entries.length) {
+                box.innerHTML = '<p class="text-xs text-gray-600 italic">Nenhuma cadência personalizada — usando o padrão global para todos.</p>';
+                return;
+            }
+            box.innerHTML = entries.map(([key, days]) => {
+                const [type, ...rest] = key.split(':');
+                const name = rest.join(':');
+                const icon = type === 'list' ? 'ph-list-bullets' : 'ph-tag';
+                return `<div class="flex items-center gap-2 bg-[#0a0a0a] border border-sant-border rounded-lg px-3 py-2">
+                    <i class="ph ${icon} text-sant-cyan text-sm shrink-0"></i>
+                    <span class="flex-1 text-xs text-gray-300 truncate">${type === 'list' ? 'Lista' : 'Etiqueta'}: <b class="text-white">${name}</b></span>
+                    <span class="text-xs text-sant-cyan font-bold shrink-0">${days} dias</span>
+                    <button onclick="deleteCadenceOverride('${key}')" class="text-gray-600 hover:text-red-400 shrink-0"><i class="ph ph-trash text-sm"></i></button>
+                </div>`;
+            }).join('');
         }
 
         // ── Revisão Rápida (modo swipe) ──────────────────────────────────────
@@ -17804,7 +17887,7 @@
         }
 
         function inactivityBadgeHtml(c) {
-            const threshold = parseInt(localStorage.getItem('vends_inactivity_days') || '60');
+            const threshold = getEffectiveInactivityThreshold(c);
             if (!threshold) return '';
             const days = getInactivityDays(c);
             if (days === null || days < threshold) return '';
@@ -20311,7 +20394,7 @@
             if (c.nextStep) parts.push(`Próximo passo: ${c.nextStep}.`);
 
             const inactDays = getInactivityDays(c);
-            const inactThreshold = parseInt(localStorage.getItem('vends_inactivity_days') || '60');
+            const inactThreshold = getEffectiveInactivityThreshold(c);
             if (inactThreshold && inactDays !== null && inactDays >= inactThreshold && !c.nextContact) {
                 parts.push(`⚠️ Sem contato há ${inactDays} dias.`);
             }
