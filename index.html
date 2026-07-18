@@ -12913,8 +12913,10 @@
                         const pc = prioColors[ti.priority] || '#fbbf24';
                         colHtml += `<div class="cal-time-event" onclick="event.stopPropagation();editTask('${ti.id}')"
                             style="top:${yTop}px;height:${tH}px;left:${lft};width:calc(${colW} - 4px);background:${pc}18;border:2px dashed ${pc}88;border-left:2px dashed ${pc}88;color:${pc};"
-                            title="Tarefa: ${ti.title} (${ti.time})">
-                            <div style="font-size:10px;font-weight:700;line-height:1.2;overflow:hidden;"><i class="ph ph-check-square"></i> ${ti.title}</div>
+                            title="Tarefa: ${ti.title} (${ti.time}) — clique no ✓ para concluir">
+                            <div style="font-size:10px;font-weight:700;line-height:1.2;overflow:hidden;">
+                                <button onclick="event.stopPropagation();toggleTask('${ti.id}')" style="display:inline;vertical-align:middle" title="Marcar como concluída"><i class="ph ph-check-square"></i></button> ${ti.title}
+                            </div>
                         </div>`;
                     });
 
@@ -13195,10 +13197,13 @@
                     const lft   = `calc(52px + ${ti._col} * (100% - 56px) / ${ti._totalCols})`;
                     const prioColors = { urgent:'#f87171', high:'#fb923c', medium:'#fbbf24', low:'#94a3b8' };
                     const pc = prioColors[ti.priority] || '#fbbf24';
-                    return `<div class="absolute rounded-lg border-2 border-dashed overflow-hidden cursor-pointer hover:brightness-110 transition-all z-10"
+                    return `<div class="absolute rounded-lg border-2 border-dashed overflow-hidden cursor-pointer hover:brightness-110 transition-all z-10 group/tb"
                         style="top:${ti.sMin*PX_PER_MIN}px;height:${h}px;left:${lft};width:${colW};padding:3px 6px;border-color:${pc}88;background:${pc}15"
-                        onclick="editTask('${ti.id}')" title="Tarefa: ${ti.title} (${ti.time})">
-                        <p class="text-xs font-bold truncate leading-tight flex items-center gap-1" style="color:${pc}"><i class="ph ph-check-square shrink-0"></i> ${ti.title}</p>
+                        onclick="editTask('${ti.id}')" title="Tarefa: ${ti.title} (${ti.time}) — clique no ✓ para concluir">
+                        <p class="text-xs font-bold truncate leading-tight flex items-center gap-1" style="color:${pc}">
+                            <button onclick="event.stopPropagation();toggleTask('${ti.id}')" class="shrink-0 hover:scale-110 transition-transform" title="Marcar como concluída"><i class="ph ph-check-square"></i></button>
+                            ${ti.title}
+                        </p>
                         ${h>34?`<p class="text-[10px] text-gray-500 mt-0.5 leading-tight">${ti.time}</p>`:''}
                     </div>`;
                 }).join('');
