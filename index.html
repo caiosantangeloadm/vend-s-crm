@@ -1232,8 +1232,14 @@
                             <button id="btnTaskViewList" onclick="switchTaskView('list')" class="p-2.5 text-sant-cyan bg-sant-cyan/10 transition-colors" title="Visão em Lista"><i class="ph ph-list-dashes text-lg"></i></button>
                             <button id="btnTaskViewKanban" onclick="switchTaskView('kanban')" class="p-2.5 text-gray-500 hover:text-white transition-colors" title="Visão Kanban"><i class="ph ph-kanban text-lg"></i></button>
                         </div>
+                        <button onclick="openTaskTemplatesModal()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-4 py-2.5 rounded-lg flex items-center gap-2 font-medium transition-all" title="Modelos: reaproveite uma tarefa avulsa (com checklist) com um clique">
+                            <i class="ph ph-copy-simple"></i> Modelos
+                        </button>
                         <button onclick="openPlaybookModal()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-4 py-2.5 rounded-lg flex items-center gap-2 font-medium transition-all" title="Playbooks: aplique um modelo pronto que cria várias tarefas de uma vez">
                             <i class="ph ph-flow-arrow"></i> Playbooks
+                        </button>
+                        <button onclick="openQuickAddTaskModal()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-4 py-2.5 rounded-lg flex items-center gap-2 font-medium transition-all" title="Captura Rápida (atalho: T) — Ex: Ligar cliente #vendas @Maria !alta">
+                            <i class="ph ph-lightning"></i> Captura Rápida
                         </button>
                         <button onclick="openTaskModal()" class="bg-sant-cyan text-sant-bg px-5 py-2.5 rounded-lg flex items-center gap-2 font-bold hover:bg-cyan-400 transition-all shadow-lg shadow-cyan-900/20">
                             <i class="ph ph-plus"></i> Nova Tarefa
@@ -2876,7 +2882,10 @@
         <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg max-h-[92vh] overflow-hidden flex flex-col shadow-2xl">
             <div class="flex justify-between items-center p-5 border-b border-sant-border shrink-0">
                 <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-check-square text-sant-cyan"></i> <span id="taskModalTitle">Nova Tarefa</span></h3>
-                <button onclick="closeTaskModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+                <div class="flex items-center gap-3">
+                    <button id="taskSaveAsTemplateBtn" onclick="saveTaskAsTemplate()" class="hidden text-xs text-gray-400 hover:text-sant-cyan transition-colors flex items-center gap-1" title="Salvar esta tarefa como modelo reaproveitável"><i class="ph ph-copy-simple"></i> Salvar como modelo</button>
+                    <button onclick="closeTaskModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+                </div>
             </div>
             <div class="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
                 <input type="hidden" id="taskId">
@@ -3006,6 +3015,15 @@
                             <i class="ph ph-plus"></i>
                         </button>
                     </div>
+                </div>
+
+                <!-- CAMPOS PERSONALIZADOS -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5 flex items-center gap-1"><i class="ph ph-sliders-horizontal text-sant-cyan"></i> Campos Personalizados</label>
+                    <div id="taskCustomFieldsContainer" class="space-y-2 mb-2"></div>
+                    <button type="button" onclick="addTaskCustomField()" class="w-full bg-[#141414] border border-dashed border-sant-border hover:border-sant-cyan/40 text-gray-400 hover:text-sant-cyan px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-2">
+                        <i class="ph ph-plus"></i> Adicionar campo
+                    </button>
                 </div>
 
                 <!-- CHECKLIST -->
@@ -3462,6 +3480,60 @@
             <div class="flex justify-end gap-2 p-5 border-t border-sant-border">
                 <button onclick="closeQuickNoteModal()" class="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Cancelar</button>
                 <button onclick="saveQuickNoteModal()" class="px-4 py-2 rounded-lg bg-sant-cyan hover:bg-cyan-400 text-sant-bg text-sm font-bold transition-colors">Salvar Nota</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE MODELOS DE TAREFA AVULSOS -->
+    <div id="taskTemplatesModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeTaskTemplatesModal()">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center p-5 border-b border-sant-border shrink-0">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-copy-simple text-sant-cyan"></i> Modelos de Tarefa</h3>
+                <button onclick="closeTaskTemplatesModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <div class="overflow-y-auto custom-scrollbar p-5 space-y-4">
+                <p class="text-xs text-gray-500">Salve uma tarefa avulsa (título, descrição, prioridade, etiquetas e checklist) como modelo para reaproveitar com um clique — diferente dos Playbooks, que geram várias tarefas em sequência.</p>
+
+                <div id="taskTemplatesList" class="space-y-2"></div>
+
+                <button onclick="toggleNewTaskTemplateForm()" id="newTaskTemplateToggleBtn" class="w-full bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-plus"></i> Novo Modelo</button>
+
+                <div id="newTaskTemplateForm" class="hidden space-y-3 p-4 rounded-xl border border-sant-border bg-[#0a0a0a]">
+                    <input type="text" id="newTplName" placeholder="Nome do modelo (Ex: Onboarding de cliente)" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan">
+                    <input type="text" id="newTplTitle" placeholder="Título da tarefa" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan">
+                    <textarea id="newTplDesc" rows="2" placeholder="Descrição (opcional)" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none resize-none focus:border-sant-cyan"></textarea>
+                    <div class="flex gap-2">
+                        <select id="newTplPriority" class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan">
+                            <option value="low">Baixa</option>
+                            <option value="medium" selected>Normal</option>
+                            <option value="high">Alta</option>
+                            <option value="urgent">Urgente</option>
+                        </select>
+                        <input type="text" id="newTplTags" placeholder="Etiquetas (separadas por vírgula)" class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan">
+                    </div>
+                    <div class="flex justify-end gap-2">
+                        <button onclick="toggleNewTaskTemplateForm()" class="px-3 py-1.5 text-xs text-gray-400 hover:text-white transition-colors">Cancelar</button>
+                        <button onclick="saveNewTaskTemplate()" class="px-3 py-1.5 text-xs bg-sant-cyan hover:bg-cyan-400 text-sant-bg rounded-lg font-bold transition-colors">Salvar Modelo</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE CAPTURA RÁPIDA DE TAREFA -->
+    <div id="quickAddTaskModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeQuickAddTaskModal()">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg shadow-2xl">
+            <div class="flex justify-between items-center p-5 border-b border-sant-border">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-lightning text-sant-cyan"></i> Captura Rápida</h3>
+                <button onclick="closeQuickAddTaskModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <div class="p-5 space-y-2">
+                <input type="text" id="quickAddTaskInput" placeholder="Ligar pro cliente #vendas @Maria !alta" class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-3 text-sm text-white outline-none focus:border-sant-cyan transition-colors" onkeydown="if(event.key==='Enter'){event.preventDefault();submitQuickAddTask()}">
+                <p class="text-[11px] text-gray-600">Use <b class="text-gray-400">#etiqueta</b> pra marcar, <b class="text-gray-400">@nome</b> pra vincular um contato e <b class="text-gray-400">!prioridade</b> (baixa/normal/alta/urgente) — o resto vira o título. A tarefa é criada para hoje.</p>
+            </div>
+            <div class="flex justify-end gap-2 p-5 border-t border-sant-border">
+                <button onclick="closeQuickAddTaskModal()" class="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Cancelar</button>
+                <button onclick="submitQuickAddTask()" class="px-4 py-2 rounded-lg bg-sant-cyan hover:bg-cyan-400 text-sant-bg text-sm font-bold transition-colors">Criar Tarefa</button>
             </div>
         </div>
     </div>
@@ -4199,6 +4271,7 @@
         let sendMsgContactId = null;
         let editingTemplateId = null;
         let taskPlaybooks = [];
+        let taskTemplates = JSON.parse(localStorage.getItem('sant_crm_task_templates') || '[]');
         let currentPlaybookSteps = [];
         let automationRules = [];
         let activeFilters = { category: '', isLead: '', temperature: '', tag: '', origin: '', list: '', city: '', state: '', intType: '', intFrom: '', intTo: '' };
@@ -4210,6 +4283,7 @@
         let currentContactCustomFields = [];
         let currentChecklist = [];
         let currentTaskTags = [];
+        let currentTaskCustomFields = [];
         let currentTaskTagFilter = '';
         let currentTaskContactFilter = '';
         let currentTaskSort = 'date';
@@ -5521,6 +5595,7 @@
                 attachments: t.attachments || [],
                 archived: t.archived || false,
                 "dependsOnId": t.dependsOnId || '',
+                "customFields": t.customFields || [],
             };
         }
 
@@ -14148,6 +14223,154 @@
             syncPreferencesToSupabase();
         }
 
+        // ── Modelos de Tarefa avulsos ────────────────────────────────────────
+        function saveTaskTemplatesToStorage() {
+            localStorage.setItem('sant_crm_task_templates', JSON.stringify(taskTemplates));
+            syncPreferencesToSupabase();
+        }
+        function openTaskTemplatesModal() {
+            document.getElementById('taskTemplatesModal').classList.remove('hidden');
+            document.getElementById('newTaskTemplateForm').classList.add('hidden');
+            renderTaskTemplatesList();
+        }
+        function closeTaskTemplatesModal() {
+            document.getElementById('taskTemplatesModal').classList.add('hidden');
+        }
+        function toggleNewTaskTemplateForm() {
+            document.getElementById('newTaskTemplateForm').classList.toggle('hidden');
+            ['newTplName','newTplTitle','newTplDesc','newTplTags'].forEach(id => document.getElementById(id).value = '');
+            document.getElementById('newTplPriority').value = 'medium';
+        }
+        function renderTaskTemplatesList() {
+            const box = document.getElementById('taskTemplatesList');
+            if (!box) return;
+            if (!taskTemplates.length) {
+                box.innerHTML = '<p class="text-xs text-gray-600 italic text-center py-3">Nenhum modelo salvo ainda.</p>';
+                return;
+            }
+            box.innerHTML = taskTemplates.map(tpl => `
+                <div class="flex items-center gap-3 bg-[#0a0a0a] border border-sant-border rounded-lg px-3 py-2.5">
+                    <i class="ph ph-copy-simple text-sant-cyan text-sm shrink-0"></i>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm text-white font-medium truncate">${tpl.name}</p>
+                        <p class="text-[11px] text-gray-500 truncate">${tpl.title}${tpl.checklist && tpl.checklist.length ? ` · ${tpl.checklist.length} itens de checklist` : ''}</p>
+                    </div>
+                    <button onclick="applyTaskTemplate('${tpl.id}')" class="text-xs font-bold text-sant-cyan hover:text-white border border-sant-cyan/30 hover:bg-sant-cyan/10 px-3 py-1.5 rounded-lg transition-colors shrink-0">Usar</button>
+                    <button onclick="deleteTaskTemplate('${tpl.id}')" class="text-gray-500 hover:text-red-400 transition-colors shrink-0"><i class="ph ph-trash text-sm"></i></button>
+                </div>`).join('');
+        }
+        function saveNewTaskTemplate() {
+            const name = document.getElementById('newTplName').value.trim();
+            const title = document.getElementById('newTplTitle').value.trim();
+            if (!name || !title) { showToast('Preencha o nome do modelo e o título da tarefa.', 'error'); return; }
+            const tags = document.getElementById('newTplTags').value.split(',').map(t => t.trim()).filter(Boolean);
+            taskTemplates.push({
+                id: crypto.randomUUID(), name, title,
+                desc: document.getElementById('newTplDesc').value.trim(),
+                priority: document.getElementById('newTplPriority').value,
+                tags, checklist: [], estimatedMinutes: 0,
+            });
+            saveTaskTemplatesToStorage();
+            toggleNewTaskTemplateForm();
+            renderTaskTemplatesList();
+            showToast('Modelo salvo!');
+        }
+        function saveTaskAsTemplate() {
+            const id = document.getElementById('taskId').value;
+            const t = tasks.find(x => x.id === id);
+            if (!t) return;
+            const name = prompt('Nome deste modelo:', t.title);
+            if (!name || !name.trim()) return;
+            taskTemplates.push({
+                id: crypto.randomUUID(), name: name.trim(), title: t.title, desc: t.desc || '',
+                priority: t.priority || 'medium', tags: [...(t.tags || [])],
+                checklist: (t.checklist || []).map(i => ({ id: crypto.randomUUID(), text: i.text, done: false })),
+                estimatedMinutes: t.estimatedMinutes || 0,
+            });
+            saveTaskTemplatesToStorage();
+            showToast('Modelo salvo! Acesse em "Modelos" na aba Tarefas.');
+        }
+        function applyTaskTemplate(id) {
+            const tpl = taskTemplates.find(x => x.id === id);
+            if (!tpl) return;
+            closeTaskTemplatesModal();
+            openTaskModal();
+            document.getElementById('taskTitle').value = tpl.title;
+            document.getElementById('taskDesc').value = tpl.desc || '';
+            document.getElementById('taskPriority').value = tpl.priority || 'medium';
+            document.getElementById('taskEstimate').value = tpl.estimatedMinutes || 0;
+            currentTaskTags = [...(tpl.tags || [])];
+            renderTaskTagsInModal();
+            currentChecklist = (tpl.checklist || []).map(i => ({ id: crypto.randomUUID(), text: i.text, done: false }));
+            renderChecklistInModal();
+            showToast(`Modelo "${tpl.name}" aplicado — revise e salve.`);
+        }
+        function deleteTaskTemplate(id) {
+            showConfirm('Excluir este modelo de tarefa?', '', () => {
+                taskTemplates = taskTemplates.filter(x => x.id !== id);
+                saveTaskTemplatesToStorage();
+                renderTaskTemplatesList();
+                showToast('Modelo excluído.');
+            });
+        }
+        // ── fim Modelos de Tarefa avulsos ────────────────────────────────────
+
+        // ── Captura Rápida de Tarefa (Quick Add) ─────────────────────────────
+        function openQuickAddTaskModal() {
+            document.getElementById('quickAddTaskModal').classList.remove('hidden');
+            document.getElementById('quickAddTaskInput').value = '';
+            setTimeout(() => document.getElementById('quickAddTaskInput').focus(), 80);
+        }
+        function closeQuickAddTaskModal() {
+            document.getElementById('quickAddTaskModal').classList.add('hidden');
+        }
+        function submitQuickAddTask() {
+            const raw = document.getElementById('quickAddTaskInput').value.trim();
+            if (!raw) { showToast('Digite algo para criar a tarefa.', 'error'); return; }
+
+            const priorityMap = {
+                'urgente':'urgent', 'urgent':'urgent',
+                'alta':'high', 'high':'high',
+                'normal':'medium', 'media':'medium', 'média':'medium', 'medium':'medium',
+                'baixa':'low', 'low':'low',
+            };
+            let priority = 'medium';
+            let contactId = '';
+            const tagsFound = [];
+            let title = raw;
+
+            title = title.replace(/!(\S+)/g, (m, word) => {
+                const p = priorityMap[word.toLowerCase()];
+                if (p) { priority = p; return ''; }
+                return m;
+            });
+            title = title.replace(/#(\S+)/g, (m, word) => { tagsFound.push(word); return ''; });
+            title = title.replace(/@(\S+)/g, (m, word) => {
+                const match = contacts.find(c => fullName(c).toLowerCase().startsWith(word.toLowerCase()) || (c.name||'').toLowerCase().startsWith(word.toLowerCase()));
+                if (match) { contactId = match.id; return ''; }
+                return m;
+            });
+            title = title.replace(/\s+/g, ' ').trim();
+            if (!title) { showToast('A tarefa precisa de um título.', 'error'); return; }
+
+            const task = {
+                id: crypto.randomUUID(), title, desc: '', date: getSPTodayStr(), time: '',
+                priority, notification: '0', emailAlert: '0', contactId, dependsOnId: '',
+                recurrence: 'none', recurrenceInterval: 1, tags: tagsFound, customFields: [],
+                estimatedMinutes: 0, checklist: [], kanbanColumn: 'todo', completed: false, notified: false,
+                changeLog: [], comments: [], attachments: [], waiting: false, waitingNote: '', waitingSince: '',
+                createdAt: new Date().toISOString(), archived: false,
+            };
+            tasks.push(task);
+            saveTasksToStorage();
+            cloudSyncTask(task);
+            _refreshCurrentTaskView();
+            if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
+            closeQuickAddTaskModal();
+            showToast('Tarefa criada!');
+        }
+        // ── fim Captura Rápida de Tarefa ──────────────────────────────────────
+
         function openPlaybookModal() {
             document.getElementById('playbookModal').classList.remove('hidden');
             showPlaybookView('list');
@@ -14343,6 +14566,7 @@
                 recurrence: document.getElementById('taskRecurrence').value,
                 recurrenceInterval: parseInt(document.getElementById('taskRecInterval').value) || 1,
                 tags: [...currentTaskTags],
+                customFields: currentTaskCustomFields.filter(f => f.label.trim() || f.value.trim()),
                 estimatedMinutes: parseInt(document.getElementById('taskEstimate').value) || 0,
                 checklist: currentChecklist.map(i => ({...i})),
                 kanbanColumn: existingTask ? (existingTask.kanbanColumn || 'todo') : 'todo',
@@ -14424,6 +14648,9 @@
             currentTaskTags = t.tags ? [...t.tags] : [];
             fillTaskTagSuggestions();
             renderTaskTagsInModal();
+            currentTaskCustomFields = t.customFields ? t.customFields.map(f => ({...f})) : [];
+            renderTaskCustomFields();
+            document.getElementById('taskSaveAsTemplateBtn').classList.remove('hidden');
             renderChangeLogGeneric(t.changeLog, 'taskChangeLog', 'taskChangeLogSection', 'taskChangeLogBadge');
             document.getElementById('taskAttachmentsSection').classList.remove('hidden');
             renderTaskAttachments(t.id);
@@ -15957,6 +16184,7 @@
                     "monthlyCallGoal": parseInt(localStorage.getItem('vends_monthly_call_goal') || '200'),
                     "scoreHistory":  JSON.parse(localStorage.getItem('vends_score_history')  || '{}'),
                     "taskPlaybooks": taskPlaybooks,
+                    "taskTemplates": taskTemplates,
                     "automationRules": automationRules,
                     "messageSignature": localStorage.getItem('sant_crm_message_signature') || '',
                     "icsFeedToken": icsFeedToken || null,
@@ -16001,6 +16229,7 @@
                 if (data.monthlyCallGoal)            localStorage.setItem('vends_monthly_call_goal', String(data.monthlyCallGoal));
                 if (data.scoreHistory && Object.keys(data.scoreHistory).length) localStorage.setItem('vends_score_history', JSON.stringify(data.scoreHistory));
                 if (data.taskPlaybooks?.length) { taskPlaybooks = data.taskPlaybooks; localStorage.setItem('sant_crm_task_playbooks', JSON.stringify(taskPlaybooks)); }
+                if (data.taskTemplates?.length) { taskTemplates = data.taskTemplates; localStorage.setItem('sant_crm_task_templates', JSON.stringify(taskTemplates)); }
                 if (data.automationRules?.length) { automationRules = data.automationRules; migrateAutomationRules(); localStorage.setItem('sant_crm_automations', JSON.stringify(automationRules)); }
                 if (data.messageSignature)          localStorage.setItem('sant_crm_message_signature', data.messageSignature);
                 if (data.savedFilters?.length)      { savedFilters = data.savedFilters; localStorage.setItem('vends_saved_filters', JSON.stringify(savedFilters)); renderSavedFilters(); }
@@ -18320,11 +18549,40 @@
             currentTaskTags = [];
             fillTaskTagSuggestions();
             renderTaskTagsInModal();
+            currentTaskCustomFields = [];
+            renderTaskCustomFields();
+            document.getElementById('taskSaveAsTemplateBtn').classList.add('hidden');
             document.getElementById('taskChangeLogSection').classList.add('hidden');
             document.getElementById('taskAttachmentsSection').classList.add('hidden');
             document.getElementById('taskCommentsSection').classList.add('hidden');
             document.getElementById('taskModal').classList.remove('hidden');
             takeModalSnapshot('taskModal');
+        }
+        function renderTaskCustomFields() {
+            const container = document.getElementById('taskCustomFieldsContainer');
+            if (!container) return;
+            if (currentTaskCustomFields.length === 0) {
+                container.innerHTML = '<p class="text-xs text-gray-600 italic">Nenhum campo personalizado. Ex: "Cliente PJ/PF", "Valor envolvido".</p>';
+                return;
+            }
+            container.innerHTML = currentTaskCustomFields.map((f, i) => `
+                <div class="flex gap-2">
+                    <input type="text" value="${(f.label||'').replace(/"/g,'&quot;')}" oninput="currentTaskCustomFields[${i}].label=this.value" placeholder="Nome do campo"
+                        class="w-2/5 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none transition-colors">
+                    <input type="text" value="${(f.value||'').replace(/"/g,'&quot;')}" oninput="currentTaskCustomFields[${i}].value=this.value" placeholder="Valor"
+                        class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none transition-colors">
+                    <button type="button" onclick="removeTaskCustomField(${i})" class="text-gray-400 hover:text-red-500 px-2 shrink-0"><i class="ph ph-trash"></i></button>
+                </div>`).join('');
+        }
+        function addTaskCustomField() {
+            currentTaskCustomFields.push({ label: '', value: '' });
+            renderTaskCustomFields();
+            const inputs = document.querySelectorAll('#taskCustomFieldsContainer input');
+            if (inputs.length) inputs[inputs.length - 2].focus();
+        }
+        function removeTaskCustomField(index) {
+            currentTaskCustomFields.splice(index, 1);
+            renderTaskCustomFields();
         }
         function closeTaskModal() {
             tryCloseModal('taskModal', () => document.getElementById('taskModal').classList.add('hidden'));
@@ -21384,6 +21642,8 @@
                     const ql = document.getElementById('quickLookPopover');
                     if (ql && !ql.classList.contains('hidden')) { closeQuickLook(); return; }
                     if (!document.getElementById('quickNoteModal').classList.contains('hidden')) { closeQuickNoteModal(); return; }
+                    if (!document.getElementById('quickAddTaskModal').classList.contains('hidden')) { closeQuickAddTaskModal(); return; }
+                    if (!document.getElementById('taskTemplatesModal').classList.contains('hidden')) { closeTaskTemplatesModal(); return; }
                     if (!document.getElementById('csvImportPreviewModal').classList.contains('hidden')) { closeCsvImportPreview(); return; }
                     if (!document.getElementById('copyTaskWeekdaysModal').classList.contains('hidden')) { closeCopyTaskWeekdaysModal(); return; }
                     if (!document.getElementById('contactModal').classList.contains('hidden')) { closeModal(); return; }
@@ -21452,6 +21712,11 @@
                 // F alterna modo apresentação/foco
                 if (!isTyping && (e.key === 'f' || e.key === 'F')) {
                     toggleFocusMode();
+                }
+
+                // T abre a Captura Rápida de tarefa
+                if (!isTyping && (e.key === 't' || e.key === 'T')) {
+                    openQuickAddTaskModal();
                 }
 
                 // R abre interação rápida com o último contato aberto
