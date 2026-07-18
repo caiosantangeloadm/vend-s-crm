@@ -4100,7 +4100,7 @@
         let lastNoteId = null;
         let hoveredContactId = null;
         let noteKanbanDragId = null;
-        let currentNotesSort = 'newest';
+        let currentNotesSort = localStorage.getItem('sant_crm_notes_sort') || 'newest';
         let currentViewMode = localStorage.getItem('sant_crm_view_mode') || 'grid';
         let bulkMode = false;
         let selectedContactIds = new Set();
@@ -8967,6 +8967,7 @@
             group.forEach((n, i) => { n.sortOrder = i; });
 
             currentNotesSort = 'manual';
+            localStorage.setItem('sant_crm_notes_sort', 'manual');
             const sortSel = document.getElementById('notesSortSelect');
             if (sortSel) sortSel.value = 'manual';
 
@@ -9278,6 +9279,8 @@
 
         function renderNotes() {
             if (notesViewMode === 'kanban') { renderNotesKanban(); return; }
+            const sortSelEl = document.getElementById('notesSortSelect');
+            if (sortSelEl && sortSelEl.value !== currentNotesSort) sortSelEl.value = currentNotesSort;
             renderNoteTagFilterBar();
             const term = (document.getElementById('notesSearchInput')?.value || '').toLowerCase();
             // Oculta caixa de nova nota no modo arquivo
@@ -9345,7 +9348,7 @@
             }
         }
 
-        function setNotesSort(val) { currentNotesSort = val; renderNotes(); }
+        function setNotesSort(val) { currentNotesSort = val; localStorage.setItem('sant_crm_notes_sort', val); renderNotes(); }
 
         function setNotesViewMode(mode) {
             notesViewMode = mode;
