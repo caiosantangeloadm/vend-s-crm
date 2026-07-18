@@ -1149,6 +1149,7 @@
                         <button onclick="exportCalendarIcs()" class="w-10 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan flex items-center justify-center transition-colors" title="Exportar Agenda (.ics)"><i class="ph ph-export"></i></button>
                         <button onclick="exportAgendaPdf()" class="w-10 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan flex items-center justify-center transition-colors" title="Exportar Agenda (PDF) — respeita o filtro de tipo ativo"><i class="ph ph-file-pdf"></i></button>
                         <button onclick="exportAgendaCsv()" class="w-10 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan flex items-center justify-center transition-colors" title="Exportar Agenda (CSV) — respeita o filtro de tipo ativo"><i class="ph ph-file-csv"></i></button>
+                        <button onclick="openAgendaSummaryModal()" class="w-10 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan flex items-center justify-center transition-colors" title="Gerar resumo do dia/semana (copiar ou WhatsApp)"><i class="ph ph-clipboard-text"></i></button>
                         <button id="btnCopyWeek" onclick="copyWeekToNextWeek()" class="hidden items-center gap-2 h-10 px-3 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors text-sm font-medium" title="Copiar todos os compromissos desta semana para a próxima"><i class="ph ph-copy"></i> Copiar Semana</button>
                         <button onclick="openEventModal()" class="bg-sant-purple hover:bg-purple-800 text-white px-5 py-2 rounded-lg flex items-center gap-2 transition-all font-medium">
                             <i class="ph ph-plus"></i> Evento
@@ -3437,6 +3438,28 @@
             <div class="flex justify-end gap-2 p-5 border-t border-sant-border">
                 <button onclick="closeQuickNoteModal()" class="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Cancelar</button>
                 <button onclick="saveQuickNoteModal()" class="px-4 py-2 rounded-lg bg-sant-cyan hover:bg-cyan-400 text-sant-bg text-sm font-bold transition-colors">Salvar Nota</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE RESUMO DA AGENDA (copiar/WhatsApp) -->
+    <div id="agendaSummaryModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeAgendaSummaryModal()">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg shadow-2xl">
+            <div class="flex justify-between items-center p-5 border-b border-sant-border">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-clipboard-text text-sant-cyan"></i> Resumo da Agenda</h3>
+                <button onclick="closeAgendaSummaryModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <div class="p-5 space-y-3">
+                <div class="flex gap-1.5">
+                    <button onclick="setAgendaSummaryPeriod('today')" id="agSumBtnToday" class="flex-1 px-3 py-2 rounded-lg text-xs font-medium bg-sant-purple text-white transition-colors">Hoje</button>
+                    <button onclick="setAgendaSummaryPeriod('tomorrow')" id="agSumBtnTomorrow" class="flex-1 px-3 py-2 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-white transition-colors">Amanhã</button>
+                    <button onclick="setAgendaSummaryPeriod('week')" id="agSumBtnWeek" class="flex-1 px-3 py-2 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-white transition-colors">Esta Semana</button>
+                </div>
+                <textarea id="agendaSummaryText" rows="10" readonly class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-3 text-sm text-gray-300 outline-none resize-none"></textarea>
+            </div>
+            <div class="flex justify-end gap-2 p-5 border-t border-sant-border">
+                <button onclick="copyAgendaSummary()" class="px-4 py-2 text-sm text-gray-400 hover:text-white border border-sant-border rounded-lg transition-colors flex items-center gap-2"><i class="ph ph-clipboard-text"></i> Copiar</button>
+                <button onclick="sendAgendaSummaryWhatsapp()" class="px-4 py-2 rounded-lg bg-[#25D366] hover:bg-[#1fb855] text-white text-sm font-bold transition-colors flex items-center gap-2"><i class="ph ph-whatsapp-logo"></i> WhatsApp</button>
             </div>
         </div>
     </div>
@@ -12494,6 +12517,87 @@
             return getBrazilianHolidaysForYear(year)[dateStr] || null;
         }
         // ── fim Feriados Nacionais ────────────────────────────────────────────
+
+        // ── Resumo da Agenda (copiar/WhatsApp) ────────────────────────────────
+        let agendaSummaryPeriod = 'today';
+        function openAgendaSummaryModal() {
+            document.getElementById('agendaSummaryModal').classList.remove('hidden');
+            setAgendaSummaryPeriod('today');
+        }
+        function closeAgendaSummaryModal() {
+            document.getElementById('agendaSummaryModal').classList.add('hidden');
+        }
+        function setAgendaSummaryPeriod(period) {
+            agendaSummaryPeriod = period;
+            ['today','tomorrow','week'].forEach(p => {
+                const btn = document.getElementById('agSumBtn' + p.charAt(0).toUpperCase() + p.slice(1));
+                if (!btn) return;
+                const active = p === period;
+                btn.classList.toggle('bg-sant-purple', active);
+                btn.classList.toggle('text-white', active);
+                btn.classList.toggle('bg-sant-surface', !active);
+                btn.classList.toggle('border', !active);
+                btn.classList.toggle('border-sant-border', !active);
+                btn.classList.toggle('text-gray-400', !active);
+            });
+            document.getElementById('agendaSummaryText').value = buildAgendaSummaryText(period);
+        }
+        function buildAgendaSummaryText(period) {
+            const todayStr = getSPTodayStr();
+            const [ty, tm, td] = todayStr.split('-').map(Number);
+            const today = new Date(ty, tm - 1, td);
+            const weekDayNamesLong = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'];
+            const monthNamesShort = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+            let dates = [];
+            if (period === 'today') {
+                dates = [new Date(today)];
+            } else if (period === 'tomorrow') {
+                const t = new Date(today); t.setDate(t.getDate() + 1);
+                dates = [t];
+            } else {
+                const dow = today.getDay();
+                const diffToMon = dow === 0 ? -6 : 1 - dow;
+                const monday = new Date(today); monday.setDate(today.getDate() + diffToMon);
+                for (let i = 0; i < 7; i++) { const d = new Date(monday); d.setDate(monday.getDate() + i); dates.push(d); }
+            }
+
+            const periodLabel = period === 'today' ? 'Hoje' : period === 'tomorrow' ? 'Amanhã' : 'Esta Semana';
+            const lines = [`📅 *Resumo da Agenda — ${periodLabel}*`, ''];
+
+            dates.forEach(d => {
+                const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                const monthDayStr = dateStr.substring(5);
+                const holiday = getBrazilianHoliday(dateStr);
+                const dayEvents = events.filter(e => isEventOnDate(e, dateStr)).sort((a,b) => (a.startTime||'23:59').localeCompare(b.startTime||'23:59'));
+                const bdays = contacts.filter(c => c.birth && c.birth.endsWith(monthDayStr));
+
+                lines.push(`*${weekDayNamesLong[d.getDay()]}, ${d.getDate()} de ${monthNamesShort[d.getMonth()]}*`);
+                if (holiday) lines.push(`🚩 Feriado: ${holiday}`);
+                if (dayEvents.length === 0 && bdays.length === 0) {
+                    lines.push('Nenhum compromisso.');
+                } else {
+                    dayEvents.forEach(e => {
+                        lines.push(`${e.startTime ? e.startTime + ' — ' : '• '}${e.title}${e.location ? ' (' + e.location + ')' : ''}`);
+                    });
+                    bdays.forEach(c => lines.push(`🎂 Aniversário: ${fullName(c)}`));
+                }
+                lines.push('');
+            });
+
+            return lines.join('\n').trim();
+        }
+        function copyAgendaSummary() {
+            const text = document.getElementById('agendaSummaryText').value;
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('Resumo copiado!');
+            }).catch(() => showToast('Não foi possível copiar.', 'error'));
+        }
+        function sendAgendaSummaryWhatsapp() {
+            const text = document.getElementById('agendaSummaryText').value;
+            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+        }
+        // ── fim Resumo da Agenda ────────────────────────────────────────────
 
         function renderCalendar() {
             updateWorkWeekBtn();
