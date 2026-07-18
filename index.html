@@ -12446,6 +12446,55 @@
         }
         // ── FIM NÍVEL 4 helpers ─────────────────────────────────────────────
 
+        // ── Feriados Nacionais (Brasil) ──────────────────────────────────────
+        const BR_FIXED_HOLIDAYS = [
+            { month: 1,  day: 1,  name: 'Confraternização Universal' },
+            { month: 4,  day: 21, name: 'Tiradentes' },
+            { month: 5,  day: 1,  name: 'Dia do Trabalho' },
+            { month: 9,  day: 7,  name: 'Independência do Brasil' },
+            { month: 10, day: 12, name: 'Nossa Sr.ª Aparecida' },
+            { month: 11, day: 2,  name: 'Finados' },
+            { month: 11, day: 15, name: 'Proclamação da República' },
+            { month: 12, day: 25, name: 'Natal' },
+        ];
+        const _brHolidayCache = {};
+        function _easterSunday(year) {
+            // Algoritmo de Gauss/Meeus para cálculo da Páscoa
+            const a = year % 19, b = Math.floor(year / 100), c = year % 100;
+            const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+            const g = Math.floor((b - f + 1) / 3), h = (19*a + b - d - g + 15) % 30;
+            const i = Math.floor(c / 4), k = c % 4, l = (32 + 2*e + 2*i - h - k) % 7;
+            const m = Math.floor((a + 11*h + 22*l) / 451);
+            const month = Math.floor((h + l - 7*m + 114) / 31);
+            const day = ((h + l - 7*m + 114) % 31) + 1;
+            return new Date(year, month - 1, day);
+        }
+        function getBrazilianHolidaysForYear(year) {
+            if (_brHolidayCache[year]) return _brHolidayCache[year];
+            const map = {};
+            BR_FIXED_HOLIDAYS.forEach(h => {
+                map[`${year}-${String(h.month).padStart(2,'0')}-${String(h.day).padStart(2,'0')}`] = h.name;
+            });
+            const easter = _easterSunday(year);
+            const addOffset = (offsetDays, name) => {
+                const d = new Date(easter);
+                d.setDate(d.getDate() + offsetDays);
+                const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                map[ds] = name;
+            };
+            addOffset(-47, 'Carnaval');
+            addOffset(-2, 'Sexta-feira Santa');
+            addOffset(60, 'Corpus Christi');
+            _brHolidayCache[year] = map;
+            return map;
+        }
+        function getBrazilianHoliday(dateStr) {
+            if (!dateStr) return null;
+            const year = parseInt(dateStr.substring(0, 4));
+            return getBrazilianHolidaysForYear(year)[dateStr] || null;
+        }
+        // ── fim Feriados Nacionais ────────────────────────────────────────────
+
         function renderCalendar() {
             updateWorkWeekBtn();
             // Inicializa filtros
@@ -12489,8 +12538,11 @@
 
                     const dayTasks = tasks.filter(t => t.date === dateStr && !t.completed);
                     const dayTasksDone = tasks.filter(t => t.date === dateStr && t.completed);
+                    const holidayName = getBrazilianHoliday(dateStr);
 
-                    let eventsHtml = '';
+                    let eventsHtml = holidayName
+                        ? `<div class="text-[9px] truncate bg-pink-500/10 text-pink-400 px-1 rounded mb-1 border border-pink-500/20" title="Feriado Nacional"><i class="ph ph-flag"></i> ${holidayName}</div>`
+                        : '';
                     if(dayEvents.length > 0) {
                         dayEvents.slice(0, 2).forEach(e => {
                             const m = getEventTypeMeta(e);
@@ -12527,10 +12579,10 @@
                     }
 
                     daysGrid.innerHTML += `
-                        <div onclick="switchToDayView('${dateStr}')"
-                            class="border-r border-b border-sant-border p-2 cursor-pointer hover:bg-[#141414] transition-colors relative group min-h-[100px] ${isToday ? 'bg-sant-cyan/5' : ''}">
+                        <div onclick="switchToDayView('${dateStr}')" title="${holidayName || ''}"
+                            class="border-r border-b border-sant-border p-2 cursor-pointer hover:bg-[#141414] transition-colors relative group min-h-[100px] ${isToday ? 'bg-sant-cyan/5' : holidayName ? 'bg-pink-500/[0.03]' : ''}">
                             <div class="text-right mb-1">
-                                <span class="text-xs font-bold ${isToday ? 'bg-sant-cyan text-sant-bg px-2 py-0.5 rounded-full' : 'text-gray-400 group-hover:text-white'}">${d}</span>
+                                <span class="text-xs font-bold ${isToday ? 'bg-sant-cyan text-sant-bg px-2 py-0.5 rounded-full' : holidayName ? 'text-pink-400' : 'text-gray-400 group-hover:text-white'}">${d}</span>
                             </div>
                             <div class="flex flex-col gap-0.5">${eventsHtml}</div>
                             ${dotsHtml}
@@ -12597,10 +12649,12 @@
 
                 colData.forEach(({dateStr, d, mo, isToday, dayEvs, bdays, dayTasksW, wd}, idx) => {
                     const isLast = idx === colData.length - 1;
+                    const holidayName = getBrazilianHoliday(dateStr);
                     // Header cell — flexbox, same width as day columns
-                    headerCells += `<div style="flex:1;min-width:0;padding:8px 4px;text-align:center;box-sizing:border-box;border-right:${isLast?'none':'1px solid #1f1f1f'};${isToday?'background:rgba(34,211,238,0.05)':''}">
+                    headerCells += `<div title="${holidayName || ''}" style="flex:1;min-width:0;padding:8px 4px;text-align:center;box-sizing:border-box;border-right:${isLast?'none':'1px solid #1f1f1f'};${isToday?'background:rgba(34,211,238,0.05)':holidayName?'background:rgba(236,72,153,0.04)':''}">
                         <p style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;margin:0;">${weekDaysNames[wd]}</p>
-                        <p style="font-size:16px;font-weight:700;margin:2px 0 0 0;${isToday?'display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:#22d3ee;color:#030303;border-radius:50%;':'color:#fff;'}">${d}</p>
+                        <p style="font-size:16px;font-weight:700;margin:2px 0 0 0;${isToday?'display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:#22d3ee;color:#030303;border-radius:50%;':holidayName?'color:#f472b6;':'color:#fff;'}">${d}</p>
+                        ${holidayName ? `<p style="font-size:8px;color:#f472b6;margin:2px 0 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><i class="ph ph-flag"></i> ${holidayName}</p>` : ''}
                     </div>`;
                     // All-day cell — flexbox, same width as day columns
                     let adHtml = '';
