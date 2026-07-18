@@ -7479,6 +7479,21 @@
                     });
                 });
 
+            // ── 8. Contatos órfãos (bom engajamento/lead, mas sem NENHUMA tarefa ou compromisso vinculado) ──
+            const tasksContactIds = new Set(tasks.map(t => t.contactId).filter(Boolean));
+            const eventsContactIds = new Set(events.map(e => e.contactId).filter(Boolean));
+            contacts
+                .filter(c => (c.isLead || calcRelScore(c).score >= 40) && !tasksContactIds.has(c.id) && !eventsContactIds.has(c.id))
+                .sort((a,b) => calcRelScore(b).score - calcRelScore(a).score)
+                .slice(0, 3)
+                .forEach(c => {
+                    items.push({
+                        priority: 4, icon: 'ph-link-break', color: '#7aafc8', bg: 'bg-sant-cyan/10', border: 'border-sant-cyan/20',
+                        label: c.isLead ? 'Lead sem tarefa/compromisso vinculado' : 'Bom relacionamento sem acompanhamento agendado',
+                        name: fullName(c), action: `openHistoryModal('${c.id}')`, actionLabel: 'Agendar'
+                    });
+                });
+
             if (!items.length) {
                 card.classList.add('hidden');
                 return;
