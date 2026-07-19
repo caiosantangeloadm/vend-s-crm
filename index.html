@@ -5745,6 +5745,7 @@
                 "changeLog": e.changeLog || [],
                 notified: e.notified || false,
                 "realizedDates": e.realizedDates || [],
+                outcomes: e.outcomes || {},
                 checklist: e.checklist || [],
                 links: e.links || [],
             };
@@ -13467,19 +13468,27 @@
                     const borderCls = isConflict ? 'border-orange-500/70' : m.border;
                     const conflictIcon = isConflict ? `<i class="ph ph-warning text-orange-400 text-[10px] shrink-0" title="Conflito de horário"></i>` : '';
                     const realized = (e.realizedDates||[]).includes(dateStr);
+                    const outcome = (e.outcomes || {})[dateStr] || '';
+                    const om = EVENT_OUTCOME_META[outcome];
                     return `<div class="absolute rounded-lg border ${borderCls} ${m.bg} overflow-hidden cursor-pointer hover:brightness-110 transition-all group/ev z-10 ${realized?'opacity-60':''}"
                         style="top:${e.sMin*PX_PER_MIN}px;height:${h}px;left:${lft};width:${colW};padding:3px 6px"
                         onclick="openEventModal(events.find(x=>x.id==='${e.id}'),'${dateStr}')">
                         <div class="flex items-start justify-between gap-1 h-full overflow-hidden">
                             <div class="min-w-0 flex-1 overflow-hidden">
-                                <p class="text-xs font-bold truncate leading-tight text-sant-cyan flex items-center gap-1 ${realized?'line-through':''}">${realized?'<i class="ph ph-check-circle text-green-400 shrink-0"></i> ':''}${e.title}${conflictIcon}</p>
+                                <p class="text-xs font-bold truncate leading-tight text-sant-cyan flex items-center gap-1 ${realized?'line-through':''}">${om?`<i class="ph ${om.icon} shrink-0" style="color:${om.color}" title="${om.label}"></i> `:''}${e.title}${conflictIcon}</p>
                                 ${h>34?`<p class="text-[10px] text-gray-500 mt-0.5 leading-tight">${e.startTime}${e.endTime?' – '+e.endTime:''}</p>`:''}
                                 ${h>54&&e.location?`<p class="text-[10px] text-gray-500 mt-0.5 truncate leading-tight"><i class="ph ph-map-pin"></i> ${e.location}</p>`:''}
                                 ${h>74&&linkedC?`<p class="text-[10px] text-gray-500 mt-0.5 truncate leading-tight"><i class="ph ph-user"></i> ${fullName(linkedC)}</p>`:''}
                             </div>
                             <div class="flex flex-col gap-0.5 opacity-100 sm:opacity-0 sm:group-hover/ev:opacity-100 transition-opacity shrink-0">
                                 ${e.virtualLocation ? `<a href="${e.virtualLocation}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="text-sant-cyan hover:text-white text-[11px] leading-none" title="Entrar na reunião"><i class="ph ph-video-camera"></i></a>` : ''}
-                                <button onclick="event.stopPropagation();toggleEventRealized('${e.id}','${dateStr}')" class="${realized?'text-green-400':'text-gray-500 hover:text-green-400'} text-[11px] leading-none" title="${realized?'Desmarcar como realizado':'Marcar como realizado'}"><i class="ph ph-check-circle"></i></button>
+                                <select onclick="event.stopPropagation()" onchange="event.stopPropagation();setEventOutcome('${e.id}','${dateStr}',this.value)" class="bg-transparent border-none outline-none text-[10px] leading-none cursor-pointer" style="color:${om?om.color:'#6b7280'};max-width:20px" title="Resultado do compromisso">
+                                    <option value="" ${!outcome?'selected':''}>—</option>
+                                    <option value="realized" ${outcome==='realized'?'selected':''}>✅ Realizado</option>
+                                    <option value="noshow" ${outcome==='noshow'?'selected':''}>🚫 Não Compareceu</option>
+                                    <option value="cancelled" ${outcome==='cancelled'?'selected':''}>❌ Cancelado</option>
+                                    <option value="rescheduled" ${outcome==='rescheduled'?'selected':''}>🔁 Remarcado</option>
+                                </select>
                                 <button onclick="event.stopPropagation();openEventModal(events.find(x=>x.id==='${e.id}'),'${dateStr}')" class="text-gray-500 hover:text-sant-cyan text-[11px] leading-none"><i class="ph ph-pencil-simple"></i></button>
                                 <button onclick="event.stopPropagation();deleteEvent('${e.id}','${dateStr}')" class="text-gray-500 hover:text-red-500 text-[11px] leading-none"><i class="ph ph-trash"></i></button>
                             </div>
@@ -13680,6 +13689,7 @@
                 event.changeLog = original ? (original.changeLog || []) : [];
                 event.excludedDates = original ? (original.excludedDates || []) : [];
                 event.realizedDates = original ? (original.realizedDates || []) : [];
+                event.outcomes = original ? (original.outcomes || {}) : {};
                 event.uid = original ? (original.uid || '') : '';
                 event.createdAt = original ? (original.createdAt || new Date().toISOString()) : new Date().toISOString();
                 event.notified = original ? (original.notified || false) : false;
@@ -13819,6 +13829,31 @@
             saveEventsToStorage();
             cloudSyncEvent(ev);
             renderCalendar();
+        }
+
+        const EVENT_OUTCOME_META = {
+            realized:    { icon: 'ph-check-circle',      color: '#4ade80', label: 'Realizado' },
+            noshow:      { icon: 'ph-user-minus',        color: '#f87171', label: 'Não Compareceu' },
+            cancelled:   { icon: 'ph-x-circle',          color: '#94a3b8', label: 'Cancelado' },
+            rescheduled: { icon: 'ph-arrows-clockwise',  color: '#fbbf24', label: 'Remarcado' },
+        };
+        function setEventOutcome(id, dateStr, outcome) {
+            const ev = events.find(e => e.id === id);
+            if (!ev) return;
+            if (!ev.outcomes) ev.outcomes = {};
+            if (outcome) ev.outcomes[dateStr] = outcome;
+            else delete ev.outcomes[dateStr];
+
+            // Mantém realizedDates sincronizado (compatibilidade com relatórios/estatísticas existentes)
+            if (!ev.realizedDates) ev.realizedDates = [];
+            const idx = ev.realizedDates.indexOf(dateStr);
+            if (outcome === 'realized' && idx === -1) ev.realizedDates.push(dateStr);
+            else if (outcome !== 'realized' && idx !== -1) ev.realizedDates.splice(idx, 1);
+
+            saveEventsToStorage();
+            cloudSyncEvent(ev);
+            renderCalendar();
+            showToast(outcome ? `Marcado como: ${EVENT_OUTCOME_META[outcome].label}` : 'Resultado removido.');
         }
 
         function deleteEvent(id, dateStr) {
