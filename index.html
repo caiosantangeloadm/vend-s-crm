@@ -4008,6 +4008,27 @@
                     <div id="referralsList" class="space-y-1.5"></div>
                 </div>
 
+                <!-- Consentimento de Comunicação (LGPD) -->
+                <div class="px-4 pt-3 pb-2">
+                    <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 mb-2">
+                        <i class="ph ph-shield-check text-sant-cyan"></i> Consentimento de Comunicação
+                    </h4>
+                    <div class="p-3 rounded-lg border border-sant-border bg-[#0a0a0a] space-y-2">
+                        <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                            <input type="checkbox" id="consentGiven" onchange="toggleCommunicationConsent(this.checked)" class="w-4 h-4 accent-sant-cyan cursor-pointer">
+                            Contato consentiu em receber comunicações
+                        </label>
+                        <div id="consentDetailsBox" class="hidden space-y-2 pl-6">
+                            <div class="flex flex-wrap gap-3">
+                                <label class="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer"><input type="checkbox" id="consentChWhatsapp" onchange="saveCommunicationConsent()" class="w-3.5 h-3.5 accent-sant-cyan cursor-pointer"> WhatsApp</label>
+                                <label class="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer"><input type="checkbox" id="consentChEmail" onchange="saveCommunicationConsent()" class="w-3.5 h-3.5 accent-sant-cyan cursor-pointer"> E-mail</label>
+                                <label class="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer"><input type="checkbox" id="consentChPhone" onchange="saveCommunicationConsent()" class="w-3.5 h-3.5 accent-sant-cyan cursor-pointer"> Ligação</label>
+                            </div>
+                            <p class="text-[10px] text-gray-600">Registrado em: <span id="consentDateLabel">—</span></p>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Observações Internas (privadas) -->
                 <div class="px-4 pt-3 pb-2">
                     <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 mb-2">
@@ -16237,6 +16258,7 @@
                 instagram: c.instagram || '', linkedin: c.linkedin || '',
                 category: c.category || '', "isLead": c.isLead || false,
                 temperature: c.temperature || 'frio', "dealValue": c.dealValue || 0, "totalRevenue": c.totalRevenue || 0,
+                "communicationConsent": c.communicationConsent || { given: false, channels: [], date: '' },
                 birth: c.birth || '', notes: c.notes || '', origin: c.origin || '',
                 "preferredChannel": c.preferredChannel || '',
                 "referredByContactId": c.referredByContactId || '',
@@ -20187,6 +20209,13 @@
             if (nsClr) nsClr.classList.toggle('hidden', !c.nextStep);
             const trInp = document.getElementById('historyTotalRevenue');
             if (trInp) trInp.value = c.totalRevenue || '';
+            const consent = c.communicationConsent || { given: false, channels: [], date: '' };
+            document.getElementById('consentGiven').checked = !!consent.given;
+            document.getElementById('consentChWhatsapp').checked = consent.channels.includes('whatsapp');
+            document.getElementById('consentChEmail').checked = consent.channels.includes('email');
+            document.getElementById('consentChPhone').checked = consent.channels.includes('phone');
+            document.getElementById('consentDetailsBox').classList.toggle('hidden', !consent.given);
+            document.getElementById('consentDateLabel').textContent = consent.date ? consent.date.split('-').reverse().join('/') : '—';
             const lrSection = document.getElementById('lossReasonSection');
             if (lrSection) lrSection.classList.toggle('hidden', !c.isLead);
             const lrSel = document.getElementById('historyLossReason');
@@ -21293,6 +21322,26 @@
             showToast(c.nextStep ? 'Próximo passo salvo.' : 'Próximo passo removido.');
         }
 
+        function toggleCommunicationConsent(checked) {
+            document.getElementById('consentDetailsBox').classList.toggle('hidden', !checked);
+            saveCommunicationConsent();
+        }
+        function saveCommunicationConsent() {
+            if (!currentHistoryContactId) return;
+            const c = contacts.find(x => x.id === currentHistoryContactId);
+            if (!c) return;
+            const given = document.getElementById('consentGiven').checked;
+            const channels = [];
+            if (document.getElementById('consentChWhatsapp').checked) channels.push('whatsapp');
+            if (document.getElementById('consentChEmail').checked) channels.push('email');
+            if (document.getElementById('consentChPhone').checked) channels.push('phone');
+            const prevDate = (c.communicationConsent && c.communicationConsent.date) || '';
+            const date = given ? (prevDate || getSPTodayStr()) : '';
+            c.communicationConsent = { given, channels, date };
+            saveToStorage(c.id);
+            const dateLabel = document.getElementById('consentDateLabel');
+            if (dateLabel) dateLabel.textContent = date ? date.split('-').reverse().join('/') : '—';
+        }
         function setTotalRevenue(value) {
             if (!currentHistoryContactId) return;
             const c = contacts.find(x => x.id === currentHistoryContactId);
