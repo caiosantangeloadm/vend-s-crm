@@ -2172,7 +2172,10 @@
                         <p class="text-xs text-gray-500">Crie regras simples: quando algo acontecer com um contato (ex: virar lead quente), o sistema cria uma tarefa automaticamente pra você. Só funciona enquanto o app está aberto.</p>
                     </div>
 
-                    <button onclick="openAutomationEditor()" class="w-full bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-4 py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 mb-4"><i class="ph ph-plus"></i> Nova Automação</button>
+                    <div class="flex gap-2 mb-4">
+                        <button onclick="openAutomationEditor()" class="flex-1 bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-4 py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-plus"></i> Nova Automação</button>
+                        <button onclick="openAutomationLogModal()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-4 py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2" title="Histórico de execuções — para auditar o que cada regra já disparou"><i class="ph ph-clock-counter-clockwise"></i> Histórico</button>
+                    </div>
                     <div id="automationsList" class="space-y-2"></div>
 
                     <!-- Editor de Automação -->
@@ -2189,6 +2192,7 @@
                                 <option value="became_warm">Lead virar Morno ☀️</option>
                                 <option value="became_lead">Contato virar Lead</option>
                                 <option value="inactive_days">Contato ficar inativo (sem interação) 🥶</option>
+                                <option value="tag_added">Etiqueta ser adicionada 🏷️</option>
                             </select>
                         </div>
                         <div id="automationInactiveDaysBox" class="hidden mb-4">
@@ -2197,6 +2201,10 @@
                                 <input type="number" min="1" id="automationInactiveDays" value="30" class="w-20 bg-[#141414] border border-sant-border rounded-lg px-2 py-2 text-sm text-white outline-none text-center focus:border-sant-cyan">
                                 <span class="text-[10px] text-gray-600">dias sem nenhuma interação registrada</span>
                             </div>
+                        </div>
+                        <div id="automationTriggerTagBox" class="hidden mb-4">
+                            <label class="block text-[10px] text-gray-500 uppercase mb-1">Qual etiqueta dispara a automação</label>
+                            <input type="text" id="automationTriggerTag" placeholder="Ex: Proposta enviada" list="tagSuggestions" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan">
                         </div>
                         <div class="mb-2 flex items-center justify-between">
                             <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide">...fazer isso, em sequência:</label>
@@ -3485,6 +3493,19 @@
         </div>
     </div>
 
+    <!-- MODAL DE HISTÓRICO DE EXECUÇÕES DE AUTOMAÇÃO -->
+    <div id="automationLogModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeAutomationLogModal()">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center p-5 border-b border-sant-border shrink-0">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-clock-counter-clockwise text-sant-cyan"></i> Histórico de Automações</h3>
+                <button onclick="closeAutomationLogModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <div class="overflow-y-auto custom-scrollbar p-5">
+                <div id="automationLogList" class="space-y-2"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL DE MODELOS DE TAREFA AVULSOS -->
     <div id="taskTemplatesModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeTaskTemplatesModal()">
         <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl">
@@ -4273,6 +4294,7 @@
         let editingTemplateId = null;
         let taskPlaybooks = [];
         let taskTemplates = JSON.parse(localStorage.getItem('sant_crm_task_templates') || '[]');
+        let automationExecutionLog = JSON.parse(localStorage.getItem('vends_automation_log') || '[]');
         let currentPlaybookSteps = [];
         let automationRules = [];
         let activeFilters = { category: '', isLead: '', temperature: '', tag: '', origin: '', list: '', city: '', state: '', intType: '', intFrom: '', intTo: '' };
@@ -16187,6 +16209,7 @@
                     "taskPlaybooks": taskPlaybooks,
                     "taskTemplates": taskTemplates,
                     "automationRules": automationRules,
+                    "automationExecutionLog": automationExecutionLog,
                     "messageSignature": localStorage.getItem('sant_crm_message_signature') || '',
                     "icsFeedToken": icsFeedToken || null,
                 };
@@ -16231,6 +16254,7 @@
                 if (data.scoreHistory && Object.keys(data.scoreHistory).length) localStorage.setItem('vends_score_history', JSON.stringify(data.scoreHistory));
                 if (data.taskPlaybooks?.length) { taskPlaybooks = data.taskPlaybooks; localStorage.setItem('sant_crm_task_playbooks', JSON.stringify(taskPlaybooks)); }
                 if (data.taskTemplates?.length) { taskTemplates = data.taskTemplates; localStorage.setItem('sant_crm_task_templates', JSON.stringify(taskTemplates)); }
+                if (data.automationExecutionLog?.length) { automationExecutionLog = data.automationExecutionLog; localStorage.setItem('vends_automation_log', JSON.stringify(automationExecutionLog)); }
                 if (data.automationRules?.length) { automationRules = data.automationRules; migrateAutomationRules(); localStorage.setItem('sant_crm_automations', JSON.stringify(automationRules)); }
                 if (data.messageSignature)          localStorage.setItem('sant_crm_message_signature', data.messageSignature);
                 if (data.savedFilters?.length)      { savedFilters = data.savedFilters; localStorage.setItem('vends_saved_filters', JSON.stringify(savedFilters)); renderSavedFilters(); }
@@ -17044,6 +17068,7 @@
             became_warm: '☀️ Lead vira Morno',
             became_lead: 'Contato vira Lead',
             inactive_days: '🥶 Contato fica inativo',
+            tag_added: '🏷️ Etiqueta adicionada',
         };
 
         // Migra automações do formato antigo (ação única) para o novo formato de sequência (steps[])
@@ -17071,10 +17096,10 @@
             if (!box) return;
             if (!automationRules.length) { box.innerHTML = '<p class="text-xs text-gray-600 italic text-center py-6">Nenhuma automação criada ainda.</p>'; return; }
             box.innerHTML = automationRules.map(r => {
-                const trigLabel = (AUTOMATION_TRIGGER_LABELS[r.trigger] || r.trigger) + (r.trigger === 'inactive_days' ? ` (${r.inactiveDays || 30}d)` : '');
+                const trigLabel = (AUTOMATION_TRIGGER_LABELS[r.trigger] || r.trigger) + (r.trigger === 'inactive_days' ? ` (${r.inactiveDays || 30}d)` : '') + (r.trigger === 'tag_added' ? ` "${r.triggerTagName || ''}"` : '');
                 const steps = r.steps || [];
                 const stepsSummary = steps.length === 1
-                    ? (steps[0].action === 'add_tag' ? `adiciona etiqueta "${steps[0].tagName}"` : steps[0].action === 'add_to_list' ? `adiciona à lista "${steps[0].listName}"` : `cria tarefa "${steps[0].taskTitle}" (D+${steps[0].daysOffset})`)
+                    ? (steps[0].action === 'add_tag' ? `adiciona etiqueta "${steps[0].tagName}"` : steps[0].action === 'remove_tag' ? `remove etiqueta "${steps[0].tagName}"` : steps[0].action === 'add_to_list' ? `adiciona à lista "${steps[0].listName}"` : `cria tarefa "${steps[0].taskTitle}" (D+${steps[0].daysOffset})`)
                     : `${steps.length} etapas (D+${steps.map(s=>s.daysOffset).join(', D+')})`;
                 return `
                 <div class="bg-[#0a0a0a] border border-sant-border rounded-lg p-4">
@@ -17108,6 +17133,7 @@
         function updateAutomationEditorUI() {
             const trigger = document.getElementById('automationTrigger').value;
             document.getElementById('automationInactiveDaysBox').classList.toggle('hidden', trigger !== 'inactive_days');
+            document.getElementById('automationTriggerTagBox').classList.toggle('hidden', trigger !== 'tag_added');
             const stopBox = document.getElementById('automationStopBox');
             stopBox.classList.toggle('hidden', trigger === 'inactive_days');
             stopBox.classList.toggle('flex', trigger !== 'inactive_days');
@@ -17156,6 +17182,7 @@
                             <select onchange="updateAutomationStep(${i},'action',this.value);renderAutomationSteps()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-2 py-2 text-sm text-white outline-none focus:border-sant-cyan">
                                 <option value="create_task" ${step.action==='create_task'?'selected':''}>Criar tarefa</option>
                                 <option value="add_tag" ${step.action==='add_tag'?'selected':''}>Adicionar etiqueta</option>
+                                <option value="remove_tag" ${step.action==='remove_tag'?'selected':''}>Remover etiqueta</option>
                                 <option value="add_to_list" ${step.action==='add_to_list'?'selected':''}>Adicionar à lista</option>
                             </select>
                         </div>
@@ -17183,6 +17210,7 @@
                         <div>
                             <label class="block text-[10px] text-gray-500 uppercase mb-1">Nome da etiqueta</label>
                             <input type="text" value="${(step.tagName||'').replace(/"/g,'&quot;')}" oninput="updateAutomationStep(${i},'tagName',this.value)" placeholder="Ex: 🥶 Esfriando" list="tagSuggestions" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan">
+                            ${step.action === 'remove_tag' ? `<p class="text-[10px] text-gray-600 mt-1">Remove esta etiqueta do contato, se ele tiver.</p>` : ''}
                         </div>`}
                 </div>`).join('');
         }
@@ -17193,6 +17221,7 @@
             document.getElementById('automationName').value = r ? r.name : '';
             document.getElementById('automationTrigger').value = r ? r.trigger : 'became_hot';
             document.getElementById('automationInactiveDays').value = r ? (r.inactiveDays || 30) : 30;
+            document.getElementById('automationTriggerTag').value = r ? (r.triggerTagName || '') : '';
             document.getElementById('automationStopIfContacted').checked = r ? (r.stopIfContacted !== false) : true;
             currentAutomationSteps = r ? (r.steps || []).map(s => ({...s})) : [{ id: crypto.randomUUID(), daysOffset: 0, action: 'create_task', taskTitle: '', taskPriority: 'medium', tagName: '', listName: '' }];
             const listDatalist = document.getElementById('automationListSuggestions');
@@ -17215,7 +17244,10 @@
                 if (step.action === 'create_task' && !step.taskTitle.trim()) { showToast('Defina o título da tarefa em todas as etapas!', 'error'); return; }
                 if (step.action === 'add_tag' && !step.tagName.trim()) { showToast('Defina o nome da etiqueta em todas as etapas!', 'error'); return; }
                 if (step.action === 'add_to_list' && !(step.listName||'').trim()) { showToast('Defina a lista de destino em todas as etapas!', 'error'); return; }
+                if (step.action === 'remove_tag' && !(step.tagName||'').trim()) { showToast('Defina o nome da etiqueta em todas as etapas!', 'error'); return; }
             }
+            const triggerTagName = document.getElementById('automationTriggerTag').value.trim();
+            if (trigger === 'tag_added' && !triggerTagName) { showToast('Defina qual etiqueta dispara a automação!', 'error'); return; }
 
             const id = document.getElementById('automationId').value;
             const rule = {
@@ -17223,6 +17255,7 @@
                 name,
                 trigger,
                 inactiveDays: parseInt(document.getElementById('automationInactiveDays').value) || 30,
+                triggerTagName,
                 stopIfContacted: document.getElementById('automationStopIfContacted').checked,
                 steps: currentAutomationSteps.map(s => ({...s})),
                 active: true,
@@ -17304,6 +17337,16 @@
             }
         }
 
+        function logAutomationExecution(rule, contact, detail) {
+            automationExecutionLog.unshift({
+                id: crypto.randomUUID(), ruleId: rule.id, ruleName: rule.name,
+                contactId: contact.id, contactName: fullName(contact),
+                detail, date: new Date().toISOString(),
+            });
+            if (automationExecutionLog.length > 200) automationExecutionLog.length = 200;
+            localStorage.setItem('vends_automation_log', JSON.stringify(automationExecutionLog));
+            syncPreferencesToSupabase();
+        }
         function executeAutomationStepAction(rule, step, contact) {
             if (step.action === 'add_tag') {
                 if (!step.tagName) return;
@@ -17314,6 +17357,17 @@
                 saveToStorage(contact.id);
                 if (currentView === 'contacts') renderContacts();
                 showToast(`⚡ Automação "${rule.name}": etiqueta "${step.tagName}" adicionada a ${fullName(contact)}`);
+                logAutomationExecution(rule, contact, `Etiqueta "${step.tagName}" adicionada`);
+                return;
+            }
+            if (step.action === 'remove_tag') {
+                if (!step.tagName) return;
+                if (!contact.tags || !contact.tags.includes(step.tagName)) return;
+                contact.tags = contact.tags.filter(t => t !== step.tagName);
+                saveToStorage(contact.id);
+                if (currentView === 'contacts') renderContacts();
+                showToast(`⚡ Automação "${rule.name}": etiqueta "${step.tagName}" removida de ${fullName(contact)}`);
+                logAutomationExecution(rule, contact, `Etiqueta "${step.tagName}" removida`);
                 return;
             }
             if (step.action === 'add_to_list') {
@@ -17325,6 +17379,7 @@
                 saveToStorage(contact.id);
                 if (currentView === 'contacts') renderContacts();
                 showToast(`⚡ Automação "${rule.name}": ${fullName(contact)} adicionado à lista "${step.listName}"`);
+                logAutomationExecution(rule, contact, `Adicionado à lista "${step.listName}"`);
                 return;
             }
             if (step.action !== 'create_task') return;
@@ -17354,6 +17409,33 @@
             cloudSyncTask(task);
             if (currentView === 'tasks') _refreshCurrentTaskView();
             showToast(`⚡ Automação "${rule.name}": tarefa criada para ${fullName(contact)}`);
+            logAutomationExecution(rule, contact, `Tarefa criada: "${title}"`);
+        }
+        function openAutomationLogModal() {
+            document.getElementById('automationLogModal').classList.remove('hidden');
+            renderAutomationLog();
+        }
+        function closeAutomationLogModal() {
+            document.getElementById('automationLogModal').classList.add('hidden');
+        }
+        function renderAutomationLog() {
+            const box = document.getElementById('automationLogList');
+            if (!box) return;
+            if (!automationExecutionLog.length) {
+                box.innerHTML = '<p class="text-xs text-gray-600 italic text-center py-6">Nenhuma automação disparou ainda.</p>';
+                return;
+            }
+            box.innerHTML = automationExecutionLog.map(entry => `
+                <div class="flex items-start gap-3 bg-[#0a0a0a] border border-sant-border rounded-lg px-3 py-2.5">
+                    <i class="ph ph-lightning text-amber-400 text-sm shrink-0 mt-0.5"></i>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-xs text-gray-300"><b class="text-white">${entry.ruleName}</b> — ${entry.detail}</p>
+                        <p class="text-[11px] text-gray-500 mt-0.5">
+                            <span class="cursor-pointer hover:text-sant-cyan transition-colors" onclick="closeAutomationLogModal();openHistoryModal('${entry.contactId}')">${entry.contactName}</span>
+                            · ${new Date(entry.date).toLocaleString('pt-BR')}
+                        </p>
+                    </div>
+                </div>`).join('');
         }
 
         // Executa as automações aplicáveis comparando o contato antes/depois de salvar
@@ -17364,6 +17446,11 @@
                 if (rule.trigger === 'became_hot')  fires = newContact.temperature === 'quente' && (!oldContact || oldContact.temperature !== 'quente');
                 if (rule.trigger === 'became_warm') fires = newContact.temperature === 'morno'  && (!oldContact || oldContact.temperature !== 'morno');
                 if (rule.trigger === 'became_lead') fires = !!newContact.isLead && (!oldContact || !oldContact.isLead);
+                if (rule.trigger === 'tag_added' && rule.triggerTagName) {
+                    const hasNow = (newContact.tags || []).includes(rule.triggerTagName);
+                    const hadBefore = !!oldContact && (oldContact.tags || []).includes(rule.triggerTagName);
+                    fires = hasNow && !hadBefore;
+                }
                 if (!fires) return;
                 if (!automationSeqState[newContact.id]) automationSeqState[newContact.id] = {};
                 if (!automationSeqState[newContact.id][rule.id]) {
@@ -21665,6 +21752,7 @@
                     if (!document.getElementById('quickNoteModal').classList.contains('hidden')) { closeQuickNoteModal(); return; }
                     if (!document.getElementById('quickAddTaskModal').classList.contains('hidden')) { closeQuickAddTaskModal(); return; }
                     if (!document.getElementById('taskTemplatesModal').classList.contains('hidden')) { closeTaskTemplatesModal(); return; }
+                    if (!document.getElementById('automationLogModal').classList.contains('hidden')) { closeAutomationLogModal(); return; }
                     if (!document.getElementById('csvImportPreviewModal').classList.contains('hidden')) { closeCsvImportPreview(); return; }
                     if (!document.getElementById('copyTaskWeekdaysModal').classList.contains('hidden')) { closeCopyTaskWeekdaysModal(); return; }
                     if (!document.getElementById('contactModal').classList.contains('hidden')) { closeModal(); return; }
