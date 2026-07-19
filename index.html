@@ -2203,6 +2203,7 @@
                             <button type="button" onclick="addAutomationStep()" class="text-[11px] text-sant-cyan hover:text-white transition-colors flex items-center gap-1"><i class="ph ph-plus"></i> Adicionar etapa</button>
                         </div>
                         <div id="automationStepsContainer" class="space-y-2 mb-3"></div>
+                        <datalist id="automationListSuggestions"></datalist>
                         <p class="text-[10px] text-gray-600 mb-3">Use <code class="text-gray-500">{{nome}}</code> no título da tarefa para inserir o nome do contato automaticamente. Cada etapa dispara "D+N dias" a partir do momento em que o gatilho aconteceu.</p>
                         <label id="automationStopBox" class="hidden items-center gap-2 text-xs text-gray-400 cursor-pointer mb-4">
                             <input type="checkbox" id="automationStopIfContacted" checked class="w-4 h-4 accent-sant-cyan cursor-pointer">
@@ -17073,7 +17074,7 @@
                 const trigLabel = (AUTOMATION_TRIGGER_LABELS[r.trigger] || r.trigger) + (r.trigger === 'inactive_days' ? ` (${r.inactiveDays || 30}d)` : '');
                 const steps = r.steps || [];
                 const stepsSummary = steps.length === 1
-                    ? (steps[0].action === 'add_tag' ? `adiciona etiqueta "${steps[0].tagName}"` : `cria tarefa "${steps[0].taskTitle}" (D+${steps[0].daysOffset})`)
+                    ? (steps[0].action === 'add_tag' ? `adiciona etiqueta "${steps[0].tagName}"` : steps[0].action === 'add_to_list' ? `adiciona à lista "${steps[0].listName}"` : `cria tarefa "${steps[0].taskTitle}" (D+${steps[0].daysOffset})`)
                     : `${steps.length} etapas (D+${steps.map(s=>s.daysOffset).join(', D+')})`;
                 return `
                 <div class="bg-[#0a0a0a] border border-sant-border rounded-lg p-4">
@@ -17116,7 +17117,7 @@
         let currentAutomationSteps = [];
 
         function addAutomationStep() {
-            currentAutomationSteps.push({ id: crypto.randomUUID(), daysOffset: currentAutomationSteps.length === 0 ? 0 : 3, action: 'create_task', taskTitle: '', taskPriority: 'medium', tagName: '' });
+            currentAutomationSteps.push({ id: crypto.randomUUID(), daysOffset: currentAutomationSteps.length === 0 ? 0 : 3, action: 'create_task', taskTitle: '', taskPriority: 'medium', tagName: '', listName: '' });
             renderAutomationSteps();
         }
         function removeAutomationStep(idx) {
@@ -17155,6 +17156,7 @@
                             <select onchange="updateAutomationStep(${i},'action',this.value);renderAutomationSteps()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-2 py-2 text-sm text-white outline-none focus:border-sant-cyan">
                                 <option value="create_task" ${step.action==='create_task'?'selected':''}>Criar tarefa</option>
                                 <option value="add_tag" ${step.action==='add_tag'?'selected':''}>Adicionar etiqueta</option>
+                                <option value="add_to_list" ${step.action==='add_to_list'?'selected':''}>Adicionar à lista</option>
                             </select>
                         </div>
                     </div>
@@ -17172,6 +17174,11 @@
                                     <option value="high" ${step.taskPriority==='high'?'selected':''}>Alta (Urgente)</option>
                                 </select>
                             </div>
+                        </div>` : step.action === 'add_to_list' ? `
+                        <div>
+                            <label class="block text-[10px] text-gray-500 uppercase mb-1">Lista de destino</label>
+                            <input type="text" value="${(step.listName||'').replace(/"/g,'&quot;')}" oninput="updateAutomationStep(${i},'listName',this.value)" placeholder="Ex: Clientes" list="automationListSuggestions" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan">
+                            <p class="text-[10px] text-gray-600 mt-1">O contato é adicionado a esta lista (sem remover as demais). Se a lista não existir, é criada automaticamente.</p>
                         </div>` : `
                         <div>
                             <label class="block text-[10px] text-gray-500 uppercase mb-1">Nome da etiqueta</label>
@@ -17187,7 +17194,9 @@
             document.getElementById('automationTrigger').value = r ? r.trigger : 'became_hot';
             document.getElementById('automationInactiveDays').value = r ? (r.inactiveDays || 30) : 30;
             document.getElementById('automationStopIfContacted').checked = r ? (r.stopIfContacted !== false) : true;
-            currentAutomationSteps = r ? (r.steps || []).map(s => ({...s})) : [{ id: crypto.randomUUID(), daysOffset: 0, action: 'create_task', taskTitle: '', taskPriority: 'medium', tagName: '' }];
+            currentAutomationSteps = r ? (r.steps || []).map(s => ({...s})) : [{ id: crypto.randomUUID(), daysOffset: 0, action: 'create_task', taskTitle: '', taskPriority: 'medium', tagName: '', listName: '' }];
+            const listDatalist = document.getElementById('automationListSuggestions');
+            if (listDatalist) listDatalist.innerHTML = contactLists.map(l => `<option value="${l}">`).join('');
             renderAutomationSteps();
             updateAutomationEditorUI();
             document.getElementById('automationEditorBox').classList.remove('hidden');
@@ -17205,6 +17214,7 @@
             for (const step of currentAutomationSteps) {
                 if (step.action === 'create_task' && !step.taskTitle.trim()) { showToast('Defina o título da tarefa em todas as etapas!', 'error'); return; }
                 if (step.action === 'add_tag' && !step.tagName.trim()) { showToast('Defina o nome da etiqueta em todas as etapas!', 'error'); return; }
+                if (step.action === 'add_to_list' && !(step.listName||'').trim()) { showToast('Defina a lista de destino em todas as etapas!', 'error'); return; }
             }
 
             const id = document.getElementById('automationId').value;
@@ -17304,6 +17314,17 @@
                 saveToStorage(contact.id);
                 if (currentView === 'contacts') renderContacts();
                 showToast(`⚡ Automação "${rule.name}": etiqueta "${step.tagName}" adicionada a ${fullName(contact)}`);
+                return;
+            }
+            if (step.action === 'add_to_list') {
+                if (!step.listName) return;
+                if (!contact.lists) contact.lists = [];
+                if (contact.lists.includes(step.listName)) return;
+                contact.lists.push(step.listName);
+                if (!contactLists.includes(step.listName)) { contactLists.push(step.listName); saveContactListsToStorage(); }
+                saveToStorage(contact.id);
+                if (currentView === 'contacts') renderContacts();
+                showToast(`⚡ Automação "${rule.name}": ${fullName(contact)} adicionado à lista "${step.listName}"`);
                 return;
             }
             if (step.action !== 'create_task') return;
