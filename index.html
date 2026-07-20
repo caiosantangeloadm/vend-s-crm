@@ -14466,13 +14466,20 @@
                         ${isBlocked ? `<p class="text-[11px] text-red-400/70 mt-1 flex items-center gap-1"><i class="ph ph-arrow-bend-right-down"></i> Aguardando: <span class="font-medium text-red-400 cursor-pointer hover:underline" onclick="editTask('${blocker.id}')">${blocker.title}</span></p>` : ''}
                         ${hasChainLink ? `<button onclick="openTaskDependencyModal('${t.id}')" class="text-[11px] text-sant-purple/80 hover:text-sant-purple mt-1 flex items-center gap-1"><i class="ph ph-flow-arrow"></i> Ver cadeia de dependências</button>` : ''}
                         ${isOverdue ? `<p class="text-[11px] text-red-400 mt-1 font-semibold flex items-center gap-1"><i class="ph ph-warning-circle"></i> Vencida — ${dateTimeDisplay}</p>` : (dateTimeDisplay ? `<p class="text-[11px] text-sant-cyan mt-1"><i class="ph ph-calendar-blank"></i> ${dateTimeDisplay}</p>` : '')}
-                        ${t.estimatedMinutes ? `<p class="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1"><i class="ph ph-hourglass"></i> ${formatEstimate(t.estimatedMinutes)}</p>` : ''}
+                        ${t.estimatedMinutes ? `<p class="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1"><i class="ph ph-hourglass"></i> Estimado: ${formatEstimate(t.estimatedMinutes)}</p>` : ''}
                         ${!t.completed ? `<div class="flex items-center gap-1.5 mt-1">
                             <button onclick="event.stopPropagation();${t.timerStartedAt ? 'pauseTaskTimer' : 'startTaskTimer'}('${t.id}')" class="${t.timerStartedAt ? 'text-red-400 hover:text-red-300' : 'text-gray-500 hover:text-sant-cyan'} transition-colors" title="${t.timerStartedAt ? 'Pausar cronômetro' : 'Iniciar cronômetro'}">
                                 <i class="ph ${t.timerStartedAt ? 'ph-pause-circle' : 'ph-play-circle'} text-sm"></i>
                             </button>
-                            <span id="taskTimer-${t.id}" class="text-[11px] ${t.timerStartedAt ? 'text-sant-cyan font-bold' : 'text-gray-500'}">${formatEstimate(t.actualTimeSpent || 0)}${t.timerStartedAt ? ' (rodando)' : ''}</span>
-                        </div>` : (t.actualTimeSpent ? `<p class="text-[11px] text-gray-500 mt-1 flex items-center gap-1"><i class="ph ph-timer"></i> Tempo gasto: ${formatEstimate(t.actualTimeSpent)}</p>` : '')}
+                            <span id="taskTimer-${t.id}" class="text-[11px] ${t.timerStartedAt ? 'text-sant-cyan font-bold' : 'text-gray-500'}">Real: ${formatEstimate(t.actualTimeSpent || 0)}${t.timerStartedAt ? ' (rodando)' : ''}</span>
+                        </div>` : (t.actualTimeSpent ? `<p class="text-[11px] text-gray-500 mt-1 flex items-center gap-1"><i class="ph ph-timer"></i> Real: ${formatEstimate(t.actualTimeSpent)}</p>` : '')}
+                        ${(t.estimatedMinutes > 0 && t.actualTimeSpent > 0) ? (() => {
+                            const diff = t.actualTimeSpent - t.estimatedMinutes;
+                            const diffColor = diff > 0 ? 'text-red-400' : diff < 0 ? 'text-green-400' : 'text-gray-500';
+                            const diffIcon = diff > 0 ? 'ph-trend-up' : diff < 0 ? 'ph-trend-down' : 'ph-equals';
+                            const diffLabel = diff === 0 ? 'Bateu a estimativa!' : `${diff > 0 ? '+' : '-'}${formatEstimate(Math.abs(diff))} ${diff > 0 ? 'acima' : 'abaixo'} do estimado`;
+                            return `<p class="text-[11px] ${diffColor} mt-0.5 flex items-center gap-1 font-medium"><i class="ph ${diffIcon}"></i> ${diffLabel}</p>`;
+                        })() : ''}
                         ${(() => { const c = t.contactId ? contacts.find(x => x.id === t.contactId) : null; return c ? `<p class="text-[11px] text-sant-purple mt-1 flex items-center gap-1"><i class="ph ph-user-circle"></i> ${fullName(c)}</p>` : ''; })()}
                         ${t.desc ? `<p class="text-[10px] text-sant-purple mt-1 flex items-center gap-1"><i class="ph ph-notebook"></i> Tem notas</p>` : ''}
                         ${(t.tags && t.tags.length) ? `<div class="flex flex-wrap gap-1 mt-2">${t.tags.map(tag => `<span class="px-2 py-0.5 rounded-full bg-sant-purple/15 border border-sant-purple/30 text-sant-purple text-[10px] font-medium"><i class="ph ph-tag text-[9px]"></i> ${tag}</span>`).join('')}</div>` : ''}
