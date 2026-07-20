@@ -14307,9 +14307,12 @@
                 list.innerHTML = ['waiting','overdue','today','upcoming','nodate'].map(key => {
                     const g = groups[key];
                     if (g.items.length === 0) return '';
+                    const postponeBtn = key === 'overdue' && g.items.length > 0
+                        ? `<button onclick="postponeOverdueTasks()" class="ml-auto text-[11px] font-medium text-gray-400 hover:text-sant-cyan border border-sant-border hover:border-sant-cyan px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1"><i class="ph ph-calendar-plus"></i> Adiar todas p/ amanhã</button>`
+                        : '';
                     return `
                     <div class="task-group">
-                        <h3 class="text-xs font-bold uppercase tracking-wider ${g.color} mb-2 mt-1 flex items-center gap-1.5"><i class="ph ${g.icon}"></i> ${g.label} <span class="text-gray-600 font-normal">(${g.items.length})</span></h3>
+                        <h3 class="text-xs font-bold uppercase tracking-wider ${g.color} mb-2 mt-1 flex items-center gap-1.5"><i class="ph ${g.icon}"></i> ${g.label} <span class="text-gray-600 font-normal">(${g.items.length})</span>${postponeBtn}</h3>
                         <div class="space-y-3 mb-5">${g.items.map(t => taskCardHtml(t, todayStr)).join('')}</div>
                     </div>`;
                 }).join('');
@@ -17464,6 +17467,26 @@
             });
         }
         // ── fim Seleção Múltipla de Tarefas ────────────────────────────────────
+
+        function postponeOverdueTasks() {
+            const todayStr = getSPTodayStr();
+            const tomorrow = addDaysToDateStr(todayStr, 1);
+            const overdue = tasks.filter(t => !t.completed && !t.waiting && t.date && t.date < todayStr);
+            if (!overdue.length) { showToast('Nenhuma tarefa atrasada.', 'error'); return; }
+            showConfirm(`Adiar ${overdue.length} tarefa${overdue.length>1?'s':''} atrasada${overdue.length>1?'s':''} para amanhã (${tomorrow.split('-').reverse().join('/')})?`, '', () => {
+                overdue.forEach(t => {
+                    const oldDate = t.date;
+                    t.date = tomorrow;
+                    if (!t.changeLog) t.changeLog = [];
+                    t.changeLog.push({ id: crypto.randomUUID(), date: todayStr, field: 'Data', from: oldDate.split('-').reverse().join('/'), to: tomorrow.split('-').reverse().join('/') });
+                    cloudSyncTask(t);
+                });
+                saveTasksToStorage();
+                _refreshCurrentTaskView();
+                showToast(`${overdue.length} tarefa${overdue.length>1?'s':''} adiada${overdue.length>1?'s':''} para amanhã!`);
+            });
+        }
+        // ── fim Adiar Atrasadas em Massa ─────────────────────────────────────
 
         function exportInactivityCsv() {
             const days    = parseInt(document.getElementById('inactRepDays')?.value || '60');
