@@ -1151,6 +1151,7 @@
                         <button onclick="exportAgendaCsv()" class="w-10 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan flex items-center justify-center transition-colors" title="Exportar Agenda (CSV) — respeita o filtro de tipo ativo"><i class="ph ph-file-csv"></i></button>
                         <button onclick="openAgendaSummaryModal()" class="w-10 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan flex items-center justify-center transition-colors" title="Gerar resumo do dia/semana (copiar ou WhatsApp)"><i class="ph ph-clipboard-text"></i></button>
                         <button onclick="openFreeSlotFinderModal()" class="w-10 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan flex items-center justify-center transition-colors" title="Achar horário livre"><i class="ph ph-magic-wand"></i></button>
+                        <button onclick="openEventTemplatesModal()" class="w-10 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan flex items-center justify-center transition-colors" title="Modelos de Evento"><i class="ph ph-copy-simple"></i></button>
                         <button id="btnCopyWeek" onclick="copyWeekToNextWeek()" class="hidden items-center gap-2 h-10 px-3 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors text-sm font-medium" title="Copiar todos os compromissos desta semana para a próxima"><i class="ph ph-copy"></i> Copiar Semana</button>
                         <button onclick="openEventModal()" class="bg-sant-purple hover:bg-purple-800 text-white px-5 py-2 rounded-lg flex items-center gap-2 transition-all font-medium">
                             <i class="ph ph-plus"></i> Evento
@@ -2629,7 +2630,10 @@
         <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg max-h-[92vh] overflow-hidden flex flex-col shadow-2xl">
             <div class="flex justify-between items-center p-5 border-b border-sant-border shrink-0">
                 <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-calendar-plus text-sant-purple"></i> <span id="eventModalTitle">Novo Compromisso</span></h3>
-                <button onclick="closeEventModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+                <div class="flex items-center gap-3">
+                    <button id="eventSaveAsTemplateBtn" onclick="saveEventAsTemplate()" class="hidden text-xs text-gray-400 hover:text-sant-cyan transition-colors flex items-center gap-1" title="Salvar este evento como modelo reaproveitável"><i class="ph ph-copy-simple"></i> Salvar como modelo</button>
+                    <button onclick="closeEventModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+                </div>
             </div>
             <div class="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
                 <input type="hidden" id="eventId">
@@ -3552,6 +3556,48 @@
         </div>
     </div>
 
+    <!-- MODAL DE MODELOS DE EVENTO -->
+    <div id="eventTemplatesModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeEventTemplatesModal()">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center p-5 border-b border-sant-border shrink-0">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-copy-simple text-sant-cyan"></i> Modelos de Evento</h3>
+                <button onclick="closeEventTemplatesModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <div class="overflow-y-auto custom-scrollbar p-5 space-y-4">
+                <p class="text-xs text-gray-500">Salve um evento configurado (tipo, duração, cor, etiquetas) como modelo para reaproveitar com um clique — ideal para reuniões recorrentes com estrutura fixa.</p>
+
+                <div id="eventTemplatesList" class="space-y-2"></div>
+
+                <button onclick="toggleNewEventTemplateForm()" id="newEventTemplateToggleBtn" class="w-full bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-plus"></i> Novo Modelo</button>
+
+                <div id="newEventTemplateForm" class="hidden space-y-3 p-4 rounded-xl border border-sant-border bg-[#0a0a0a]">
+                    <input type="text" id="newEvtplName" placeholder="Nome do modelo (Ex: Reunião de Onboarding)" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan">
+                    <input type="text" id="newEvtplTitle" placeholder="Título do compromisso" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan">
+                    <div class="flex gap-2">
+                        <select id="newEvtplType" class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan">
+                            <option value="meeting">Reunião</option>
+                            <option value="call">Ligação</option>
+                            <option value="visit">Visita</option>
+                            <option value="other">Outro</option>
+                        </select>
+                        <select id="newEvtplDuration" class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan">
+                            <option value="15">15 min</option>
+                            <option value="30" selected>30 min</option>
+                            <option value="60">1 hora</option>
+                            <option value="90">1h30</option>
+                            <option value="120">2 horas</option>
+                        </select>
+                    </div>
+                    <input type="text" id="newEvtplTags" placeholder="Etiquetas (separadas por vírgula)" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan">
+                    <div class="flex justify-end gap-2">
+                        <button onclick="toggleNewEventTemplateForm()" class="px-3 py-1.5 text-xs text-gray-400 hover:text-white transition-colors">Cancelar</button>
+                        <button onclick="saveNewEventTemplate()" class="px-3 py-1.5 text-xs bg-sant-cyan hover:bg-cyan-400 text-sant-bg rounded-lg font-bold transition-colors">Salvar Modelo</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL DE MODELOS DE TAREFA AVULSOS -->
     <div id="taskTemplatesModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeTaskTemplatesModal()">
         <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl">
@@ -4417,6 +4463,7 @@
         let taskPlaybooks = [];
         let taskTemplates = JSON.parse(localStorage.getItem('sant_crm_task_templates') || '[]');
         let automationExecutionLog = JSON.parse(localStorage.getItem('vends_automation_log') || '[]');
+        let eventTemplates = JSON.parse(localStorage.getItem('sant_crm_event_templates') || '[]');
         let currentPlaybookSteps = [];
         let automationRules = [];
         let activeFilters = { category: '', isLead: '', temperature: '', tag: '', origin: '', list: '', city: '', state: '', intType: '', intFrom: '', intTo: '' };
@@ -14637,6 +14684,112 @@
         }
         // ── fim Modelos de Tarefa avulsos ────────────────────────────────────
 
+        // ── Modelos de Evento ──────────────────────────────────────────────
+        function saveEventTemplatesToStorage() {
+            localStorage.setItem('sant_crm_event_templates', JSON.stringify(eventTemplates));
+            syncPreferencesToSupabase();
+        }
+        function openEventTemplatesModal() {
+            document.getElementById('eventTemplatesModal').classList.remove('hidden');
+            document.getElementById('newEventTemplateForm').classList.add('hidden');
+            renderEventTemplatesList();
+        }
+        function closeEventTemplatesModal() {
+            document.getElementById('eventTemplatesModal').classList.add('hidden');
+        }
+        function toggleNewEventTemplateForm() {
+            document.getElementById('newEventTemplateForm').classList.toggle('hidden');
+            ['newEvtplName','newEvtplTitle','newEvtplTags'].forEach(id => document.getElementById(id).value = '');
+            document.getElementById('newEvtplType').value = 'meeting';
+            document.getElementById('newEvtplDuration').value = '30';
+        }
+        function renderEventTemplatesList() {
+            const box = document.getElementById('eventTemplatesList');
+            if (!box) return;
+            if (!eventTemplates.length) {
+                box.innerHTML = '<p class="text-xs text-gray-600 italic text-center py-3">Nenhum modelo salvo ainda.</p>';
+                return;
+            }
+            box.innerHTML = eventTemplates.map(tpl => {
+                const m = eventTypeMeta[tpl.type] || eventTypeMeta.other;
+                return `<div class="flex items-center gap-3 bg-[#0a0a0a] border border-sant-border rounded-lg px-3 py-2.5">
+                    <i class="ph ${m.icon} ${m.text} text-sm shrink-0"></i>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm text-white font-medium truncate">${tpl.name}</p>
+                        <p class="text-[11px] text-gray-500 truncate">${tpl.title} · ${tpl.durationMin} min${tpl.tags && tpl.tags.length ? ` · ${tpl.tags.join(', ')}` : ''}</p>
+                    </div>
+                    <button onclick="applyEventTemplate('${tpl.id}')" class="text-xs font-bold text-sant-cyan hover:text-white border border-sant-cyan/30 hover:bg-sant-cyan/10 px-3 py-1.5 rounded-lg transition-colors shrink-0">Usar</button>
+                    <button onclick="deleteEventTemplate('${tpl.id}')" class="text-gray-500 hover:text-red-400 transition-colors shrink-0"><i class="ph ph-trash text-sm"></i></button>
+                </div>`;
+            }).join('');
+        }
+        function saveNewEventTemplate() {
+            const name = document.getElementById('newEvtplName').value.trim();
+            const title = document.getElementById('newEvtplTitle').value.trim();
+            if (!name || !title) { showToast('Preencha o nome do modelo e o título do compromisso.', 'error'); return; }
+            const tagsList = document.getElementById('newEvtplTags').value.split(',').map(t => t.trim()).filter(Boolean);
+            eventTemplates.push({
+                id: crypto.randomUUID(), name, title,
+                type: document.getElementById('newEvtplType').value,
+                durationMin: parseInt(document.getElementById('newEvtplDuration').value) || 30,
+                tags: tagsList, customColor: '', checklist: [], links: [],
+            });
+            saveEventTemplatesToStorage();
+            toggleNewEventTemplateForm();
+            renderEventTemplatesList();
+            showToast('Modelo salvo!');
+        }
+        function saveEventAsTemplate() {
+            const id = document.getElementById('eventId').value;
+            const ev = events.find(x => x.id === id);
+            if (!ev) return;
+            const name = prompt('Nome deste modelo:', ev.title);
+            if (!name || !name.trim()) return;
+            let durationMin = 30;
+            if (ev.startTime && ev.endTime) {
+                durationMin = Math.max(15, _calTimeToMin(ev.endTime) - _calTimeToMin(ev.startTime));
+            }
+            eventTemplates.push({
+                id: crypto.randomUUID(), name: name.trim(), title: ev.title,
+                type: ev.type || 'other', durationMin,
+                tags: [...(ev.tags || [])], customColor: ev.customColor || '',
+                checklist: (ev.checklist || []).map(i => ({ id: crypto.randomUUID(), text: i.text, done: false })),
+                links: (ev.links || []).map(l => ({...l})),
+            });
+            saveEventTemplatesToStorage();
+            showToast('Modelo salvo! Acesse no ícone "Modelos de Evento" da Agenda.');
+        }
+        function applyEventTemplate(id) {
+            const tpl = eventTemplates.find(x => x.id === id);
+            if (!tpl) return;
+            closeEventTemplatesModal();
+            openEventModal();
+            document.getElementById('eventTitle').value = tpl.title;
+            document.getElementById('eventType').value = tpl.type || 'other';
+            currentEventColor = tpl.customColor || '';
+            renderEventColorSwatches();
+            if (document.getElementById('eventStartTime').value) {
+                const startMin = _calTimeToMin(document.getElementById('eventStartTime').value);
+                document.getElementById('eventEndTime').value = minToHM(startMin + (tpl.durationMin || 30));
+            }
+            currentEventTags = [...(tpl.tags || [])];
+            renderEventTagsInModal();
+            currentEventChecklist = (tpl.checklist || []).map(i => ({ id: crypto.randomUUID(), text: i.text, done: false }));
+            renderEventChecklistInModal();
+            currentEventLinks = (tpl.links || []).map(l => ({...l}));
+            renderEventLinksInModal();
+            showToast(`Modelo "${tpl.name}" aplicado — ajuste data/horário e salve.`);
+        }
+        function deleteEventTemplate(id) {
+            showConfirm('Excluir este modelo de evento?', '', () => {
+                eventTemplates = eventTemplates.filter(x => x.id !== id);
+                saveEventTemplatesToStorage();
+                renderEventTemplatesList();
+                showToast('Modelo excluído.');
+            });
+        }
+        // ── fim Modelos de Evento ────────────────────────────────────────────
+
         // ── Captura Rápida de Tarefa (Quick Add) ─────────────────────────────
         function openQuickAddTaskModal() {
             document.getElementById('quickAddTaskModal').classList.remove('hidden');
@@ -16510,6 +16663,7 @@
                     "scoreHistory":  JSON.parse(localStorage.getItem('vends_score_history')  || '{}'),
                     "taskPlaybooks": taskPlaybooks,
                     "taskTemplates": taskTemplates,
+                    "eventTemplates": eventTemplates,
                     "automationRules": automationRules,
                     "automationExecutionLog": automationExecutionLog,
                     "messageSignature": localStorage.getItem('sant_crm_message_signature') || '',
@@ -16556,6 +16710,7 @@
                 if (data.scoreHistory && Object.keys(data.scoreHistory).length) localStorage.setItem('vends_score_history', JSON.stringify(data.scoreHistory));
                 if (data.taskPlaybooks?.length) { taskPlaybooks = data.taskPlaybooks; localStorage.setItem('sant_crm_task_playbooks', JSON.stringify(taskPlaybooks)); }
                 if (data.taskTemplates?.length) { taskTemplates = data.taskTemplates; localStorage.setItem('sant_crm_task_templates', JSON.stringify(taskTemplates)); }
+                if (data.eventTemplates?.length) { eventTemplates = data.eventTemplates; localStorage.setItem('sant_crm_event_templates', JSON.stringify(eventTemplates)); }
                 if (data.automationExecutionLog?.length) { automationExecutionLog = data.automationExecutionLog; localStorage.setItem('vends_automation_log', JSON.stringify(automationExecutionLog)); }
                 if (data.automationRules?.length) { automationRules = data.automationRules; migrateAutomationRules(); localStorage.setItem('sant_crm_automations', JSON.stringify(automationRules)); }
                 if (data.messageSignature)          localStorage.setItem('sant_crm_message_signature', data.messageSignature);
@@ -18964,6 +19119,7 @@
             eventEditDateContext = (ev && (ev.recurrence || 'none') !== 'none') ? (dateStr || ev.startDate) : null;
             document.getElementById('eventId').value = ev ? ev.id : '';
             document.getElementById('eventModalTitle').innerText = ev ? 'Editar Compromisso' : 'Novo Compromisso';
+            document.getElementById('eventSaveAsTemplateBtn').classList.toggle('hidden', !(ev && ev.id));
             document.getElementById('eventTitle').value = ev ? ev.title : '';
             document.getElementById('eventType').value = ev ? (ev.type || 'other') : 'meeting';
             currentEventColor = ev ? (ev.customColor || '') : '';
@@ -22214,6 +22370,7 @@
                     if (!document.getElementById('taskTemplatesModal').classList.contains('hidden')) { closeTaskTemplatesModal(); return; }
                     if (!document.getElementById('automationLogModal').classList.contains('hidden')) { closeAutomationLogModal(); return; }
                     if (!document.getElementById('freeSlotFinderModal').classList.contains('hidden')) { closeFreeSlotFinderModal(); return; }
+                    if (!document.getElementById('eventTemplatesModal').classList.contains('hidden')) { closeEventTemplatesModal(); return; }
                     if (!document.getElementById('csvImportPreviewModal').classList.contains('hidden')) { closeCsvImportPreview(); return; }
                     if (!document.getElementById('copyTaskWeekdaysModal').classList.contains('hidden')) { closeCopyTaskWeekdaysModal(); return; }
                     if (!document.getElementById('contactModal').classList.contains('hidden')) { closeModal(); return; }
