@@ -1170,6 +1170,10 @@
                 <div class="flex flex-wrap items-center gap-3 mb-4 shrink-0">
                     <div id="calTypeFilterBar" class="flex flex-wrap gap-1.5"></div>
                     <div class="flex items-center gap-2 ml-auto">
+                        <select id="calTagFilter" onchange="setCalFilterTag(this.value)"
+                            class="bg-sant-surface border border-sant-border rounded-lg px-3 py-1.5 text-xs text-gray-300 outline-none focus:border-sant-cyan transition-colors">
+                            <option value="">Todas as etiquetas</option>
+                        </select>
                         <select id="calContactFilter" onchange="setCalFilterContact(this.value)"
                             class="bg-sant-surface border border-sant-border rounded-lg px-3 py-1.5 text-xs text-gray-300 outline-none focus:border-sant-cyan transition-colors">
                             <option value="">Todos os contatos</option>
@@ -2811,6 +2815,21 @@
                     <textarea id="eventDesc" rows="2" placeholder="Adicionar descrição, pauta da reunião ou notas..." class="w-full bg-[#141414] border border-sant-border rounded-md px-3 py-2 text-sm text-white outline-none resize-none"></textarea>
                 </div>
 
+                <!-- Etiquetas do Evento -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1"><i class="ph ph-tag text-sant-purple"></i> Etiquetas</label>
+                    <div id="eventTagsContainer" class="flex flex-wrap gap-2 min-h-[32px] p-2 bg-[#141414] border border-sant-border rounded-lg mb-2"></div>
+                    <div class="flex gap-2">
+                        <input type="text" id="eventTagInput" placeholder="Adicionar etiqueta..." list="eventTagSuggestions"
+                            class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-purple outline-none transition-colors"
+                            onkeydown="if(event.key==='Enter'){event.preventDefault();addEventTag()}">
+                        <datalist id="eventTagSuggestions"></datalist>
+                        <button type="button" onclick="addEventTag()" class="bg-sant-purple/20 hover:bg-sant-purple text-sant-purple hover:text-white px-3 py-2 rounded-lg text-sm font-bold transition-colors border border-sant-purple/30">
+                            <i class="ph ph-plus"></i>
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Checklist de Preparação -->
                 <div>
                     <div class="flex items-center justify-between mb-2">
@@ -4378,6 +4397,7 @@
         let calFilterType = '';
         let calWorkWeekMode = localStorage.getItem('vends_cal_workweek') === '1';
         let calFilterContact = '';
+        let calFilterTag = '';
         let notificationInterval;
         let currentView = 'dashboard';
         let currentTaskFilter = 'all';
@@ -5748,6 +5768,7 @@
                 outcomes: e.outcomes || {},
                 checklist: e.checklist || [],
                 links: e.links || [],
+                tags: e.tags || [],
             };
         }
 
@@ -12270,7 +12291,7 @@
                 '<mark class="bg-[#5b8fa8]/30 text-[#7aafc8] rounded px-0.5">$1</mark>');
 
             const matches = events.filter(e => {
-                const hay = `${e.title||''} ${e.location||''} ${e.desc||''}`.toLowerCase();
+                const hay = `${e.title||''} ${e.location||''} ${e.desc||''} ${(e.tags||[]).join(' ')}`.toLowerCase();
                 return hay.includes(q);
             }).sort((a,b) => (a.startDate||'').localeCompare(b.startDate||''));
 
@@ -12308,6 +12329,31 @@
         let currentEventParticipants = []; // array de contact IDs
         let currentEventChecklist = [];
         let currentEventLinks = [];
+        let currentEventTags = [];
+        function addEventTag() {
+            const input = document.getElementById('eventTagInput');
+            const val = input.value.trim();
+            if (!val || currentEventTags.includes(val)) { input.value = ''; return; }
+            currentEventTags.push(val);
+            if (!tags.includes(val)) { tags.push(val); saveTagsToStorage(); }
+            input.value = '';
+            renderEventTagsInModal();
+        }
+        function removeEventTag(tag) {
+            currentEventTags = currentEventTags.filter(t => t !== tag);
+            renderEventTagsInModal();
+        }
+        function renderEventTagsInModal() {
+            const box = document.getElementById('eventTagsContainer');
+            if (!box) return;
+            box.innerHTML = currentEventTags.map(t => `
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sant-purple/15 border border-sant-purple/30 text-sant-purple text-xs font-medium">
+                    <i class="ph ph-tag text-[10px]"></i> ${t}
+                    <button type="button" onclick="removeEventTag('${t.replace(/'/g,"\\'")}')" class="hover:text-white transition-colors ml-0.5"><i class="ph ph-x text-[10px]"></i></button>
+                </span>`).join('');
+            const dl = document.getElementById('eventTagSuggestions');
+            if (dl) dl.innerHTML = tags.map(t => `<option value="${t}">`).join('');
+        }
         let currentEventColor = '';
         const eventColorPalette = ['#22d3ee','#a855f7','#f87171','#fbbf24','#34d399','#60a5fa','#f472b6','#facc15','#4ade80','#fb923c'];
 
@@ -12497,6 +12543,7 @@
                 if (t !== calFilterType) return false;
             }
             if (calFilterContact && e.contactId !== calFilterContact) return false;
+            if (calFilterTag && !(e.tags || []).includes(calFilterTag)) return false;
             return true;
         }
         function setCalFilterType(val) {
@@ -12508,10 +12555,24 @@
             calFilterContact = val;
             renderCalendar();
         }
+        function setCalFilterTag(val) {
+            calFilterTag = val;
+            renderCalendar();
+        }
+        function fillCalTagFilter() {
+            const sel = document.getElementById('calTagFilter');
+            if (!sel) return;
+            const usedTags = [...new Set(events.flatMap(e => e.tags || []))].sort((a,b) => a.localeCompare(b,'pt-BR'));
+            const current = sel.value;
+            sel.innerHTML = '<option value="">Todas as etiquetas</option>' + usedTags.map(t => `<option value="${t}">${t}</option>`).join('');
+            sel.value = usedTags.includes(current) ? current : '';
+        }
         function clearCalFilters() {
             calFilterType = '';
             calFilterContact = '';
+            calFilterTag = '';
             document.getElementById('calContactFilter').value = '';
+            document.getElementById('calTagFilter').value = '';
             renderCalFilterBar();
             renderCalendar();
         }
@@ -12930,8 +12991,9 @@
             // Inicializa filtros
             renderCalFilterBar();
             fillCalContactFilter();
+            fillCalTagFilter();
             const clearBtn = document.getElementById('calClearFiltersBtn');
-            if (clearBtn) clearBtn.classList.toggle('hidden', !calFilterType && !calFilterContact);
+            if (clearBtn) clearBtn.classList.toggle('hidden', !calFilterType && !calFilterContact && !calFilterTag);
 
             // Sincroniza mini-calendário com o mês atual
             miniCalDate = new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth(), 1);
@@ -13312,6 +13374,7 @@
                                         ${e.checklist && e.checklist.length ? `<span class="text-[10px] text-gray-500 flex items-center gap-1"><i class="ph ph-list-checks"></i> ${e.checklist.filter(i=>i.done).length}/${e.checklist.length}</span>` : ''}
                                         ${e.links && e.links.length ? `<span class="text-[10px] text-gray-500 flex items-center gap-1"><i class="ph ph-paperclip"></i> ${e.links.length}</span>` : ''}
                                     </div>` : ''}
+                                    ${(e.tags && e.tags.length > 0) ? `<div class="flex flex-wrap gap-1 mt-1.5">${e.tags.map(t => `<span class="px-1.5 py-0.5 rounded-full bg-sant-purple/15 border border-sant-purple/30 text-sant-purple text-[10px] font-medium cursor-pointer hover:bg-sant-purple/25 transition-colors" onclick="event.stopPropagation();setCalFilterTag('${t.replace(/'/g,"\\'")}');document.getElementById('calTagFilter').value='${t.replace(/'/g,"\\'")}'"><i class="ph ph-tag"></i> ${t}</span>`).join('')}</div>` : ''}
                                 </div>
                             </div>`;
                         }
@@ -13680,6 +13743,7 @@
                 desc: document.getElementById('eventDesc').value,
                 checklist: currentEventChecklist.filter(it => it.text.trim()),
                 links: [...currentEventLinks],
+                tags: [...currentEventTags],
                 notified: false,
                 changeLog: []
             };
@@ -18919,6 +18983,8 @@
             renderEventChecklistInModal();
             currentEventLinks = ev ? (ev.links || []).map(i => ({...i})) : [];
             renderEventLinksInModal();
+            currentEventTags = ev ? [...(ev.tags || [])] : [];
+            renderEventTagsInModal();
             // Participantes
             currentEventParticipants = ev ? [...(ev.participants || (ev.contactId ? [ev.contactId] : []))] : [];
             fillEventParticipantSelect();
