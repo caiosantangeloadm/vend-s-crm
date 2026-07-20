@@ -1237,6 +1237,7 @@
                         <div class="flex bg-sant-surface border border-sant-border rounded-lg overflow-hidden shrink-0">
                             <button id="btnTaskViewList" onclick="switchTaskView('list')" class="p-2.5 text-sant-cyan bg-sant-cyan/10 transition-colors" title="Visão em Lista"><i class="ph ph-list-dashes text-lg"></i></button>
                             <button id="btnTaskViewKanban" onclick="switchTaskView('kanban')" class="p-2.5 text-gray-500 hover:text-white transition-colors" title="Visão Kanban"><i class="ph ph-kanban text-lg"></i></button>
+                            <button id="btnTaskViewEisenhower" onclick="switchTaskView('eisenhower')" class="p-2.5 text-gray-500 hover:text-white transition-colors" title="Matriz de Eisenhower (Urgente x Importante)"><i class="ph ph-squares-four text-lg"></i></button>
                         </div>
                         <button onclick="openTaskTemplatesModal()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-4 py-2.5 rounded-lg flex items-center gap-2 font-medium transition-all" title="Modelos: reaproveite uma tarefa avulsa (com checklist) com um clique">
                             <i class="ph ph-copy-simple"></i> Modelos
@@ -1306,6 +1307,28 @@
 
                 <!-- VISÃO LISTA -->
                 <div id="tasksList" class="space-y-3 pb-10 min-h-[200px]"></div>
+
+                <!-- VISÃO MATRIZ DE EISENHOWER -->
+                <div id="eisenhowerBoard" class="hidden pb-10">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-red-500/5 border border-red-500/20 rounded-xl p-4">
+                            <h4 class="text-xs font-bold text-red-400 uppercase tracking-wide mb-3 flex items-center gap-2"><i class="ph ph-fire"></i> Urgente &amp; Importante <span id="eisCount-do" class="text-gray-500 font-normal"></span></h4>
+                            <div id="eisCol-do" class="space-y-2 min-h-[80px]"></div>
+                        </div>
+                        <div class="bg-sant-cyan/5 border border-sant-cyan/20 rounded-xl p-4">
+                            <h4 class="text-xs font-bold text-sant-cyan uppercase tracking-wide mb-3 flex items-center gap-2"><i class="ph ph-calendar-check"></i> Importante, Não Urgente <span id="eisCount-plan" class="text-gray-500 font-normal"></span></h4>
+                            <div id="eisCol-plan" class="space-y-2 min-h-[80px]"></div>
+                        </div>
+                        <div class="bg-amber-500/5 border border-amber-500/20 rounded-xl p-4">
+                            <h4 class="text-xs font-bold text-amber-400 uppercase tracking-wide mb-3 flex items-center gap-2"><i class="ph ph-arrow-bend-up-right"></i> Urgente, Não Importante <span id="eisCount-delegate" class="text-gray-500 font-normal"></span></h4>
+                            <div id="eisCol-delegate" class="space-y-2 min-h-[80px]"></div>
+                        </div>
+                        <div class="bg-gray-500/5 border border-gray-500/20 rounded-xl p-4">
+                            <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-2"><i class="ph ph-trash"></i> Nem Urgente, Nem Importante <span id="eisCount-drop" class="text-gray-500 font-normal"></span></h4>
+                            <div id="eisCol-drop" class="space-y-2 min-h-[80px]"></div>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- VISÃO KANBAN -->
                 <div id="kanbanBoard" class="hidden pb-4">
@@ -5788,6 +5811,7 @@
                 archived: t.archived || false,
                 "dependsOnId": t.dependsOnId || '',
                 "customFields": t.customFields || [],
+                important: t.important || false,
             };
         }
 
@@ -15058,6 +15082,7 @@
                 waitingSince: existingTask ? (existingTask.waitingSince || '') : '',
                 createdAt: existingTask ? (existingTask.createdAt || new Date().toISOString()) : new Date().toISOString(),
                 archived: existingTask ? (existingTask.archived || false) : false,
+                important: existingTask ? (existingTask.important || false) : false,
             };
 
             if (existingTask) {
@@ -19685,12 +19710,14 @@
         function _refreshCurrentTaskView() {
             const search = document.getElementById('taskSearchInput') ? document.getElementById('taskSearchInput').value : '';
             if (taskViewMode === 'kanban') renderKanban(search);
+            else if (taskViewMode === 'eisenhower') renderEisenhowerMatrix(search);
             else renderTasks(currentTaskFilter, search);
             updateTaskBadge();
         }
 
         function onTaskSearch(val) {
             if (taskViewMode === 'kanban') renderKanban(val);
+            else if (taskViewMode === 'eisenhower') renderEisenhowerMatrix(val);
             else renderTasks(currentTaskFilter, val);
         }
 
@@ -19698,24 +19725,78 @@
             taskViewMode = mode;
             const listEl   = document.getElementById('tasksList');
             const kanbEl   = document.getElementById('kanbanBoard');
+            const eisEl    = document.getElementById('eisenhowerBoard');
             const statusEl = document.getElementById('taskStatusFilters');
             const btnList  = document.getElementById('btnTaskViewList');
             const btnKanb  = document.getElementById('btnTaskViewKanban');
+            const btnEis   = document.getElementById('btnTaskViewEisenhower');
 
             listEl.classList.toggle('hidden', mode !== 'list');
             kanbEl.classList.toggle('hidden', mode !== 'kanban');
-            if (statusEl) statusEl.classList.toggle('hidden', mode === 'kanban');
+            eisEl.classList.toggle('hidden', mode !== 'eisenhower');
+            if (statusEl) statusEl.classList.toggle('hidden', mode !== 'list');
 
-            btnList.classList.toggle('text-sant-cyan', mode === 'list');
-            btnList.classList.toggle('bg-sant-cyan/10', mode === 'list');
-            btnList.classList.toggle('text-gray-500',   mode !== 'list');
-            btnKanb.classList.toggle('text-sant-cyan', mode === 'kanban');
-            btnKanb.classList.toggle('bg-sant-cyan/10', mode === 'kanban');
-            btnKanb.classList.toggle('text-gray-500',   mode !== 'kanban');
+            [[btnList,'list'],[btnKanb,'kanban'],[btnEis,'eisenhower']].forEach(([btn, m]) => {
+                btn.classList.toggle('text-sant-cyan', mode === m);
+                btn.classList.toggle('bg-sant-cyan/10', mode === m);
+                btn.classList.toggle('text-gray-500',   mode !== m);
+            });
 
             const search = document.getElementById('taskSearchInput') ? document.getElementById('taskSearchInput').value : '';
             if (mode === 'kanban') renderKanban(search);
+            else if (mode === 'eisenhower') renderEisenhowerMatrix(search);
             else renderTasks(currentTaskFilter, search);
+        }
+
+        // ── Matriz de Eisenhower ─────────────────────────────────────────────
+        function toggleTaskImportant(id) {
+            const t = tasks.find(x => x.id === id);
+            if (!t) return;
+            t.important = !t.important;
+            saveTasksToStorage();
+            cloudSyncTask(t);
+            const search = document.getElementById('taskSearchInput') ? document.getElementById('taskSearchInput').value : '';
+            renderEisenhowerMatrix(search);
+        }
+        function eisenhowerCardHtml(t) {
+            const prioColors = { urgent:'#f87171', high:'#fb923c', medium:'#fbbf24', low:'#94a3b8' };
+            const pc = prioColors[t.priority] || '#94a3b8';
+            return `<div class="bg-sant-surface border border-sant-border rounded-lg p-2.5 hover:border-sant-cyan/40 transition-colors group">
+                <div class="flex items-start gap-2">
+                    <button onclick="event.stopPropagation();toggleTaskImportant('${t.id}')" class="shrink-0 ${t.important ? 'text-amber-400' : 'text-gray-600 hover:text-amber-400'} transition-colors" title="${t.important ? 'Remover de Importante' : 'Marcar como Importante'}">
+                        <i class="ph ${t.important ? 'ph-star-fill' : 'ph-star'} text-sm"></i>
+                    </button>
+                    <p class="text-sm text-gray-200 flex-1 min-w-0 cursor-pointer truncate" onclick="editTask('${t.id}')" title="${t.title}">${t.title}</p>
+                    <span class="w-2 h-2 rounded-full shrink-0 mt-1.5" style="background:${pc}" title="Prioridade: ${t.priority||'medium'}"></span>
+                </div>
+                ${t.date ? `<p class="text-[10px] text-gray-500 mt-1 pl-6">${t.date.split('-').reverse().join('/')}${t.time ? ' às '+t.time : ''}</p>` : ''}
+            </div>`;
+        }
+        function renderEisenhowerMatrix(searchTerm = '') {
+            const term = (searchTerm || '').toLowerCase();
+            const pending = tasks.filter(t => !t.completed && !t.archived && (!term || t.title.toLowerCase().includes(term)));
+            const isUrgent = t => t.priority === 'urgent' || t.priority === 'high';
+
+            const quadrants = { do: [], plan: [], delegate: [], drop: [] };
+            pending.forEach(t => {
+                const urgent = isUrgent(t);
+                const important = !!t.important;
+                if (urgent && important) quadrants.do.push(t);
+                else if (!urgent && important) quadrants.plan.push(t);
+                else if (urgent && !important) quadrants.delegate.push(t);
+                else quadrants.drop.push(t);
+            });
+
+            ['do','plan','delegate','drop'].forEach(key => {
+                const box = document.getElementById('eisCol-' + key);
+                const countEl = document.getElementById('eisCount-' + key);
+                const items = quadrants[key];
+                if (countEl) countEl.textContent = `(${items.length})`;
+                if (!box) return;
+                box.innerHTML = items.length
+                    ? items.map(eisenhowerCardHtml).join('')
+                    : '<p class="text-[11px] text-gray-600 italic">Nada aqui.</p>';
+            });
         }
 
         function getTaskKanbanCol(t) {
