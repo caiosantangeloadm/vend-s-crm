@@ -5812,6 +5812,8 @@
                 "dependsOnId": t.dependsOnId || '',
                 "customFields": t.customFields || [],
                 important: t.important || false,
+                "actualTimeSpent": t.actualTimeSpent || 0,
+                "timerStartedAt": t.timerStartedAt || null,
             };
         }
 
@@ -14465,6 +14467,12 @@
                         ${hasChainLink ? `<button onclick="openTaskDependencyModal('${t.id}')" class="text-[11px] text-sant-purple/80 hover:text-sant-purple mt-1 flex items-center gap-1"><i class="ph ph-flow-arrow"></i> Ver cadeia de dependências</button>` : ''}
                         ${isOverdue ? `<p class="text-[11px] text-red-400 mt-1 font-semibold flex items-center gap-1"><i class="ph ph-warning-circle"></i> Vencida — ${dateTimeDisplay}</p>` : (dateTimeDisplay ? `<p class="text-[11px] text-sant-cyan mt-1"><i class="ph ph-calendar-blank"></i> ${dateTimeDisplay}</p>` : '')}
                         ${t.estimatedMinutes ? `<p class="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1"><i class="ph ph-hourglass"></i> ${formatEstimate(t.estimatedMinutes)}</p>` : ''}
+                        ${!t.completed ? `<div class="flex items-center gap-1.5 mt-1">
+                            <button onclick="event.stopPropagation();${t.timerStartedAt ? 'pauseTaskTimer' : 'startTaskTimer'}('${t.id}')" class="${t.timerStartedAt ? 'text-red-400 hover:text-red-300' : 'text-gray-500 hover:text-sant-cyan'} transition-colors" title="${t.timerStartedAt ? 'Pausar cronômetro' : 'Iniciar cronômetro'}">
+                                <i class="ph ${t.timerStartedAt ? 'ph-pause-circle' : 'ph-play-circle'} text-sm"></i>
+                            </button>
+                            <span id="taskTimer-${t.id}" class="text-[11px] ${t.timerStartedAt ? 'text-sant-cyan font-bold' : 'text-gray-500'}">${formatEstimate(t.actualTimeSpent || 0)}${t.timerStartedAt ? ' (rodando)' : ''}</span>
+                        </div>` : (t.actualTimeSpent ? `<p class="text-[11px] text-gray-500 mt-1 flex items-center gap-1"><i class="ph ph-timer"></i> Tempo gasto: ${formatEstimate(t.actualTimeSpent)}</p>` : '')}
                         ${(() => { const c = t.contactId ? contacts.find(x => x.id === t.contactId) : null; return c ? `<p class="text-[11px] text-sant-purple mt-1 flex items-center gap-1"><i class="ph ph-user-circle"></i> ${fullName(c)}</p>` : ''; })()}
                         ${t.desc ? `<p class="text-[10px] text-sant-purple mt-1 flex items-center gap-1"><i class="ph ph-notebook"></i> Tem notas</p>` : ''}
                         ${(t.tags && t.tags.length) ? `<div class="flex flex-wrap gap-1 mt-2">${t.tags.map(tag => `<span class="px-2 py-0.5 rounded-full bg-sant-purple/15 border border-sant-purple/30 text-sant-purple text-[10px] font-medium"><i class="ph ph-tag text-[9px]"></i> ${tag}</span>`).join('')}</div>` : ''}
@@ -15083,6 +15091,8 @@
                 createdAt: existingTask ? (existingTask.createdAt || new Date().toISOString()) : new Date().toISOString(),
                 archived: existingTask ? (existingTask.archived || false) : false,
                 important: existingTask ? (existingTask.important || false) : false,
+                actualTimeSpent: existingTask ? (existingTask.actualTimeSpent || 0) : 0,
+                timerStartedAt: existingTask ? (existingTask.timerStartedAt || null) : null,
             };
 
             if (existingTask) {
@@ -17512,6 +17522,38 @@
             });
         }
         // ── fim Adiar Atrasadas em Massa ─────────────────────────────────────
+
+        // ── Cronômetro de Execução ───────────────────────────────────────────
+        function startTaskTimer(id) {
+            const t = tasks.find(x => x.id === id);
+            if (!t) return;
+            t.timerStartedAt = new Date().toISOString();
+            saveTasksToStorage();
+            cloudSyncTask(t);
+            _refreshCurrentTaskView();
+        }
+        function pauseTaskTimer(id) {
+            const t = tasks.find(x => x.id === id);
+            if (!t || !t.timerStartedAt) return;
+            const elapsedMin = Math.max(0, Math.round((Date.now() - new Date(t.timerStartedAt).getTime()) / 60000));
+            t.actualTimeSpent = (t.actualTimeSpent || 0) + elapsedMin;
+            t.timerStartedAt = null;
+            saveTasksToStorage();
+            cloudSyncTask(t);
+            _refreshCurrentTaskView();
+            showToast(`Cronômetro pausado — ${formatEstimate(t.actualTimeSpent)} registrados.`);
+        }
+        // Atualiza os cronômetros em execução na tela a cada segundo (sem re-renderizar tudo)
+        setInterval(() => {
+            tasks.filter(t => t.timerStartedAt).forEach(t => {
+                const el = document.getElementById('taskTimer-' + t.id);
+                if (!el) return;
+                const elapsedMin = Math.floor((Date.now() - new Date(t.timerStartedAt).getTime()) / 60000);
+                const totalMin = (t.actualTimeSpent || 0) + elapsedMin;
+                el.textContent = `${formatEstimate(totalMin)} (rodando)`;
+            });
+        }, 1000);
+        // ── fim Cronômetro de Execução ────────────────────────────────────────
 
         function exportInactivityCsv() {
             const days    = parseInt(document.getElementById('inactRepDays')?.value || '60');
