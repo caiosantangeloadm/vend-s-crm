@@ -14471,7 +14471,7 @@
                             <button onclick="event.stopPropagation();${t.timerStartedAt ? 'pauseTaskTimer' : 'startTaskTimer'}('${t.id}')" class="${t.timerStartedAt ? 'text-red-400 hover:text-red-300' : 'text-gray-500 hover:text-sant-cyan'} transition-colors" title="${t.timerStartedAt ? 'Pausar cronômetro' : 'Iniciar cronômetro'}">
                                 <i class="ph ${t.timerStartedAt ? 'ph-pause-circle' : 'ph-play-circle'} text-sm"></i>
                             </button>
-                            <span id="taskTimer-${t.id}" class="text-[11px] ${t.timerStartedAt ? 'text-sant-cyan font-bold' : 'text-gray-500'}">Real: ${formatEstimate(t.actualTimeSpent || 0)}${t.timerStartedAt ? ' (rodando)' : ''}</span>
+                            <span id="taskTimer-${t.id}" class="text-[11px] ${t.timerStartedAt ? 'text-sant-cyan font-bold' : 'text-gray-500'}">Real: ${formatEstimate(t.actualTimeSpent || 0) || '0min'}${t.timerStartedAt ? ' (rodando)' : ''}</span>
                         </div>` : (t.actualTimeSpent ? `<p class="text-[11px] text-gray-500 mt-1 flex items-center gap-1"><i class="ph ph-timer"></i> Real: ${formatEstimate(t.actualTimeSpent)}</p>` : '')}
                         ${(t.estimatedMinutes > 0 && t.actualTimeSpent > 0) ? (() => {
                             const diff = t.actualTimeSpent - t.estimatedMinutes;
@@ -17542,7 +17542,7 @@
         function pauseTaskTimer(id) {
             const t = tasks.find(x => x.id === id);
             if (!t || !t.timerStartedAt) return;
-            const elapsedMin = Math.max(0, Math.round((Date.now() - new Date(t.timerStartedAt).getTime()) / 60000));
+            const elapsedMin = Math.max(1, Math.ceil((Date.now() - new Date(t.timerStartedAt).getTime()) / 60000));
             t.actualTimeSpent = (t.actualTimeSpent || 0) + elapsedMin;
             t.timerStartedAt = null;
             saveTasksToStorage();
@@ -17557,7 +17557,7 @@
                 if (!el) return;
                 const elapsedMin = Math.floor((Date.now() - new Date(t.timerStartedAt).getTime()) / 60000);
                 const totalMin = (t.actualTimeSpent || 0) + elapsedMin;
-                el.textContent = `${formatEstimate(totalMin)} (rodando)`;
+                el.textContent = `Real: ${formatEstimate(totalMin) || '0min'} (rodando)`;
             });
         }, 1000);
         // ── fim Cronômetro de Execução ────────────────────────────────────────
