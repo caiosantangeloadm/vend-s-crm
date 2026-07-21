@@ -1765,7 +1765,8 @@
                 <!-- Nova nota -->
                 <div id="newNoteBox" class="bg-sant-surface border border-sant-border rounded-2xl p-5 mb-6 shrink-0 cursor-text transition-colors hover:border-sant-cyan/30" onclick="expandNewNote()">
                     <input type="text" id="newNoteTitle" placeholder="Título" class="hidden w-full bg-transparent border-none outline-none text-white font-bold mb-3 placeholder-gray-600 text-base">
-                    <textarea id="newNoteBody" rows="2" placeholder="Criar uma nota..." class="w-full bg-transparent border-none outline-none text-sm text-gray-300 placeholder-gray-600 resize-none"></textarea>
+                    <textarea id="newNoteBody" rows="2" placeholder="Criar uma nota..." oninput="updateNoteWordCount('newNoteBody','newNoteWordCount')" class="w-full bg-transparent border-none outline-none text-sm text-gray-300 placeholder-gray-600 resize-none"></textarea>
+                    <p id="newNoteWordCount" class="hidden text-[10px] text-gray-600 text-right -mt-1 mb-1"></p>
                     <div id="newNoteChecklistBox" class="hidden mb-2"></div>
                     <div id="newNoteTagsContainer" class="hidden flex-wrap gap-1.5 mb-2"></div>
                     <div id="newNoteTagInputWrap" class="hidden gap-2 mb-2">
@@ -9020,6 +9021,8 @@
 
         function expandNewNote() {
             document.getElementById('newNoteBody').rows = 5;
+            document.getElementById('newNoteWordCount').classList.remove('hidden');
+            updateNoteWordCount('newNoteBody','newNoteWordCount');
             document.getElementById('newNoteTitle').classList.remove('hidden');
             document.getElementById('newNoteActions').classList.remove('hidden');
             document.getElementById('newNoteTagsContainer').classList.remove('hidden');
@@ -9094,6 +9097,7 @@
             document.getElementById('newNoteChecklistInput').focus();
         }
         function collapseNewNote() {
+            document.getElementById('newNoteWordCount').classList.add('hidden');
             document.getElementById('newNoteTitle').classList.add('hidden');
             document.getElementById('newNoteActions').classList.add('hidden');
             document.getElementById('newNoteTagsContainer').classList.add('hidden');
@@ -9429,7 +9433,8 @@
             const hasChecklist = editNoteChecklistTemp[id].length > 0;
             card.innerHTML = `
                 <input type="text" id="editNoteTitle-${id}" value="${(n.title||'').replace(/"/g,'&quot;')}" placeholder="Título" class="w-full bg-transparent border-none outline-none text-white font-bold mb-2 placeholder-gray-600">
-                <textarea id="editNoteBody-${id}" rows="8" placeholder="Nota..." class="w-full bg-transparent border-none outline-none text-sm text-gray-300 placeholder-gray-600 resize-none ${hasChecklist ? 'hidden' : ''}">${n.body||''}</textarea>
+                <textarea id="editNoteBody-${id}" rows="8" placeholder="Nota..." oninput="updateNoteWordCount('editNoteBody-${id}','editNoteWordCount-${id}')" class="w-full bg-transparent border-none outline-none text-sm text-gray-300 placeholder-gray-600 resize-none ${hasChecklist ? 'hidden' : ''}">${n.body||''}</textarea>
+                <p id="editNoteWordCount-${id}" class="${hasChecklist ? 'hidden' : ''} text-[10px] text-gray-600 text-right -mt-1 mb-1"></p>
                 <div id="editNoteChecklistBox-${id}" class="${hasChecklist ? '' : 'hidden'} mb-2"></div>
                 <button type="button" onclick="toggleEditNoteChecklistMode('${id}')" id="editNoteChecklistToggle-${id}" class="mb-2 flex items-center gap-1.5 text-xs ${hasChecklist ? 'text-sant-cyan border-sant-cyan/40' : 'text-gray-400'} hover:text-sant-cyan transition-colors border border-sant-border rounded-lg px-2 py-1.5">
                     <i class="ph ph-list-checks"></i> Checklist
@@ -9471,6 +9476,7 @@
             fillNoteTagSuggestions();
             renderEditNoteTagPills(id);
             if (hasChecklist) renderEditNoteChecklist(id);
+            updateNoteWordCount('editNoteBody-'+id, 'editNoteWordCount-'+id);
         }
         function toggleEditNoteChecklistMode(id) {
             const box = document.getElementById('editNoteChecklistBox-'+id);
@@ -9484,11 +9490,13 @@
                     body.value = '';
                 }
                 body.classList.add('hidden');
+                document.getElementById('editNoteWordCount-'+id)?.classList.add('hidden');
                 box.classList.remove('hidden');
                 btn.classList.add('text-sant-cyan', 'border-sant-cyan/40');
                 renderEditNoteChecklist(id);
             } else {
                 body.classList.remove('hidden');
+                document.getElementById('editNoteWordCount-'+id)?.classList.remove('hidden');
                 box.classList.add('hidden');
                 btn.classList.remove('text-sant-cyan', 'border-sant-cyan/40');
                 editNoteChecklistTemp[id] = [];
@@ -9622,7 +9630,7 @@
                 ${tagPills}
                 ${hasChecklist ? checklistBody : (n.body ? `<div class="text-sm text-gray-300 break-words mb-3 cursor-text leading-relaxed note-md-body" onclick="startEditNote('${n.id}')">${mdToHtml(n.body)}</div>` : `<div class="flex-1 cursor-text" onclick="startEditNote('${n.id}')"></div>`)}
                 <div class="mt-auto pt-2 flex flex-col gap-1.5">
-                    <span class="text-[10px] text-gray-500 whitespace-nowrap">${formatNoteDate(n.updatedAt || n.createdAt)}</span>
+                    <span class="text-[10px] text-gray-500 whitespace-nowrap flex items-center gap-1.5">${formatNoteDate(n.updatedAt || n.createdAt)}${(n.body||'').length > 500 ? `<i class="ph ph-text-align-left text-gray-600" title="Nota longa (${(n.body||'').length} caracteres)"></i>` : ''}</span>
                     <div class="flex items-center flex-wrap gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         <div class="flex items-center gap-0.5 mr-0.5">${colorDots}</div>
                         <button onclick="event.stopPropagation(); copyNoteToClipboard('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-0.5" title="Copiar conteúdo"><i class="ph ph-clipboard-text text-sm"></i></button>
@@ -9711,6 +9719,15 @@
             renderNotes();
         }
 
+        function updateNoteWordCount(textareaId, labelId) {
+            const ta = document.getElementById(textareaId);
+            const label = document.getElementById(labelId);
+            if (!ta || !label) return;
+            const text = ta.value.trim();
+            const words = text ? text.split(/\s+/).length : 0;
+            const chars = ta.value.length;
+            label.textContent = `${words} palavra${words!==1?'s':''} · ${chars} caractere${chars!==1?'s':''}`;
+        }
         function setNoteFolderFilter(val) {
             noteFolderFilter = val;
             renderNotes();
