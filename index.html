@@ -1733,6 +1733,9 @@
                         <button id="btnNotesArchive" onclick="toggleNotesArchive()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-white transition-colors">
                             <i class="ph ph-archive"></i> Arquivo
                         </button>
+                        <button id="btnNotesTrash" onclick="toggleNotesTrash()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-red-400 transition-colors" title="Notas excluídas dos últimos 30 dias — restauráveis">
+                            <i class="ph ph-trash"></i> Lixeira
+                        </button>
                         <button onclick="exportNotesBatchPdf()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-sant-cyan hover:border-sant-cyan/40 transition-colors" title="Exporta em um só PDF as notas visíveis nesta tela (respeita busca/etiqueta/arquivo)">
                             <i class="ph ph-file-pdf"></i> Exportar PDF
                         </button>
@@ -4440,6 +4443,7 @@
         let notesActiveTagFilter = '';
         let notesFavoriteFilter = false;
         let notesShowArchived = false;
+        let notesShowTrash = false;
         let notesViewMode = 'cards';
         let lastNoteId = null;
         let hoveredContactId = null;
@@ -4964,7 +4968,7 @@
             ).slice(0, 5);
 
             // Notas
-            const matchNotes = notes.filter(n =>
+            const matchNotes = notes.filter(n => !n.deletedAt).filter(n =>
                 (n.title||'').toLowerCase().includes(ql) ||
                 (n.body||'').toLowerCase().includes(ql) ||
                 (n.tags||[]).some(t => t.toLowerCase().includes(ql))
@@ -5239,6 +5243,7 @@
             runInactivityAutomations();
             checkSnoozedNotifications();
             updateSyncIndicator();
+            purgeOldTrashedNotes();
         }
 
         function checkUrgentTaskReminders() {
@@ -6039,6 +6044,7 @@
                 tags: n.tags || [],
                 checklist: n.checklist || [],
                 "sortOrder": n.sortOrder ?? null,
+                "deletedAt": n.deletedAt || null,
                 "createdAt": n.createdAt || new Date().toISOString(),
                 "updatedAt": n.updatedAt || new Date().toISOString(),
             };
@@ -9145,10 +9151,45 @@
             if (n) { n.favorite = !n.favorite; saveNotesToStorage(); cloudSyncNote(n); renderNotes(); }
         }
         function deleteNote(id) {
-            if (!confirm('Excluir esta nota permanentemente?')) return;
+            const n = notes.find(x => x.id === id);
+            if (!n) return;
+            if (!confirm('Mover esta nota para a Lixeira? Ela fica lá por 30 dias antes de ser excluída de vez.')) return;
+            n.deletedAt = new Date().toISOString();
+            n.updatedAt = n.deletedAt;
+            saveNotesToStorage();
+            cloudSyncNote(n);
+            renderNotes();
+            showToast('Nota movida para a Lixeira.');
+        }
+        function restoreNoteFromTrash(id) {
+            const n = notes.find(x => x.id === id);
+            if (!n) return;
+            n.deletedAt = null;
+            n.updatedAt = new Date().toISOString();
+            saveNotesToStorage();
+            cloudSyncNote(n);
+            renderNotes();
+            showToast('Nota restaurada!');
+        }
+        function permanentlyDeleteNote(id) {
+            if (!confirm('Excluir esta nota definitivamente? Esta ação não pode ser desfeita.')) return;
             notes = notes.filter(x => x.id !== id);
             saveNotesToStorage();
             cloudDeleteNote(id);
+            renderNotes();
+            showToast('Nota excluída definitivamente.');
+        }
+        function purgeOldTrashedNotes() {
+            const cutoff = Date.now() - 30 * 86400000;
+            const toPurge = notes.filter(n => n.deletedAt && new Date(n.deletedAt).getTime() < cutoff);
+            if (!toPurge.length) return;
+            toPurge.forEach(n => cloudDeleteNote(n.id));
+            notes = notes.filter(n => !(n.deletedAt && new Date(n.deletedAt).getTime() < cutoff));
+            saveNotesToStorage();
+        }
+        function toggleNotesTrash() {
+            notesShowTrash = !notesShowTrash;
+            if (notesShowTrash) notesShowArchived = false;
             renderNotes();
         }
 
@@ -9261,7 +9302,7 @@
 
         function getVisibleNotesForExport() {
             const term = (document.getElementById('notesSearchInput')?.value || '').toLowerCase();
-            let filtered = notes.filter(n => notesShowArchived ? n.archived : !n.archived);
+            let filtered = notes.filter(n => !n.deletedAt).filter(n => notesShowArchived ? n.archived : !n.archived);
             filtered = filtered.filter(n => (n.title || '').toLowerCase().includes(term) || (n.body || '').toLowerCase().includes(term));
             if (notesActiveTagFilter) filtered = filtered.filter(n => n.tags && n.tags.includes(notesActiveTagFilter));
             if (notesFavoriteFilter) filtered = filtered.filter(n => n.favorite);
@@ -9489,6 +9530,23 @@
         }
 
         function noteCardHtml(n) {
+            if (n.deletedAt) {
+                const c = getNoteColor(n.color);
+                const daysLeft = Math.max(0, 30 - Math.floor((Date.now() - new Date(n.deletedAt).getTime()) / 86400000));
+                return `
+                <div id="note-${n.id}" class="${c.bg} ${c.border} border rounded-2xl p-5 flex flex-col relative min-h-[140px] opacity-70">
+                    <div class="flex items-center gap-1 text-[10px] text-red-400 mb-2 font-medium"><i class="ph ph-trash"></i> Excluída — some definitivamente em ${daysLeft}d</div>
+                    ${n.title ? `<h3 class="font-bold text-white text-sm break-words mb-1">${n.title}</h3>` : ''}
+                    ${n.body ? `<div class="text-sm text-gray-400 break-words mb-3 leading-relaxed line-clamp-4">${(n.body||'').replace(/</g,'&lt;').slice(0,200)}</div>` : ''}
+                    <div class="mt-auto pt-2 flex items-center justify-between">
+                        <span class="text-[10px] text-gray-500">${formatNoteDate(n.deletedAt)}</span>
+                        <div class="flex items-center gap-2">
+                            <button onclick="restoreNoteFromTrash('${n.id}')" class="text-xs font-bold text-sant-cyan hover:text-white border border-sant-cyan/30 hover:bg-sant-cyan/10 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"><i class="ph ph-arrow-counter-clockwise"></i> Restaurar</button>
+                            <button onclick="permanentlyDeleteNote('${n.id}')" class="text-gray-500 hover:text-red-500 p-1" title="Excluir definitivamente"><i class="ph ph-trash text-sm"></i></button>
+                        </div>
+                    </div>
+                </div>`;
+            }
             const c = getNoteColor(n.color);
             const colorDots = noteColors.map(cc => `
                 <button onclick="event.stopPropagation(); setNoteColor('${n.id}','${cc.key}')" class="w-4 h-4 rounded-full border ${cc.key === n.color ? 'border-sant-cyan' : 'border-sant-border'}" style="background:${cc.dot}" title="${cc.label}"></button>
@@ -9639,7 +9697,7 @@
 
         function renderNoteTagFilterBar() {
             const bar = document.getElementById('noteTagFilterBar');
-            const usedTags = [...new Set(notes.flatMap(n => n.tags || []))].sort((a,b) => a.localeCompare(b, 'pt-BR'));
+            const usedTags = [...new Set(notes.filter(n => !n.deletedAt).flatMap(n => n.tags || []))].sort((a,b) => a.localeCompare(b, 'pt-BR'));
             if (usedTags.length === 0) {
                 bar.classList.add('hidden');
                 bar.innerHTML = '';
@@ -9659,15 +9717,16 @@
             if (sortSelEl && sortSelEl.value !== currentNotesSort) sortSelEl.value = currentNotesSort;
             renderNoteTagFilterBar();
             const term = (document.getElementById('notesSearchInput')?.value || '').toLowerCase();
-            // Oculta caixa de nova nota no modo arquivo
+            // Oculta caixa de nova nota no modo arquivo/lixeira
             const newNoteBox = document.getElementById('newNoteBox');
-            if (newNoteBox) newNoteBox.classList.toggle('hidden', notesShowArchived);
+            if (newNoteBox) newNoteBox.classList.toggle('hidden', notesShowArchived || notesShowTrash);
 
-            // Separa arquivadas antes de qualquer filtro
-            const archivedCount = notes.filter(n => n.archived).length;
-            let filtered = notes.filter(n =>
-                notesShowArchived ? n.archived : !n.archived
-            );
+            // Separa arquivadas/excluídas antes de qualquer filtro
+            const archivedCount = notes.filter(n => n.archived && !n.deletedAt).length;
+            const trashCount = notes.filter(n => n.deletedAt).length;
+            let filtered = notesShowTrash
+                ? notes.filter(n => n.deletedAt)
+                : notes.filter(n => !n.deletedAt).filter(n => notesShowArchived ? n.archived : !n.archived);
 
             // Atualiza botão de arquivo
             const archBtn = document.getElementById('btnNotesArchive');
@@ -9680,6 +9739,17 @@
                     archBtn.innerHTML = `<i class="ph ph-archive"></i> Arquivo${archivedCount > 0 ? ` <span class="ml-0.5 px-1.5 py-0.5 rounded-full bg-sant-border text-gray-400 text-[10px]">${archivedCount}</span>` : ''}`;
                 }
             }
+            // Atualiza botão de lixeira
+            const trashBtn = document.getElementById('btnNotesTrash');
+            if (trashBtn) {
+                if (notesShowTrash) {
+                    trashBtn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20 transition-colors';
+                    trashBtn.innerHTML = `<i class="ph ph-arrow-counter-clockwise"></i> Voltar às notas`;
+                } else {
+                    trashBtn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-red-400 transition-colors';
+                    trashBtn.innerHTML = `<i class="ph ph-trash"></i> Lixeira${trashCount > 0 ? ` <span class="ml-0.5 px-1.5 py-0.5 rounded-full bg-sant-border text-gray-400 text-[10px]">${trashCount}</span>` : ''}`;
+                }
+            }
 
             filtered = filtered.filter(n =>
                 (n.title || '').toLowerCase().includes(term) || (n.body || '').toLowerCase().includes(term)
@@ -9688,14 +9758,15 @@
             if (notesFavoriteFilter) filtered = filtered.filter(n => n.favorite);
 
             // Ordenação
-            if (currentNotesSort === 'newest') filtered.sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||''));
+            if (notesShowTrash) filtered.sort((a,b) => (b.deletedAt||'').localeCompare(a.deletedAt||''));
+            else if (currentNotesSort === 'newest') filtered.sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||''));
             else if (currentNotesSort === 'oldest') filtered.sort((a,b) => (a.createdAt||'').localeCompare(b.createdAt||''));
             else if (currentNotesSort === 'title') filtered.sort((a,b) => (a.title||'').localeCompare(b.title||'','pt-BR'));
             else if (currentNotesSort === 'color') filtered.sort((a,b) => (a.color||'default').localeCompare(b.color||'default'));
             else if (currentNotesSort === 'manual') filtered.sort((a,b) => (a.sortOrder ?? 999999) - (b.sortOrder ?? 999999));
 
-            const pinned = filtered.filter(n => n.pinned && !notesShowArchived);
-            const others = filtered.filter(n => !n.pinned || notesShowArchived);
+            const pinned = filtered.filter(n => n.pinned && !notesShowArchived && !notesShowTrash);
+            const others = filtered.filter(n => !n.pinned || notesShowArchived || notesShowTrash);
 
             const pinnedSection = document.getElementById('pinnedNotesSection');
             const pinnedGrid = document.getElementById('pinnedNotesGrid');
@@ -9714,7 +9785,9 @@
 
             if (others.length === 0 && pinned.length === 0) {
                 grid.className = 'grid grid-cols-1';
-                const emptyMsg = notesShowArchived
+                const emptyMsg = notesShowTrash
+                    ? emptyState('ph-trash', 'Lixeira vazia', 'Notas excluídas aparecem aqui por 30 dias.')
+                    : notesShowArchived
                     ? emptyState('ph-archive', 'Arquivo vazio', 'Nenhuma nota arquivada ainda.')
                     : emptyState('ph-note', 'Nenhuma nota ainda', 'Use o campo acima para criar sua primeira nota.');
                 grid.innerHTML = `<div class="flex items-center justify-center h-64">${emptyMsg}</div>`;
@@ -9756,7 +9829,7 @@
 
         function renderNotesKanban() {
             const term = (document.getElementById('notesSearchInput')?.value || '').toLowerCase();
-            let filtered = notes.filter(n => !n.archived);
+            let filtered = notes.filter(n => !n.archived && !n.deletedAt);
             if (term) filtered = filtered.filter(n =>
                 (n.title||'').toLowerCase().includes(term) || (n.body||'').toLowerCase().includes(term));
             if (notesActiveTagFilter) filtered = filtered.filter(n => n.tags && n.tags.includes(notesActiveTagFilter));
@@ -9821,6 +9894,7 @@
 
         function toggleNotesArchive() {
             notesShowArchived = !notesShowArchived;
+            if (notesShowArchived) notesShowTrash = false;
             renderNotes();
         }
 
@@ -18286,7 +18360,7 @@
             if (!list) return;
             const usedTags = new Set();
             contacts.forEach(c => (c.tags||[]).forEach(t => usedTags.add(t)));
-            notes.forEach(n => (n.tags||[]).forEach(t => usedTags.add(t)));
+            notes.filter(n => !n.deletedAt).forEach(n => (n.tags||[]).forEach(t => usedTags.add(t)));
             tasks.forEach(t => (t.tags||[]).forEach(tag => usedTags.add(tag)));
             const unused = tags.filter(t => !usedTags.has(t));
             countEl.textContent = `${unused.length} tag${unused.length!==1?'s':''}`;
@@ -20948,7 +21022,7 @@
         function exportContactNotesPdf() {
             if (!currentHistoryContactId) return;
             const c = contacts.find(x => x.id === currentHistoryContactId);
-            const linked = notes.filter(n => n.contactId === currentHistoryContactId)
+            const linked = notes.filter(n => n.contactId === currentHistoryContactId && !n.deletedAt)
                 .sort((a,b) => (b.updatedAt||'').localeCompare(a.updatedAt||''));
             if (!linked.length) { showToast('Nenhuma nota vinculada para exportar.', 'error'); return; }
 
@@ -20998,7 +21072,7 @@
         function renderContactNotes() {
             const box = document.getElementById('contactNotesList');
             if (!box || !currentHistoryContactId) return;
-            const linked = notes.filter(n => n.contactId === currentHistoryContactId)
+            const linked = notes.filter(n => n.contactId === currentHistoryContactId && !n.deletedAt)
                 .sort((a,b) => (b.updatedAt||'').localeCompare(a.updatedAt||''));
             const exportBtn = document.getElementById('btnExportContactNotesPdf');
             if (exportBtn) exportBtn.classList.toggle('hidden', linked.length === 0);
