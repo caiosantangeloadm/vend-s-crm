@@ -1736,6 +1736,9 @@
                         <button id="btnNotesTrash" onclick="toggleNotesTrash()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-red-400 transition-colors" title="Notas excluídas dos últimos 30 dias — restauráveis">
                             <i class="ph ph-trash"></i> Lixeira
                         </button>
+                        <select id="noteFolderFilter" onchange="setNoteFolderFilter(this.value)" class="bg-sant-surface border border-sant-border rounded-lg px-3 py-2 text-xs text-gray-400 outline-none appearance-none">
+                            <option value="">Todos os cadernos</option>
+                        </select>
                         <button onclick="exportNotesBatchPdf()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-sant-cyan hover:border-sant-cyan/40 transition-colors" title="Exporta em um só PDF as notas visíveis nesta tela (respeita busca/etiqueta/arquivo)">
                             <i class="ph ph-file-pdf"></i> Exportar PDF
                         </button>
@@ -1781,6 +1784,8 @@
                             <select id="newNoteContact" onclick="event.stopPropagation()" class="bg-[#141414] border border-sant-border rounded-lg px-2 py-1.5 text-xs text-gray-300 outline-none max-w-[160px]">
                                 <option value="">Sem contato vinculado</option>
                             </select>
+                            <input type="text" id="newNoteFolder" onclick="event.stopPropagation()" list="noteFolderSuggestions" placeholder="Caderno (opcional)" class="bg-[#141414] border border-sant-border rounded-lg px-2 py-1.5 text-xs text-gray-300 outline-none max-w-[140px]">
+                            <datalist id="noteFolderSuggestions"></datalist>
                             <label class="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer" title="Lembrete / Vencimento">
                                 <i class="ph ph-bell text-sant-cyan"></i>
                                 <input type="date" id="newNoteDueDate" onclick="event.stopPropagation()" class="bg-[#141414] border border-sant-border rounded-lg px-2 py-1 text-xs text-gray-300 outline-none focus:border-sant-cyan transition-colors">
@@ -4441,6 +4446,7 @@
         let editNoteTagsTemp = {};
         let editNoteChecklistTemp = {};
         let notesActiveTagFilter = '';
+        let noteFolderFilter = '';
         let notesFavoriteFilter = false;
         let notesShowArchived = false;
         let notesShowTrash = false;
@@ -6040,6 +6046,7 @@
                 color: n.color || 'default', pinned: n.pinned || false, favorite: n.favorite || false,
                 archived: n.archived || false,
                 "contactId": n.contactId || '', "dueDate": n.dueDate || '', "emailAlert": n.emailAlert || '0',
+                folder: n.folder || '',
                 "kanbanColumn": n.kanbanColumn || 'inbox',
                 tags: n.tags || [],
                 checklist: n.checklist || [],
@@ -9100,6 +9107,7 @@
             document.getElementById('newNoteChecklistBox').classList.add('hidden');
             document.getElementById('newNoteChecklistToggle')?.classList.remove('text-sant-cyan', 'border-sant-cyan/40');
             document.getElementById('newNoteContact').value = '';
+            document.getElementById('newNoteFolder').value = '';
             document.getElementById('newNoteTagInput').value = '';
             document.getElementById('newNoteDueDate').value = '';
             newNoteColor = '';
@@ -9117,6 +9125,7 @@
             const now = new Date().toISOString();
             const newNoteDueDate = document.getElementById('newNoteDueDate').value || '';
             const newNoteEmailAlert = document.getElementById('newNoteEmailAlert').value || '0';
+            const newNoteFolder = document.getElementById('newNoteFolder').value.trim();
             const newId = crypto.randomUUID();
             notes.unshift({
                 id: newId,
@@ -9125,6 +9134,7 @@
                 color: newNoteColor,
                 pinned: false,
                 contactId,
+                folder: newNoteFolder,
                 tags: [...newNoteTags],
                 dueDate: newNoteDueDate,
                 emailAlert: newNoteEmailAlert,
@@ -9305,6 +9315,7 @@
             let filtered = notes.filter(n => !n.deletedAt).filter(n => notesShowArchived ? n.archived : !n.archived);
             filtered = filtered.filter(n => (n.title || '').toLowerCase().includes(term) || (n.body || '').toLowerCase().includes(term));
             if (notesActiveTagFilter) filtered = filtered.filter(n => n.tags && n.tags.includes(notesActiveTagFilter));
+            if (noteFolderFilter) filtered = filtered.filter(n => n.folder === noteFolderFilter);
             if (notesFavoriteFilter) filtered = filtered.filter(n => n.favorite);
             if (currentNotesSort === 'newest') filtered.sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||''));
             else if (currentNotesSort === 'oldest') filtered.sort((a,b) => (a.createdAt||'').localeCompare(b.createdAt||''));
@@ -9435,6 +9446,7 @@
                         <select id="editNoteContact-${id}" class="bg-[#141414] border border-sant-border rounded-lg px-2 py-1.5 text-xs text-gray-300 outline-none max-w-[160px]">
                             <option value="">Sem contato vinculado</option>
                         </select>
+                        <input type="text" id="editNoteFolder-${id}" value="${(n.folder||'').replace(/"/g,'&quot;')}" list="noteFolderSuggestions" placeholder="Caderno (opcional)" class="bg-[#141414] border border-sant-border rounded-lg px-2 py-1.5 text-xs text-gray-300 outline-none max-w-[140px]">
                         <label class="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer" title="Lembrete / Vencimento">
                             <i class="ph ph-bell text-sant-cyan"></i>
                             <input type="date" id="editNoteDueDate-${id}" value="${n.dueDate || ''}" class="bg-[#141414] border border-sant-border rounded-lg px-2 py-1 text-xs text-gray-300 outline-none focus:border-sant-cyan transition-colors">
@@ -9513,6 +9525,7 @@
             n.body = document.getElementById('editNoteBody-'+id).value.trim();
             n.checklist = (editNoteChecklistTemp[id] || []).filter(it => it.text.trim());
             n.contactId = document.getElementById('editNoteContact-'+id).value || null;
+            n.folder = document.getElementById('editNoteFolder-'+id).value.trim();
             n.tags = [...(editNoteTagsTemp[id] || [])];
             n.dueDate = document.getElementById('editNoteDueDate-'+id).value || '';
             n.emailAlert = document.getElementById('editNoteEmailAlert-'+id)?.value || '0';
@@ -9554,6 +9567,9 @@
             const linkedContact = n.contactId ? contacts.find(x => x.id === n.contactId) : null;
             const contactBadge = linkedContact
                 ? `<span onclick="event.stopPropagation(); closeNoteAndOpenContact('${linkedContact.id}')" class="inline-flex items-center gap-1 px-2 py-0.5 mb-2 rounded text-[10px] font-medium bg-sant-cyan/10 text-sant-cyan border border-sant-cyan/20 cursor-pointer hover:bg-sant-cyan/20 transition-colors"><i class="ph ph-user"></i> ${fullName(linkedContact)}</span>`
+                : '';
+            const folderBadge = n.folder
+                ? `<span onclick="event.stopPropagation(); setNoteFolderFilter('${n.folder.replace(/'/g,"\\'")}')" class="inline-flex items-center gap-1 px-2 py-0.5 mb-2 mr-1 rounded text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 cursor-pointer hover:bg-amber-500/20 transition-colors" title="Filtrar por este caderno"><i class="ph ph-folder"></i> ${n.folder}</span>`
                 : '';
             const tagPills = (n.tags && n.tags.length > 0)
                 ? `<div class="flex flex-wrap gap-1 mb-2">${n.tags.map(t => `<span onclick="event.stopPropagation(); filterNotesByTag('${t}')" class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-sant-purple/10 text-sant-purple border border-sant-purple/20 cursor-pointer hover:bg-sant-purple/20 transition-colors"><i class="ph ph-tag"></i> ${t}</span>`).join('')}</div>`
@@ -9600,7 +9616,7 @@
                         }
                     </div>
                 </div>
-                ${contactBadge}
+                ${folderBadge}${contactBadge}
                 ${dueBadge}
                 ${checklistBadge}
                 ${tagPills}
@@ -9695,6 +9711,21 @@
             renderNotes();
         }
 
+        function setNoteFolderFilter(val) {
+            noteFolderFilter = val;
+            renderNotes();
+        }
+        function fillNoteFolderControls() {
+            const folders = [...new Set(notes.filter(n => !n.deletedAt && n.folder).map(n => n.folder))].sort((a,b) => a.localeCompare(b,'pt-BR'));
+            const filterSel = document.getElementById('noteFolderFilter');
+            if (filterSel) {
+                const current = filterSel.value;
+                filterSel.innerHTML = '<option value="">Todos os cadernos</option>' + folders.map(f => `<option value="${f}">${f}</option>`).join('');
+                filterSel.value = folders.includes(current) ? current : '';
+            }
+            const dl = document.getElementById('noteFolderSuggestions');
+            if (dl) dl.innerHTML = folders.map(f => `<option value="${f}">`).join('');
+        }
         function renderNoteTagFilterBar() {
             const bar = document.getElementById('noteTagFilterBar');
             const usedTags = [...new Set(notes.filter(n => !n.deletedAt).flatMap(n => n.tags || []))].sort((a,b) => a.localeCompare(b, 'pt-BR'));
@@ -9716,6 +9747,7 @@
             const sortSelEl = document.getElementById('notesSortSelect');
             if (sortSelEl && sortSelEl.value !== currentNotesSort) sortSelEl.value = currentNotesSort;
             renderNoteTagFilterBar();
+            fillNoteFolderControls();
             const term = (document.getElementById('notesSearchInput')?.value || '').toLowerCase();
             // Oculta caixa de nova nota no modo arquivo/lixeira
             const newNoteBox = document.getElementById('newNoteBox');
@@ -9755,6 +9787,7 @@
                 (n.title || '').toLowerCase().includes(term) || (n.body || '').toLowerCase().includes(term)
             );
             if (notesActiveTagFilter) filtered = filtered.filter(n => n.tags && n.tags.includes(notesActiveTagFilter));
+            if (noteFolderFilter) filtered = filtered.filter(n => n.folder === noteFolderFilter);
             if (notesFavoriteFilter) filtered = filtered.filter(n => n.favorite);
 
             // Ordenação
@@ -9833,6 +9866,7 @@
             if (term) filtered = filtered.filter(n =>
                 (n.title||'').toLowerCase().includes(term) || (n.body||'').toLowerCase().includes(term));
             if (notesActiveTagFilter) filtered = filtered.filter(n => n.tags && n.tags.includes(notesActiveTagFilter));
+            if (noteFolderFilter) filtered = filtered.filter(n => n.folder === noteFolderFilter);
 
             const cols = ['inbox','doing','done'];
             cols.forEach(col => {
