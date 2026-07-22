@@ -3973,6 +3973,10 @@
                     </div>
                     <span id="historyFrequencyStatus" class="text-[10px] font-semibold ml-1"></span>
                 </div>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" id="historyIgnoreInactivity" onchange="setIgnoreInactivity(this.checked)" class="w-3.5 h-3.5 accent-gray-500">
+                    <span class="text-xs text-gray-500">Não avisar sobre inatividade deste contato (ex: contato de teste, não é cliente/lead)</span>
+                </label>
             </div>
             </div>
             <div class="border-b border-sant-border bg-[#0a0a0a] shrink-0">
@@ -7784,6 +7788,7 @@
             const noCategory = contacts.filter(c => !c.category).length;
             const inactivityThreshold = parseInt(localStorage.getItem('vends_inactivity_days') || '60');
             const inactive = contacts.filter(c => {
+                if (c.ignoreInactivityAlerts) return false;
                 const days = getInactivityDays(c);
                 return days !== null && days >= getEffectiveInactivityThreshold(c);
             }).length;
@@ -7896,7 +7901,7 @@
             // ── 6. Contatos inativos (acima do limite) ──────────────────────
             if (inactDays > 0) {
                 contacts
-                    .filter(c => (getInactivityDays(c) || 0) >= getEffectiveInactivityThreshold(c) * 1.5) // 1.5× o limite (personalizado ou global) = crítico
+                    .filter(c => !c.ignoreInactivityAlerts && (getInactivityDays(c) || 0) >= getEffectiveInactivityThreshold(c) * 1.5) // 1.5× o limite (personalizado ou global) = crítico
                     .sort((a,b) => (getInactivityDays(b)||0) - (getInactivityDays(a)||0))
                     .slice(0, 3)
                     .forEach(c => {
@@ -16819,6 +16824,7 @@
                     "nextContact": c.nextContact || '',
                     "nextStep": c.nextStep || '',
                     "contactFrequencyDays": c.contactFrequencyDays || 0,
+                    "ignoreInactivityAlerts": c.ignoreInactivityAlerts || false,
                     photo: c.photo || '',
                     "addressStreet": c.addressStreet || '',
                     "addressNumber": c.addressNumber || '',
@@ -16890,6 +16896,7 @@
                 "referredByContactId": c.referredByContactId || '',
                 "nextContact": c.nextContact || '', "nextStep": c.nextStep || '',
                 "contactFrequencyDays": c.contactFrequencyDays || 0,
+                "ignoreInactivityAlerts": c.ignoreInactivityAlerts || false,
                 photo: c.photo || '', "privateNotes": c.privateNotes || '',
                 "addressStreet": c.addressStreet || '', "addressNumber": c.addressNumber || '',
                 "addressNeighborhood": c.addressNeighborhood || '',
@@ -19593,6 +19600,7 @@
         }
 
         function inactivityBadgeHtml(c) {
+            if (c.ignoreInactivityAlerts) return '';
             const threshold = getEffectiveInactivityThreshold(c);
             if (!threshold) return '';
             const days = getInactivityDays(c);
@@ -21063,6 +21071,8 @@
             renderInteractionHeatmap(c);
             const freqInput = document.getElementById('historyFrequencyDays');
             if (freqInput) freqInput.value = c.contactFrequencyDays || '';
+            const ignoreInactivityInput = document.getElementById('historyIgnoreInactivity');
+            if (ignoreInactivityInput) ignoreInactivityInput.checked = !!c.ignoreInactivityAlerts;
             const s = getFrequencyStatus(c);
             const statusEl = document.getElementById('historyFrequencyStatus');
             if (statusEl) {
@@ -22089,6 +22099,15 @@
                 statusEl.style.color = '#4ade80';
             }
             showToast(val ? `Frequência definida: a cada ${val} dias.` : 'Frequência removida.');
+        }
+
+        function setIgnoreInactivity(checked) {
+            if (!currentHistoryContactId) return;
+            const c = contacts.find(x => x.id === currentHistoryContactId);
+            if (!c) return;
+            c.ignoreInactivityAlerts = !!checked;
+            saveToStorage();
+            showToast(checked ? 'Avisos de inatividade desativados para este contato.' : 'Avisos de inatividade reativados.');
         }
 
         function checkFrequencyReminders() {
