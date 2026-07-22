@@ -22204,7 +22204,9 @@
 
             const ints = c.interactions || [];
             const todayStr = getSPTodayStr();
-            if (ints.length === 0 && !c.nextContact && !c.nextStep) { box.classList.add('hidden'); return; }
+            const earlyInactDays = getInactivityDays(c);
+            const earlySuggestion = getNextActionSuggestion(c, { inactDays: earlyInactDays, inactThreshold: getEffectiveInactivityThreshold(c) });
+            if (ints.length === 0 && !c.nextContact && !c.nextStep && !earlySuggestion) { box.classList.add('hidden'); return; }
 
             const parts = [];
             if (ints.length > 0) {
