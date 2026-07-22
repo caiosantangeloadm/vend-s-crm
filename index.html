@@ -20251,6 +20251,14 @@
                 else quadrants.drop.push(t);
             });
 
+            const byDateAsc = (a, b) => {
+                if (!a.date && !b.date) return 0;
+                if (!a.date) return 1;
+                if (!b.date) return -1;
+                return (a.date + (a.time||'')).localeCompare(b.date + (b.time||''));
+            };
+            ['do','plan','delegate','drop'].forEach(key => quadrants[key].sort(byDateAsc));
+
             ['do','plan','delegate','drop'].forEach(key => {
                 const box = document.getElementById('eisCol-' + key);
                 const countEl = document.getElementById('eisCount-' + key);
