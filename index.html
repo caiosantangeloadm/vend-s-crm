@@ -8535,15 +8535,19 @@
             return `${yy}-${mm}-${dd}`;
         }
 
-        let _upcomingExpanded = true;
+        let _upcomingExpanded = JSON.parse(localStorage.getItem('vends_dash_upcoming_expanded') || 'false');
         function toggleUpcomingWeeks() {
             _upcomingExpanded = !_upcomingExpanded;
+            localStorage.setItem('vends_dash_upcoming_expanded', JSON.stringify(_upcomingExpanded));
             document.getElementById('dashUpcomingWeek').classList.toggle('hidden', !_upcomingExpanded);
             document.getElementById('dashUpcomingToggle').textContent = _upcomingExpanded ? 'Ver menos ▲' : 'Ver mais ▼';
         }
 
         function renderUpcomingWeek(todayStr) {
             const container = document.getElementById('dashUpcomingWeek');
+            container.classList.toggle('hidden', !_upcomingExpanded);
+            const toggleBtn = document.getElementById('dashUpcomingToggle');
+            if (toggleBtn) toggleBtn.textContent = _upcomingExpanded ? 'Ver menos ▲' : 'Ver mais ▼';
             const DAYS = 14;
             const endStr = addDaysToDateStr(todayStr, DAYS);
             const tomorrowStr = addDaysToDateStr(todayStr, 1);
