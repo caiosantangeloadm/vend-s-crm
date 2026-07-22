@@ -1152,6 +1152,7 @@
                         <button onclick="openAgendaSummaryModal()" class="w-10 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan flex items-center justify-center transition-colors" title="Gerar resumo do dia/semana (copiar ou WhatsApp)"><i class="ph ph-clipboard-text"></i></button>
                         <button onclick="openFreeSlotFinderModal()" class="w-10 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan flex items-center justify-center transition-colors" title="Achar horário livre"><i class="ph ph-magic-wand"></i></button>
                         <button onclick="openEventTemplatesModal()" class="w-10 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan flex items-center justify-center transition-colors" title="Modelos de Evento"><i class="ph ph-copy-simple"></i></button>
+                        <button onclick="openEventsTrashModal()" class="w-10 h-10 rounded border border-sant-border hover:border-red-400 text-gray-400 hover:text-red-400 flex items-center justify-center transition-colors" title="Lixeira da Agenda — compromissos excluídos dos últimos 30 dias"><i class="ph ph-trash"></i></button>
                         <button id="btnCopyWeek" onclick="copyWeekToNextWeek()" class="hidden items-center gap-2 h-10 px-3 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors text-sm font-medium" title="Copiar todos os compromissos desta semana para a próxima"><i class="ph ph-copy"></i> Copiar Semana</button>
                         <button onclick="openEventModal()" class="bg-sant-purple hover:bg-purple-800 text-white px-5 py-2 rounded-lg flex items-center gap-2 transition-all font-medium">
                             <i class="ph ph-plus"></i> Evento
@@ -1260,6 +1261,7 @@
                         <button onclick="filterTasks('pending')" id="btnFilterPending" class="filter-status-btn px-4 py-1.5 rounded-full border border-sant-border text-gray-400 hover:text-white transition-colors text-sm">Pendentes</button>
                         <button onclick="filterTasks('completed')" id="btnFilterCompleted" class="filter-status-btn px-4 py-1.5 rounded-full border border-sant-border text-gray-400 hover:text-white transition-colors text-sm">Concluídas</button>
                         <button onclick="filterTasks('archived')" id="btnFilterArchived" class="filter-status-btn px-4 py-1.5 rounded-full border border-sant-border text-gray-400 hover:text-white transition-colors text-sm flex items-center gap-1.5"><i class="ph ph-archive"></i> Arquivadas</button>
+                        <button onclick="filterTasks('trash')" id="btnFilterTrash" class="filter-status-btn px-4 py-1.5 rounded-full border border-sant-border text-gray-400 hover:text-red-400 transition-colors text-sm flex items-center gap-1.5"><i class="ph ph-trash"></i> Lixeira</button>
                         <button onclick="toggleTaskFocus()" id="btnTaskFocus" class="px-4 py-1.5 rounded-full border border-[#fbbf24]/40 text-[#fbbf24]/60 hover:text-[#fbbf24] hover:border-[#fbbf24] transition-colors text-sm flex items-center gap-1.5">
                             <i class="ph ph-lightning"></i> Foco do Dia
                         </button>
@@ -3588,6 +3590,20 @@
         </div>
     </div>
 
+    <!-- MODAL DE LIXEIRA DA AGENDA -->
+    <div id="eventsTrashModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeEventsTrashModal()">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center p-5 border-b border-sant-border shrink-0">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-trash text-red-400"></i> Lixeira da Agenda</h3>
+                <button onclick="closeEventsTrashModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <div class="overflow-y-auto custom-scrollbar p-5">
+                <p class="text-xs text-gray-500 mb-3">Compromissos excluídos ficam aqui por 30 dias antes de serem removidos definitivamente.</p>
+                <div id="eventsTrashList" class="space-y-2"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL DE MODELOS DE EVENTO -->
     <div id="eventTemplatesModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeEventTemplatesModal()">
         <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl">
@@ -4526,7 +4542,7 @@
         function closeConfirm() { document.getElementById('confirmModal').classList.add('hidden'); confirmCallback = null; }
 
         function updateTaskBadge() {
-            const pending = tasks.filter(t => !t.completed).length;
+            const pending = tasks.filter(t => !t.completed && !t.deletedAt).length;
             const badge = document.getElementById('taskBadge');
             if (pending > 0) { badge.innerText = pending > 9 ? '9+' : pending; badge.classList.remove('hidden'); }
             else { badge.classList.add('hidden'); }
@@ -4962,7 +4978,7 @@
             }).slice(0, 5);
 
             // Tarefas
-            const matchTasks = tasks.filter(t =>
+            const matchTasks = tasks.filter(t => !t.deletedAt).filter(t =>
                 (t.title||'').toLowerCase().includes(ql) ||
                 (t.desc||'').toLowerCase().includes(ql)
             ).slice(0, 5);
@@ -5251,6 +5267,8 @@
             checkSnoozedNotifications();
             updateSyncIndicator();
             purgeOldTrashedNotes();
+            purgeOldTrashedEvents();
+            purgeOldTrashedTasks();
         }
 
         function checkUrgentTaskReminders() {
@@ -5826,6 +5844,7 @@
                 important: t.important || false,
                 "actualTimeSpent": t.actualTimeSpent || 0,
                 "timerStartedAt": t.timerStartedAt || null,
+                "deletedAt": t.deletedAt || null,
             };
         }
 
@@ -5854,6 +5873,7 @@
                 checklist: e.checklist || [],
                 links: e.links || [],
                 tags: e.tags || [],
+                "deletedAt": e.deletedAt || null,
             };
         }
 
@@ -12488,7 +12508,7 @@
                 new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'),
                 '<mark class="bg-[#5b8fa8]/30 text-[#7aafc8] rounded px-0.5">$1</mark>');
 
-            const matches = events.filter(e => {
+            const matches = events.filter(e => !e.deletedAt).filter(e => {
                 const hay = `${e.title||''} ${e.location||''} ${e.desc||''} ${(e.tags||[]).join(' ')}`.toLowerCase();
                 return hay.includes(q);
             }).sort((a,b) => (a.startDate||'').localeCompare(b.startDate||''));
@@ -12828,7 +12848,7 @@
         }
 
         function isEventOnDate(ev, dateStr) {
-            if (!ev.startDate) return false;
+            if (!ev.startDate || ev.deletedAt) return false;
             // Ocorrência específica excluída pelo usuário (não apaga a série toda)
             if (ev.excludedDates && ev.excludedDates.includes(dateStr)) return false;
             const rec = ev.recurrence || 'none';
@@ -13952,6 +13972,7 @@
                 event.excludedDates = original ? (original.excludedDates || []) : [];
                 event.realizedDates = original ? (original.realizedDates || []) : [];
                 event.outcomes = original ? (original.outcomes || {}) : {};
+                event.deletedAt = original ? (original.deletedAt || null) : null;
                 event.uid = original ? (original.uid || '') : '';
                 event.createdAt = original ? (original.createdAt || new Date().toISOString()) : new Date().toISOString();
                 event.notified = original ? (original.notified || false) : false;
@@ -14125,15 +14146,71 @@
             if (isRecurring && dateStr) {
                 showRecurDeleteModal(ev, dateStr);
             } else {
-                showConfirm(`Excluir "${ev.title}"?`, 'O evento será removido da agenda.', () => {
-                    events = events.filter(e => e.id !== id);
+                showConfirm(`Excluir "${ev.title}"?`, 'Vai para a Lixeira da Agenda por 30 dias, restaurável.', () => {
+                    ev.deletedAt = new Date().toISOString();
                     saveEventsToStorage();
-                    cloudDeleteEvent(id);
+                    cloudSyncEvent(ev);
                     renderCalendar();
-                    showToast('Compromisso excluído.');
+                    showToast('Compromisso movido para a Lixeira.');
                     if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
                 });
             }
+        }
+        function restoreEventFromTrash(id) {
+            const ev = events.find(e => e.id === id);
+            if (!ev) return;
+            ev.deletedAt = null;
+            saveEventsToStorage();
+            cloudSyncEvent(ev);
+            renderEventsTrashList();
+            renderCalendar();
+            showToast('Compromisso restaurado!');
+        }
+        function permanentlyDeleteEvent(id) {
+            if (!confirm('Excluir este compromisso definitivamente? Esta ação não pode ser desfeita.')) return;
+            events = events.filter(e => e.id !== id);
+            saveEventsToStorage();
+            cloudDeleteEvent(id);
+            renderEventsTrashList();
+            renderCalendar();
+            showToast('Compromisso excluído definitivamente.');
+        }
+        function openEventsTrashModal() {
+            document.getElementById('eventsTrashModal').classList.remove('hidden');
+            renderEventsTrashList();
+        }
+        function closeEventsTrashModal() {
+            document.getElementById('eventsTrashModal').classList.add('hidden');
+        }
+        function renderEventsTrashList() {
+            const box = document.getElementById('eventsTrashList');
+            if (!box) return;
+            const trashed = events.filter(e => e.deletedAt).sort((a,b) => (b.deletedAt||'').localeCompare(a.deletedAt||''));
+            if (!trashed.length) {
+                box.innerHTML = '<p class="text-xs text-gray-600 italic text-center py-6">Lixeira vazia.</p>';
+                return;
+            }
+            box.innerHTML = trashed.map(e => {
+                const daysLeft = Math.max(0, 30 - Math.floor((Date.now() - new Date(e.deletedAt).getTime()) / 86400000));
+                const dateLabel = e.startDate ? e.startDate.split('-').reverse().join('/') : '';
+                return `<div class="flex items-center gap-3 bg-[#0a0a0a] border border-sant-border rounded-lg px-3 py-2.5">
+                    <i class="ph ph-calendar-x text-gray-500 text-sm shrink-0"></i>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm text-white font-medium truncate">${e.title || 'Sem título'}</p>
+                        <p class="text-[11px] text-gray-500">${dateLabel}${e.startTime ? ' às '+e.startTime : ''} · some em ${daysLeft}d</p>
+                    </div>
+                    <button onclick="restoreEventFromTrash('${e.id}')" class="text-xs font-bold text-sant-cyan hover:text-white border border-sant-cyan/30 hover:bg-sant-cyan/10 px-3 py-1.5 rounded-lg transition-colors shrink-0">Restaurar</button>
+                    <button onclick="permanentlyDeleteEvent('${e.id}')" class="text-gray-500 hover:text-red-400 transition-colors shrink-0"><i class="ph ph-trash text-sm"></i></button>
+                </div>`;
+            }).join('');
+        }
+        function purgeOldTrashedEvents() {
+            const cutoff = Date.now() - 30 * 86400000;
+            const toPurge = events.filter(e => e.deletedAt && new Date(e.deletedAt).getTime() < cutoff);
+            if (!toPurge.length) return;
+            toPurge.forEach(e => cloudDeleteEvent(e.id));
+            events = events.filter(e => !(e.deletedAt && new Date(e.deletedAt).getTime() < cutoff));
+            saveEventsToStorage();
         }
 
         // ── Exclusão seletiva de ocorrências recorrentes ────────────────────
@@ -14184,11 +14261,14 @@
         function confirmDeleteSeries() {
             if (!recurDeleteContext) return;
             const { id } = recurDeleteContext;
-            events = events.filter(e => e.id !== id);
-            saveEventsToStorage();
-            cloudDeleteEvent(id);
+            const ev = events.find(e => e.id === id);
+            if (ev) {
+                ev.deletedAt = new Date().toISOString();
+                saveEventsToStorage();
+                cloudSyncEvent(ev);
+            }
             renderCalendar();
-            showToast('Série de compromissos excluída.');
+            showToast('Série de compromissos movida para a Lixeira.');
             if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
             closeRecurDeleteModal();
         }
@@ -14302,7 +14382,7 @@
             if (waitBtn) waitBtn.className = 'px-4 py-1.5 rounded-full border border-sant-purple/40 text-sant-purple/60 hover:text-sant-purple hover:border-sant-purple transition-colors text-sm flex items-center gap-1.5';
             if (taskViewMode === 'kanban') switchTaskView('list');
             document.querySelectorAll('button[id^="btnFilter"]').forEach(b => { b.className = 'filter-status-btn px-4 py-1.5 rounded-full border border-sant-border text-gray-400 hover:text-white transition-colors text-sm'; });
-            const btn = f==='all'? 'btnFilterAll' : f==='pending'? 'btnFilterPending' : f==='completed' ? 'btnFilterCompleted' : 'btnFilterArchived';
+            const btn = f==='all'? 'btnFilterAll' : f==='pending'? 'btnFilterPending' : f==='completed' ? 'btnFilterCompleted' : f==='trash' ? 'btnFilterTrash' : 'btnFilterArchived';
             document.getElementById(btn).className = 'filter-status-btn px-4 py-1.5 rounded-full bg-sant-cyan text-sant-bg font-semibold text-sm transition-colors';
             const searchVal = document.getElementById('taskSearchInput') ? document.getElementById('taskSearchInput').value : '';
             renderTasks(f, searchVal);
@@ -14356,7 +14436,15 @@
             currentTaskFilter = filter;
             const list = document.getElementById('tasksList');
             const todayStr = getSPTodayStr();
-            let filtered = filter === 'archived' ? tasks.filter(t => t.archived) : tasks.filter(t => !t.archived);
+            if (filter === 'trash') {
+                let trashed = tasks.filter(t => t.deletedAt).sort((a,b) => (b.deletedAt||'').localeCompare(a.deletedAt||''));
+                if (searchTerm) { const term = searchTerm.toLowerCase(); trashed = trashed.filter(t => t.title.toLowerCase().includes(term)); }
+                list.innerHTML = trashed.length
+                    ? trashed.map(t => taskTrashCardHtml(t)).join('')
+                    : emptyState('ph-trash', 'Lixeira vazia', 'Tarefas excluídas aparecem aqui por 30 dias.');
+                return;
+            }
+            let filtered = (filter === 'archived' ? tasks.filter(t => t.archived) : tasks.filter(t => !t.archived)).filter(t => !t.deletedAt);
             if(filter === 'pending') filtered = filtered.filter(t => !t.completed);
             if(filter === 'completed') filtered = filtered.filter(t => t.completed);
 
@@ -15225,6 +15313,7 @@
                 important: existingTask ? (existingTask.important || false) : false,
                 actualTimeSpent: existingTask ? (existingTask.actualTimeSpent || 0) : 0,
                 timerStartedAt: existingTask ? (existingTask.timerStartedAt || null) : null,
+                deletedAt: existingTask ? (existingTask.deletedAt || null) : null,
             };
 
             if (existingTask) {
@@ -15476,13 +15565,52 @@
 
         function deleteTask(id) {
             const t = tasks.find(x => x.id === id);
-            showConfirm(`Excluir "${t ? t.title : 'tarefa'}"?`, 'A tarefa será removida permanentemente.', () => {
-                tasks = tasks.filter(x => x.id !== id);
+            showConfirm(`Excluir "${t ? t.title : 'tarefa'}"?`, 'Vai para a Lixeira por 30 dias, restaurável.', () => {
+                if (!t) return;
+                t.deletedAt = new Date().toISOString();
                 saveTasksToStorage();
-                cloudDeleteTask(id);
+                cloudSyncTask(t);
                 _refreshCurrentTaskView();
                 if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
+                showToast('Tarefa movida para a Lixeira.');
             });
+        }
+        function restoreTaskFromTrash(id) {
+            const t = tasks.find(x => x.id === id);
+            if (!t) return;
+            t.deletedAt = null;
+            saveTasksToStorage();
+            cloudSyncTask(t);
+            _refreshCurrentTaskView();
+            showToast('Tarefa restaurada!');
+        }
+        function permanentlyDeleteTask(id) {
+            if (!confirm('Excluir esta tarefa definitivamente? Esta ação não pode ser desfeita.')) return;
+            tasks = tasks.filter(x => x.id !== id);
+            saveTasksToStorage();
+            cloudDeleteTask(id);
+            _refreshCurrentTaskView();
+            showToast('Tarefa excluída definitivamente.');
+        }
+        function purgeOldTrashedTasks() {
+            const cutoff = Date.now() - 30 * 86400000;
+            const toPurge = tasks.filter(t => t.deletedAt && new Date(t.deletedAt).getTime() < cutoff);
+            if (!toPurge.length) return;
+            toPurge.forEach(t => cloudDeleteTask(t.id));
+            tasks = tasks.filter(t => !(t.deletedAt && new Date(t.deletedAt).getTime() < cutoff));
+            saveTasksToStorage();
+        }
+        function taskTrashCardHtml(t) {
+            const daysLeft = Math.max(0, 30 - Math.floor((Date.now() - new Date(t.deletedAt).getTime()) / 86400000));
+            return `<div class="flex items-center gap-3 p-3 bg-sant-surface border border-sant-border rounded-xl opacity-80">
+                <i class="ph ph-trash text-gray-500 text-base shrink-0"></i>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm text-gray-300 truncate">${t.title}</p>
+                    <p class="text-[11px] text-gray-500">${t.date ? t.date.split('-').reverse().join('/') : ''} · some em ${daysLeft}d</p>
+                </div>
+                <button onclick="restoreTaskFromTrash('${t.id}')" class="text-xs font-bold text-sant-cyan hover:text-white border border-sant-cyan/30 hover:bg-sant-cyan/10 px-3 py-1.5 rounded-lg transition-colors shrink-0">Restaurar</button>
+                <button onclick="permanentlyDeleteTask('${t.id}')" class="text-gray-500 hover:text-red-400 transition-colors shrink-0"><i class="ph ph-trash text-sm"></i></button>
+            </div>`;
         }
 
         function switchReportTab(tabId) {
@@ -17638,7 +17766,7 @@
         function postponeOverdueTasks() {
             const todayStr = getSPTodayStr();
             const tomorrow = addDaysToDateStr(todayStr, 1);
-            const overdue = tasks.filter(t => !t.completed && !t.waiting && t.date && t.date < todayStr);
+            const overdue = tasks.filter(t => !t.completed && !t.waiting && !t.deletedAt && t.date && t.date < todayStr);
             if (!overdue.length) { showToast('Nenhuma tarefa atrasada.', 'error'); return; }
             showConfirm(`Adiar ${overdue.length} tarefa${overdue.length>1?'s':''} atrasada${overdue.length>1?'s':''} para amanhã (${tomorrow.split('-').reverse().join('/')})?`, '', () => {
                 overdue.forEach(t => {
@@ -19948,7 +20076,7 @@
         }
         function renderEisenhowerMatrix(searchTerm = '') {
             const term = (searchTerm || '').toLowerCase();
-            const pending = tasks.filter(t => !t.completed && !t.archived && (!term || t.title.toLowerCase().includes(term)));
+            const pending = tasks.filter(t => !t.completed && !t.archived && !t.deletedAt && (!term || t.title.toLowerCase().includes(term)));
             const isUrgent = t => t.priority === 'urgent' || t.priority === 'high';
 
             const quadrants = { do: [], plan: [], delegate: [], drop: [] };
@@ -19981,7 +20109,7 @@
         }
 
         function renderKanban(searchTerm = '') {
-            let filtered = tasks.filter(t => !t.archived);
+            let filtered = tasks.filter(t => !t.archived && !t.deletedAt);
             if (currentTaskTagFilter) filtered = filtered.filter(t => t.tags && t.tags.includes(currentTaskTagFilter));
             if (searchTerm) {
                 const term = searchTerm.toLowerCase();
@@ -22649,6 +22777,7 @@
                     if (!document.getElementById('automationLogModal').classList.contains('hidden')) { closeAutomationLogModal(); return; }
                     if (!document.getElementById('freeSlotFinderModal').classList.contains('hidden')) { closeFreeSlotFinderModal(); return; }
                     if (!document.getElementById('eventTemplatesModal').classList.contains('hidden')) { closeEventTemplatesModal(); return; }
+                    if (!document.getElementById('eventsTrashModal').classList.contains('hidden')) { closeEventsTrashModal(); return; }
                     if (!document.getElementById('csvImportPreviewModal').classList.contains('hidden')) { closeCsvImportPreview(); return; }
                     if (!document.getElementById('copyTaskWeekdaysModal').classList.contains('hidden')) { closeCopyTaskWeekdaysModal(); return; }
                     if (!document.getElementById('contactModal').classList.contains('hidden')) { closeModal(); return; }
