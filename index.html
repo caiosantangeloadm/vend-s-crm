@@ -464,6 +464,12 @@
                         <h2 class="text-2xl font-bold text-white">Dashboard</h2>
                         <p class="text-sm text-gray-500 mt-0.5">Visão geral da sua base de relacionamentos</p>
                     </div>
+                    <select id="dashPeriodSelect" onchange="setDashPeriod(this.value)" class="px-3 py-2.5 rounded-lg border border-sant-border bg-[#0a0a0a] text-gray-300 text-sm font-medium focus:outline-none focus:border-sant-cyan" title="Período aplicado aos gráficos de tendência">
+                        <option value="7">Últimos 7 dias</option>
+                        <option value="14">Últimos 14 dias</option>
+                        <option value="30">Últimos 30 dias</option>
+                        <option value="90">Últimos 90 dias</option>
+                    </select>
                     <button onclick="toggleDashCustomize()" id="dashCustomizeBtn" class="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-sant-border text-gray-400 hover:text-white hover:border-sant-cyan transition-colors text-sm font-medium">
                         <i class="ph ph-sliders-horizontal text-base"></i> Personalizar
                     </button>
@@ -829,7 +835,7 @@
 
                 <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 flex flex-col h-[320px]">
                     <div class="flex justify-between items-center mb-4 shrink-0">
-                        <p class="text-xs font-bold text-white tracking-wide uppercase flex items-center gap-2"><i class="ph ph-chart-bar text-sant-cyan text-lg"></i> Produtividade — Últimos 7 Dias</p>
+                        <p id="dashProductivityTitle" class="text-xs font-bold text-white tracking-wide uppercase flex items-center gap-2"><i class="ph ph-chart-bar text-sant-cyan text-lg"></i> Produtividade — Últimos 7 Dias</p>
                         <span id="dashProductivityBest" class="text-[11px] text-gray-500"></span>
                     </div>
                     <div class="flex-1 relative">
@@ -6227,6 +6233,8 @@
         }
 
         function renderDashboard() {
+            const dashPeriodSelectEl = document.getElementById('dashPeriodSelect');
+            if (dashPeriodSelectEl) dashPeriodSelectEl.value = String(getDashPeriodDays());
             document.getElementById('dashTotalContacts').innerText = contacts.length;
             
             const todayStr = getSPTodayStr();
@@ -6729,6 +6737,15 @@
             document.getElementById('followupStreakDays').textContent = days;
             document.getElementById('followupStreakEmoji').textContent =
                 days >= 30 ? '🏆' : days >= 14 ? '⚡' : days >= 7 ? '🔥' : '✨';
+        }
+
+        // ── Dashboard: Filtro de Período Universal ───────────────────────────
+        function getDashPeriodDays() {
+            return parseInt(localStorage.getItem('sant_crm_dash_period_days') || '7', 10);
+        }
+        function setDashPeriod(days) {
+            localStorage.setItem('sant_crm_dash_period_days', days);
+            renderProductivityChart();
         }
 
         // ── Metas Semanais ───────────────────────────────────────────────────
@@ -8239,9 +8256,12 @@
             const canvas = document.getElementById('dashProductivityChart');
             if (!canvas || typeof Chart === 'undefined') return;
 
+            const periodDays = getDashPeriodDays();
+            const titleEl = document.getElementById('dashProductivityTitle');
+            if (titleEl) titleEl.innerHTML = `<i class="ph ph-chart-bar text-sant-cyan text-lg"></i> Produtividade — Últimos ${periodDays} Dias`;
             const today = new Date();
             const days = [];
-            for (let i = 6; i >= 0; i--) {
+            for (let i = periodDays - 1; i >= 0; i--) {
                 const d = new Date(today);
                 d.setDate(today.getDate() - i);
                 days.push(d.toISOString().substring(0, 10));
@@ -8260,7 +8280,9 @@
 
             const labels = days.map(d => {
                 const dt = new Date(d + 'T12:00:00');
-                return dt.toLocaleDateString('pt-BR', { weekday:'short', day:'numeric' }).replace('.','');
+                return periodDays <= 14
+                    ? dt.toLocaleDateString('pt-BR', { weekday:'short', day:'numeric' }).replace('.','')
+                    : dt.toLocaleDateString('pt-BR', { day:'numeric', month:'short' }).replace('.','');
             });
 
             if (productivityChartInstance) productivityChartInstance.destroy();
