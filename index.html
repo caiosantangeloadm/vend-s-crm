@@ -1145,15 +1145,24 @@
                             <button onclick="changeCalendar(1)" class="w-10 h-10 rounded border border-sant-border hover:bg-sant-surface flex items-center justify-center transition-colors"><i class="ph ph-caret-right"></i></button>
                         </div>
                         <button id="btnWorkWeek" onclick="toggleWorkWeekMode()" class="hidden px-3 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan text-sm font-medium transition-colors" title="Mostrar só dias úteis (Seg–Sex) na Visão Semana">Seg–Sex</button>
-                        <label class="w-10 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan flex items-center justify-center transition-colors ml-2 cursor-pointer" title="Importar Agenda (.ics)"><i class="ph ph-download-simple"></i><input type="file" accept=".ics" class="hidden" onchange="importCalendarIcs(event)"></label>
-                        <button onclick="exportCalendarIcs()" class="w-10 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan flex items-center justify-center transition-colors" title="Exportar Agenda (.ics)"><i class="ph ph-export"></i></button>
-                        <button onclick="exportAgendaPdf()" class="w-10 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan flex items-center justify-center transition-colors" title="Exportar Agenda (PDF) — respeita o filtro de tipo ativo"><i class="ph ph-file-pdf"></i></button>
-                        <button onclick="exportAgendaCsv()" class="w-10 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan flex items-center justify-center transition-colors" title="Exportar Agenda (CSV) — respeita o filtro de tipo ativo"><i class="ph ph-file-csv"></i></button>
-                        <button onclick="openAgendaSummaryModal()" class="w-10 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan flex items-center justify-center transition-colors" title="Gerar resumo do dia/semana (copiar ou WhatsApp)"><i class="ph ph-clipboard-text"></i></button>
-                        <button onclick="openFreeSlotFinderModal()" class="w-10 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan flex items-center justify-center transition-colors" title="Achar horário livre"><i class="ph ph-magic-wand"></i></button>
-                        <button onclick="openEventTemplatesModal()" class="w-10 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan flex items-center justify-center transition-colors" title="Modelos de Evento"><i class="ph ph-copy-simple"></i></button>
-                        <button onclick="openEventsTrashModal()" class="w-10 h-10 rounded border border-sant-border hover:border-red-400 text-gray-400 hover:text-red-400 flex items-center justify-center transition-colors" title="Lixeira da Agenda — compromissos excluídos dos últimos 30 dias"><i class="ph ph-trash"></i></button>
-                        <button id="btnCopyWeek" onclick="copyWeekToNextWeek()" class="hidden items-center gap-2 h-10 px-3 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors text-sm font-medium" title="Copiar todos os compromissos desta semana para a próxima"><i class="ph ph-copy"></i> Copiar Semana</button>
+                        <div class="relative">
+                            <button onclick="toggleAgendaMoreMenu()" id="btnAgendaMore" class="w-10 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan flex items-center justify-center transition-colors ml-2" title="Mais ações">
+                                <i class="ph ph-dots-three-vertical text-lg"></i>
+                            </button>
+                            <div id="agendaMoreMenu" class="hidden absolute right-0 mt-1 w-64 bg-[#141414] border border-sant-border rounded-xl shadow-2xl z-30 overflow-hidden py-1">
+                                <label class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-white cursor-pointer transition-colors"><i class="ph ph-download-simple text-sant-cyan"></i> Importar Agenda (.ics)<input type="file" accept=".ics" class="hidden" onchange="importCalendarIcs(event)"></label>
+                                <button onclick="closeAgendaMoreMenu(); exportCalendarIcs()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-white transition-colors text-left"><i class="ph ph-export text-sant-cyan"></i> Exportar Agenda (.ics)</button>
+                                <button onclick="closeAgendaMoreMenu(); exportAgendaPdf()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-white transition-colors text-left"><i class="ph ph-file-pdf text-sant-cyan"></i> Exportar PDF</button>
+                                <button onclick="closeAgendaMoreMenu(); exportAgendaCsv()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-white transition-colors text-left"><i class="ph ph-file-csv text-sant-cyan"></i> Exportar CSV</button>
+                                <div class="border-t border-sant-border my-1"></div>
+                                <button onclick="closeAgendaMoreMenu(); openAgendaSummaryModal()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-white transition-colors text-left"><i class="ph ph-clipboard-text text-sant-cyan"></i> Resumo da Agenda</button>
+                                <button onclick="closeAgendaMoreMenu(); openFreeSlotFinderModal()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-white transition-colors text-left"><i class="ph ph-magic-wand text-sant-cyan"></i> Achar horário livre</button>
+                                <button onclick="closeAgendaMoreMenu(); openEventTemplatesModal()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-white transition-colors text-left"><i class="ph ph-copy-simple text-sant-cyan"></i> Modelos de Evento</button>
+                                <button id="btnCopyWeekMenu" onclick="closeAgendaMoreMenu(); copyWeekToNextWeek()" class="hidden w-full items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-white transition-colors text-left"><i class="ph ph-copy text-sant-cyan"></i> Copiar Semana</button>
+                                <div class="border-t border-sant-border my-1"></div>
+                                <button onclick="closeAgendaMoreMenu(); openEventsTrashModal()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-red-400 transition-colors text-left"><i class="ph ph-trash text-red-400"></i> Lixeira da Agenda</button>
+                            </div>
+                        </div>
                         <button onclick="openEventModal()" class="bg-sant-purple hover:bg-purple-800 text-white px-5 py-2 rounded-lg flex items-center gap-2 transition-all font-medium">
                             <i class="ph ph-plus"></i> Evento
                         </button>
@@ -12444,7 +12453,7 @@
             document.getElementById('calendarWeekView').classList.toggle('hidden', mode !== 'week');
             document.getElementById('calendarDayView').classList.toggle('hidden', mode !== 'day');
             document.getElementById('calendarListView').classList.toggle('hidden', mode !== 'list');
-            const copyBtn = document.getElementById('btnCopyWeek');
+            const copyBtn = document.getElementById('btnCopyWeekMenu');
             if (copyBtn) { copyBtn.classList.toggle('hidden', mode !== 'week'); copyBtn.classList.toggle('flex', mode === 'week'); }
             updateWorkWeekBtn();
 
@@ -14202,6 +14211,18 @@
             renderCalendar();
             showToast('Compromisso excluído definitivamente.');
         }
+        function toggleAgendaMoreMenu() {
+            document.getElementById('agendaMoreMenu').classList.toggle('hidden');
+        }
+        function closeAgendaMoreMenu() {
+            document.getElementById('agendaMoreMenu').classList.add('hidden');
+        }
+        document.addEventListener('click', (e) => {
+            const menu = document.getElementById('agendaMoreMenu');
+            if (menu && !menu.classList.contains('hidden') && !e.target.closest('#agendaMoreMenu') && !e.target.closest('#btnAgendaMore')) {
+                menu.classList.add('hidden');
+            }
+        });
         function openEventsTrashModal() {
             document.getElementById('eventsTrashModal').classList.remove('hidden');
             renderEventsTrashList();
@@ -14570,16 +14591,18 @@
                     else if (t.date === todayStr) groups.today.items.push(t);
                     else groups.upcoming.items.push(t);
                 });
+                const collapsedGroups = getCollapsedTaskGroups();
                 list.innerHTML = ['waiting','overdue','today','upcoming','nodate'].map(key => {
                     const g = groups[key];
                     if (g.items.length === 0) return '';
                     const postponeBtn = key === 'overdue' && g.items.length > 0
-                        ? `<button onclick="postponeOverdueTasks()" class="ml-auto text-[11px] font-medium text-gray-400 hover:text-sant-cyan border border-sant-border hover:border-sant-cyan px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1"><i class="ph ph-calendar-plus"></i> Adiar todas p/ amanhã</button>`
+                        ? `<button onclick="event.stopPropagation(); postponeOverdueTasks()" class="ml-auto text-[11px] font-medium text-gray-400 hover:text-sant-cyan border border-sant-border hover:border-sant-cyan px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1"><i class="ph ph-calendar-plus"></i> Adiar todas p/ amanhã</button>`
                         : '';
+                    const isCollapsed = collapsedGroups.includes(key);
                     return `
                     <div class="task-group">
-                        <h3 class="text-xs font-bold uppercase tracking-wider ${g.color} mb-2 mt-1 flex items-center gap-1.5"><i class="ph ${g.icon}"></i> ${g.label} <span class="text-gray-600 font-normal">(${g.items.length})</span>${postponeBtn}</h3>
-                        <div class="space-y-3 mb-5">${g.items.map(t => taskCardHtml(t, todayStr)).join('')}</div>
+                        <h3 onclick="toggleTaskGroupCollapse('${key}')" class="text-xs font-bold uppercase tracking-wider ${g.color} mb-2 mt-1 flex items-center gap-1.5 cursor-pointer select-none"><i class="ph ph-caret-down transition-transform ${isCollapsed ? '-rotate-90' : ''}" style="font-size:11px"></i><i class="ph ${g.icon}"></i> ${g.label} <span class="text-gray-600 font-normal">(${g.items.length})</span>${postponeBtn}</h3>
+                        <div class="space-y-3 mb-5 ${isCollapsed ? 'hidden' : ''}">${g.items.map(t => taskCardHtml(t, todayStr)).join('')}</div>
                     </div>`;
                 }).join('');
                 return;
@@ -17792,6 +17815,18 @@
         }
         // ── fim Seleção Múltipla de Tarefas ────────────────────────────────────
 
+        function getCollapsedTaskGroups() {
+            try { return JSON.parse(localStorage.getItem('vends_collapsed_task_groups') || '[]'); }
+            catch(e) { return []; }
+        }
+        function toggleTaskGroupCollapse(key) {
+            let collapsed = getCollapsedTaskGroups();
+            if (collapsed.includes(key)) collapsed = collapsed.filter(k => k !== key);
+            else collapsed.push(key);
+            localStorage.setItem('vends_collapsed_task_groups', JSON.stringify(collapsed));
+            const search = document.getElementById('taskSearchInput') ? document.getElementById('taskSearchInput').value : '';
+            renderTasks(currentTaskFilter, search);
+        }
         function postponeOverdueTasks() {
             const todayStr = getSPTodayStr();
             const tomorrow = addDaysToDateStr(todayStr, 1);
@@ -22199,8 +22234,56 @@
                 parts.push(`⚠️ Sem contato há ${inactDays} dias.`);
             }
 
+            const suggestion = getNextActionSuggestion(c, { inactDays, inactThreshold });
+            if (suggestion) parts.push(`💡 Sugestão: ${suggestion}`);
+
             textEl.textContent = parts.join(' ');
             box.classList.remove('hidden');
+        }
+
+        // ── Sugestão de Próxima Ação (regras determinísticas, sem IA) ────────
+        function getNextActionSuggestion(c, ctx = {}) {
+            const todayStr = getSPTodayStr();
+
+            // 1. Follow-up vencido — maior prioridade
+            if (c.nextContact && c.nextContact < todayStr) {
+                return `follow-up está vencido — registre um contato ou reagende.`;
+            }
+
+            // 2. Lead frio "adormecido" (snooze) que já venceu
+            if (c.isLead && c.temperature === 'frio' && c.tempSnoozeUntil && c.tempSnoozeUntil <= todayStr) {
+                return `este lead frio saiu do "soneca" — bom momento para reativar.`;
+            }
+
+            // 3. Aniversário nos próximos 7 dias
+            if (c.birth) {
+                const todayMonthDay = todayStr.substring(5);
+                const bm = getBirthMonth(c.birth), bd = getBirthDay(c.birth);
+                const [ty, tm, td] = todayStr.split('-').map(Number);
+                let bday = new Date(ty, bm - 1, bd);
+                if (bday < new Date(ty, tm - 1, td)) bday = new Date(ty + 1, bm - 1, bd);
+                const diffDays = Math.round((bday - new Date(todayStr + 'T00:00:00')) / 86400000);
+                if (diffDays >= 0 && diffDays <= 7) {
+                    return diffDays === 0
+                        ? `aniversário é hoje — parabenize antes de tratar de outros assuntos.`
+                        : `aniversário em ${diffDays} dia${diffDays > 1 ? 's' : ''} — considere entrar em contato antes.`;
+                }
+            }
+
+            // 4. Cliente de alto valor sem contato recente (inatividade + valor já faturado)
+            if (ctx.inactThreshold && ctx.inactDays !== null && ctx.inactDays >= ctx.inactThreshold && c.totalRevenue > 0) {
+                return `cliente com R$ ${c.totalRevenue.toLocaleString('pt-BR')} já faturados, sem contato há ${ctx.inactDays} dias — vale reativar.`;
+            }
+
+            // 5. Lead quente/morno esfriando (sem contato recente)
+            if (c.isLead && (c.temperature === 'quente' || c.temperature === 'morno')) {
+                const limit = c.temperature === 'quente' ? 5 : 10;
+                if (ctx.inactDays !== null && ctx.inactDays >= limit) {
+                    return `lead ${c.temperature === 'quente' ? 'quente' : 'morno'} sem contato há ${ctx.inactDays} dias — corre o risco de esfriar.`;
+                }
+            }
+
+            return null;
         }
 
         // ── Checklist de Onboarding de Contato Novo ──────────────────────────
