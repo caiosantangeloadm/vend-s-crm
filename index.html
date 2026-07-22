@@ -2109,6 +2109,14 @@
                                 <button onclick="addCadenceOverride()" class="bg-sant-cyan/20 hover:bg-sant-cyan text-sant-cyan hover:text-sant-bg px-3 py-2 rounded-lg text-xs font-bold transition-colors border border-sant-cyan/30"><i class="ph ph-plus"></i> Adicionar</button>
                             </div>
                         </div>
+                        <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
+                            <div class="flex items-center justify-between mb-2">
+                                <p class="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-2"><i class="ph ph-keyboard text-sant-cyan"></i> Atalhos de Teclado</p>
+                                <button onclick="resetCustomShortcuts()" class="text-[11px] text-gray-500 hover:text-sant-cyan transition-colors">Restaurar padrão</button>
+                            </div>
+                            <p class="text-xs text-gray-500 mb-4">Clique num campo e pressione a tecla desejada — só letras/números, sem Ctrl/Alt/Cmd. Não funcionam enquanto você digita em um campo de texto.</p>
+                            <div id="shortcutsEditorList" class="space-y-2"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -3520,7 +3528,7 @@
                     </div>
                     <div class="flex items-center justify-between">
                         <span class="text-sm text-gray-300">Novo item (na aba atual: Contato, Tarefa, Evento ou Nota)</span>
-                        <span class="flex gap-1"><kbd class="kbd-key">N</kbd></span>
+                        <span class="flex gap-1"><kbd class="kbd-key" id="kbdNewItem">N</kbd></span>
                     </div>
                     <div class="flex items-center justify-between">
                         <span class="text-sm text-gray-300">Fechar modal / busca</span>
@@ -3532,20 +3540,25 @@
                     </div>
                     <div class="flex items-center justify-between">
                         <span class="text-sm text-gray-300">Modo apresentação/foco (oculta menu e cabeçalho)</span>
-                        <span class="flex gap-1"><kbd class="kbd-key">F</kbd></span>
+                        <span class="flex gap-1"><kbd class="kbd-key" id="kbdFocusMode">F</kbd></span>
                     </div>
                     <div class="flex items-center justify-between">
                         <span class="text-sm text-gray-300">Registrar interação rápida no último contato aberto</span>
-                        <span class="flex gap-1"><kbd class="kbd-key">R</kbd></span>
+                        <span class="flex gap-1"><kbd class="kbd-key" id="kbdQuickInteraction">R</kbd></span>
                     </div>
                     <div class="flex items-center justify-between">
                         <span class="text-sm text-gray-300">Abrir última nota criada ou editada</span>
-                        <span class="flex gap-1"><kbd class="kbd-key">Q</kbd></span>
+                        <span class="flex gap-1"><kbd class="kbd-key" id="kbdLastNote">Q</kbd></span>
                     </div>
                     <div class="flex items-center justify-between">
                         <span class="text-sm text-gray-300">Revisão Semanal Guiada</span>
-                        <span class="flex gap-1"><kbd class="kbd-key">W</kbd></span>
+                        <span class="flex gap-1"><kbd class="kbd-key" id="kbdWeeklyReview">W</kbd></span>
                     </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-300">Captura Rápida de tarefa</span>
+                        <span class="flex gap-1"><kbd class="kbd-key" id="kbdQuickAddTask">T</kbd></span>
+                    </div>
+                    <p class="text-[11px] text-gray-600 pt-1">As teclas acima podem ser personalizadas em <b>Configurações → Backup → Atalhos de Teclado</b>.</p>
                     <div class="flex items-center justify-between">
                         <span class="text-sm text-gray-300">No Histórico do Contato: ir para o anterior/próximo</span>
                         <span class="flex gap-1"><kbd class="kbd-key">←</kbd><kbd class="kbd-key">→</kbd></span>
@@ -4465,6 +4478,20 @@
         let notesActiveTagFilter = '';
         let noteFolderFilter = '';
         let notesFavoriteFilter = false;
+        const DEFAULT_SHORTCUTS = { newItem: 'n', weeklyReview: 'w', lastNote: 'q', focusMode: 'f', quickAddTask: 't', quickInteraction: 'r' };
+        const SHORTCUT_LABELS = {
+            newItem: 'Novo item na aba atual',
+            weeklyReview: 'Revisão semanal guiada',
+            lastNote: 'Abrir última nota',
+            focusMode: 'Modo apresentação/foco',
+            quickAddTask: 'Captura Rápida de tarefa',
+            quickInteraction: 'Interação rápida (último contato)',
+        };
+        let customShortcuts = Object.assign({}, DEFAULT_SHORTCUTS, JSON.parse(localStorage.getItem('vends_custom_shortcuts') || '{}'));
+        function matchesShortcutKey(e, action) {
+            const key = (customShortcuts[action] || '').toLowerCase();
+            return !!key && e.key.toLowerCase() === key && !e.ctrlKey && !e.metaKey && !e.altKey;
+        }
         let notesShowArchived = false;
         let notesShowTrash = false;
         let notesViewMode = 'cards';
@@ -16948,6 +16975,7 @@
                     "bdayAdvance":    parseInt(localStorage.getItem('vends_bday_advance')    || '3'),
                     "inactivityDays": parseInt(localStorage.getItem('vends_inactivity_days') || '60'),
                     "cadenceOverrides": cadenceOverrides,
+                    "customShortcuts": customShortcuts,
                     "maxPinned":      parseInt(localStorage.getItem('vends_max_pinned')      || '10'),
                     "viewMode":    localStorage.getItem('sant_crm_view_mode')    || '',
                     "density":     localStorage.getItem('sant_crm_density')     || '',
@@ -16995,6 +17023,7 @@
                 if (data.bdayAdvance !== undefined && data.bdayAdvance !== null)    localStorage.setItem('vends_bday_advance', String(data.bdayAdvance));
                 if (data.inactivityDays !== undefined && data.inactivityDays !== null) localStorage.setItem('vends_inactivity_days', String(data.inactivityDays));
                 if (data.cadenceOverrides && Object.keys(data.cadenceOverrides).length) { cadenceOverrides = data.cadenceOverrides; localStorage.setItem('vends_cadence_overrides', JSON.stringify(cadenceOverrides)); }
+                if (data.customShortcuts && Object.keys(data.customShortcuts).length) { customShortcuts = Object.assign({}, DEFAULT_SHORTCUTS, data.customShortcuts); localStorage.setItem('vends_custom_shortcuts', JSON.stringify(customShortcuts)); }
                 if (data.maxPinned !== undefined && data.maxPinned !== null)        localStorage.setItem('vends_max_pinned', String(data.maxPinned));
                 if (data.viewMode)                  localStorage.setItem('sant_crm_view_mode', data.viewMode);
                 if (data.density)                   localStorage.setItem('sant_crm_density', data.density);
@@ -19044,8 +19073,64 @@
             if (pinEl) pinEl.value = localStorage.getItem('vends_max_pinned') || '10';
             fillCadenceTargetValueSelect();
             renderCadenceOverridesList();
+            renderShortcutsEditor();
         }
         // ── fim Painel de Configurações ──────────────────────────────────────
+
+        // ── Atalhos de Teclado Configuráveis ─────────────────────────────────
+        function saveCustomShortcuts() {
+            localStorage.setItem('vends_custom_shortcuts', JSON.stringify(customShortcuts));
+            syncPreferencesToSupabase();
+        }
+        function renderShortcutsEditor() {
+            const box = document.getElementById('shortcutsEditorList');
+            if (!box) return;
+            box.innerHTML = Object.keys(DEFAULT_SHORTCUTS).map(action => {
+                const key = (customShortcuts[action] || '').toUpperCase();
+                return `<div class="flex items-center justify-between gap-3 bg-[#0a0a0a] border border-sant-border rounded-lg px-3 py-2">
+                    <span class="text-xs text-gray-300">${SHORTCUT_LABELS[action]}</span>
+                    <input type="text" readonly value="${key}" data-action="${action}"
+                        onkeydown="captureShortcutKey(event, this)"
+                        onclick="this.value=''; this.placeholder='pressione uma tecla...'; this.select()"
+                        class="w-24 text-center bg-[#141414] border border-sant-border rounded-lg px-2 py-1.5 text-xs text-sant-cyan font-bold outline-none focus:border-sant-cyan cursor-pointer">
+                </div>`;
+            }).join('');
+        }
+        function captureShortcutKey(event, inputEl) {
+            event.preventDefault();
+            const action = inputEl.dataset.action;
+            const key = event.key;
+            if (key === 'Tab') return;
+            if (key === 'Escape') { renderShortcutsEditor(); return; }
+            if (event.ctrlKey || event.metaKey || event.altKey) {
+                showToast('Use só uma letra ou número, sem Ctrl/Alt/Cmd.', 'error');
+                renderShortcutsEditor();
+                return;
+            }
+            if (!/^[a-z0-9]$/i.test(key)) {
+                showToast('Use só letras ou números.', 'error');
+                renderShortcutsEditor();
+                return;
+            }
+            const lowerKey = key.toLowerCase();
+            const conflict = Object.entries(customShortcuts).find(([a, k]) => a !== action && k === lowerKey);
+            if (conflict) {
+                showToast(`Tecla já usada em "${SHORTCUT_LABELS[conflict[0]]}".`, 'error');
+                renderShortcutsEditor();
+                return;
+            }
+            customShortcuts[action] = lowerKey;
+            saveCustomShortcuts();
+            renderShortcutsEditor();
+            showToast(`Atalho atualizado: ${lowerKey.toUpperCase()}`);
+        }
+        function resetCustomShortcuts() {
+            customShortcuts = Object.assign({}, DEFAULT_SHORTCUTS);
+            saveCustomShortcuts();
+            renderShortcutsEditor();
+            showToast('Atalhos restaurados ao padrão.');
+        }
+        // ── fim Atalhos de Teclado Configuráveis ─────────────────────────────
 
         function openCategoryManager() {
             document.getElementById('categoryModal').classList.remove('hidden');
@@ -19942,7 +20027,15 @@
         }
         // ── fim Cartão de Visita ──────────────────────────────────────────────
 
-        function openShortcutsModal() { document.getElementById('shortcutsModal').classList.remove('hidden'); switchHelpTab('faq'); }
+        function openShortcutsModal() {
+            document.getElementById('shortcutsModal').classList.remove('hidden');
+            switchHelpTab('faq');
+            Object.keys(DEFAULT_SHORTCUTS).forEach(action => {
+                const kbdId = 'kbd' + action.charAt(0).toUpperCase() + action.slice(1);
+                const el = document.getElementById(kbdId);
+                if (el) el.textContent = (customShortcuts[action] || DEFAULT_SHORTCUTS[action]).toUpperCase();
+            });
+        }
         function closeShortcutsModal() { document.getElementById('shortcutsModal').classList.add('hidden'); }
         function switchHelpTab(tab) {
             const isFaq = tab === 'faq';
@@ -22806,7 +22899,7 @@
                 if (!isTyping && e.shiftKey && (e.key === 'n' || e.key === 'N')) {
                     e.preventDefault();
                     openQuickNoteModal();
-                } else if (!isTyping && (e.key === 'n' || e.key === 'N')) {
+                } else if (!isTyping && matchesShortcutKey(e, 'newItem')) {
                     if (currentView === 'contacts') openModal();
                     else if (currentView === 'tasks') openTaskModal();
                     else if (currentView === 'calendar') openEventModal();
@@ -22830,31 +22923,31 @@
                     }
                 }
 
-                // W abre a revisão semanal guiada
-                if (!isTyping && (e.key === 'w' || e.key === 'W')) {
+                // Abre a revisão semanal guiada
+                if (!isTyping && matchesShortcutKey(e, 'weeklyReview')) {
                     openWeeklyReview();
                 }
 
-                // Q abre a última nota criada/editada
-                if (!isTyping && (e.key === 'q' || e.key === 'Q')) {
+                // Abre a última nota criada/editada
+                if (!isTyping && matchesShortcutKey(e, 'lastNote')) {
                     const targetId = lastNoteId || (notes.length ? notes[0].id : null);
                     if (!targetId) { showToast('Nenhuma nota criada ainda.', 'error'); return; }
                     if (currentView !== 'notes') switchView('notes');
                     setTimeout(() => startEditNote(targetId), currentView !== 'notes' ? 150 : 0);
                 }
 
-                // F alterna modo apresentação/foco
-                if (!isTyping && (e.key === 'f' || e.key === 'F')) {
+                // Alterna modo apresentação/foco
+                if (!isTyping && matchesShortcutKey(e, 'focusMode')) {
                     toggleFocusMode();
                 }
 
-                // T abre a Captura Rápida de tarefa
-                if (!isTyping && (e.key === 't' || e.key === 'T')) {
+                // Abre a Captura Rápida de tarefa
+                if (!isTyping && matchesShortcutKey(e, 'quickAddTask')) {
                     openQuickAddTaskModal();
                 }
 
-                // R abre interação rápida com o último contato aberto
-                if (!isTyping && (e.key === 'r' || e.key === 'R')) {
+                // Abre interação rápida com o último contato aberto
+                if (!isTyping && matchesShortcutKey(e, 'quickInteraction')) {
                     if (lastContactId) {
                         openQuickInteraction(lastContactId);
                     } else {
