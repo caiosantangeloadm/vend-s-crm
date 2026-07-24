@@ -1700,6 +1700,7 @@
                             <button onclick="setComparePeriod('month')" id="cmpBtnMonth" class="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-sant-purple text-white transition-colors">Mês vs mês anterior</button>
                             <button onclick="setComparePeriod('quarter')" id="cmpBtnQuarter" class="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors">Trimestre vs anterior</button>
                             <button onclick="setComparePeriod('year')" id="cmpBtnYear" class="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors">Ano vs ano anterior</button>
+                            <button onclick="setComparePeriod('month_yoy')" id="cmpBtnMonthYoy" class="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors" title="Compara o mesmo mês em anos diferentes, útil pra ver sazonalidade">Mesmo mês, ano passado</button>
                         </div>
                         <div class="flex-1"></div>
                         <button onclick="exportComparePdf()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors">
@@ -7419,6 +7420,11 @@
                 aLabel = `${q+1}º Trimestre de ${ty}`;
                 const bq = Math.floor(bStart.getMonth()/3);
                 bLabel = `${bq+1}º Trimestre de ${bStart.getFullYear()}`;
+            } else if (comparePeriod === 'month_yoy') {
+                aStart = new Date(ty, tm-1, 1); aEnd = new Date(ty, tm, 0);
+                bStart = new Date(ty-1, tm-1, 1); bEnd = new Date(ty-1, tm, 0);
+                aLabel = `${monthNamesPt[tm-1]} de ${ty}`;
+                bLabel = `${monthNamesPt[tm-1]} de ${ty-1}`;
             } else {
                 aStart = new Date(ty, 0, 1); aEnd = new Date(ty, 11, 31);
                 bStart = new Date(ty-1, 0, 1); bEnd = new Date(ty-1, 11, 31);
@@ -7465,12 +7471,13 @@
         }
 
         function generateCompareReport() {
-            ['cmpBtnMonth','cmpBtnQuarter','cmpBtnYear'].forEach(id => {
+            ['cmpBtnMonth','cmpBtnQuarter','cmpBtnYear','cmpBtnMonthYoy'].forEach(id => {
                 const btn = document.getElementById(id);
                 if (!btn) return;
                 const active = (id === 'cmpBtnMonth' && comparePeriod === 'month') ||
                                 (id === 'cmpBtnQuarter' && comparePeriod === 'quarter') ||
-                                (id === 'cmpBtnYear' && comparePeriod === 'year');
+                                (id === 'cmpBtnYear' && comparePeriod === 'year') ||
+                                (id === 'cmpBtnMonthYoy' && comparePeriod === 'month_yoy');
                 btn.classList.toggle('bg-sant-purple', active);
                 btn.classList.toggle('text-white', active);
                 btn.classList.toggle('bg-sant-surface', !active);
