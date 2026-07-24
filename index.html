@@ -798,7 +798,7 @@
 
                 <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 flex flex-col h-[320px]">
                     <div class="flex justify-between items-center mb-4 shrink-0">
-                        <p class="text-xs font-bold text-white tracking-wide uppercase flex items-center gap-2"><i class="ph ph-chart-line-up text-sant-cyan text-lg"></i> Evolução de Contatos</p>
+                        <p id="dashContactsGrowthTitle" class="text-xs font-bold text-white tracking-wide uppercase flex items-center gap-2"><i class="ph ph-chart-line-up text-sant-cyan text-lg"></i> Evolução de Contatos</p>
                     </div>
                     <div class="flex-1 relative">
                         <canvas id="dashContactsGrowthChart"></canvas>
@@ -807,7 +807,7 @@
 
                 <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 flex flex-col h-[320px]">
                     <div class="flex justify-between items-center mb-4 shrink-0">
-                        <p class="text-xs font-bold text-white tracking-wide uppercase flex items-center gap-2"><i class="ph ph-activity text-[#fbbf24] text-lg"></i> Interações por Mês</p>
+                        <p id="dashInteractionsTitle" class="text-xs font-bold text-white tracking-wide uppercase flex items-center gap-2"><i class="ph ph-activity text-[#fbbf24] text-lg"></i> Interações por Mês</p>
                     </div>
                     <div class="flex-1 relative">
                         <canvas id="dashInteractionsChart"></canvas>
@@ -6750,6 +6750,8 @@
         function setDashPeriod(days) {
             localStorage.setItem('sant_crm_dash_period_days', days);
             renderProductivityChart();
+            renderContactsGrowthChart();
+            renderInteractionsChart();
         }
 
         // ── Metas Semanais ───────────────────────────────────────────────────
@@ -8035,34 +8037,60 @@
             const canvas = document.getElementById('dashInteractionsChart');
             if (!canvas || typeof Chart === 'undefined') return;
 
+            const periodDays = getDashPeriodDays();
+            const titleEl = document.getElementById('dashInteractionsTitle');
+            const groupByDay = periodDays <= 30;
+            if (titleEl) titleEl.innerHTML = `<i class="ph ph-activity text-[#fbbf24] text-lg"></i> Interações — Últimos ${periodDays} Dias`;
+
+            const todayStr = getSPTodayStr();
+            const startStr = addDaysToDateStr(todayStr, -(periodDays - 1));
+
             const counts = {};
             contacts.forEach(c => {
                 (c.interactions || []).forEach(i => {
-                    const month = i.date ? i.date.substring(0, 7) : null;
-                    if (month) counts[month] = (counts[month] || 0) + 1;
+                    if (!i.date || i.date < startStr || i.date > todayStr) return;
+                    const key = groupByDay ? i.date : i.date.substring(0, 7);
+                    counts[key] = (counts[key] || 0) + 1;
                 });
             });
 
-            const months = Object.keys(counts).sort();
-            if (months.length === 0) {
+            let emptyMsgEl = document.getElementById('dashInteractionsEmptyMsg');
+            if (Object.keys(counts).length === 0) {
                 if (interactionsChartInstance) { interactionsChartInstance.destroy(); interactionsChartInstance = null; }
-                canvas.parentElement.innerHTML = '<p class="text-xs text-gray-600 text-center mt-8">Nenhuma interação registrada ainda.</p>';
+                canvas.classList.add('hidden');
+                if (!emptyMsgEl) {
+                    emptyMsgEl = document.createElement('p');
+                    emptyMsgEl.id = 'dashInteractionsEmptyMsg';
+                    emptyMsgEl.className = 'text-xs text-gray-600 text-center mt-8';
+                    canvas.parentElement.appendChild(emptyMsgEl);
+                }
+                emptyMsgEl.textContent = 'Nenhuma interação registrada no período.';
                 return;
             }
+            canvas.classList.remove('hidden');
+            if (emptyMsgEl) emptyMsgEl.remove();
 
-            // Preenche meses sem interação entre o primeiro e o último
-            const allMonths = [];
-            const [sy, sm] = months[0].split('-').map(Number);
-            const [ey, em] = months[months.length - 1].split('-').map(Number);
-            let cy = sy, cm = sm;
-            while (cy < ey || (cy === ey && cm <= em)) {
-                allMonths.push(`${cy}-${String(cm).padStart(2,'0')}`);
-                cm++; if (cm > 12) { cm = 1; cy++; }
+            let allKeys, labels;
+            if (groupByDay) {
+                allKeys = [];
+                for (let i = 0; i < periodDays; i++) allKeys.push(addDaysToDateStr(startStr, i));
+                labels = allKeys.map(d => {
+                    const dt = new Date(d + 'T12:00:00');
+                    return dt.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }).replace('.', '');
+                });
+            } else {
+                allKeys = [];
+                const [sy, sm] = startStr.substring(0,7).split('-').map(Number);
+                const [ey, em] = todayStr.substring(0,7).split('-').map(Number);
+                let cy = sy, cm = sm;
+                while (cy < ey || (cy === ey && cm <= em)) {
+                    allKeys.push(`${cy}-${String(cm).padStart(2,'0')}`);
+                    cm++; if (cm > 12) { cm = 1; cy++; }
+                }
+                const labelFmt = new Intl.DateTimeFormat('pt-BR', { month: 'short', year: '2-digit' });
+                labels = allKeys.map(m => { const [y,mo] = m.split('-').map(Number); return labelFmt.format(new Date(y, mo-1, 1)).replace('.',''); });
             }
-
-            const labelFmt = new Intl.DateTimeFormat('pt-BR', { month: 'short', year: '2-digit' });
-            const labels = allMonths.map(m => { const [y,mo] = m.split('-').map(Number); return labelFmt.format(new Date(y, mo-1, 1)).replace('.',''); });
-            const data   = allMonths.map(m => counts[m] || 0);
+            const data = allKeys.map(k => counts[k] || 0);
 
             if (interactionsChartInstance) interactionsChartInstance.destroy();
             interactionsChartInstance = new Chart(canvas, {
@@ -8370,26 +8398,55 @@
             const canvas = document.getElementById('dashContactsGrowthChart');
             if (!canvas || typeof Chart === 'undefined') return;
 
-            const counts = {};
-            contacts.forEach(c => {
-                const created = c.createdAt ? c.createdAt.substring(0, 7) : null;
-                if (created) counts[created] = (counts[created] || 0) + 1;
-            });
+            const periodDays = getDashPeriodDays();
+            const titleEl = document.getElementById('dashContactsGrowthTitle');
+            const groupByDay = periodDays <= 30;
+            if (titleEl) titleEl.innerHTML = `<i class="ph ph-chart-line-up text-sant-cyan text-lg"></i> Evolução de Contatos — Últimos ${periodDays} Dias`;
 
-            const months = Object.keys(counts).sort();
-            if (months.length === 0) {
+            const todayStr = getSPTodayStr();
+            const startStr = addDaysToDateStr(todayStr, -(periodDays - 1));
+
+            if (contacts.length === 0) {
                 if (contactsGrowthChartInstance) { contactsGrowthChartInstance.destroy(); contactsGrowthChartInstance = null; }
                 return;
             }
 
-            const labelFmt = new Intl.DateTimeFormat('pt-BR', { month: 'short', year: '2-digit' });
-            const labels = [];
+            const baseline = contacts.filter(c => c.createdAt && c.createdAt.substring(0,10) < startStr).length;
+
+            const counts = {};
+            contacts.forEach(c => {
+                if (!c.createdAt) return;
+                const createdDate = c.createdAt.substring(0, 10);
+                if (createdDate < startStr || createdDate > todayStr) return;
+                const key = groupByDay ? createdDate : createdDate.substring(0, 7);
+                counts[key] = (counts[key] || 0) + 1;
+            });
+
+            let allKeys, labels;
+            if (groupByDay) {
+                allKeys = [];
+                for (let i = 0; i < periodDays; i++) allKeys.push(addDaysToDateStr(startStr, i));
+                labels = allKeys.map(d => {
+                    const dt = new Date(d + 'T12:00:00');
+                    return dt.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }).replace('.', '');
+                });
+            } else {
+                allKeys = [];
+                const [sy, sm] = startStr.substring(0,7).split('-').map(Number);
+                const [ey, em] = todayStr.substring(0,7).split('-').map(Number);
+                let cy = sy, cm = sm;
+                while (cy < ey || (cy === ey && cm <= em)) {
+                    allKeys.push(`${cy}-${String(cm).padStart(2,'0')}`);
+                    cm++; if (cm > 12) { cm = 1; cy++; }
+                }
+                const labelFmt = new Intl.DateTimeFormat('pt-BR', { month: 'short', year: '2-digit' });
+                labels = allKeys.map(m => { const [y,mo] = m.split('-').map(Number); return labelFmt.format(new Date(y, mo-1, 1)).replace('.',''); });
+            }
+
             const data = [];
-            let cumulative = 0;
-            months.forEach(m => {
-                const [y, mo] = m.split('-').map(Number);
-                labels.push(labelFmt.format(new Date(y, mo - 1, 1)).replace('.', ''));
-                cumulative += counts[m];
+            let cumulative = baseline;
+            allKeys.forEach(k => {
+                cumulative += counts[k] || 0;
                 data.push(cumulative);
             });
 
