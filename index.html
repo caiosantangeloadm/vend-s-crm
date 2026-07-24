@@ -4573,6 +4573,9 @@
         let quickFilterNoCategory = false;
         let quickFilterNoOrigin = false;
         let quickFilterNeverContacted = false;
+        let quickFilterNoPhone = false;
+        let quickFilterNoEmail = false;
+        let quickFilterInactiveDash = false;
         let currentContactTags = [];
         let currentContactLists = [];
         let currentContactCustomFields = [];
@@ -7871,10 +7874,10 @@
             }).length;
 
             const items = [
-                { label: 'Sem telefone', count: noPhone, icon: 'ph-phone-x' },
-                { label: 'Sem e-mail', count: noEmail, icon: 'ph-envelope-simple-open' },
-                { label: 'Sem categoria', count: noCategory, icon: 'ph-tag' },
-                { label: `Inativos (${inactivityThreshold || 60}+ dias)`, count: inactive, icon: 'ph-clock-countdown' }
+                { label: 'Sem telefone', count: noPhone, icon: 'ph-phone-x', key: 'noPhone' },
+                { label: 'Sem e-mail', count: noEmail, icon: 'ph-envelope-simple-open', key: 'noEmail' },
+                { label: 'Sem categoria', count: noCategory, icon: 'ph-tag', key: 'noCategory' },
+                { label: `Inativos (${inactivityThreshold || 60}+ dias)`, count: inactive, icon: 'ph-clock-countdown', key: 'inactive' }
             ];
 
             grid.innerHTML = items.map(item => {
@@ -7882,7 +7885,7 @@
                 const colorClass = pct === 0 ? 'text-sant-cyan' : pct < 25 ? 'text-[#fbbf24]' : 'text-red-500';
                 const barColor = pct === 0 ? 'bg-sant-cyan' : pct < 25 ? 'bg-[#fbbf24]' : 'bg-red-500';
                 return `
-                <div class="bg-[#0a0a0a] border border-sant-border rounded-xl p-4">
+                <div onclick="drillHealthCard('${item.key}')" class="bg-[#0a0a0a] border border-sant-border rounded-xl p-4 ${item.count > 0 ? 'cursor-pointer hover:border-sant-cyan/40 transition-colors' : ''}" title="${item.count > 0 ? 'Ver esses contatos na lista' : ''}">
                     <p class="text-[10px] font-bold text-gray-500 uppercase tracking-wide flex items-center gap-1.5 mb-2"><i class="ph ${item.icon}"></i> ${item.label}</p>
                     <div class="flex items-end gap-2 mb-2">
                         <p class="text-2xl font-bold ${colorClass} leading-none">${item.count}</p>
@@ -8456,7 +8459,7 @@
                 const n = counts[s.key];
                 const pct = Math.max(8, Math.round((n / max) * 100));
                 return `
-                <div>
+                <div onclick="${n > 0 ? `drillFunnelStage('${s.key}')` : ''}" class="${n > 0 ? 'cursor-pointer' : ''}" title="${n > 0 ? 'Ver esses leads na lista de Contatos' : ''}">
                     <div class="flex justify-between items-center mb-1">
                         <span class="text-xs font-medium text-gray-300">${s.label}</span>
                         <span class="text-xs font-bold text-white">${n}</span>
@@ -10324,6 +10327,13 @@
             if (quickFilterNoCategory) filtered = filtered.filter(c => !c.category);
             if (quickFilterNoOrigin) filtered = filtered.filter(c => !c.origin);
             if (quickFilterNeverContacted) filtered = filtered.filter(c => !c.interactions || c.interactions.length === 0);
+            if (quickFilterNoPhone) filtered = filtered.filter(c => !(c.phoneProf || c.phonePess || c.phone));
+            if (quickFilterNoEmail) filtered = filtered.filter(c => !(c.emailProf || c.emailPess || c.email));
+            if (quickFilterInactiveDash) filtered = filtered.filter(c => {
+                if (c.ignoreInactivityAlerts) return false;
+                const days = getInactivityDays(c);
+                return days !== null && days >= getEffectiveInactivityThreshold(c);
+            });
             if (activeFilters.category) filtered = filtered.filter(c => (c.category || '') === activeFilters.category);
             if (activeFilters.isLead === 'yes') filtered = filtered.filter(c => c.isLead);
             if (activeFilters.isLead === 'no') filtered = filtered.filter(c => !c.isLead);
@@ -20995,6 +21005,50 @@
             const search = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
             renderContacts(search);
             updateSaveFilterBtn();
+        }
+
+        function resetAllContactQuickFilters() {
+            quickFilterNoCategory = false;
+            quickFilterNoOrigin = false;
+            quickFilterNeverContacted = false;
+            quickFilterNoPhone = false;
+            quickFilterNoEmail = false;
+            quickFilterInactiveDash = false;
+            activeFilters = { category: '', isLead: '', temperature: '', tag: '', origin: '', list: '', city: '', state: '', intType: '', intFrom: '', intTo: '' };
+            ['filterCategory','filterLead','filterTemp','filterTag','filterOrigin','filterList','filterCity','filterState','filterIntType','filterIntFrom','filterIntTo'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+        }
+
+        // Drill-down do Dashboard: card Saúde da Base → lista de Contatos já filtrada
+        function drillHealthCard(key) {
+            resetAllContactQuickFilters();
+            const labels = { noPhone: 'sem telefone', noEmail: 'sem e-mail', noCategory: 'sem categoria', inactive: 'inativos' };
+            if (key === 'noPhone') quickFilterNoPhone = true;
+            else if (key === 'noEmail') quickFilterNoEmail = true;
+            else if (key === 'noCategory') quickFilterNoCategory = true;
+            else if (key === 'inactive') quickFilterInactiveDash = true;
+            switchView('contacts');
+            renderContacts('');
+            showToast(`Filtrando contatos ${labels[key] || ''}.`);
+        }
+
+        // Drill-down do Dashboard: card Radar de Negócios → lista de Contatos já filtrada por temperatura
+        function drillFunnelStage(temperature) {
+            resetAllContactQuickFilters();
+            activeFilters.isLead = 'yes';
+            activeFilters.temperature = temperature;
+            const filterLeadEl = document.getElementById('filterLead');
+            const filterTempEl = document.getElementById('filterTemp');
+            if (filterLeadEl) filterLeadEl.value = 'yes';
+            if (filterTempEl) filterTempEl.value = temperature;
+            const panel = document.getElementById('advFiltersPanel');
+            if (panel && panel.classList.contains('hidden')) toggleAdvFilters();
+            switchView('contacts');
+            renderContacts('');
+            updateSaveFilterBtn();
+            showToast(`Filtrando leads ${temperature}.`);
         }
 
         function clearAdvFilters() {
