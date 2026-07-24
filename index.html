@@ -655,6 +655,12 @@
                     </div>
                 </div>
 
+                <!-- Card: Resumo Executivo (síntese em texto) -->
+                <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
+                    <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase mb-3 flex items-center gap-2"><i class="ph ph-sparkle text-sant-cyan"></i> Resumo Executivo da Semana</p>
+                    <p id="dashExecutiveSummary" class="text-sm text-gray-300 leading-relaxed"></p>
+                </div>
+
                 <!-- Card: Esta Semana -->
                 <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
                     <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase mb-5 flex items-center gap-2"><i class="ph ph-lightning text-sant-cyan"></i> Esta Semana vs Semana Passada</p>
@@ -7716,6 +7722,68 @@
 
             renderGoals(todayStr, tasksDone, interactions);
             renderBigGoals(todayStr);
+            renderExecutiveSummary(todayStr, {
+                weekStartStr, tasksDone, eventsDone, interactions,
+                lastTasksDone, lastEventsDone, lastInteractions
+            });
+        }
+
+        function renderExecutiveSummary(todayStr, wk) {
+            const el = document.getElementById('dashExecutiveSummary');
+            if (!el) return;
+
+            const followupsDone = contacts.filter(c => {
+                if (!c.nextContact || c.nextContact < wk.weekStartStr || c.nextContact > todayStr) return false;
+                return (c.interactions || []).some(i => i.date >= c.nextContact);
+            }).length;
+            const newContacts = contacts.filter(c => c.createdAt && c.createdAt.substring(0, 10) >= wk.weekStartStr).length;
+
+            const goalMetrics = [
+                { label: 'tarefas concluídas', actual: wk.tasksDone, goal: weeklyGoals.tasks || 0 },
+                { label: 'interações registradas', actual: wk.interactions, goal: weeklyGoals.interactions || 0 },
+                { label: 'follow-ups realizados', actual: followupsDone, goal: weeklyGoals.followups || 0 },
+                { label: 'novos contatos', actual: newContacts, goal: weeklyGoals.newContacts || 0 },
+            ].filter(m => m.goal > 0);
+            const goalsMet = goalMetrics.filter(m => m.actual >= m.goal).length;
+
+            // Destaque: maior alta percentual vs semana passada (entre as métricas com base > 0)
+            const compareList = [
+                { label: 'tarefas concluídas', cur: wk.tasksDone, prev: wk.lastTasksDone },
+                { label: 'interações registradas', cur: wk.interactions, prev: wk.lastInteractions },
+                { label: 'compromissos realizados', cur: wk.eventsDone, prev: wk.lastEventsDone },
+            ];
+            let highlight = null;
+            compareList.forEach(m => {
+                if (m.prev > 0 && m.cur > m.prev) {
+                    const pct = Math.round(((m.cur - m.prev) / m.prev) * 100);
+                    if (!highlight || pct > highlight.pct) highlight = { label: m.label, pct, cur: m.cur };
+                } else if (m.prev === 0 && m.cur > 0 && !highlight) {
+                    highlight = { label: m.label, pct: null, cur: m.cur };
+                }
+            });
+
+            const overdueFollowups = contacts.filter(c => c.nextContact && c.nextContact < todayStr).length;
+
+            const parts = [];
+            parts.push(`Esta semana você concluiu <b class="text-white">${wk.tasksDone}</b> tarefa${wk.tasksDone !== 1 ? 's' : ''}, registrou <b class="text-white">${wk.interactions}</b> interaç${wk.interactions !== 1 ? 'ões' : 'ão'} e teve <b class="text-white">${wk.eventsDone}</b> compromisso${wk.eventsDone !== 1 ? 's' : ''}.`);
+
+            if (goalMetrics.length > 0) {
+                parts.push(goalsMet === goalMetrics.length
+                    ? `Você bateu todas as ${goalMetrics.length} metas definidas para a semana — parabéns! 🎉`
+                    : `Você bateu ${goalsMet} de ${goalMetrics.length} metas definidas para a semana.`);
+            }
+
+            if (highlight) {
+                parts.push(highlight.pct !== null
+                    ? `Destaque: ${highlight.label} subiu ${highlight.pct}% em relação à semana passada.`
+                    : `Destaque: ${highlight.label} (${highlight.cur}) — nada registrado na semana passada.`);
+            }
+
+            if (overdueFollowups > 0) {
+                parts.push(`⚠️ Atenção: <b class="text-amber-400">${overdueFollowups}</b> follow-up${overdueFollowups !== 1 ? 's estão' : ' está'} vencido${overdueFollowups !== 1 ? 's' : ''}.`);
+            }
+
+            el.innerHTML = parts.join(' ');
         }
 
         // ── Ranking de Acessos ───────────────────────────────────────────
