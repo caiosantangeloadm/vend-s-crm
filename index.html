@@ -4511,8 +4511,8 @@
             const cursor = opts.onclick ? 'cursor-pointer' : '';
             const sizeCls = opts.small ? 'text-[9px] px-1.5 py-0.5' : 'text-[10px] px-2 py-0.5';
             const parts = tag.split(' > ');
-            const display = parts.length === 2
-                ? `<span style="opacity:0.6">${parts[0]} ›</span> ${parts[1]}`
+            const display = parts.length >= 2
+                ? `<span style="opacity:0.6">${parts.slice(0, -1).join(' › ')} ›</span> ${parts[parts.length - 1]}`
                 : tag;
             return `<span${onclick} class="${sizeCls} rounded font-medium ${cursor} transition-colors" style="background:${color}1f;color:${color};border:1px solid ${color}55;" title="${tag}">${opts.icon?`<i class="ph ${opts.icon}"></i> `:''}${display}</span>`;
         }
@@ -4523,9 +4523,10 @@
             const flat = [];
             tagsList.forEach(t => {
                 const parts = t.split(' > ');
-                if (parts.length === 2) {
-                    if (!groups[parts[0]]) groups[parts[0]] = [];
-                    groups[parts[0]].push({ full: t, child: parts[1] });
+                if (parts.length >= 2) {
+                    const groupLabel = parts.slice(0, -1).join(' › ');
+                    if (!groups[groupLabel]) groups[groupLabel] = [];
+                    groups[groupLabel].push({ full: t, child: parts[parts.length - 1] });
                 } else {
                     flat.push(t);
                 }
