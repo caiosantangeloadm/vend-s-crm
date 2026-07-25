@@ -15069,7 +15069,7 @@
             const val = (input.value || '').trim();
             if (!val || currentTaskTags.includes(val)) { input.value = ''; return; }
             currentTaskTags.push(val);
-            if (!tags.includes(val)) { tags.push(val); localStorage.setItem('sant_crm_tags', JSON.stringify(tags)); fillTaskTagSuggestions(); }
+            if (!tags.includes(val)) { tags.push(val); saveTagsToStorage(); fillTaskTagSuggestions(); }
             renderTaskTagsInModal();
             input.value = '';
         }
@@ -19211,14 +19211,14 @@
             if (!v) return;
             if (tags.includes(v)) { showToast('Tag já existe.','error'); return; }
             tags.push(v);
-            localStorage.setItem('sant_crm_tags', JSON.stringify(tags));
+            saveTagsToStorage();
             inp.value = '';
             renderSTags();
             showToast('Tag adicionada!');
         }
         function deleteSTag(name) {
             tags = tags.filter(t => t !== name);
-            localStorage.setItem('sant_crm_tags', JSON.stringify(tags));
+            saveTagsToStorage();
             renderSTags();
             showToast('Tag removida.');
         }
