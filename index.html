@@ -4178,6 +4178,10 @@
                             </div>
                             <p class="text-[10px] text-gray-600">Registrado em: <span id="consentDateLabel">—</span></p>
                         </div>
+                        <div class="flex gap-2 pt-1">
+                            <button onclick="exportContactDataLgpd()" class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-[#141414] border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors"><i class="ph ph-download-simple"></i> Exportar dados (portabilidade)</button>
+                            <button onclick="requestErasureLgpd()" class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-[#141414] border border-sant-border hover:border-red-500/50 text-gray-400 hover:text-red-400 transition-colors"><i class="ph ph-trash"></i> Solicitação de exclusão</button>
+                        </div>
                     </div>
                 </div>
 
@@ -22293,6 +22297,40 @@
                 statusEl.style.color = '#4ade80';
             }
             showToast(val ? `Frequência definida: a cada ${val} dias.` : 'Frequência removida.');
+        }
+
+        function exportContactDataLgpd() {
+            if (!currentHistoryContactId) return;
+            const c = contacts.find(x => x.id === currentHistoryContactId);
+            if (!c) return;
+            const data = JSON.parse(JSON.stringify(c));
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const slug = fullName(c).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').slice(0, 40);
+            a.href = url;
+            a.download = `dados_pessoais_${slug}_${getSPTodayStr()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('Dados do contato exportados em JSON.');
+        }
+
+        function requestErasureLgpd() {
+            if (!currentHistoryContactId) return;
+            const c = contacts.find(x => x.id === currentHistoryContactId);
+            if (!c) return;
+            const id = c.id;
+            const name = fullName(c);
+            showConfirm(
+                `Excluir todos os dados de ${name}?`,
+                'Isso apaga permanentemente o contato e todo o histórico associado (interações, notas, documentos), atendendo a um pedido de exclusão do titular dos dados (LGPD). Você terá alguns segundos para desfazer logo em seguida, caso mude de ideia.',
+                () => {
+                    closeHistoryModal();
+                    deleteContact(id);
+                }
+            );
         }
 
         function setIgnoreInactivity(checked) {
