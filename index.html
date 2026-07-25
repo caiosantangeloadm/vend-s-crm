@@ -2550,7 +2550,7 @@
                         <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-2"><i class="ph ph-tag text-sant-purple"></i> Tags</label>
                         <div id="contactTagsContainer" class="flex flex-wrap gap-2 min-h-[36px] p-2 bg-[#141414] border border-sant-border rounded-lg mb-2"></div>
                         <div class="flex gap-2">
-                            <input type="text" id="tagInput" placeholder="Adicionar tag (Ex: VIP, Parceiro)..." list="tagSuggestions"
+                            <input type="text" id="tagInput" placeholder="Adicionar tag (Ex: VIP, Parceiro, Segmento > Varejo)..." list="tagSuggestions"
                                 class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-purple outline-none transition-colors"
                                 onkeydown="if(event.key==='Enter'){event.preventDefault();addTagToContact()}">
                             <datalist id="tagSuggestions"></datalist>
@@ -4510,7 +4510,31 @@
             const onclick = opts.onclick ? ` onclick="${opts.onclick}"` : '';
             const cursor = opts.onclick ? 'cursor-pointer' : '';
             const sizeCls = opts.small ? 'text-[9px] px-1.5 py-0.5' : 'text-[10px] px-2 py-0.5';
-            return `<span${onclick} class="${sizeCls} rounded font-medium ${cursor} transition-colors" style="background:${color}1f;color:${color};border:1px solid ${color}55;">${opts.icon?`<i class="ph ${opts.icon}"></i> `:''}${tag}</span>`;
+            const parts = tag.split(' > ');
+            const display = parts.length === 2
+                ? `<span style="opacity:0.6">${parts[0]} ›</span> ${parts[1]}`
+                : tag;
+            return `<span${onclick} class="${sizeCls} rounded font-medium ${cursor} transition-colors" style="background:${color}1f;color:${color};border:1px solid ${color}55;" title="${tag}">${opts.icon?`<i class="ph ${opts.icon}"></i> `:''}${display}</span>`;
+        }
+
+        // Tags Hierárquicas: convenção "Grupo > Filho" — agrupa em <optgroup> nos selects de filtro
+        function buildTagFilterOptionsHtml(tagsList) {
+            const groups = {};
+            const flat = [];
+            tagsList.forEach(t => {
+                const parts = t.split(' > ');
+                if (parts.length === 2) {
+                    if (!groups[parts[0]]) groups[parts[0]] = [];
+                    groups[parts[0]].push({ full: t, child: parts[1] });
+                } else {
+                    flat.push(t);
+                }
+            });
+            let html = flat.map(t => `<option value="${t}">${t}</option>`).join('');
+            Object.keys(groups).sort((a,b) => a.localeCompare(b, 'pt-BR')).forEach(g => {
+                html += `<optgroup label="${g}">${groups[g].map(x => `<option value="${x.full}">${x.child}</option>`).join('')}</optgroup>`;
+            });
+            return html;
         }
         let notes = [];
         let newNoteColor = '';
@@ -12236,7 +12260,7 @@
             if (fCat) { fCat.innerHTML = '<option value="">Todas</option>' + sortedCats.map(c => `<option value="${c}">${c}</option>`).join(''); fCat.value = currentFCat; }
 
             const fTag = document.getElementById('filterTag');
-            if (fTag) fTag.innerHTML = '<option value="">Todas</option>' + tags.map(t => `<option value="${t}">${t}</option>`).join('');
+            if (fTag) fTag.innerHTML = '<option value="">Todas</option>' + buildTagFilterOptionsHtml(tags);
 
             const datalist = document.getElementById('tagSuggestions');
             if (datalist) datalist.innerHTML = tags.map(t => `<option value="${t}">`).join('');
@@ -15059,7 +15083,8 @@
             const sel = document.getElementById('taskTagFilter');
             if (!sel) return;
             const usedTags = [...new Set(tasks.flatMap(t => t.tags || []))].sort((a,b) => a.localeCompare(b,'pt-BR'));
-            sel.innerHTML = `<option value="">Todas as etiquetas</option>` + usedTags.map(t => `<option value="${t}" ${t === currentTaskTagFilter ? 'selected' : ''}>${t}</option>`).join('');
+            sel.innerHTML = `<option value="">Todas as etiquetas</option>` + buildTagFilterOptionsHtml(usedTags);
+            sel.value = currentTaskTagFilter || '';
         }
 
         function onTaskTagFilter(val) {
