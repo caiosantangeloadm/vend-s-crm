@@ -19201,7 +19201,8 @@
                     <input type="color" value="${color}" onchange="setTagColor('${safe}', this.value)" title="Cor da tag"
                         class="w-5 h-5 rounded-full cursor-pointer border border-sant-border bg-transparent p-0">
                     <span class="text-xs font-medium" style="color:${color};">${t}</span>
-                    <button onclick="deleteSTag('${safe}')" class="ml-1 transition-colors" style="color:${color}88;" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='${color}88'"><i class="ph ph-x text-[10px]"></i></button>
+                    <button onclick="promptRenameTag('${safe}')" title="Renomear/mesclar esta tag em todos os contatos, tarefas e notas" class="ml-1 transition-colors" style="color:${color}88;" onmouseover="this.style.color='${color}'" onmouseout="this.style.color='${color}88'"><i class="ph ph-pencil-simple text-[10px]"></i></button>
+                    <button onclick="deleteSTag('${safe}')" class="transition-colors" style="color:${color}88;" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='${color}88'"><i class="ph ph-x text-[10px]"></i></button>
                 </div>`;
             }).join('');
         }
@@ -19221,6 +19222,64 @@
             saveTagsToStorage();
             renderSTags();
             showToast('Tag removida.');
+        }
+
+        // Renomear/Mesclar tag em massa — atualiza todos os contatos, tarefas e notas de uma vez
+        function promptRenameTag(oldName) {
+            const newName = prompt(`Renomear/mesclar a tag "${oldName}" para:`, oldName);
+            if (newName === null) return;
+            const trimmed = newName.trim();
+            if (!trimmed) { showToast('Nome inválido.', 'error'); return; }
+            if (trimmed === oldName) return;
+            const willMerge = tags.includes(trimmed);
+            showConfirm(
+                `Renomear "${oldName}" para "${trimmed}"?`,
+                willMerge
+                    ? `Já existe uma tag "${trimmed}" — as duas serão mescladas em todos os contatos, tarefas e notas que usam "${oldName}".`
+                    : `Isso atualiza automaticamente todos os contatos, tarefas e notas que usam a tag "${oldName}".`,
+                () => renameTagEverywhere(oldName, trimmed)
+            );
+        }
+
+        function renameTagEverywhere(oldName, newName) {
+            let contactsChanged = 0, tasksChanged = 0, notesChanged = 0;
+
+            contacts.forEach(c => {
+                if (c.tags && c.tags.includes(oldName)) {
+                    c.tags = [...new Set(c.tags.map(t => t === oldName ? newName : t))];
+                    contactsChanged++;
+                    cloudSyncContact(c);
+                }
+            });
+            tasks.forEach(t => {
+                if (t.tags && t.tags.includes(oldName)) {
+                    t.tags = [...new Set(t.tags.map(x => x === oldName ? newName : x))];
+                    tasksChanged++;
+                    cloudSyncTask(t);
+                }
+            });
+            notes.forEach(n => {
+                if (n.tags && n.tags.includes(oldName)) {
+                    n.tags = [...new Set(n.tags.map(x => x === oldName ? newName : x))];
+                    notesChanged++;
+                    cloudSyncNote(n);
+                }
+            });
+
+            tags = tags.filter(t => t !== oldName);
+            if (!tags.includes(newName)) tags.push(newName);
+            saveTagsToStorage();
+
+            localStorage.setItem('sant_crm_contacts', JSON.stringify(contacts));
+            localStorage.setItem('sant_crm_tasks', JSON.stringify(tasks));
+            localStorage.setItem('sant_crm_notes', JSON.stringify(notes));
+
+            renderSTags();
+            if (currentView === 'contacts') renderContacts(document.getElementById('searchInput') ? document.getElementById('searchInput').value : '');
+            if (currentView === 'tasks' && typeof _refreshCurrentTaskView === 'function') _refreshCurrentTaskView();
+            if (currentView === 'notes') renderNotes();
+
+            showToast(`Tag renomeada: ${contactsChanged} contato(s), ${tasksChanged} tarefa(s), ${notesChanged} nota(s) atualizados.`);
         }
 
         // — Templates —
