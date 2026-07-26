@@ -859,7 +859,10 @@
                 <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
                     <div class="flex justify-between items-center mb-4">
                         <p class="text-xs font-bold text-white tracking-wide uppercase flex items-center gap-2"><i class="ph ph-chart-bar text-sant-cyan text-lg"></i> Contatos — Ranking de Acessos</p>
-                        <span class="text-[10px] text-gray-600">quem você mais abre</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] text-gray-600">quem você mais abre</span>
+                            <button onclick="resetContactAccessRanking()" title="Zerar ranking e começar a contar de novo" class="text-gray-600 hover:text-red-400 transition-colors"><i class="ph ph-arrow-counter-clockwise text-xs"></i></button>
+                        </div>
                     </div>
                     <div id="dashContactRanking" class="space-y-2"></div>
                 </div>
@@ -7861,6 +7864,19 @@
         }
 
         // ── Ranking de Acessos ───────────────────────────────────────────
+        function resetContactAccessRanking() {
+            showConfirm(
+                'Zerar o Ranking de Acessos?',
+                'Isso apaga a contagem de "quem você mais abre" e recomeça do zero a partir de agora, em todos os seus dispositivos. Não afeta nenhum outro dado do contato.',
+                () => {
+                    localStorage.setItem('vends_contact_accesses', '{}');
+                    syncPreferencesToSupabase();
+                    renderContactRanking();
+                    showToast('Ranking de Acessos zerado!');
+                }
+            );
+        }
+
         function renderContactRanking() {
             const el = document.getElementById('dashContactRanking');
             if (!el) return;
