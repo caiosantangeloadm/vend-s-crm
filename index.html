@@ -2716,6 +2716,12 @@
                     </button>
                     <input type="file" id="importContactsCsvInput" accept=".csv" class="hidden" onchange="importContactsCsv(event)">
                     <p class="text-[10px] text-gray-600 mt-2">Importa um arquivo .csv exportado do Google Contatos (Contatos → Exportar → formato Google CSV). Apenas adiciona contatos novos — não altera nem apaga os existentes. Contatos com nome ou telefone já cadastrados são ignorados.</p>
+
+                    <button onclick="document.getElementById('importTasksCsvInput').click()" class="w-full mt-3 bg-[#141414] border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2">
+                        <i class="ph ph-file-csv"></i> Importar Tarefas (.csv)
+                    </button>
+                    <input type="file" id="importTasksCsvInput" accept=".csv" class="hidden" onchange="importTasksCsv(event)">
+                    <p class="text-[10px] text-gray-600 mt-2">Importa várias tarefas de uma vez, útil pra migrar de uma planilha ou de outro app (Trello, Asana...). O CSV precisa ter uma coluna "Título" (obrigatória) e pode ter também "Data" (dd/mm/aaaa), "Hora", "Prioridade" (baixa/normal/alta/urgente) e "Descrição".</p>
                 </div>
             </div>
         </div>
@@ -12078,6 +12084,81 @@
             }
             if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
             return rows.filter(r => r.some(f => f.trim() !== ''));
+        }
+
+        // ── Importação em Lote de Tarefas (CSV) ─────────────────────────────
+        function importTasksCsv(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                let rows;
+                try { rows = parseCsv(e.target.result); }
+                catch (err) { showToast('Erro ao ler o arquivo CSV.', 'error'); event.target.value = ''; return; }
+                if (rows.length < 2) { showToast('CSV vazio ou sem dados.', 'error'); event.target.value = ''; return; }
+
+                const header = rows[0].map(h => h.trim().toLowerCase());
+                const col = (name) => header.indexOf(name);
+                const idxTitle = col('título') !== -1 ? col('título') : col('titulo');
+                const idxDate = col('data');
+                const idxTime = col('hora');
+                const idxPriority = col('prioridade');
+                const idxDesc = col('descrição') !== -1 ? col('descrição') : col('descricao');
+
+                if (idxTitle === -1) {
+                    showToast('Formato não reconhecido. A 1ª coluna do CSV precisa se chamar "Título".', 'error');
+                    event.target.value = '';
+                    return;
+                }
+
+                const priorityMap = { baixa: 'low', normal: 'medium', media: 'medium', média: 'medium', alta: 'high', urgente: 'urgent', low: 'low', medium: 'medium', high: 'high', urgent: 'urgent' };
+                const parseDateCell = (raw) => {
+                    const v = (raw || '').trim();
+                    if (!v) return '';
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+                    const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+                    if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+                    return '';
+                };
+
+                const toImport = [];
+                let skippedNoTitle = 0;
+                for (let i = 1; i < rows.length; i++) {
+                    const r = rows[i];
+                    const title = (r[idxTitle] || '').trim();
+                    if (!title) { skippedNoTitle++; continue; }
+                    toImport.push({
+                        id: crypto.randomUUID(),
+                        title,
+                        date: idxDate !== -1 ? parseDateCell(r[idxDate]) : '',
+                        time: idxTime !== -1 ? (r[idxTime] || '').trim() : '',
+                        priority: idxPriority !== -1 ? (priorityMap[(r[idxPriority]||'').trim().toLowerCase()] || 'medium') : 'medium',
+                        desc: idxDesc !== -1 ? (r[idxDesc] || '').trim() : '',
+                        notification: '0', emailAlert: '0', contactId: '', dependsOnId: '',
+                        recurrence: 'none', recurrenceInterval: 1, tags: [], customFields: [],
+                        estimatedMinutes: 0, checklist: [], kanbanColumn: 'todo', completed: false,
+                        notified: false, changeLog: [], comments: [], attachments: [],
+                        waiting: false, waitingNote: '', waitingSince: '',
+                        createdAt: new Date().toISOString(), archived: false, important: false,
+                        actualTimeSpent: 0, timerStartedAt: null, deletedAt: null,
+                    });
+                }
+
+                event.target.value = '';
+                if (toImport.length === 0) { showToast('Nenhuma tarefa válida encontrada no CSV.', 'error'); return; }
+
+                showConfirm(
+                    `Importar ${toImport.length} tarefa(s)?`,
+                    skippedNoTitle > 0 ? `${skippedNoTitle} linha(s) sem título foram ignoradas.` : 'Elas serão adicionadas à sua lista de Tarefas.',
+                    () => {
+                        toImport.forEach(t => { tasks.push(t); cloudSyncTask(t); });
+                        saveTasksToStorage();
+                        if (currentView === 'tasks' && typeof _refreshCurrentTaskView === 'function') _refreshCurrentTaskView();
+                        showToast(`${toImport.length} tarefa(s) importada(s)!`);
+                    }
+                );
+            };
+            reader.readAsText(file);
         }
 
         function formatPhoneDigits(raw) {
