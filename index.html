@@ -2112,6 +2112,12 @@
                                     </select>
                                 </div>
                                 <div class="flex items-center justify-between">
+                                    <div><p class="text-sm text-white">SLA de primeira resposta a lead</p><p class="text-xs text-gray-500">Alertar se um lead novo ficar sem nenhuma interação por mais de</p></div>
+                                    <select onchange="saveSlaHours(this.value)" id="s-sla-hours" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                                        <option value="0">Desativado</option><option value="4">4 horas</option><option value="12">12 horas</option><option value="24">24 horas</option><option value="48">48 horas</option><option value="72">72 horas</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center justify-between">
                                     <div><p class="text-sm text-white">Máx. de contatos fixados</p><p class="text-xs text-gray-500">Limite de pins simultâneos na lista</p></div>
                                     <select onchange="localStorage.setItem('vends_max_pinned', this.value); showToast('Preferência salva!')" id="s-max-pinned" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
                                         <option value="5">5 contatos</option>
@@ -7984,6 +7990,22 @@
                 });
             });
 
+            // ── 2b. SLA de primeira resposta a lead estourado ────────────────
+            contacts.filter(c => c.isLead).forEach(c => {
+                const s = getSlaStatus(c);
+                if (s && s.overdue) {
+                    const label = s.hoursSince >= 48 ? `${Math.round(s.hoursSince / 24)}d` : `${s.hoursSince}h`;
+                    items.push({
+                        priority: 1,
+                        icon: 'ph-timer', color: '#f87171', bg: 'bg-red-500/10', border: 'border-red-500/20',
+                        label: `SLA estourado — ${label} sem 1º contato`,
+                        name: fullName(c),
+                        action: `openHistoryModal('${c.id}')`,
+                        actionLabel: 'Contatar'
+                    });
+                }
+            });
+
             // ── 3. Tarefas urgentes vencidas ────────────────────────────────
             tasks.filter(t => !t.completed && t.priority === 'urgent' && t.date && t.date < todayStr).forEach(t => {
                 items.push({
@@ -10795,7 +10817,7 @@
                 else leadTag = `<span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#fbbf24]/20 text-[#fbbf24] border border-[#fbbf24]/30" title="Lead Morno">☀️${mode==='grid'?' Morno':''}</span>`;
             }
             const priorityIcon = c.priority === 'vip' ? '<span title="Prioridade: VIP">👑</span> ' : c.priority === 'alto_valor' ? '<span title="Prioridade: Alto Valor">⭐</span> ' : '';
-            const inact = neverContactedBadgeHtml(c) || inactivityBadgeHtml(c);
+            const inact = slaBadgeHtml(c) || neverContactedBadgeHtml(c) || inactivityBadgeHtml(c);
             const freqBadge = frequencyBadgeHtml(c);
             const bdayBadge = birthdayBadgeHtml(c);
             const companyAnnivBadge = companyAnniversaryBadgeHtml(c);
@@ -17235,6 +17257,7 @@
                     "bigGoalsPeriod": localStorage.getItem('vends_big_goals_period') || 'month',
                     "bdayAdvance":    parseInt(localStorage.getItem('vends_bday_advance')    || '3'),
                     "inactivityDays": parseInt(localStorage.getItem('vends_inactivity_days') || '60'),
+                    "slaHours": parseInt(localStorage.getItem('vends_sla_hours') || '24'),
                     "cadenceOverrides": cadenceOverrides,
                     "customShortcuts": customShortcuts,
                     "maxPinned":      parseInt(localStorage.getItem('vends_max_pinned')      || '10'),
@@ -17283,6 +17306,7 @@
                 if (data.bigGoalsPeriod)            { localStorage.setItem('vends_big_goals_period', data.bigGoalsPeriod); }
                 if (data.bdayAdvance !== undefined && data.bdayAdvance !== null)    localStorage.setItem('vends_bday_advance', String(data.bdayAdvance));
                 if (data.inactivityDays !== undefined && data.inactivityDays !== null) localStorage.setItem('vends_inactivity_days', String(data.inactivityDays));
+                if (data.slaHours !== undefined && data.slaHours !== null) localStorage.setItem('vends_sla_hours', String(data.slaHours));
                 if (data.cadenceOverrides && Object.keys(data.cadenceOverrides).length) { cadenceOverrides = data.cadenceOverrides; localStorage.setItem('vends_cadence_overrides', JSON.stringify(cadenceOverrides)); }
                 if (data.customShortcuts && Object.keys(data.customShortcuts).length) { customShortcuts = Object.assign({}, DEFAULT_SHORTCUTS, data.customShortcuts); localStorage.setItem('vends_custom_shortcuts', JSON.stringify(customShortcuts)); }
                 if (data.maxPinned !== undefined && data.maxPinned !== null)        localStorage.setItem('vends_max_pinned', String(data.maxPinned));
@@ -19485,6 +19509,8 @@
             if (bdayEl) bdayEl.value = localStorage.getItem('vends_bday_advance') || '3';
             const inactEl = document.getElementById('s-inact-days');
             if (inactEl) inactEl.value = localStorage.getItem('vends_inactivity_days') || '60';
+            const slaEl = document.getElementById('s-sla-hours');
+            if (slaEl) slaEl.value = localStorage.getItem('vends_sla_hours') || '24';
             const pinEl = document.getElementById('s-max-pinned');
             if (pinEl) pinEl.value = localStorage.getItem('vends_max_pinned') || '10';
             fillCadenceTargetValueSelect();
@@ -19689,6 +19715,38 @@
             showToast(val == 0 ? 'Detecção de inatividade desativada.' : `Contatos sem interação há mais de ${val} dias serão destacados.`);
             renderContacts(document.getElementById('contactSearchInput') ? document.getElementById('contactSearchInput').value : '');
             syncPreferencesToSupabase();
+        }
+
+        // ── SLA de Primeira Resposta a Lead ─────────────────────────────────
+        function saveSlaHours(val) {
+            localStorage.setItem('vends_sla_hours', val);
+            showToast(val == 0 ? 'SLA de primeira resposta desativado.' : `Leads sem contato há mais de ${val}h serão destacados.`);
+            renderContacts(document.getElementById('searchInput') ? document.getElementById('searchInput').value : '');
+            syncPreferencesToSupabase();
+        }
+
+        // Retorna null se não se aplica, ou { overdue, hoursSince, respondedHours }
+        function getSlaStatus(c) {
+            const slaHours = parseInt(localStorage.getItem('vends_sla_hours') || '24');
+            if (!slaHours || !c.isLead || !c.createdAt) return null;
+            const firstInteraction = (c.interactions || []).length
+                ? [...c.interactions].sort((a, b) => (a.date || '').localeCompare(b.date || ''))[0]
+                : null;
+            const createdMs = new Date(c.createdAt).getTime();
+            if (firstInteraction) {
+                const respondedMs = new Date(firstInteraction.date + 'T12:00:00').getTime();
+                const respondedHours = Math.max(0, Math.round((respondedMs - createdMs) / 3600000));
+                return { overdue: false, hasResponse: true, respondedHours };
+            }
+            const hoursSince = Math.round((Date.now() - createdMs) / 3600000);
+            return { overdue: hoursSince >= slaHours, hasResponse: false, hoursSince };
+        }
+
+        function slaBadgeHtml(c) {
+            const s = getSlaStatus(c);
+            if (!s || !s.overdue) return '';
+            const label = s.hoursSince >= 48 ? `${Math.round(s.hoursSince / 24)}d` : `${s.hoursSince}h`;
+            return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-500/15 text-red-400 border border-red-500/30" title="Lead sem nenhum contato há ${label} — SLA de primeira resposta estourado"><i class="ph ph-timer"></i> SLA: ${label} sem resposta</span>`;
         }
 
         // ── Detecção de Inatividade ───────────────────────────────────────
