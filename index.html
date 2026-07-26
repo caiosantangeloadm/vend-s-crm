@@ -6817,6 +6817,7 @@
                 }
                 localStorage.setItem('vends_followup_streak_last', todayStr);
                 localStorage.setItem('vends_followup_streak_days', String(days));
+                syncPreferencesToSupabase();
             }
 
             if (days < 1) { box.classList.add('hidden'); box.classList.remove('flex'); return; }
@@ -6833,6 +6834,7 @@
         }
         function setDashPeriod(days) {
             localStorage.setItem('sant_crm_dash_period_days', days);
+            syncPreferencesToSupabase();
             renderProductivityChart();
             renderContactsGrowthChart();
             renderInteractionsChart();
@@ -17355,6 +17357,9 @@
                     "streakBest":    parseInt(localStorage.getItem('vends_streak_best')    || '0'),
                     "streakLast":    localStorage.getItem('vends_streak_last')             || '',
                     "streakHistory": JSON.parse(localStorage.getItem('vends_streak_history') || '[]'),
+                    "followupStreakDays": parseInt(localStorage.getItem('vends_followup_streak_days') || '0'),
+                    "followupStreakLast": localStorage.getItem('vends_followup_streak_last') || '',
+                    "dashPeriodDays": parseInt(localStorage.getItem('sant_crm_dash_period_days') || '7'),
                     "contactAccesses": JSON.parse(localStorage.getItem('vends_contact_accesses') || '{}'),
                     "tagColors": tagColors,
                     "monthlyGoals": monthlyGoals,
@@ -17460,6 +17465,17 @@
                         if (badge && countEl && _sd >= 2) { countEl.textContent = _sd; badge.classList.remove('hidden'); badge.classList.add('flex'); }
                     }
                 }
+                // Streak de Follow-ups — mesma lógica de merge do streak geral
+                if (data.followupStreakDays > 0) {
+                    const localFuDays = parseInt(localStorage.getItem('vends_followup_streak_days') || '0');
+                    const localFuLast = localStorage.getItem('vends_followup_streak_last') || '';
+                    const todayStr2 = getSPTodayStr();
+                    if (data.followupStreakDays > localFuDays || (localFuLast !== todayStr2 && data.followupStreakLast === todayStr2)) {
+                        localStorage.setItem('vends_followup_streak_days', String(data.followupStreakDays));
+                        localStorage.setItem('vends_followup_streak_last', data.followupStreakLast || '');
+                    }
+                }
+                if (data.dashPeriodDays) localStorage.setItem('sant_crm_dash_period_days', String(data.dashPeriodDays));
                 loadEventTypeLabels();
                 updateCategorySelects();
                 updateOriginSelects();
