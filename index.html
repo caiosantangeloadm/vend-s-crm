@@ -783,6 +783,11 @@
                     </div>
                 </div>
 
+                <div id="dashSmartListsCard" class="hidden bg-sant-surface border border-sant-border rounded-2xl p-6">
+                    <p class="text-xs font-bold text-white tracking-wide uppercase mb-4 flex items-center gap-2"><i class="ph ph-list-magnifying-glass text-sant-cyan text-lg"></i> Smart Lists</p>
+                    <div id="dashSmartListsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+                </div>
+
                 <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
                     <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 flex flex-col h-[400px]">
                         <div class="flex justify-between items-center mb-6 shrink-0">
@@ -6498,6 +6503,7 @@
             renderInteractionDonut();
             renderLeadsEvolution();
             renderLeadsFunnel();
+            renderDashSmartLists();
             renderHealthDashboard();
             renderWeekStats(todayStr);
             renderContactRanking();
@@ -21018,7 +21024,7 @@
                 <div class="group flex items-center gap-0 rounded-full border border-sant-border bg-sant-surface hover:border-sant-cyan/50 transition-colors overflow-hidden">
                     <button onclick="loadSavedFilter('${sf.id}')"
                         class="px-3 py-1 text-[11px] font-medium text-gray-300 hover:text-sant-cyan transition-colors">
-                        <i class="ph ph-bookmark-simple text-sant-cyan mr-1"></i>${sf.name}
+                        <i class="ph ph-bookmark-simple text-sant-cyan mr-1"></i>${sf.name} <span class="text-gray-500">(${countSmartListMembers(sf.filters)})</span>
                     </button>
                     <button onclick="deleteSavedFilter('${sf.id}')"
                         class="px-2 py-1 text-gray-600 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 border-l border-sant-border">
@@ -21027,6 +21033,50 @@
                 </div>`).join('');
         }
         // ── fim Filtros Salvos ────────────────────────────────────────────────
+
+        // ── Smart Lists: Filtros Salvos com contagem ao vivo ────────────────
+        // Reaproveita os mesmos critérios de activeFilters, sem depender de estar na tela de Contatos
+        function countSmartListMembers(filters) {
+            return contacts.filter(c => {
+                if (filters.category && (c.category || '') !== filters.category) return false;
+                if (filters.isLead === 'yes' && !c.isLead) return false;
+                if (filters.isLead === 'no' && c.isLead) return false;
+                if (filters.temperature && !(c.isLead && c.temperature === filters.temperature)) return false;
+                if (filters.tag && !(c.tags && c.tags.includes(filters.tag))) return false;
+                if (filters.origin && (c.origin || '') !== filters.origin) return false;
+                if (filters.list && !(c.lists || []).includes(filters.list)) return false;
+                if (filters.city && (c.addressCity || '').trim().toLowerCase() !== filters.city.toLowerCase()) return false;
+                if (filters.state && (c.addressState || '').trim().toUpperCase() !== filters.state.toUpperCase()) return false;
+                if (filters.intType) {
+                    const from = filters.intFrom || '0000-00-00';
+                    const to   = filters.intTo   || '9999-99-99';
+                    const has = (c.interactions || []).some(i => i.date >= from && i.date <= to);
+                    if (filters.intType === 'with' && !has) return false;
+                    if (filters.intType === 'without' && has) return false;
+                }
+                return true;
+            }).length;
+        }
+
+        function renderDashSmartLists() {
+            const card = document.getElementById('dashSmartListsCard');
+            const list = document.getElementById('dashSmartListsList');
+            if (!card || !list) return;
+            if (!savedFilters.length) { card.classList.add('hidden'); return; }
+            card.classList.remove('hidden');
+            list.innerHTML = savedFilters.map(sf => {
+                const count = countSmartListMembers(sf.filters);
+                return `<div onclick="openSmartListFromDash('${sf.id}')" class="flex items-center justify-between px-3 py-2 rounded-lg bg-[#0a0a0a] border border-sant-border hover:border-sant-cyan/40 cursor-pointer transition-colors">
+                    <span class="text-sm text-gray-300 flex items-center gap-2"><i class="ph ph-bookmark-simple text-sant-cyan"></i> ${sf.name}</span>
+                    <span class="text-sm font-bold text-white">${count}</span>
+                </div>`;
+            }).join('');
+        }
+
+        function openSmartListFromDash(id) {
+            switchView('contacts');
+            loadSavedFilter(id);
+        }
 
         function hasActiveFilters() {
             return activeFilters.category || activeFilters.isLead || activeFilters.temperature || activeFilters.tag || activeFilters.origin || activeFilters.list || activeFilters.city || activeFilters.state || activeFilters.intType;
