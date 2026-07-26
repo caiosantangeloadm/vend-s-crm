@@ -7872,9 +7872,10 @@
                 'Isso apaga a contagem de "quem você mais abre" e recomeça do zero a partir de agora, em todos os seus dispositivos. Não afeta nenhum outro dado do contato.',
                 () => {
                     localStorage.setItem('vends_contact_accesses', '{}');
+                    localStorage.setItem('vends_contact_accesses_reset_at', new Date().toISOString());
                     syncPreferencesToSupabase();
                     renderContactRanking();
-                    showToast('Ranking de Acessos zerado!');
+                    showToast('Ranking de Acessos zerado! Pode levar alguns instantes para refletir em outros dispositivos.');
                 }
             );
         }
@@ -17361,6 +17362,7 @@
                     "followupStreakLast": localStorage.getItem('vends_followup_streak_last') || '',
                     "dashPeriodDays": parseInt(localStorage.getItem('sant_crm_dash_period_days') || '7'),
                     "contactAccesses": JSON.parse(localStorage.getItem('vends_contact_accesses') || '{}'),
+                    "contactAccessesResetAt": localStorage.getItem('vends_contact_accesses_reset_at') || null,
                     "tagColors": tagColors,
                     "monthlyGoals": monthlyGoals,
                     "quarterlyGoals": quarterlyGoals,
@@ -17438,12 +17440,21 @@
                 if (data.automationRules?.length) { automationRules = data.automationRules; migrateAutomationRules(); localStorage.setItem('sant_crm_automations', JSON.stringify(automationRules)); }
                 if (data.messageSignature)          localStorage.setItem('sant_crm_message_signature', data.messageSignature);
                 if (data.savedFilters?.length)      { savedFilters = data.savedFilters; localStorage.setItem('vends_saved_filters', JSON.stringify(savedFilters)); renderSavedFilters(); }
-                if (data.contactAccesses && Object.keys(data.contactAccesses).length) {
-                    // Mescla local + cloud (soma acessos dos dois dispositivos)
-                    const local = JSON.parse(localStorage.getItem('vends_contact_accesses') || '{}');
-                    const merged = { ...data.contactAccesses };
-                    Object.entries(local).forEach(([id, cnt]) => { merged[id] = Math.max(merged[id] || 0, cnt); });
-                    localStorage.setItem('vends_contact_accesses', JSON.stringify(merged));
+                {
+                    const localResetAt = localStorage.getItem('vends_contact_accesses_reset_at') || '';
+                    const cloudResetAt = data.contactAccessesResetAt || '';
+                    if (cloudResetAt && cloudResetAt > localResetAt) {
+                        // Um reset mais recente foi feito em outro dispositivo — zera aqui também, sem mesclar valores antigos
+                        localStorage.setItem('vends_contact_accesses', JSON.stringify(data.contactAccesses || {}));
+                        localStorage.setItem('vends_contact_accesses_reset_at', cloudResetAt);
+                        if (currentView === 'dashboard') renderContactRanking();
+                    } else if (data.contactAccesses && Object.keys(data.contactAccesses).length) {
+                        // Mescla local + cloud (soma acessos dos dois dispositivos)
+                        const local = JSON.parse(localStorage.getItem('vends_contact_accesses') || '{}');
+                        const merged = { ...data.contactAccesses };
+                        Object.entries(local).forEach(([id, cnt]) => { merged[id] = Math.max(merged[id] || 0, cnt); });
+                        localStorage.setItem('vends_contact_accesses', JSON.stringify(merged));
+                    }
                 }
                 // Streak — restaura do dispositivo com maior streak
                 if (data.streakDays > 0) {
