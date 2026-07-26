@@ -7880,7 +7880,7 @@
                 const pct = Math.round(x.count / maxCount * 100);
                 const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `<span class="text-gray-600 text-xs font-bold">#${i+1}</span>`;
                 const hasFollowup = x.c.nextContact && x.c.nextContact < getSPTodayStr();
-                return `<div class="flex items-center gap-3 cursor-pointer hover:bg-white/5 rounded-lg px-2 py-1 transition-colors" onclick="addRecentContact('${x.c.id}');openHistoryModal('${x.c.id}')">
+                return `<div class="flex items-center gap-3 cursor-pointer hover:bg-white/5 rounded-lg px-2 py-1 transition-colors" onclick="openHistoryModal('${x.c.id}')">
                     <span class="w-6 text-center text-sm">${medal}</span>
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2">
@@ -7911,7 +7911,7 @@
             }
             el.innerHTML = ranked.map((x, i) => {
                 const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `<span class="text-gray-600 text-xs font-bold">#${i+1}</span>`;
-                return `<div class="flex items-center gap-3 cursor-pointer hover:bg-white/5 rounded-lg px-2 py-1 transition-colors" onclick="addRecentContact('${x.c.id}');openHistoryModal('${x.c.id}')" title="Score de relacionamento: ${x.rs.score}/100 — ${x.rs.label}">
+                return `<div class="flex items-center gap-3 cursor-pointer hover:bg-white/5 rounded-lg px-2 py-1 transition-colors" onclick="openHistoryModal('${x.c.id}')" title="Score de relacionamento: ${x.rs.score}/100 — ${x.rs.label}">
                     <span class="w-6 text-center text-sm">${medal}</span>
                     <div class="flex-1 min-w-0">
                         <span class="text-sm text-white font-medium truncate block">${fullName(x.c)}</span>
