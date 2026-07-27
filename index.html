@@ -2115,6 +2115,16 @@
                                     <button onclick="regenerateIcsFeedToken()" class="w-full mt-2 bg-[#141414] border border-sant-border hover:border-red-500/40 text-gray-400 hover:text-red-400 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-arrow-clockwise"></i> Gerar novo link (invalida o atual)</button>
                                     <p class="text-[10px] text-gray-600 mt-2">Quem tiver esse link consegue ver sua agenda — trate-o como uma senha. Se desconfiar que vazou, gere um novo.</p>
                                 </div>
+                                <!-- Agenda somente-leitura compartilhável por link -->
+                                <div class="pt-2 border-t border-sant-border">
+                                    <p class="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-2 flex items-center gap-1.5"><i class="ph ph-eye text-sant-cyan"></i> Agenda Somente-Leitura (compartilhar por link)</p>
+                                    <p class="text-[11px] text-gray-500 mb-2">Uma página simples com os próximos 30 dias da sua agenda, sem precisar de login — útil pra um sócio ou assistente ver seus compromissos sem poder editar nada.</p>
+                                    <div class="flex gap-2">
+                                        <input type="text" id="agendaViewUrlInput" readonly class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-xs text-gray-300 outline-none" placeholder="Carregando link...">
+                                        <button onclick="copyAgendaViewUrl()" class="shrink-0 bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"><i class="ph ph-copy"></i> Copiar</button>
+                                    </div>
+                                    <p class="text-[10px] text-gray-600 mt-2">Usa o mesmo link/senha da assinatura do Google Calendar acima — gerar um novo link ali também invalida este.</p>
+                                </div>
                             </div>
                         </div>
                         <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
@@ -11052,11 +11062,21 @@
         function loadIcsFeedUrl() {
             const input = document.getElementById('icsFeedUrlInput');
             if (input) input.value = buildIcsFeedUrl() || 'Gerando link...';
+            const viewInput = document.getElementById('agendaViewUrlInput');
+            if (viewInput) viewInput.value = buildAgendaViewUrl() || 'Gerando link...';
         }
         function copyIcsFeedUrl() {
             const url = buildIcsFeedUrl();
             if (!url) { showToast('Link ainda não foi gerado — tente novamente em instantes.', 'error'); return; }
             navigator.clipboard.writeText(url).then(() => showToast('Link copiado! Cole no Google Calendar.'));
+        }
+        function buildAgendaViewUrl() {
+            return icsFeedToken ? `${location.origin}/api/agenda-view?token=${icsFeedToken}` : '';
+        }
+        function copyAgendaViewUrl() {
+            const url = buildAgendaViewUrl();
+            if (!url) { showToast('Link ainda não foi gerado — tente novamente em instantes.', 'error'); return; }
+            navigator.clipboard.writeText(url).then(() => showToast('Link copiado! Compartilhe com quem precisar ver sua agenda.'));
         }
         function regenerateIcsFeedToken() {
             showConfirm('Gerar novo link de assinatura?', 'O link atual deixará de funcionar — se você já assinou no Google Calendar, precisará assinar de novo com o novo link.', () => {
