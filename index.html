@@ -1431,7 +1431,11 @@
 
                 <!-- Seletor mobile: dropdown único, agrupado por categoria -->
                 <div class="md:hidden mb-5">
-                    <select id="reportMobileSelect" onchange="switchReportTab(this.value)" class="w-full bg-sant-surface border border-sant-border rounded-lg px-4 py-3 text-sm text-white outline-none appearance-none"></select>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Relatório</label>
+                    <div class="relative">
+                        <select id="reportMobileSelect" onchange="switchReportTab(this.value)" class="w-full bg-sant-surface border border-sant-cyan/40 rounded-lg pl-4 pr-10 py-3 text-sm text-white font-medium outline-none appearance-none"></select>
+                        <i class="ph ph-caret-down absolute right-4 top-1/2 -translate-y-1/2 text-sant-cyan pointer-events-none"></i>
+                    </div>
                 </div>
 
                 <div class="flex gap-6 items-start">
