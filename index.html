@@ -2901,6 +2901,9 @@
                     <select id="eventParticipantSelect" onchange="addEventParticipant()" class="w-full bg-[#0a0a0a] border border-sant-border rounded-lg px-2 py-1.5 text-sm text-gray-400 outline-none">
                         <option value="">+ Adicionar participante...</option>
                     </select>
+                    <button type="button" onclick="sendEventWhatsappReminder()" id="btnEventWaReminder" class="hidden w-full mt-2 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/25 text-green-400 hover:bg-green-500/20 text-xs font-medium transition-colors">
+                        <i class="ph ph-whatsapp-logo"></i> Enviar lembrete via WhatsApp
+                    </button>
                 </div>
 
                 <div class="flex items-center gap-3 bg-[#141414] border border-sant-border rounded-md px-3 py-2">
@@ -14261,6 +14264,29 @@
                     pills.appendChild(pill);
                 });
             }
+            const waBtn = document.getElementById('btnEventWaReminder');
+            if (waBtn) {
+                const hasPhoneContact = currentEventParticipants.some(cid => {
+                    const c = contacts.find(x => x.id === cid);
+                    return c && contactWaUrl(c);
+                });
+                waBtn.classList.toggle('hidden', !hasPhoneContact);
+            }
+        }
+
+        function sendEventWhatsappReminder() {
+            const cid = currentEventParticipants.find(id => {
+                const c = contacts.find(x => x.id === id);
+                return c && contactWaUrl(c);
+            });
+            const c = contacts.find(x => x.id === cid);
+            if (!c) { showToast('Nenhum participante com telefone cadastrado.', 'error'); return; }
+            const title = document.getElementById('eventTitle').value || 'nosso compromisso';
+            const dateRaw = document.getElementById('eventStartDate').value;
+            const time = document.getElementById('eventStartTime').value;
+            const dateFmt = dateRaw ? dateRaw.split('-').reverse().join('/') : '';
+            const msg = `Olá ${c.name}! Passando pra lembrar do nosso compromisso "${title}"${dateFmt ? ` em ${dateFmt}` : ''}${time ? ` às ${time}` : ''}. Confirma presença? 😊`;
+            window.open(`${contactWaUrl(c)}?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
         function addEventParticipant() {
