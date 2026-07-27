@@ -1418,8 +1418,8 @@
                 </div>
             </div>
 
-            <div id="view-reports" class="hidden max-w-5xl mx-auto">
-                <div class="flex items-center gap-4 mb-8 shrink-0">
+            <div id="view-reports" class="hidden max-w-7xl mx-auto">
+                <div class="flex items-center gap-4 mb-6 shrink-0">
                     <div class="w-12 h-12 rounded-xl bg-sant-purple/10 text-sant-purple flex items-center justify-center text-2xl border border-sant-purple/20">
                         <i class="ph ph-chart-line-up"></i>
                     </div>
@@ -1429,24 +1429,17 @@
                     </div>
                 </div>
 
-                <div class="flex gap-2 mb-6 shrink-0 border-b border-sant-border pb-4 overflow-x-auto custom-scrollbar">
-                    <button onclick="switchReportTab('birthdays')" id="tab-birthdays" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-purple text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-cake"></i> Aniversariantes</button>
-                    <button onclick="switchReportTab('categories')" id="tab-categories" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-pie-chart"></i> Por Categoria</button>
-                    <button onclick="switchReportTab('charts')" id="tab-charts" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-chart-bar"></i> Gráficos</button>
-                    <button onclick="switchReportTab('directory')" id="tab-directory" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-address-book"></i> Diretório de Contatos</button>
-                    <button onclick="switchReportTab('leads')" id="tab-leads" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-star"></i> Oportunidades</button>
-                    <button onclick="switchReportTab('inactivity')" id="tab-inactivity" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-clock-countdown"></i> Inatividade</button>
-                    <button onclick="switchReportTab('geography')" id="tab-geography" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-map-pin"></i> Regiões</button>
-                    <button onclick="switchReportTab('monthly')" id="tab-monthly" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-file-pdf"></i> Relatório Mensal</button>
-                    <button onclick="switchReportTab('origins')" id="tab-origins" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-funnel"></i> Origens</button>
-                    <button onclick="switchReportTab('documents')" id="tab-documents" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-file-text"></i> Documentos &amp; Propostas</button>
-                    <button onclick="switchReportTab('followups')" id="tab-followups" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-arrow-counter-clockwise"></i> Follow-ups Pendentes</button>
-                    <button onclick="switchReportTab('taskprod')" id="tab-taskprod" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-list-checks"></i> Produtividade de Tarefas</button>
-                    <button onclick="switchReportTab('compare')" id="tab-compare" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-arrows-left-right"></i> Comparar Períodos</button>
-                    <button onclick="switchReportTab('network')" id="tab-network" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-graph"></i> Rede de Relacionamentos</button>
-                    <button onclick="switchReportTab('cohort')" id="tab-cohort" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-chart-line"></i> Funil por Coorte</button>
-                    <button onclick="switchReportTab('eventtime')" id="tab-eventtime" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-hourglass"></i> Tempo por Tipo de Evento</button>
+                <!-- Seletor mobile: dropdown único, agrupado por categoria -->
+                <div class="md:hidden mb-5">
+                    <select id="reportMobileSelect" onchange="switchReportTab(this.value)" class="w-full bg-sant-surface border border-sant-border rounded-lg px-4 py-3 text-sm text-white outline-none appearance-none"></select>
                 </div>
+
+                <div class="flex gap-6 items-start">
+                    <!-- Sidebar de categorias: só desktop/tablet -->
+                    <div id="reportSidebar" class="hidden md:block w-56 shrink-0 space-y-1 sticky top-4"></div>
+
+                    <!-- Coluna de conteúdo: os relatórios em si, intocados -->
+                    <div class="flex-1 min-w-0">
 
                 <div id="report-birthdays" class="report-content flex flex-col">
                     <div class="bg-sant-surface border border-sant-border rounded-xl p-5 mb-6 flex flex-wrap gap-4 items-end shrink-0">
@@ -1771,6 +1764,8 @@
                     </div>
                     <div id="eventTimeReportResults" class="pb-10"></div>
                 </div>
+                    </div><!-- /flex-1 conteúdo -->
+                </div><!-- /flex sidebar+conteúdo -->
             </div>
 
             <!-- VIEW: NOTAS (estilo Google Keep) -->
@@ -16054,16 +16049,84 @@
             </div>`;
         }
 
+        // ── Central de Relatórios: navegação categorizada (sidebar desktop + select mobile) ──
+        const REPORT_CATEGORIES = [
+            { name: 'Contatos', icon: 'ph-users', reports: [
+                { id: 'directory',  label: 'Diretório de Contatos',    icon: 'ph-address-book' },
+                { id: 'categories', label: 'Por Categoria',            icon: 'ph-pie-chart' },
+                { id: 'origins',    label: 'Origens',                  icon: 'ph-funnel' },
+                { id: 'geography',  label: 'Regiões',                  icon: 'ph-map-pin' },
+                { id: 'inactivity', label: 'Inatividade',              icon: 'ph-clock-countdown' },
+                { id: 'cohort',     label: 'Funil por Coorte',         icon: 'ph-chart-line' },
+                { id: 'network',    label: 'Rede de Relacionamentos',  icon: 'ph-graph' },
+            ]},
+            { name: 'Oportunidades', icon: 'ph-star', reports: [
+                { id: 'leads', label: 'Oportunidades', icon: 'ph-star' },
+            ]},
+            { name: 'Agenda', icon: 'ph-calendar-blank', reports: [
+                { id: 'birthdays', label: 'Aniversariantes',          icon: 'ph-cake' },
+                { id: 'eventtime', label: 'Tempo por Tipo de Evento', icon: 'ph-hourglass' },
+            ]},
+            { name: 'Tarefas', icon: 'ph-check-square', reports: [
+                { id: 'taskprod',  label: 'Produtividade de Tarefas',  icon: 'ph-list-checks' },
+                { id: 'followups', label: 'Follow-ups Pendentes',      icon: 'ph-arrow-counter-clockwise' },
+            ]},
+            { name: 'Documentos', icon: 'ph-file-text', reports: [
+                { id: 'documents', label: 'Documentos & Propostas', icon: 'ph-file-text' },
+            ]},
+            { name: 'Visão Geral', icon: 'ph-chart-bar', reports: [
+                { id: 'charts',  label: 'Gráficos',            icon: 'ph-chart-bar' },
+                { id: 'monthly', label: 'Relatório Mensal',    icon: 'ph-file-pdf' },
+                { id: 'compare', label: 'Comparar Períodos',   icon: 'ph-arrows-left-right' },
+            ]},
+        ];
+        let currentReportTab = 'birthdays';
+        function getCollapsedReportCategories() {
+            try { return JSON.parse(localStorage.getItem('vends_collapsed_report_cats') || '[]'); }
+            catch(e) { return []; }
+        }
+        function toggleReportCategory(name) {
+            let collapsed = getCollapsedReportCategories();
+            if (collapsed.includes(name)) collapsed = collapsed.filter(c => c !== name);
+            else collapsed.push(name);
+            localStorage.setItem('vends_collapsed_report_cats', JSON.stringify(collapsed));
+            renderReportNav();
+        }
+        function renderReportNav() {
+            const sidebar = document.getElementById('reportSidebar');
+            const mobileSelect = document.getElementById('reportMobileSelect');
+            if (!sidebar || !mobileSelect) return;
+            const collapsed = getCollapsedReportCategories();
+
+            sidebar.innerHTML = REPORT_CATEGORIES.map(cat => {
+                const isCollapsed = collapsed.includes(cat.name);
+                const items = cat.reports.map(r => {
+                    const active = r.id === currentReportTab;
+                    return `<button id="tab-${r.id}" onclick="switchReportTab('${r.id}')" class="w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${active ? 'bg-sant-purple text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}">
+                        <i class="ph ${r.icon} shrink-0"></i> <span class="truncate">${r.label}</span>
+                    </button>`;
+                }).join('');
+                return `
+                <div>
+                    <button onclick="toggleReportCategory('${cat.name}')" class="w-full flex items-center justify-between px-3 py-2 text-[11px] font-bold text-gray-500 uppercase tracking-wide hover:text-gray-300 transition-colors">
+                        <span class="flex items-center gap-1.5"><i class="ph ${cat.icon}"></i> ${cat.name}</span>
+                        <i class="ph ph-caret-down transition-transform ${isCollapsed ? '-rotate-90' : ''}" style="font-size:10px"></i>
+                    </button>
+                    <div class="space-y-0.5 mb-2 ${isCollapsed ? 'hidden' : ''}">${items}</div>
+                </div>`;
+            }).join('');
+
+            mobileSelect.innerHTML = REPORT_CATEGORIES.map(cat => `
+                <optgroup label="${cat.name}">
+                    ${cat.reports.map(r => `<option value="${r.id}" ${r.id === currentReportTab ? 'selected' : ''}>${r.label}</option>`).join('')}
+                </optgroup>`).join('');
+        }
+
         function switchReportTab(tabId) {
             document.querySelectorAll('.report-content').forEach(el => el.classList.add('hidden'));
-            document.querySelectorAll('button[id^="tab-"]').forEach(el => {
-                el.classList.remove('bg-sant-purple', 'text-white');
-                el.classList.add('bg-sant-surface', 'text-gray-400');
-            });
             document.getElementById('report-' + tabId).classList.remove('hidden');
-            const btn = document.getElementById('tab-' + tabId);
-            btn.classList.remove('bg-sant-surface', 'text-gray-400');
-            btn.classList.add('bg-sant-purple', 'text-white');
+            currentReportTab = tabId;
+            renderReportNav();
 
             if(tabId === 'categories') generateCategoryReport();
             if(tabId === 'charts') generateChartsReport();
