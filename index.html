@@ -1445,6 +1445,7 @@
                     <button onclick="switchReportTab('compare')" id="tab-compare" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-arrows-left-right"></i> Comparar Períodos</button>
                     <button onclick="switchReportTab('network')" id="tab-network" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-graph"></i> Rede de Relacionamentos</button>
                     <button onclick="switchReportTab('cohort')" id="tab-cohort" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-chart-line"></i> Funil por Coorte</button>
+                    <button onclick="switchReportTab('eventtime')" id="tab-eventtime" class="shrink-0 px-5 py-2.5 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"><i class="ph ph-hourglass"></i> Tempo por Tipo de Evento</button>
                 </div>
 
                 <div id="report-birthdays" class="report-content flex flex-col">
@@ -1748,6 +1749,27 @@
                         </button>
                     </div>
                     <div id="cohortTable" class="pb-10"></div>
+                </div>
+
+                <div id="report-eventtime" class="report-content hidden flex flex-col">
+                    <div class="bg-sant-surface border border-sant-border rounded-xl p-5 mb-6 flex flex-wrap gap-4 items-end shrink-0">
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">De</label>
+                            <input type="date" id="eventTimeStart" onchange="generateEventTimeReport()" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Até</label>
+                            <input type="date" id="eventTimeEnd" onchange="generateEventTimeReport()" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                        </div>
+                        <div class="flex gap-1.5">
+                            <button onclick="setEventTimeRange('month')" class="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors">Este mês</button>
+                            <button onclick="setEventTimeRange('30d')" class="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors">Últimos 30d</button>
+                            <button onclick="setEventTimeRange('90d')" class="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan transition-colors">Últimos 90d</button>
+                        </div>
+                        <div class="flex-1"></div>
+                        <p class="text-xs text-gray-500 max-w-xs">Considera apenas compromissos com horário de início e fim preenchidos (eventos sem hora de término não entram na soma).</p>
+                    </div>
+                    <div id="eventTimeReportResults" class="pb-10"></div>
                 </div>
             </div>
 
@@ -16057,6 +16079,12 @@
             if(tabId === 'compare') generateCompareReport();
             if(tabId === 'network') generateNetworkReport();
             if(tabId === 'cohort') generateCohortReport();
+            if(tabId === 'eventtime') {
+                const startEl = document.getElementById('eventTimeStart');
+                const endEl   = document.getElementById('eventTimeEnd');
+                if (!startEl.value || !endEl.value) setEventTimeRange('month');
+                else generateEventTimeReport();
+            }
             if(tabId === 'birthdays') {
                 const startInput = document.getElementById('repBirthStart');
                 const endInput = document.getElementById('repBirthEnd');
@@ -17606,6 +17634,84 @@
 
         // ── Relatório de Origens ─────────────────────────────────────────────
         let originsChartInst = null, conversionChartInst = null;
+
+        // ── Relatório: Tempo por Tipo de Evento ────────────────────────────────
+        function setEventTimeRange(range) {
+            const todayStr = getSPTodayStr();
+            let start;
+            if (range === 'month') {
+                start = todayStr.substring(0, 8) + '01';
+            } else if (range === '30d') {
+                start = addDaysToDateStr(todayStr, -29);
+            } else {
+                start = addDaysToDateStr(todayStr, -89);
+            }
+            document.getElementById('eventTimeStart').value = start;
+            document.getElementById('eventTimeEnd').value = todayStr;
+            generateEventTimeReport();
+        }
+
+        function generateEventTimeReport() {
+            const el = document.getElementById('eventTimeReportResults');
+            if (!el) return;
+            const start = document.getElementById('eventTimeStart').value;
+            const end   = document.getElementById('eventTimeEnd').value;
+            if (!start || !end) return;
+
+            const byType = { meeting: 0, call: 0, visit: 0, other: 0 };
+            const countByType = { meeting: 0, call: 0, visit: 0, other: 0 };
+
+            const startD = new Date(start), endD = new Date(end);
+            events.forEach(e => {
+                if (e.deletedAt || !e.startTime || !e.endTime) return;
+                const type = byType.hasOwnProperty(e.type) ? e.type : 'other';
+                let d = new Date(startD);
+                while (d <= endD) {
+                    const ds = d.toISOString().substring(0, 10);
+                    if (isEventOnDate(e, ds)) {
+                        const [sh, sm] = e.startTime.split(':').map(Number);
+                        const [eh, em] = e.endTime.split(':').map(Number);
+                        const minutes = (eh * 60 + em) - (sh * 60 + sm);
+                        if (minutes > 0) { byType[type] += minutes; countByType[type]++; }
+                    }
+                    d.setDate(d.getDate() + 1);
+                }
+            });
+
+            const totalMinutes = Object.values(byType).reduce((a, b) => a + b, 0);
+            if (totalMinutes === 0) {
+                el.innerHTML = '<p class="text-xs text-gray-500">Nenhum compromisso com horário de início e fim no período selecionado.</p>';
+                return;
+            }
+
+            const fmtHours = m => {
+                const h = Math.floor(m / 60), mm = m % 60;
+                return h > 0 ? `${h}h${mm > 0 ? mm + 'min' : ''}` : `${mm}min`;
+            };
+
+            const rows = Object.keys(byType)
+                .filter(t => byType[t] > 0)
+                .sort((a, b) => byType[b] - byType[a]);
+
+            el.innerHTML = `
+            <div class="space-y-4 mb-6">
+                ${rows.map(t => {
+                    const meta = eventTypeMeta[t] || eventTypeMeta.other;
+                    const pct = Math.round((byType[t] / totalMinutes) * 100);
+                    return `
+                    <div>
+                        <div class="flex justify-between items-center mb-1.5">
+                            <span class="text-sm font-medium text-white flex items-center gap-2"><i class="ph ${meta.icon}" style="color:${meta.dot}"></i> ${meta.label}</span>
+                            <span class="text-sm font-bold" style="color:${meta.dot}">${fmtHours(byType[t])} <span class="text-gray-500 font-normal">(${countByType[t]}x · ${pct}%)</span></span>
+                        </div>
+                        <div class="w-full h-2.5 bg-[#141414] rounded-full overflow-hidden border border-sant-border">
+                            <div style="width:${pct}%;background:${meta.dot};height:100%;border-radius:9999px;"></div>
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>
+            <p class="text-xs text-gray-500">Total no período: <span class="text-white font-bold">${fmtHours(totalMinutes)}</span> em ${Object.values(countByType).reduce((a,b)=>a+b,0)} compromisso(s) com horário registrado.</p>`;
+        }
 
         // ── Relatório: Funil de Relacionamento por Coorte ─────────────────────
         function buildCohortData() {
