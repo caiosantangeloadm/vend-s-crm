@@ -14285,7 +14285,7 @@
             const dateRaw = document.getElementById('eventStartDate').value;
             const time = document.getElementById('eventStartTime').value;
             const dateFmt = dateRaw ? dateRaw.split('-').reverse().join('/') : '';
-            const msg = `Olá ${c.name}! Passando pra lembrar do nosso compromisso "${title}"${dateFmt ? ` em ${dateFmt}` : ''}${time ? ` às ${time}` : ''}. Confirma presença? 😊`;
+            const msg = `Olá ${c.name}! Passando pra lembrar do nosso compromisso "${title}"${dateFmt ? ` em ${dateFmt}` : ''}${time ? ` às ${time}` : ''}. Confirma presença?`;
             window.open(`${contactWaUrl(c)}?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
