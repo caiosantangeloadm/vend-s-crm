@@ -4385,6 +4385,7 @@
         const SUPABASE_KEY = 'sb_publishable_ypU0uZ5srI6qg6AzaKWkQQ_oE__osHl';
         let _sb = null;
         let currentUser = null;
+        let cloudPrefsLoaded = false; // true depois que loadPreferencesFromSupabase() concluir a 1ª vez nesta sessão
 
         function getSB() {
             if (!_sb && window.supabase) {
@@ -5875,11 +5876,14 @@
                     loadEventsFromSupabase();
                     loadNotesFromSupabase();
                     await loadPreferencesFromSupabase();
+                    cloudPrefsLoaded = true;
                     // Só sincroniza o streak DEPOIS da reconciliação acima terminar — evita
                     // que este dispositivo empurre um valor de streak desatualizado (menor)
                     // por cima do valor maior/correto vindo da nuvem (condição de corrida).
                     syncPreferencesToSupabase();
                 })();
+            } else {
+                cloudPrefsLoaded = true; // sem usuário/nuvem — nada a esperar
             }
         }
 
@@ -17343,6 +17347,11 @@
         // ── Sync Configurações → Supabase ────────────────────────────────────
         async function syncPreferencesToSupabase() {
             const sb = getSB(); if (!sb || !currentUser || !navigator.onLine) return;
+            // Evita que este dispositivo empurre um snapshot ainda desatualizado (lido do localStorage
+            // antes da busca inicial na nuvem terminar) por cima dos dados corretos de outros dispositivos —
+            // qualquer sync automático disparado durante o carregamento (ex: streaks) é simplesmente
+            // ignorado até a 1ª leitura da nuvem terminar; o próprio loadData() já sincroniza depois.
+            if (!cloudPrefsLoaded) return;
             try {
                 const row = {
                     user_id: currentUser.id,
