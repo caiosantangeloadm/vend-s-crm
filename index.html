@@ -11846,8 +11846,8 @@
                         return result;
                     };
 
-                    // Existing event UIDs to skip duplicates
-                    const existingUids = new Set(events.map(e => e.uid || '').filter(Boolean));
+                    // Existing event UIDs to skip duplicates (ignora eventos na Lixeira — já excluídos pelo usuário)
+                    const existingUids = new Set(events.filter(e => !e.deletedAt).map(e => e.uid || '').filter(Boolean));
                     let added = 0, skipped = 0;
 
                     blocks.forEach(block => {
