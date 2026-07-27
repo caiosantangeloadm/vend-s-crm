@@ -16213,19 +16213,19 @@
                 </a>` : '';
 
                 return `
-                <div class="flex items-center justify-between p-4 bg-[#0a0a0a] border border-sant-border rounded-xl group hover:border-sant-purple/30 transition-colors cursor-pointer" onclick="editContact('${c.id}')">
-                    <div class="flex items-center gap-4 pointer-events-none">
+                <div class="flex items-center justify-between flex-wrap gap-3 p-4 bg-[#0a0a0a] border border-sant-border rounded-xl group hover:border-sant-purple/30 transition-colors cursor-pointer" onclick="editContact('${c.id}')">
+                    <div class="flex items-center gap-4 pointer-events-none min-w-0">
                         <div class="w-14 h-14 rounded-full bg-sant-purple/10 border border-sant-purple/20 flex flex-col items-center justify-center text-sant-purple shrink-0">
                             <span class="text-lg font-bold leading-none">${d.split('/')[0]}</span>
                             <span class="text-[10px] uppercase">${d.split('/')[1]}</span>
                         </div>
-                        <div>
-                            <h4 class="font-bold text-white text-lg">${fullName(c)}</h4>
+                        <div class="min-w-0">
+                            <h4 class="font-bold text-white text-lg truncate">${fullName(c)}</h4>
                             <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">${c.category || 'Sem Categoria'}</p>
-                            ${email ? `<p class="text-xs text-gray-400"><i class="ph ph-envelope-simple"></i> ${email}</p>` : ''}
+                            ${email ? `<p class="text-xs text-gray-400 truncate"><i class="ph ph-envelope-simple"></i> ${email}</p>` : ''}
                         </div>
                     </div>
-                    <div class="flex items-center" onclick="event.stopPropagation()">${emailBtn}${wppBtn}</div>
+                    <div class="flex items-center shrink-0" onclick="event.stopPropagation()">${emailBtn}${wppBtn}</div>
                 </div>`;
             }).join('');
         }
