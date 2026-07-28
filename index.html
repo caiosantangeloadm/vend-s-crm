@@ -5415,7 +5415,7 @@
                 });
 
                 // Verifica aniversários uma vez por hora (quando minuto === 0)
-                if (parseInt(mStr) === 0) { checkBirthdayReminders(); checkCompanyAnniversaryReminders(); checkFollowupReminders(); checkNoteReminders(); checkDocumentExpiryReminders(); checkFrequencyReminders(); checkUrgentTaskReminders(); checkWaitingTaskReminders(); checkStalledTaskReminders(); runInactivityAutomations(); }
+                if (parseInt(mStr) === 0) { checkBirthdayReminders(); checkCompanyAnniversaryReminders(); checkFollowupReminders(); checkNoteReminders(); checkDocumentExpiryReminders(); checkFrequencyReminders(); checkUrgentTaskReminders(); checkWaitingTaskReminders(); checkStalledTaskReminders(); checkTaskDueDateReminders(); runInactivityAutomations(); }
                 checkSnoozedNotifications();
 
                 updateSyncIndicator();
@@ -5432,6 +5432,7 @@
             checkUrgentTaskReminders();
             checkWaitingTaskReminders();
             checkStalledTaskReminders();
+            checkTaskDueDateReminders();
             runInactivityAutomations();
             checkSnoozedNotifications();
             updateSyncIndicator();
@@ -5496,6 +5497,26 @@
                 localStorage.setItem(notifKey, '1');
             });
         }
+        function checkTaskDueDateReminders() {
+            const todayStr = getSPTodayStr();
+            tasks.forEach(t => {
+                if (t.completed || t.archived || t.deletedAt || !t.dueDate) return;
+                if (t.dueDate > todayStr) return; // ainda não estourou
+
+                const notifKey = `vends_duedate_notified_${t.id}_${todayStr}`;
+                if (localStorage.getItem(notifKey)) return;
+
+                const isToday = t.dueDate === todayStr;
+                const daysLate = isToday ? 0 : _daysBetween(t.dueDate, todayStr);
+                const title = isToday ? `🚩 Prazo final é hoje: ${t.title}` : `🚩 Prazo final estourado: ${t.title}`;
+                const body  = isToday ? 'O prazo final desta tarefa é hoje.' : `O prazo final venceu há ${daysLate} dia(s).`;
+
+                addNotification('task', title, body, t.id);
+                showPushNotification(title, body, `duedate-${t.id}`);
+                localStorage.setItem(notifKey, '1');
+            });
+        }
+
         function checkWaitingTaskReminders() {
             const todayStr = getSPTodayStr();
             tasks.forEach(t => {
