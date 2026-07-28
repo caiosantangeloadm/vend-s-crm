@@ -3141,17 +3141,9 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5 flex items-center gap-1"><i class="ph ph-bell"></i> Lembrete</label>
-                        <select id="taskNotification" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
-                            <option value="0">Sem aviso</option>
-                            <option value="15">15 min antes</option>
-                            <option value="30">30 min antes</option>
-                            <option value="60">1 hora antes</option>
-                            <option value="120">2 horas antes</option>
-                            <option value="180">3 horas antes</option>
-                            <option value="360">6 horas antes</option>
-                            <option value="720">12 horas antes</option>
-                        </select>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5 flex items-center gap-1"><i class="ph ph-bell"></i> Lembretes <span class="text-gray-600 normal-case font-normal">(pode marcar mais de um)</span></label>
+                        <input type="hidden" id="taskNotification" value="0">
+                        <div id="taskReminderChips" class="flex flex-wrap gap-1.5"></div>
                     </div>
                 </div>
 
@@ -4694,6 +4686,34 @@
         let currentContactCustomFields = [];
         let currentChecklist = [];
         let currentTaskTags = [];
+        // ── Lembretes múltiplos por tarefa ────────────────────────────────
+        const TASK_REMINDER_PRESETS = [
+            { minutes: 0,    label: 'No horário' },
+            { minutes: 15,   label: '15 min antes' },
+            { minutes: 30,   label: '30 min antes' },
+            { minutes: 60,   label: '1h antes' },
+            { minutes: 120,  label: '2h antes' },
+            { minutes: 180,  label: '3h antes' },
+            { minutes: 360,  label: '6h antes' },
+            { minutes: 720,  label: '12h antes' },
+            { minutes: 1440, label: '1 dia antes' },
+            { minutes: 4320, label: '3 dias antes' },
+        ];
+        let currentTaskReminders = [];
+        function toggleTaskReminder(minutes) {
+            const idx = currentTaskReminders.indexOf(minutes);
+            if (idx === -1) currentTaskReminders.push(minutes);
+            else currentTaskReminders.splice(idx, 1);
+            renderTaskReminderChips();
+        }
+        function renderTaskReminderChips() {
+            const el = document.getElementById('taskReminderChips');
+            if (!el) return;
+            el.innerHTML = TASK_REMINDER_PRESETS.map(p => {
+                const active = currentTaskReminders.includes(p.minutes);
+                return `<button type="button" onclick="toggleTaskReminder(${p.minutes})" class="px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors ${active ? 'bg-sant-cyan/15 border-sant-cyan text-sant-cyan' : 'bg-[#141414] border-sant-border text-gray-400 hover:border-sant-cyan/40'}">${p.label}</button>`;
+            }).join('');
+        }
         let currentTaskCustomFields = [];
         let currentTaskTagFilter = '';
         let currentTaskContactFilter = '';
@@ -5400,14 +5420,27 @@
                 });
 
                 tasks.forEach(t => {
-                    if(t.completed || !t.notification || t.notification === "0" || t.notified || t.date !== currentStr || !t.time) return;
+                    if (t.completed || t.date !== currentStr || !t.time) return;
+                    const reminderList = (t.reminders && t.reminders.length) ? t.reminders : (t.notification && t.notification !== '0' ? [parseInt(t.notification)] : []);
+                    if (!reminderList.length) return;
 
                     const [h, m] = t.time.split(':').map(Number);
                     const taskMin = h * 60 + m;
-                    const alertMin = taskMin - parseInt(t.notification);
+                    const firedOffsets = t.notifiedOffsets || [];
+                    let changed = false;
 
-                    if (currentMin >= alertMin && currentMin < taskMin) {
-                        fireNotification({ title: t.title, startTime: t.time, location: 'Gestão de Tarefas', id: t.id, _notifType: 'task' });
+                    reminderList.forEach(offset => {
+                        if (firedOffsets.includes(offset)) return;
+                        const alertMin = taskMin - offset;
+                        if (currentMin >= alertMin && currentMin < taskMin) {
+                            fireNotification({ title: t.title, startTime: t.time, location: 'Gestão de Tarefas', id: t.id, _notifType: 'task' });
+                            firedOffsets.push(offset);
+                            changed = true;
+                        }
+                    });
+
+                    if (changed) {
+                        t.notifiedOffsets = firedOffsets;
                         t.notified = true;
                         saveTasksToStorage();
                         cloudSyncTask(t);
@@ -6021,7 +6054,7 @@
                 date: t.date || '', time: t.time || '', "dueDate": t.dueDate || '',
                 priority: t.priority || 'medium', completed: t.completed || false,
                 "completedAt": t.completedAt || '', "kanbanColumn": t.kanbanColumn || 'todo',
-                notification: t.notification || '0', "emailAlert": t.emailAlert || '0', recurrence: t.recurrence || 'none',
+                notification: t.notification || '0', "reminders": t.reminders || [], "notifiedOffsets": t.notifiedOffsets || [], "emailAlert": t.emailAlert || '0', recurrence: t.recurrence || 'none',
                 "recurrenceInterval": t.recurrenceInterval || 1,
                 "estimatedMinutes": t.estimatedMinutes || 0,
                 "contactId": t.contactId || '', tags: t.tags || [], checklist: t.checklist || [],
@@ -15809,7 +15842,9 @@
                 time: document.getElementById('taskTime').value,
                 dueDate: document.getElementById('taskDueDate').value,
                 priority: document.getElementById('taskPriority').value,
-                notification: document.getElementById('taskNotification').value,
+                reminders: [...currentTaskReminders].sort((a,b) => a - b),
+                notification: currentTaskReminders.length ? String(Math.min(...currentTaskReminders)) : '0',
+                notifiedOffsets: existingTask ? (existingTask.notifiedOffsets || []) : [],
                 emailAlert: document.getElementById('taskEmailAlert').value || '0',
                 desc: document.getElementById('taskDesc').value,
                 contactId: document.getElementById('taskContactId').value || '',
@@ -15891,6 +15926,8 @@
             document.getElementById('taskDueDate').value = t.dueDate || '';
             document.getElementById('taskPriority').value = t.priority || 'medium';
             document.getElementById('taskNotification').value = t.notification || '0';
+            currentTaskReminders = (t.reminders && t.reminders.length) ? [...t.reminders] : (t.notification && t.notification !== '0' ? [parseInt(t.notification)] : []);
+            renderTaskReminderChips();
             document.getElementById('taskEmailAlert').value = t.emailAlert || '0';
             document.getElementById('taskDesc').value = t.desc || '';
             document.getElementById('taskRecurrence').value = t.recurrence || 'none';
@@ -15996,6 +16033,8 @@
             document.getElementById('taskTime').value = t.time || '';
             document.getElementById('taskPriority').value = t.priority || 'medium';
             document.getElementById('taskNotification').value = t.notification || '0';
+            currentTaskReminders = (t.reminders && t.reminders.length) ? [...t.reminders] : (t.notification && t.notification !== '0' ? [parseInt(t.notification)] : []);
+            renderTaskReminderChips();
             document.getElementById('taskDesc').value = t.desc || '';
             document.getElementById('taskRecurrence').value = 'none';
             document.getElementById('taskRecInterval').value = 1;
@@ -20495,6 +20534,8 @@
             document.getElementById('taskDueDate').value = '';
             document.getElementById('taskPriority').value = 'medium';
             document.getElementById('taskNotification').value = '0';
+            currentTaskReminders = [];
+            renderTaskReminderChips();
             document.getElementById('taskDesc').value = '';
             document.getElementById('taskRecurrence').value = 'none';
             document.getElementById('taskRecInterval').value = 1;
