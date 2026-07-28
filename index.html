@@ -3097,13 +3097,18 @@
 
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Data limite</label>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Data agendada</label>
                         <input type="date" id="taskDate" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Horário</label>
                         <input type="time" id="taskTime" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
                     </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5 flex items-center gap-1"><i class="ph ph-flag-checkered text-red-400"></i> Prazo Final <span class="text-gray-600 normal-case font-normal">(opcional, diferente da data agendada)</span></label>
+                    <input type="date" id="taskDueDate" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
                 </div>
 
                 <div class="grid grid-cols-2 gap-4">
@@ -5992,7 +5997,7 @@
             return {
                 id: t.id, user_id: currentUser?.id || null,
                 title: t.title || '', "desc": t.desc || '',
-                date: t.date || '', time: t.time || '',
+                date: t.date || '', time: t.time || '', "dueDate": t.dueDate || '',
                 priority: t.priority || 'medium', completed: t.completed || false,
                 "completedAt": t.completedAt || '', "kanbanColumn": t.kanbanColumn || 'todo',
                 notification: t.notification || '0', "emailAlert": t.emailAlert || '0', recurrence: t.recurrence || 'none',
@@ -15165,6 +15170,14 @@
                         ${hasChainLink ? `<button onclick="openTaskDependencyModal('${t.id}')" class="text-[11px] text-sant-purple/80 hover:text-sant-purple mt-1 flex items-center gap-1"><i class="ph ph-flow-arrow"></i> Ver cadeia de dependências</button>` : ''}
                         ${isOverdue ? `<p class="text-[11px] text-red-400 mt-1 font-semibold flex items-center gap-1"><i class="ph ph-warning-circle"></i> Vencida — ${dateTimeDisplay}</p>` : (dateTimeDisplay ? `<p class="text-[11px] text-sant-cyan mt-1"><i class="ph ph-calendar-blank"></i> ${dateTimeDisplay}</p>` : '')}
                         ${t.estimatedMinutes ? `<p class="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1"><i class="ph ph-hourglass"></i> Estimado: ${formatEstimate(t.estimatedMinutes)}</p>` : ''}
+                        ${t.dueDate && !t.completed ? (() => {
+                            const dueFmt = t.dueDate.split('-').reverse().join('/');
+                            const overdueDeadline = t.dueDate < todayStr;
+                            const dueSoon = !overdueDeadline && t.dueDate <= addDaysToDateStr(todayStr, 2);
+                            const cls = overdueDeadline ? 'text-red-400' : dueSoon ? 'text-amber-400' : 'text-gray-500';
+                            const label = overdueDeadline ? 'Prazo estourado' : 'Prazo final';
+                            return `<p class="text-[11px] ${cls} mt-0.5 flex items-center gap-1 font-medium"><i class="ph ph-flag-checkered"></i> ${label}: ${dueFmt}</p>`;
+                        })() : ''}
                         ${!t.completed ? `<div class="flex items-center gap-1.5 mt-1">
                             <button onclick="event.stopPropagation();${t.timerStartedAt ? 'pauseTaskTimer' : 'startTaskTimer'}('${t.id}')" class="${t.timerStartedAt ? 'text-red-400 hover:text-red-300' : 'text-gray-500 hover:text-sant-cyan'} transition-colors" title="${t.timerStartedAt ? 'Pausar cronômetro' : 'Iniciar cronômetro'}">
                                 <i class="ph ${t.timerStartedAt ? 'ph-pause-circle' : 'ph-play-circle'} text-sm"></i>
@@ -15773,6 +15786,7 @@
                 title: title,
                 date: document.getElementById('taskDate').value,
                 time: document.getElementById('taskTime').value,
+                dueDate: document.getElementById('taskDueDate').value,
                 priority: document.getElementById('taskPriority').value,
                 notification: document.getElementById('taskNotification').value,
                 emailAlert: document.getElementById('taskEmailAlert').value || '0',
@@ -15808,6 +15822,7 @@
                     { key: 'title',    label: 'Título' },
                     { key: 'date',     label: 'Data', fmt: v => v ? v.split('-').reverse().join('/') : '—' },
                     { key: 'time',     label: 'Horário' },
+                    { key: 'dueDate',  label: 'Prazo Final', fmt: v => v ? v.split('-').reverse().join('/') : '—' },
                     { key: 'priority', label: 'Prioridade', fmt: v => ({low:'Baixa',medium:'Normal',high:'Alta'}[v]||v) },
                     { key: 'desc',     label: 'Descrição' },
                 ];
@@ -15852,6 +15867,7 @@
             document.getElementById('taskTitle').value = t.title;
             document.getElementById('taskDate').value = t.date || '';
             document.getElementById('taskTime').value = t.time || '';
+            document.getElementById('taskDueDate').value = t.dueDate || '';
             document.getElementById('taskPriority').value = t.priority || 'medium';
             document.getElementById('taskNotification').value = t.notification || '0';
             document.getElementById('taskEmailAlert').value = t.emailAlert || '0';
@@ -20455,6 +20471,7 @@
             document.getElementById('taskTitle').value = '';
             document.getElementById('taskDate').value = getSPTodayStr();
             document.getElementById('taskTime').value = '';
+            document.getElementById('taskDueDate').value = '';
             document.getElementById('taskPriority').value = 'medium';
             document.getElementById('taskNotification').value = '0';
             document.getElementById('taskDesc').value = '';
