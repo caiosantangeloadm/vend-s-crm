@@ -1910,7 +1910,7 @@
             </div>
 
             <!-- ── VIEW CONFIGURAÇÕES ── -->
-            <div id="view-settings" class="hidden max-w-4xl mx-auto pb-12">
+            <div id="view-settings" class="hidden max-w-7xl mx-auto pb-12">
                 <div class="flex items-center gap-4 mb-8 shrink-0">
                     <div class="w-12 h-12 rounded-xl bg-sant-cyan/10 text-sant-cyan flex items-center justify-center text-2xl border border-sant-cyan/20"><i class="ph ph-gear"></i></div>
                     <div>
@@ -1919,20 +1919,21 @@
                     </div>
                 </div>
 
-                <!-- Abas -->
-                <div class="flex gap-1 mb-8 border-b border-sant-border overflow-x-auto pb-0 shrink-0">
-                    <button onclick="switchSettingsTab('categories')" id="stab-categories" class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-sant-cyan text-sant-cyan">Categorias</button>
-                    <button onclick="switchSettingsTab('origins')"    id="stab-origins"    class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Origens</button>
-                    <button onclick="switchSettingsTab('lists')"      id="stab-lists"       class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Listas</button>
-                    <button onclick="switchSettingsTab('eventtypes')" id="stab-eventtypes" class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Tipos de Evento</button>
-                    <button onclick="switchSettingsTab('tags')"       id="stab-tags"       class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Tags</button>
-                    <button onclick="switchSettingsTab('templates')"  id="stab-templates"  class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Templates</button>
-                    <button onclick="switchSettingsTab('blocks')"     id="stab-blocks"     class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Bloqueios de Horário</button>
-                    <button onclick="switchSettingsTab('backup')"     id="stab-backup"     class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Backup</button>
-                    <button onclick="switchSettingsTab('security')"   id="stab-security"   class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Segurança</button>
-                    <button onclick="switchSettingsTab('audit')"      id="stab-audit"      class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Auditoria de Dados</button>
-                    <button onclick="switchSettingsTab('automations')" id="stab-automations" class="settings-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-transparent text-gray-400 hover:text-white">Automações</button>
+                <!-- Seletor mobile: dropdown único, agrupado por categoria -->
+                <div class="md:hidden mb-5">
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Seção</label>
+                    <div class="relative">
+                        <select id="settingsMobileSelect" onchange="switchSettingsTab(this.value)" class="w-full bg-sant-surface border border-sant-cyan/40 rounded-lg pl-4 pr-10 py-3 text-sm text-white font-medium outline-none appearance-none"></select>
+                        <i class="ph ph-caret-down absolute right-4 top-1/2 -translate-y-1/2 text-sant-cyan pointer-events-none"></i>
+                    </div>
                 </div>
+
+                <div class="flex gap-6 items-start">
+                    <!-- Sidebar de categorias: só desktop/tablet -->
+                    <div id="settingsSidebar" class="hidden md:block w-56 shrink-0 space-y-1 sticky top-4"></div>
+
+                    <!-- Coluna de conteúdo: os painéis em si, intocados -->
+                    <div class="flex-1 min-w-0">
 
                 <!-- Painel: Categorias -->
                 <div id="spanel-categories" class="settings-panel">
@@ -2376,6 +2377,9 @@
                         </div>
                     </div>
                 </div>
+
+                    </div><!-- /flex-1 content column -->
+                </div><!-- /flex gap-6 -->
             </div><!-- /view-settings -->
 
         </div>
@@ -18870,17 +18874,73 @@
         }
         
         // ── Painel de Configurações Unificado ────────────────────────────────
+        // Navegação categorizada (sidebar desktop + select mobile) — mesmo padrão de Relatórios
+        const SETTINGS_CATEGORIES = [
+            { name: 'Dados Base', icon: 'ph-database', tabs: [
+                { id: 'categories',  label: 'Categorias',       icon: 'ph-tag' },
+                { id: 'origins',     label: 'Origens',          icon: 'ph-funnel' },
+                { id: 'lists',       label: 'Listas',           icon: 'ph-list-bullets' },
+                { id: 'eventtypes',  label: 'Tipos de Evento',  icon: 'ph-calendar-blank' },
+                { id: 'tags',        label: 'Tags',             icon: 'ph-tag-chevron' },
+            ]},
+            { name: 'Comunicação', icon: 'ph-chat-circle', tabs: [
+                { id: 'templates',   label: 'Templates',            icon: 'ph-file-text' },
+                { id: 'blocks',      label: 'Bloqueios de Horário',  icon: 'ph-clock' },
+                { id: 'automations', label: 'Automações',            icon: 'ph-lightning' },
+            ]},
+            { name: 'Sistema', icon: 'ph-shield-check', tabs: [
+                { id: 'backup',   label: 'Backup',             icon: 'ph-hard-drives' },
+                { id: 'security', label: 'Segurança',          icon: 'ph-lock-key' },
+                { id: 'audit',    label: 'Auditoria de Dados', icon: 'ph-magnifying-glass' },
+            ]},
+        ];
         let currentSettingsTab = 'categories';
         let sBlkDays = [];
 
+        function getCollapsedSettingsCategories() {
+            try { return JSON.parse(localStorage.getItem('vends_collapsed_settings_cats') || '[]'); }
+            catch(e) { return []; }
+        }
+        function toggleSettingsCategory(name) {
+            let collapsed = getCollapsedSettingsCategories();
+            if (collapsed.includes(name)) collapsed = collapsed.filter(c => c !== name);
+            else collapsed.push(name);
+            localStorage.setItem('vends_collapsed_settings_cats', JSON.stringify(collapsed));
+            renderSettingsNav();
+        }
+        function renderSettingsNav() {
+            const sidebar = document.getElementById('settingsSidebar');
+            const mobileSelect = document.getElementById('settingsMobileSelect');
+            if (!sidebar || !mobileSelect) return;
+            const collapsed = getCollapsedSettingsCategories();
+
+            sidebar.innerHTML = SETTINGS_CATEGORIES.map(cat => {
+                const isCollapsed = collapsed.includes(cat.name);
+                const items = cat.tabs.map(t => {
+                    const active = t.id === currentSettingsTab;
+                    return `<button id="stab-${t.id}" onclick="switchSettingsTab('${t.id}')" class="w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${active ? 'bg-sant-cyan text-sant-bg' : 'text-gray-400 hover:text-white hover:bg-white/5'}">
+                        <i class="ph ${t.icon} shrink-0"></i> <span class="truncate">${t.label}</span>
+                    </button>`;
+                }).join('');
+                return `
+                <div>
+                    <button onclick="toggleSettingsCategory('${cat.name}')" class="w-full flex items-center justify-between px-3 py-2 text-[11px] font-bold text-gray-500 uppercase tracking-wide hover:text-gray-300 transition-colors">
+                        <span class="flex items-center gap-1.5"><i class="ph ${cat.icon}"></i> ${cat.name}</span>
+                        <i class="ph ph-caret-down transition-transform ${isCollapsed ? '-rotate-90' : ''}" style="font-size:10px"></i>
+                    </button>
+                    <div class="space-y-0.5 mb-2 ${isCollapsed ? 'hidden' : ''}">${items}</div>
+                </div>`;
+            }).join('');
+
+            mobileSelect.innerHTML = SETTINGS_CATEGORIES.map(cat => `
+                <optgroup label="${cat.name}">
+                    ${cat.tabs.map(t => `<option value="${t.id}" ${t.id === currentSettingsTab ? 'selected' : ''}>${t.label}</option>`).join('')}
+                </optgroup>`).join('');
+        }
+
         function switchSettingsTab(tab) {
             currentSettingsTab = tab;
-            document.querySelectorAll('.settings-tab').forEach(b => {
-                b.classList.remove('border-sant-cyan','text-sant-cyan');
-                b.classList.add('border-transparent','text-gray-400');
-            });
-            const active = document.getElementById('stab-' + tab);
-            if (active) { active.classList.add('border-sant-cyan','text-sant-cyan'); active.classList.remove('border-transparent','text-gray-400'); }
+            renderSettingsNav();
             document.querySelectorAll('.settings-panel').forEach(p => p.classList.add('hidden'));
             const panel = document.getElementById('spanel-' + tab);
             if (panel) panel.classList.remove('hidden');
