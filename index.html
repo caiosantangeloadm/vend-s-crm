@@ -15431,10 +15431,13 @@
             const sel = document.getElementById('taskParentId');
             if (!sel) return;
             // Evita ciclos: não lista a própria tarefa, nem qualquer tarefa que já seja subtarefa dela (descendentes)
+            // Só se aplica quando currentTaskId é uma tarefa de verdade (edição) — tarefa nova não tem descendentes
             const descendantIds = new Set();
-            (function collect(id) {
-                tasks.filter(t => t.parentTaskId === id).forEach(t => { descendantIds.add(t.id); collect(t.id); });
-            })(currentTaskId);
+            if (currentTaskId) {
+                (function collect(id) {
+                    tasks.filter(t => t.parentTaskId === id).forEach(t => { descendantIds.add(t.id); collect(t.id); });
+                })(currentTaskId);
+            }
             const candidates = tasks.filter(t => t.id !== currentTaskId && !descendantIds.has(t.id) && !t.completed)
                 .sort((a,b) => (a.title||'').localeCompare(b.title||'','pt-BR'));
             sel.innerHTML = `<option value="">Nenhuma — tarefa independente</option>` +
