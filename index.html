@@ -14898,6 +14898,35 @@
             }
         }
 
+        function skipTaskOccurrence(id) {
+            const t = tasks.find(x => x.id === id);
+            if (!t || t.completed || !t.recurrence || t.recurrence === 'none' || !t.date) return;
+            const oldDate = t.date;
+            const interval = Math.max(1, parseInt(t.recurrenceInterval) || 1);
+            let nextDate = t.date;
+            if (t.recurrence === 'daily')        nextDate = addDaysToDateStr(t.date, interval);
+            else if (t.recurrence === 'weekly')  nextDate = addDaysToDateStr(t.date, 7 * interval);
+            else if (t.recurrence === 'monthly') nextDate = addMonthsToDateStr(t.date, interval);
+            else if (t.recurrence === 'yearly')  nextDate = addMonthsToDateStr(t.date, 12 * interval);
+
+            showConfirm(
+                `Pular esta ocorrência?`,
+                `A tarefa "${t.title}" avança de ${oldDate.split('-').reverse().join('/')} para ${nextDate.split('-').reverse().join('/')}, sem ser marcada como concluída.`,
+                () => {
+                    t.date = nextDate;
+                    t.notifiedOffsets = [];
+                    t.notified = false;
+                    if (!t.changeLog) t.changeLog = [];
+                    t.changeLog.push({ id: crypto.randomUUID(), date: getSPTodayStr(), field: 'Ocorrência pulada', from: oldDate.split('-').reverse().join('/'), to: nextDate.split('-').reverse().join('/') });
+                    saveTasksToStorage();
+                    cloudSyncTask(t);
+                    _refreshCurrentTaskView();
+                    if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
+                    showToast(`Ocorrência pulada — próxima data: ${nextDate.split('-').reverse().join('/')}.`);
+                }
+            );
+        }
+
         function addMonthsToDateStr(dateStr, months) {
             const [y, m, d] = dateStr.split('-').map(Number);
             const date = new Date(y, m - 1 + months, d);
@@ -15260,6 +15289,7 @@
                         <div class="flex flex-wrap justify-end gap-1.5 sm:gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onclick="toggleTaskSnoozeMenu('${t.id}')" class="text-gray-400 hover:text-amber-400" title="Adiar tarefa"><i class="ph ph-alarm text-lg"></i></button>
                             <button onclick="toggleTaskWaiting('${t.id}')" class="${t.waiting ? 'text-sant-purple' : 'text-gray-400 hover:text-sant-purple'}" title="${t.waiting ? 'Remover Aguardando Terceiros' : 'Marcar como Aguardando Terceiros'}"><i class="ph ph-hourglass-medium text-lg"></i></button>
+                            ${(!t.completed && t.recurrence && t.recurrence !== 'none') ? `<button onclick="skipTaskOccurrence('${t.id}')" class="text-gray-400 hover:text-orange-400" title="Pular esta ocorrência (avança pra próxima data sem concluir)"><i class="ph ph-skip-forward text-lg"></i></button>` : ''}
                             <button onclick="duplicateTask('${t.id}')" class="text-gray-400 hover:text-sant-cyan" title="Duplicar tarefa"><i class="ph ph-copy text-lg"></i></button>
                             ${t.archived
                                 ? `<button onclick="unarchiveTask('${t.id}')" class="text-gray-400 hover:text-sant-cyan" title="Restaurar tarefa"><i class="ph ph-arrow-counter-clockwise text-lg"></i></button>`
