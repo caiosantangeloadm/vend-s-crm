@@ -20658,7 +20658,25 @@
             fillTaskDependsOnSelect('');
             document.getElementById('taskDependsOn').value = '';
             fillTaskParentSelect('');
-            document.getElementById('taskParentId').value = presetParentId || '';
+            const parentSelEl = document.getElementById('taskParentId');
+            if (presetParentId) {
+                parentSelEl.value = presetParentId;
+                if (parentSelEl.value !== presetParentId) {
+                    // Defensivo: se por algum motivo a opção não estava na lista, adiciona na hora
+                    const parentTaskObj = tasks.find(x => x.id === presetParentId);
+                    if (parentTaskObj) {
+                        const opt = document.createElement('option');
+                        opt.value = presetParentId;
+                        opt.textContent = parentTaskObj.title;
+                        parentSelEl.appendChild(opt);
+                        parentSelEl.value = presetParentId;
+                    }
+                }
+                const chosenParent = tasks.find(x => x.id === presetParentId);
+                if (chosenParent) showToast(`Nova subtarefa de: "${chosenParent.title}"`);
+            } else {
+                parentSelEl.value = '';
+            }
             document.getElementById('taskEstimate').value = 0;
             currentChecklist = [];
             renderChecklistInModal();
