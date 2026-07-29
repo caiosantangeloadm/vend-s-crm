@@ -2154,6 +2154,12 @@
                                     </select>
                                 </div>
                                 <div class="flex items-center justify-between">
+                                    <div><p class="text-sm text-white">Capacidade diária (horas)</p><p class="text-xs text-gray-500">Usada no aviso de sobrecarga do Modo Foco do Dia</p></div>
+                                    <select onchange="localStorage.setItem('vends_daily_capacity_hours', this.value); syncPreferencesToSupabase(); showToast('Preferência salva!')" id="s-daily-capacity" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                                        <option value="4">4 horas</option><option value="6">6 horas</option><option value="8">8 horas</option><option value="10">10 horas</option><option value="12">12 horas</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center justify-between">
                                     <div><p class="text-sm text-white">SLA de primeira resposta a lead</p><p class="text-xs text-gray-500">Alertar se um lead novo ficar sem nenhuma interação por mais de</p></div>
                                     <select onchange="saveSlaHours(this.value)" id="s-sla-hours" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
                                         <option value="0">Desativado</option><option value="4">4 horas</option><option value="12">12 horas</option><option value="24">24 horas</option><option value="48">48 horas</option><option value="72">72 horas</option>
@@ -14966,6 +14972,30 @@
             else renderTasks(currentTaskFilter, searchVal);
         }
 
+        // ── Aviso de Sobrecarga do Dia ────────────────────────────────────────
+        function getDailyCapacityMinutes() {
+            return (parseInt(localStorage.getItem('vends_daily_capacity_hours') || '8') || 8) * 60;
+        }
+        function buildDayOverloadWarningHtml(todayTasks, todayStr) {
+            const tasksMinutes = todayTasks.reduce((sum, t) => sum + (t.estimatedMinutes || 0), 0);
+            const eventsMinutes = events.reduce((sum, e) => {
+                if (e.deletedAt || !e.startTime || !e.endTime || !isEventOnDate(e, todayStr)) return sum;
+                const [sh, sm] = e.startTime.split(':').map(Number);
+                const [eh, em] = e.endTime.split(':').map(Number);
+                const minutes = (eh * 60 + em) - (sh * 60 + sm);
+                return sum + (minutes > 0 ? minutes : 0);
+            }, 0);
+            const totalMinutes = tasksMinutes + eventsMinutes;
+            const capacityMinutes = getDailyCapacityMinutes();
+            if (totalMinutes <= capacityMinutes) return '';
+
+            const fmtH = m => { const h = Math.floor(m/60), mm = m%60; return h > 0 ? `${h}h${mm>0?mm+'min':''}` : `${mm}min`; };
+            return `<div class="mb-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/25 text-red-400 text-xs font-medium">
+                <i class="ph ph-warning-circle text-base shrink-0"></i>
+                <span>Sobrecarga: ${fmtH(totalMinutes)} estimados hoje (tarefas + compromissos) contra ${fmtH(capacityMinutes)} de capacidade diária.</span>
+            </div>`;
+        }
+
         function toggleTaskFocus() {
             taskFocusMode = !taskFocusMode;
             if (taskFocusMode) taskWaitingFilterOnly = false;
@@ -15077,6 +15107,7 @@
                 const focusPriority = ['urgent','high','medium','low'];
                 const top3 = filtered.slice().sort((a,b) => (priorityOrder[a.priority]??4) - (priorityOrder[b.priority]??4)).slice(0,3).map(t=>t.id);
                 list.innerHTML = `<div class="mb-3 flex items-center gap-2 text-[#fbbf24] text-xs font-semibold uppercase tracking-wider"><i class="ph ph-lightning"></i> Modo Foco — ${filtered.length} tarefa${filtered.length!==1?'s':''} de hoje</div>` +
+                    (buildDayOverloadWarningHtml(filtered, todayStr) || '') +
                     filtered.map((t, idx) => {
                         const isFocus = top3.includes(t.id);
                         const card = taskCardHtml(t, todayStr);
@@ -17627,6 +17658,7 @@
                     "bdayAdvance":    parseInt(localStorage.getItem('vends_bday_advance')    || '3'),
                     "inactivityDays": parseInt(localStorage.getItem('vends_inactivity_days') || '60'),
                     "slaHours": parseInt(localStorage.getItem('vends_sla_hours') || '24'),
+                    "dailyCapacityHours": parseInt(localStorage.getItem('vends_daily_capacity_hours') || '8'),
                     "cadenceOverrides": cadenceOverrides,
                     "customShortcuts": customShortcuts,
                     "maxPinned":      parseInt(localStorage.getItem('vends_max_pinned')      || '10'),
@@ -17676,6 +17708,7 @@
                 if (data.bdayAdvance !== undefined && data.bdayAdvance !== null)    localStorage.setItem('vends_bday_advance', String(data.bdayAdvance));
                 if (data.inactivityDays !== undefined && data.inactivityDays !== null) localStorage.setItem('vends_inactivity_days', String(data.inactivityDays));
                 if (data.slaHours !== undefined && data.slaHours !== null) localStorage.setItem('vends_sla_hours', String(data.slaHours));
+                if (data.dailyCapacityHours !== undefined && data.dailyCapacityHours !== null) localStorage.setItem('vends_daily_capacity_hours', String(data.dailyCapacityHours));
                 if (data.cadenceOverrides && Object.keys(data.cadenceOverrides).length) { cadenceOverrides = data.cadenceOverrides; localStorage.setItem('vends_cadence_overrides', JSON.stringify(cadenceOverrides)); }
                 if (data.customShortcuts && Object.keys(data.customShortcuts).length) { customShortcuts = Object.assign({}, DEFAULT_SHORTCUTS, data.customShortcuts); localStorage.setItem('vends_custom_shortcuts', JSON.stringify(customShortcuts)); }
                 if (data.maxPinned !== undefined && data.maxPinned !== null)        localStorage.setItem('vends_max_pinned', String(data.maxPinned));
@@ -19978,6 +20011,8 @@
             if (inactEl) inactEl.value = localStorage.getItem('vends_inactivity_days') || '60';
             const slaEl = document.getElementById('s-sla-hours');
             if (slaEl) slaEl.value = localStorage.getItem('vends_sla_hours') || '24';
+            const capEl = document.getElementById('s-daily-capacity');
+            if (capEl) capEl.value = localStorage.getItem('vends_daily_capacity_hours') || '8';
             const pinEl = document.getElementById('s-max-pinned');
             if (pinEl) pinEl.value = localStorage.getItem('vends_max_pinned') || '10';
             fillCadenceTargetValueSelect();
