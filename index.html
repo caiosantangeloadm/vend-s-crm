@@ -5532,6 +5532,7 @@
             const todayStr = getSPTodayStr();
             tasks.forEach(t => {
                 if (t.completed || t.waiting || t.archived) return;
+                if (t.recurrence && t.recurrence !== 'none') return; // tarefa recorrente: a próxima ocorrência fica parada "esperando a data" por natureza, não é abandono
                 const lastActivity = getTaskLastActivityDateStr(t);
                 if (!lastActivity) return;
                 const daysStalled = _daysBetween(lastActivity, todayStr);
@@ -5683,8 +5684,8 @@
                             <span class="text-[10px] font-semibold uppercase tracking-wider" style="color:${color};">${label}</span>
                             ${!n.read ? `<span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${color};"></span>` : ''}
                         </div>
-                        <p class="text-sm text-white font-medium truncate">${n.title}</p>
-                        <p class="text-xs text-gray-500 mt-0.5 leading-relaxed">${n.body}</p>
+                        <p class="text-sm text-white font-medium leading-snug" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${n.title}</p>
+                        <p class="text-xs text-gray-500 mt-0.5 leading-relaxed" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">${n.body}</p>
                         <p class="text-[10px] text-gray-700 mt-1">${ago}${n.refId ? ' · <span class="text-sant-cyan/60">toque para abrir</span>' : ''}</p>
                         ${n.type === 'birthday' && n.refId ? `<button onclick="event.stopPropagation(); markNotifRead('${n.id}'); openSendMessageModal('${n.refId}','tpl-aniversario')"
                             class="mt-2 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/25 text-pink-400 text-[11px] font-semibold transition-colors">
