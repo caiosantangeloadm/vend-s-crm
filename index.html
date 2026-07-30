@@ -9124,7 +9124,7 @@
                     .sort((a,b) => (a.startTime||'').localeCompare(b.startTime||''));
 
                 // Tarefas pendentes com data neste dia
-                const dayTasks = tasks.filter(t => !t.completed && t.date === dateStr)
+                const dayTasks = tasks.filter(t => !t.completed && !t.deletedAt && t.date === dateStr)
                     .sort((a,b) => (a.time||'').localeCompare(b.time||''));
 
                 // Follow-ups agendados para este dia
@@ -12159,7 +12159,7 @@
                     });
 
                 if (!typeOnly) {
-                    tasks.filter(t => t.date === dateStr)
+                    tasks.filter(t => t.date === dateStr && !t.deletedAt)
                         .forEach(t => {
                             rows.push([dayLabel, t.time || '—', t.completed ? 'Tarefa (concluída)' : 'Tarefa', t.title || '', '']);
                         });
@@ -13772,8 +13772,8 @@
                         return (a.startTime || "23:59").localeCompare(b.startTime || "23:59");
                     });
 
-                    const dayTasks = tasks.filter(t => t.date === dateStr && !t.completed);
-                    const dayTasksDone = tasks.filter(t => t.date === dateStr && t.completed);
+                    const dayTasks = tasks.filter(t => t.date === dateStr && !t.completed && !t.deletedAt);
+                    const dayTasksDone = tasks.filter(t => t.date === dateStr && t.completed && !t.deletedAt);
                     const holidayName = getBrazilianHoliday(dateStr);
 
                     let eventsHtml = holidayName
@@ -13874,7 +13874,7 @@
                     const dayEvs     = events.filter(e => isEventOnDate(e, dateStr) && calEventPassesFilter(e));
                     const bdays      = contacts.filter(c => c.birth && c.birth.endsWith(monthDayStr));
                     const blks       = getBlocksForDate(dateStr);
-                    const dayTasksW  = tasks.filter(t => t.date === dateStr && !t.completed);
+                    const dayTasksW  = tasks.filter(t => t.date === dateStr && !t.completed && !t.deletedAt);
                     colData.push({ dateStr, d, mo, isToday, dayEvs, bdays, blks, dayTasksW, wd: i });
                 });
 
@@ -14079,7 +14079,7 @@
                         if (!a.isBirthday && b.isBirthday) return 1;
                         return (a.startTime || "23:59").localeCompare(b.startTime || "23:59");
                     });
-                    const dayTasks = tasks.filter(t => t.date === dateStr && !t.completed);
+                    const dayTasks = tasks.filter(t => t.date === dateStr && !t.completed && !t.deletedAt);
 
                     const listHoliday = getBrazilianHoliday(dateStr);
                     if (dayEvents.length === 0 && dayTasks.length === 0 && !listHoliday) continue;
@@ -14186,7 +14186,7 @@
 
                 // Tarefas com horário definido (time-blocking) — viram blocos na linha do tempo
                 const taskItems = tasks
-                    .filter(t => t.date === dateStr && t.time && !t.completed)
+                    .filter(t => t.date === dateStr && t.time && !t.completed && !t.deletedAt)
                     .map(t => {
                         const sMin = _calTimeToMin(t.time);
                         const eMin = sMin + (t.estimatedMinutes || 30);
