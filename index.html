@@ -6337,6 +6337,7 @@
                 "kanbanColumn": n.kanbanColumn || 'inbox',
                 tags: n.tags || [],
                 checklist: n.checklist || [],
+                attachments: n.attachments || [],
                 "sortOrder": n.sortOrder ?? null,
                 "deletedAt": n.deletedAt || null,
                 "createdAt": n.createdAt || new Date().toISOString(),
@@ -9911,6 +9912,13 @@
                         onkeydown="if(event.key==='Enter'){event.preventDefault();addEditNoteTag('${id}')}">
                     <button type="button" onclick="addEditNoteTag('${id}')" class="bg-sant-purple/20 hover:bg-sant-purple text-sant-purple hover:text-white px-3 py-1.5 rounded-lg text-xs transition-colors border border-sant-purple/30 shrink-0"><i class="ph ph-plus"></i></button>
                 </div>
+                <div class="mb-2">
+                    <div id="noteAttachmentsList-${id}" class="space-y-1.5 mb-1.5"></div>
+                    <label id="noteAttachUploadLabel-${id}" class="flex items-center gap-1.5 text-xs text-gray-400 hover:text-sant-cyan cursor-pointer transition-colors w-fit">
+                        <i class="ph ph-paperclip"></i> Anexar arquivo
+                        <input type="file" class="hidden" onchange="uploadNoteAttachment(event, '${id}')">
+                    </label>
+                </div>
                 <div class="mt-3 pt-3 border-t border-sant-border flex items-center justify-between flex-wrap gap-2">
                     <div class="flex items-center gap-2 flex-wrap">
                         <select id="editNoteContact-${id}" class="bg-[#141414] border border-sant-border rounded-lg px-2 py-1.5 text-xs text-gray-300 outline-none max-w-[160px]">
@@ -9942,6 +9950,91 @@
             renderEditNoteTagPills(id);
             if (hasChecklist) renderEditNoteChecklist(id);
             updateNoteWordCount('editNoteBody-'+id, 'editNoteWordCount-'+id);
+            renderNoteAttachments(id);
+        }
+
+        // ── Anexos em Notas (mesmo bucket já usado por Tarefas/Contatos) ──────
+        function renderNoteAttachments(id) {
+            const list = document.getElementById('noteAttachmentsList-' + id);
+            if (!list) return;
+            const n = notes.find(x => x.id === id);
+            const atts = n?.attachments || [];
+            if (!atts.length) { list.innerHTML = ''; return; }
+            list.innerHTML = atts.map(a => `
+                <div class="flex items-center gap-2 bg-[#141414] border border-sant-border rounded-lg px-3 py-1.5">
+                    <i class="ph ph-file text-sant-cyan shrink-0"></i>
+                    <span onclick="openNoteAttachment('${id}','${a.id}')" class="flex-1 text-xs text-gray-300 truncate cursor-pointer hover:text-sant-cyan transition-colors">${a.title}</span>
+                    <span class="text-[10px] text-gray-600 shrink-0">${a.size ? (a.size/1024/1024).toFixed(1)+'MB' : ''}</span>
+                    <button onclick="deleteNoteAttachment('${id}','${a.id}')" class="text-gray-500 hover:text-red-500 transition-colors shrink-0"><i class="ph ph-trash text-xs"></i></button>
+                </div>`).join('');
+        }
+
+        async function uploadNoteAttachment(event, id) {
+            const file = event.target.files[0];
+            event.target.value = '';
+            if (!file) return;
+            if (file.size > ATTACHMENT_MAX_MB * 1024 * 1024) {
+                showToast(`Arquivo muito grande — o limite é ${ATTACHMENT_MAX_MB}MB.`, 'error');
+                return;
+            }
+            const sb = getSB();
+            if (!sb || !currentUser) { showToast('Faça login para anexar arquivos.', 'error'); return; }
+            const n = notes.find(x => x.id === id);
+            if (!n) return;
+
+            const label = document.getElementById('noteAttachUploadLabel-' + id);
+            const originalLabel = label ? label.innerHTML : '';
+            if (label) label.innerHTML = 'Enviando...';
+
+            const ext = file.name.split('.').pop();
+            const storagePath = `${currentUser.id}/note-${n.id}/${crypto.randomUUID()}.${ext}`;
+
+            try {
+                const { error } = await sb.storage.from(ATTACHMENT_BUCKET).upload(storagePath, file, { upsert: false });
+                if (error) throw error;
+                if (!n.attachments) n.attachments = [];
+                n.attachments.push({ id: crypto.randomUUID(), title: file.name, storagePath, size: file.size, createdAt: new Date().toISOString() });
+                n.updatedAt = new Date().toISOString();
+                saveNotesToStorage();
+                cloudSyncNote(n);
+                renderNoteAttachments(id);
+                showToast('Arquivo anexado!');
+            } catch(e) {
+                console.warn('Note attachment upload:', e.message);
+                showToast('Erro ao enviar arquivo: ' + (e.message || 'tente novamente'), 'error');
+            } finally {
+                if (label) label.innerHTML = originalLabel;
+            }
+        }
+
+        async function openNoteAttachment(id, attId) {
+            const n = notes.find(x => x.id === id);
+            const a = n?.attachments?.find(x => x.id === attId);
+            if (!a || !a.storagePath) return;
+            const sb = getSB();
+            if (!sb) return;
+            try {
+                const { data, error } = await sb.storage.from(ATTACHMENT_BUCKET).createSignedUrl(a.storagePath, 3600);
+                if (error || !data?.signedUrl) throw error || new Error('sem URL');
+                window.open(data.signedUrl, '_blank');
+            } catch(e) {
+                showToast('Erro ao abrir anexo: ' + (e.message || 'tente novamente'), 'error');
+            }
+        }
+
+        function deleteNoteAttachment(id, attId) {
+            const n = notes.find(x => x.id === id);
+            if (!n || !n.attachments) return;
+            const a = n.attachments.find(x => x.id === attId);
+            if (a?.storagePath) {
+                const sb = getSB();
+                if (sb) sb.storage.from(ATTACHMENT_BUCKET).remove([a.storagePath]).catch(e => console.warn('Note attachment delete:', e.message));
+            }
+            n.attachments = n.attachments.filter(x => x.id !== attId);
+            n.updatedAt = new Date().toISOString();
+            saveNotesToStorage();
+            cloudSyncNote(n);
+            renderNoteAttachments(id);
         }
         function toggleEditNoteChecklistMode(id) {
             const box = document.getElementById('editNoteChecklistBox-'+id);
