@@ -2342,6 +2342,7 @@
                         <div class="mb-4">
                             <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Quando isso acontecer...</label>
                             <select id="automationTrigger" onchange="updateAutomationEditorUI()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-sant-cyan">
+                                <option value="contact_created">Novo contato ser cadastrado 🆕</option>
                                 <option value="became_hot">Lead virar Quente 🔥</option>
                                 <option value="became_warm">Lead virar Morno ☀️</option>
                                 <option value="became_lead">Contato virar Lead</option>
@@ -19023,6 +19024,7 @@
         }
 
         const AUTOMATION_TRIGGER_LABELS = {
+            contact_created: '🆕 Novo contato cadastrado',
             became_hot: '🔥 Lead vira Quente',
             became_warm: '☀️ Lead vira Morno',
             became_lead: 'Contato vira Lead',
@@ -19402,6 +19404,7 @@
             automationRules.forEach(rule => {
                 if (rule.active === false || rule.trigger === 'inactive_days') return;
                 let fires = false;
+                if (rule.trigger === 'contact_created') fires = !oldContact;
                 if (rule.trigger === 'became_hot')  fires = newContact.temperature === 'quente' && (!oldContact || oldContact.temperature !== 'quente');
                 if (rule.trigger === 'became_warm') fires = newContact.temperature === 'morno'  && (!oldContact || oldContact.temperature !== 'morno');
                 if (rule.trigger === 'became_lead') fires = !!newContact.isLead && (!oldContact || !oldContact.isLead);
