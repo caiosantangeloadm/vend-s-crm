@@ -15001,9 +15001,15 @@
                     const endType = t.recurrenceEndType || 'never';
                     const reachedCount = endType === 'count' && nextOccurrence > (t.recurrenceEndCount || 5);
                     const reachedDate  = endType === 'date' && t.recurrenceEndDate && nextDate > t.recurrenceEndDate;
+                    // Proteção contra duplicata: se já existe uma ocorrência (não excluída) com o
+                    // mesmo título e mesma data — ex: duplo-clique no checkbox, ou uma corrida entre
+                    // abas/dispositivos completando a mesma tarefa quase ao mesmo tempo — não cria outra.
+                    const alreadyExists = tasks.some(x => x.id !== t.id && !x.deletedAt && x.title === t.title && x.date === nextDate);
 
                     if (reachedCount || reachedDate) {
                         showToast('Tarefa concluída! Série recorrente encerrada (limite atingido).');
+                    } else if (alreadyExists) {
+                        showToast('Tarefa concluída!');
                     } else {
                         const nextTask = {
                             id:                 crypto.randomUUID(),
