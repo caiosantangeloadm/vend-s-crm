@@ -5488,6 +5488,12 @@
 
                 updateSyncIndicator();
 
+                // Reenvia alterações presas na fila offline (ex: falha pontual de rede) —
+                // sem isso, uma sincronização que falhou uma vez ficava travada até o
+                // próximo carregamento completo da página, mostrando dado desatualizado
+                // (ex: tarefa concluída que "volta" a aparecer pendente no Dashboard).
+                if (navigator.onLine && currentUser && getOfflineQueue().length > 0) replayOfflineQueue();
+
             }, 60000);
 
             // Verifica imediatamente ao abrir o app
