@@ -6598,7 +6598,7 @@
                 }).join('');
             }
 
-            const pendingTasksToday = tasks.filter(t => !t.completed && t.date === todayStr);
+            const pendingTasksToday = tasks.filter(t => !t.completed && !t.deletedAt && !t.archived && t.date === todayStr);
             const dTasksList = document.getElementById('dashTasksList');
             
             const totalEstMin = pendingTasksToday.reduce((sum, t) => sum + (t.estimatedMinutes || 0), 0);
@@ -6697,10 +6697,10 @@
                 .filter(e => isEventOnDate(e, todayStr) && !e.isBirthday && !e.isBlock)
                 .sort((a,b) => (a.startTime||'').localeCompare(b.startTime||''));
 
-            const tasksPend = tasks.filter(t => !t.completed && t.date === todayStr)
+            const tasksPend = tasks.filter(t => !t.completed && !t.deletedAt && t.date === todayStr)
                 .sort((a,b) => { const o={urgent:0,high:1,medium:2,low:3}; return (o[a.priority]||2)-(o[b.priority]||2); });
 
-            const tasksLate = tasks.filter(t => !t.completed && t.date && t.date < todayStr);
+            const tasksLate = tasks.filter(t => !t.completed && !t.deletedAt && t.date && t.date < todayStr);
 
             const bdayToday = contacts.filter(c => {
                 if (!c.birth) return false;
@@ -8185,7 +8185,7 @@
             });
 
             // ── 3. Tarefas urgentes vencidas ────────────────────────────────
-            tasks.filter(t => !t.completed && t.priority === 'urgent' && t.date && t.date < todayStr).forEach(t => {
+            tasks.filter(t => !t.completed && !t.deletedAt && t.priority === 'urgent' && t.date && t.date < todayStr).forEach(t => {
                 items.push({
                     priority: 1,
                     icon: 'ph-lightning', color: '#f87171', bg: 'bg-red-500/10', border: 'border-red-500/20',
@@ -8197,7 +8197,7 @@
             });
 
             // ── 4. Tarefas urgentes de hoje ─────────────────────────────────
-            tasks.filter(t => !t.completed && t.priority === 'urgent' && t.date === todayStr).forEach(t => {
+            tasks.filter(t => !t.completed && !t.deletedAt && t.priority === 'urgent' && t.date === todayStr).forEach(t => {
                 items.push({
                     priority: 2,
                     icon: 'ph-lightning', color: '#fbbf24', bg: 'bg-amber-500/10', border: 'border-amber-500/20',
@@ -8312,7 +8312,7 @@
             const items = [];
 
             // 1. Tarefas urgentes ou high de hoje não concluídas
-            tasks.filter(t => !t.completed && t.date === todayStr && (t.priority === 'urgent' || t.priority === 'high'))
+            tasks.filter(t => !t.completed && !t.deletedAt && t.date === todayStr && (t.priority === 'urgent' || t.priority === 'high'))
                 .forEach(t => {
                     const priorityLabel = t.priority === 'urgent' ? 'Urgente' : 'Alta';
                     const priorityColor = t.priority === 'urgent' ? '#f87171' : '#fbbf24';
@@ -8956,7 +8956,7 @@
             });
 
             // Tarefas pendentes
-            tasks.filter(t => !t.completed && t.date && t.date >= tomorrowStr && t.date <= endStr).forEach(t => {
+            tasks.filter(t => !t.completed && !t.deletedAt && t.date && t.date >= tomorrowStr && t.date <= endStr).forEach(t => {
                 items.push({ type: 'task', date: t.date, time: t.time || '', title: t.title, priority: t.priority, ref: t });
             });
 
@@ -21025,7 +21025,7 @@
 
             // ── Dados ──
             const tasksDone  = tasks.filter(t => t.completed && ((t.completedAt||t.date||'').substring(0,10) >= ws));
-            const tasksPend  = tasks.filter(t => !t.completed && t.date && t.date <= todayStr);
+            const tasksPend  = tasks.filter(t => !t.completed && !t.deletedAt && t.date && t.date <= todayStr);
             const intsDone   = contacts.reduce((acc,c) => acc + (c.interactions||[]).filter(i=>i.date>=ws&&i.date<=todayStr).length,0);
             const fuPending  = contacts.filter(c => c.nextContact && c.nextContact <= todayStr);
             const fuHonored  = fuPending.filter(c => (c.interactions||[]).some(i=>i.date>=c.nextContact));
@@ -21130,7 +21130,7 @@
             `});
 
             // 6 — Próximas ações
-            const nextTasks = tasks.filter(t=>!t.completed&&t.date&&t.date>todayStr).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,3);
+            const nextTasks = tasks.filter(t=>!t.completed&&!t.deletedAt&&t.date&&t.date>todayStr).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,3);
             steps.push({ title: 'Próximas ações', html: `
                 <p class="text-lg font-bold text-white mb-1">Ótimo trabalho! 🚀</p>
                 <p class="text-xs text-gray-500 mb-5">Revisão concluída. Aqui estão suas próximas prioridades:</p>
