@@ -2972,6 +2972,16 @@
                     <textarea id="eventDesc" rows="2" placeholder="Adicionar descrição, pauta da reunião ou notas..." class="w-full bg-[#141414] border border-sant-border rounded-md px-3 py-2 text-sm text-white outline-none resize-none"></textarea>
                 </div>
 
+                <!-- Anexos do Evento -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1"><i class="ph ph-paperclip text-sant-cyan"></i> Anexos</label>
+                    <div id="eventAttachmentsList" class="space-y-2 mb-2"></div>
+                    <label id="eventAttachUploadLabel" class="flex items-center gap-1.5 text-xs text-gray-400 hover:text-sant-cyan cursor-pointer transition-colors w-fit">
+                        <i class="ph ph-paperclip"></i> Anexar arquivo
+                        <input type="file" class="hidden" onchange="uploadEventAttachment(event)">
+                    </label>
+                </div>
+
                 <!-- Etiquetas do Evento -->
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1"><i class="ph ph-tag text-sant-purple"></i> Etiquetas</label>
@@ -6145,6 +6155,7 @@
                 checklist: e.checklist || [],
                 links: e.links || [],
                 tags: e.tags || [],
+                attachments: e.attachments || [],
                 "deletedAt": e.deletedAt || null,
             };
         }
@@ -10042,6 +10053,90 @@
             cloudSyncNote(n);
             renderNoteAttachments(id);
         }
+
+        // ── Anexos em Eventos (mesmo bucket já usado por Tarefas/Contatos/Notas) ──
+        function renderEventAttachments(eventId) {
+            const list = document.getElementById('eventAttachmentsList');
+            if (!list) return;
+            const e = eventId ? events.find(x => x.id === eventId) : null;
+            const atts = e?.attachments || [];
+            if (!atts.length) { list.innerHTML = ''; return; }
+            list.innerHTML = atts.map(a => `
+                <div class="flex items-center gap-2 bg-[#141414] border border-sant-border rounded-lg px-3 py-2">
+                    <i class="ph ph-file text-sant-cyan shrink-0"></i>
+                    <span onclick="openEventAttachment('${eventId}','${a.id}')" class="flex-1 text-sm text-gray-300 truncate cursor-pointer hover:text-sant-cyan transition-colors">${a.title}</span>
+                    <span class="text-[10px] text-gray-600 shrink-0">${a.size ? (a.size/1024/1024).toFixed(1)+'MB' : ''}</span>
+                    <button onclick="deleteEventAttachment('${eventId}','${a.id}')" class="text-gray-500 hover:text-red-500 transition-colors shrink-0"><i class="ph ph-trash"></i></button>
+                </div>`).join('');
+        }
+
+        async function uploadEventAttachment(event) {
+            const file = event.target.files[0];
+            event.target.value = '';
+            if (!file) return;
+            if (file.size > ATTACHMENT_MAX_MB * 1024 * 1024) {
+                showToast(`Arquivo muito grande — o limite é ${ATTACHMENT_MAX_MB}MB.`, 'error');
+                return;
+            }
+            const sb = getSB();
+            if (!sb || !currentUser) { showToast('Faça login para anexar arquivos.', 'error'); return; }
+            const eventId = document.getElementById('eventId').value;
+            const e = events.find(x => x.id === eventId);
+            if (!e) { showToast('Salve o compromisso antes de anexar arquivos.', 'error'); return; }
+
+            const label = document.getElementById('eventAttachUploadLabel');
+            const originalLabel = label.innerHTML;
+            label.innerHTML = 'Enviando...';
+
+            const ext = file.name.split('.').pop();
+            const storagePath = `${currentUser.id}/event-${e.id}/${crypto.randomUUID()}.${ext}`;
+
+            try {
+                const { error } = await sb.storage.from(ATTACHMENT_BUCKET).upload(storagePath, file, { upsert: false });
+                if (error) throw error;
+                if (!e.attachments) e.attachments = [];
+                e.attachments.push({ id: crypto.randomUUID(), title: file.name, storagePath, size: file.size, createdAt: new Date().toISOString() });
+                saveEventsToStorage();
+                cloudSyncEvent(e);
+                renderEventAttachments(e.id);
+                showToast('Arquivo anexado!');
+            } catch(err) {
+                console.warn('Event attachment upload:', err.message);
+                showToast('Erro ao enviar arquivo: ' + (err.message || 'tente novamente'), 'error');
+            } finally {
+                label.innerHTML = originalLabel;
+            }
+        }
+
+        async function openEventAttachment(eventId, attId) {
+            const e = events.find(x => x.id === eventId);
+            const a = e?.attachments?.find(x => x.id === attId);
+            if (!a || !a.storagePath) return;
+            const sb = getSB();
+            if (!sb) return;
+            try {
+                const { data, error } = await sb.storage.from(ATTACHMENT_BUCKET).createSignedUrl(a.storagePath, 3600);
+                if (error || !data?.signedUrl) throw error || new Error('sem URL');
+                window.open(data.signedUrl, '_blank');
+            } catch(err) {
+                showToast('Erro ao abrir anexo: ' + (err.message || 'tente novamente'), 'error');
+            }
+        }
+
+        function deleteEventAttachment(eventId, attId) {
+            const e = events.find(x => x.id === eventId);
+            if (!e || !e.attachments) return;
+            const a = e.attachments.find(x => x.id === attId);
+            if (a?.storagePath) {
+                const sb = getSB();
+                if (sb) sb.storage.from(ATTACHMENT_BUCKET).remove([a.storagePath]).catch(err => console.warn('Event attachment delete:', err.message));
+            }
+            e.attachments = e.attachments.filter(x => x.id !== attId);
+            saveEventsToStorage();
+            cloudSyncEvent(e);
+            renderEventAttachments(eventId);
+        }
+
         function toggleEditNoteChecklistMode(id) {
             const box = document.getElementById('editNoteChecklistBox-'+id);
             const body = document.getElementById('editNoteBody-'+id);
@@ -14631,12 +14726,14 @@
                 checklist: currentEventChecklist.filter(it => it.text.trim()),
                 links: [...currentEventLinks],
                 tags: [...currentEventTags],
+                attachments: [],
                 notified: false,
                 changeLog: []
             };
 
             if (id) {
                 const original = events.find(e => e.id === id);
+                event.attachments = original ? (original.attachments || []) : [];
                 event.changeLog = original ? (original.changeLog || []) : [];
                 event.excludedDates = original ? (original.excludedDates || []) : [];
                 event.realizedDates = original ? (original.realizedDates || []) : [];
@@ -20820,6 +20917,7 @@
             renderEventLinksInModal();
             currentEventTags = ev ? [...(ev.tags || [])] : [];
             renderEventTagsInModal();
+            renderEventAttachments(ev ? ev.id : '');
             // Participantes
             currentEventParticipants = ev ? [...(ev.participants || (ev.contactId ? [ev.contactId] : []))] : [];
             fillEventParticipantSelect();
