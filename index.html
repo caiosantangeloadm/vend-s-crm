@@ -3141,6 +3141,22 @@
                     </div>
                 </div>
 
+                <div id="taskRecEndWrap" class="hidden grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Repetir até</label>
+                        <select id="taskRecEndType" onchange="updateTaskRecEndUI()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                            <option value="never">Nunca (para sempre)</option>
+                            <option value="count">Após N vezes</option>
+                            <option value="date">Uma data específica</option>
+                        </select>
+                    </div>
+                    <div id="taskRecEndValueWrap" class="hidden">
+                        <label id="taskRecEndValueLabel" class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Nº de vezes</label>
+                        <input type="number" id="taskRecEndCount" min="1" value="5" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                        <input type="date" id="taskRecEndDate" class="hidden w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Prioridade</label>
@@ -6075,6 +6091,10 @@
                 "completedAt": t.completedAt || '', "kanbanColumn": t.kanbanColumn || 'todo',
                 notification: t.notification || '0', "reminders": t.reminders || [], "notifiedOffsets": t.notifiedOffsets || [], "emailAlert": t.emailAlert || '0', recurrence: t.recurrence || 'none',
                 "recurrenceInterval": t.recurrenceInterval || 1,
+                "recurrenceEndType": t.recurrenceEndType || 'never',
+                "recurrenceEndCount": t.recurrenceEndCount || 5,
+                "recurrenceEndDate": t.recurrenceEndDate || '',
+                "recurrenceOccurrence": t.recurrenceOccurrence || 1,
                 "estimatedMinutes": t.estimatedMinutes || 0,
                 "contactId": t.contactId || '', "parentTaskId": t.parentTaskId || '', tags: t.tags || [], checklist: t.checklist || [],
                 "createdAt": toISO(t.createdAt),
@@ -14877,31 +14897,44 @@
                     else if (t.recurrence === 'monthly') nextDate = addMonthsToDateStr(t.date, interval);
                     else if (t.recurrence === 'yearly')  nextDate = addMonthsToDateStr(t.date, 12 * interval);
 
-                    const nextTask = {
-                        id:                 crypto.randomUUID(),
-                        title:              t.title,
-                        desc:               t.desc || '',
-                        date:               nextDate,
-                        time:               t.time || '',
-                        priority:           t.priority || 'medium',
-                        notification:       t.notification || '0',
-                        emailAlert:         t.emailAlert || '0',
-                        recurrence:         t.recurrence,
-                        recurrenceInterval: t.recurrenceInterval || 1,
-                        tags:               [...(t.tags || [])],
-                        estimatedMinutes:   t.estimatedMinutes || 0,
-                        contactId:          t.contactId || '',
-                        dependsOnId:        '',
-                        kanbanColumn:       'todo',
-                        completed:          false,
-                        completedAt:        null,
-                        notified:           false,
-                        createdAt:          new Date().toISOString(),
-                        checklist:          (t.checklist || []).map(i => ({...i, id: crypto.randomUUID(), done: false}))
-                    };
-                    tasks.push(nextTask);
-                    cloudSyncTask(nextTask);
-                    showToast('Tarefa concluída! Próxima ocorrência criada para ' + nextDate.split('-').reverse().join('/') + '.');
+                    const nextOccurrence = (t.recurrenceOccurrence || 1) + 1;
+                    const endType = t.recurrenceEndType || 'never';
+                    const reachedCount = endType === 'count' && nextOccurrence > (t.recurrenceEndCount || 5);
+                    const reachedDate  = endType === 'date' && t.recurrenceEndDate && nextDate > t.recurrenceEndDate;
+
+                    if (reachedCount || reachedDate) {
+                        showToast('Tarefa concluída! Série recorrente encerrada (limite atingido).');
+                    } else {
+                        const nextTask = {
+                            id:                 crypto.randomUUID(),
+                            title:              t.title,
+                            desc:               t.desc || '',
+                            date:               nextDate,
+                            time:               t.time || '',
+                            priority:           t.priority || 'medium',
+                            notification:       t.notification || '0',
+                            emailAlert:         t.emailAlert || '0',
+                            recurrence:         t.recurrence,
+                            recurrenceInterval: t.recurrenceInterval || 1,
+                            recurrenceEndType:  endType,
+                            recurrenceEndCount: t.recurrenceEndCount || 5,
+                            recurrenceEndDate:  t.recurrenceEndDate || '',
+                            recurrenceOccurrence: nextOccurrence,
+                            tags:               [...(t.tags || [])],
+                            estimatedMinutes:   t.estimatedMinutes || 0,
+                            contactId:          t.contactId || '',
+                            dependsOnId:        '',
+                            kanbanColumn:       'todo',
+                            completed:          false,
+                            completedAt:        null,
+                            notified:           false,
+                            createdAt:          new Date().toISOString(),
+                            checklist:          (t.checklist || []).map(i => ({...i, id: crypto.randomUUID(), done: false}))
+                        };
+                        tasks.push(nextTask);
+                        cloudSyncTask(nextTask);
+                        showToast('Tarefa concluída! Próxima ocorrência criada para ' + nextDate.split('-').reverse().join('/') + '.');
+                    }
                 }
 
                 saveTasksToStorage();
@@ -14958,8 +14991,17 @@
         function updateTaskRecurrenceUI() {
             const val = document.getElementById('taskRecurrence').value;
             document.getElementById('taskRecIntervalWrap').classList.toggle('hidden', val === 'none');
+            document.getElementById('taskRecEndWrap').classList.toggle('hidden', val === 'none');
             const labels = { daily: 'dia(s)', weekly: 'semana(s)', monthly: 'mês(es)', yearly: 'ano(s)' };
             document.getElementById('taskRecIntervalLabel').innerText = labels[val] || 'dia(s)';
+        }
+
+        function updateTaskRecEndUI() {
+            const val = document.getElementById('taskRecEndType').value;
+            document.getElementById('taskRecEndValueWrap').classList.toggle('hidden', val === 'never');
+            document.getElementById('taskRecEndCount').classList.toggle('hidden', val !== 'count');
+            document.getElementById('taskRecEndDate').classList.toggle('hidden', val !== 'date');
+            document.getElementById('taskRecEndValueLabel').innerText = val === 'date' ? 'Data final' : 'Nº de vezes';
         }
 
         function filterTasks(f) {
@@ -15963,6 +16005,10 @@
                 parentTaskId: document.getElementById('taskParentId').value || '',
                 recurrence: document.getElementById('taskRecurrence').value,
                 recurrenceInterval: parseInt(document.getElementById('taskRecInterval').value) || 1,
+                recurrenceEndType: document.getElementById('taskRecEndType').value || 'never',
+                recurrenceEndCount: parseInt(document.getElementById('taskRecEndCount').value) || 5,
+                recurrenceEndDate: document.getElementById('taskRecEndDate').value || '',
+                recurrenceOccurrence: existingTask ? (existingTask.recurrenceOccurrence || 1) : 1,
                 tags: [...currentTaskTags],
                 customFields: currentTaskCustomFields.filter(f => f.label.trim() || f.value.trim()),
                 estimatedMinutes: parseInt(document.getElementById('taskEstimate').value) || 0,
@@ -16044,7 +16090,11 @@
             document.getElementById('taskDesc').value = t.desc || '';
             document.getElementById('taskRecurrence').value = t.recurrence || 'none';
             document.getElementById('taskRecInterval').value = t.recurrenceInterval || 1;
+            document.getElementById('taskRecEndType').value = t.recurrenceEndType || 'never';
+            document.getElementById('taskRecEndCount').value = t.recurrenceEndCount || 5;
+            document.getElementById('taskRecEndDate').value = t.recurrenceEndDate || '';
             updateTaskRecurrenceUI();
+            updateTaskRecEndUI();
             populateContactSelect('taskContactId', t.contactId || '');
             fillTaskDependsOnSelect(t.id);
             document.getElementById('taskDependsOn').value = t.dependsOnId || '';
@@ -20713,7 +20763,11 @@
             document.getElementById('taskDesc').value = '';
             document.getElementById('taskRecurrence').value = 'none';
             document.getElementById('taskRecInterval').value = 1;
+            document.getElementById('taskRecEndType').value = 'never';
+            document.getElementById('taskRecEndCount').value = 5;
+            document.getElementById('taskRecEndDate').value = '';
             updateTaskRecurrenceUI();
+            updateTaskRecEndUI();
             document.getElementById('taskModalTitle').innerText = 'Nova Tarefa';
             populateContactSelect('taskContactId', '');
             fillTaskDependsOnSelect('');
