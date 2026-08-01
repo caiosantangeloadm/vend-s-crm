@@ -11595,6 +11595,29 @@
                 v = v.replace(/^(\d{5})(\d{0,3}).*/, '$1-$2');
             }
             input.value = v;
+            const digits = v.replace(/\D/g, '');
+            if (digits.length === 8) lookupCep(digits, input.id);
+        }
+
+        // Busca automática de endereço pelo CEP (API pública ViaCEP, gratuita, sem chave)
+        async function lookupCep(digits, zipInputId) {
+            const prefix = zipInputId.replace(/Zip$/, '');
+            const streetEl = document.getElementById(prefix + 'Street');
+            const neighborhoodEl = document.getElementById(prefix + 'Neighborhood');
+            const cityEl = document.getElementById(prefix + 'City');
+            const stateEl = document.getElementById(prefix + 'State');
+            if (!streetEl) return;
+            try {
+                const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+                const data = await res.json();
+                if (data.erro) { showToast('CEP não encontrado.', 'error'); return; }
+                if (streetEl && !streetEl.value) streetEl.value = data.logradouro || streetEl.value;
+                if (neighborhoodEl && !neighborhoodEl.value) neighborhoodEl.value = data.bairro || neighborhoodEl.value;
+                if (cityEl) cityEl.value = data.localidade || cityEl.value;
+                if (stateEl) stateEl.value = data.uf || stateEl.value;
+            } catch(e) {
+                console.warn('Busca de CEP falhou:', e.message);
+            }
         }
 
         function buildAddressString(c) {
