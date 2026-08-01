@@ -148,6 +148,8 @@
         .kanban-card.dragging { opacity: 0.35; box-shadow: 0 0 0 2px #00FFFF; }
         .kanban-col { transition: ring 0.15s ease; }
         .kanban-col.drag-over { outline: 2px solid rgba(0,255,255,0.4); background: rgba(0,255,255,0.03); }
+        .pipeline-col { transition: outline 0.15s ease; }
+        .pipeline-col.drag-over { outline: 2px solid rgba(168,85,247,0.4); background: rgba(168,85,247,0.03); }
         /* Animação de confirmação visual (✓ feito) */
         @keyframes checkPop {
             0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
@@ -310,6 +312,9 @@
             </button>
             <button onclick="switchView('contacts')" id="nav-contacts" class="nav-item tooltip-nav flex items-center justify-center w-full py-4 text-gray-400 hover:text-white transition-colors" data-tip="Contatos">
                 <i class="ph ph-users text-2xl"></i>
+            </button>
+            <button onclick="switchView('pipeline')" id="nav-pipeline" class="nav-item tooltip-nav flex items-center justify-center w-full py-4 text-gray-400 hover:text-white transition-colors" data-tip="Pipeline de Vendas">
+                <i class="ph ph-kanban text-2xl"></i>
             </button>
             <button onclick="switchView('calendar')" id="nav-calendar" class="nav-item tooltip-nav flex items-center justify-center w-full py-4 text-gray-400 hover:text-white transition-colors" data-tip="Agenda">
                 <i class="ph ph-calendar-blank text-2xl"></i>
@@ -495,7 +500,7 @@
                         </div>
                     </div>
 
-                    <div onclick="switchView('reports'); switchReportTab('leads')" class="bg-sant-surface border border-sant-border rounded-2xl p-6 flex flex-col justify-center cursor-pointer hover:border-sant-cyan/50 transition-colors group">
+                    <div onclick="switchView('pipeline')" class="bg-sant-surface border border-sant-border rounded-2xl p-6 flex flex-col justify-center cursor-pointer hover:border-sant-cyan/50 transition-colors group">
                         <div class="flex justify-between items-start mb-2">
                             <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase group-hover:text-sant-cyan transition-colors">Pipeline Ativo</p>
                             <i class="ph ph-arrow-up-right text-gray-600 group-hover:text-sant-cyan transition-colors"></i>
@@ -1125,6 +1130,23 @@
                 </div>
 
                 <div id="contactsContainer" class="pb-10"></div>
+            </div>
+
+            <!-- ── VIEW PIPELINE DE VENDAS (V1) ── -->
+            <div id="view-pipeline" class="hidden max-w-7xl mx-auto pb-10">
+                <div class="flex items-center gap-4 mb-6 shrink-0 flex-wrap">
+                    <div class="w-12 h-12 rounded-xl bg-sant-purple/10 text-sant-purple flex items-center justify-center text-2xl border border-sant-purple/20"><i class="ph ph-kanban"></i></div>
+                    <div class="flex-1 min-w-[200px]">
+                        <h2 class="text-2xl font-bold text-white">Pipeline de Vendas</h2>
+                        <p class="text-sm text-gray-500">Arraste os cards entre as colunas conforme a negociação avança</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[10px] text-gray-500 uppercase tracking-wider">Valor em aberto</p>
+                        <p id="pipelineOpenValue" class="text-xl font-bold text-[#fbbf24]">R$ 0</p>
+                    </div>
+                </div>
+
+                <div id="pipelineBoard" class="flex gap-4 overflow-x-auto pb-4"></div>
             </div>
 
             <div id="view-calendar" class="hidden max-w-6xl mx-auto flex flex-col">
@@ -9106,6 +9128,7 @@
             if(ti) ti.value = '';
 
             if(viewId === 'contacts') renderContacts();
+            if(viewId === 'pipeline') renderPipeline();
             if(viewId === 'dashboard') renderDashboard();
             if(viewId === 'myweek') renderMyWeek();
             if(viewId === 'feed') renderActivityFeed();
@@ -9123,6 +9146,105 @@
                     document.getElementById('repBirthEnd').value = `${y}-${m}-${lastDay}`;
                 }
                 switchReportTab('birthdays');
+            }
+        }
+
+        // ── Pipeline de Vendas (V1) — Kanban de Leads por Estágio ─────────────
+        const PIPELINE_STAGES = [
+            { id: 'novo',        label: 'Novo Lead',        color: '#7aafc8' },
+            { id: 'contato',     label: 'Contato Feito',    color: '#60a5fa' },
+            { id: 'proposta',    label: 'Proposta Enviada', color: '#fbbf24' },
+            { id: 'negociacao',  label: 'Negociação',       color: '#fb923c' },
+            { id: 'ganho',       label: 'Ganho',            color: '#4ade80' },
+            { id: 'perdido',     label: 'Perdido',          color: '#f87171' },
+        ];
+        let draggedPipelineLeadId = null;
+
+        function getPipelineStage(c) {
+            return c.pipelineStage || 'novo';
+        }
+
+        function renderPipeline() {
+            const board = document.getElementById('pipelineBoard');
+            if (!board) return;
+            const leads = contacts.filter(c => c.isLead && !c.deletedAt);
+
+            const openValue = leads.filter(c => getPipelineStage(c) !== 'ganho' && getPipelineStage(c) !== 'perdido')
+                .reduce((sum, c) => sum + (c.dealValue || 0), 0);
+            const valEl = document.getElementById('pipelineOpenValue');
+            if (valEl) valEl.innerText = 'R$ ' + openValue.toLocaleString('pt-BR');
+
+            board.innerHTML = PIPELINE_STAGES.map(stage => {
+                const stageLeads = leads.filter(c => getPipelineStage(c) === stage.id);
+                const stageValue = stageLeads.reduce((sum, c) => sum + (c.dealValue || 0), 0);
+                const cards = stageLeads.map(c => {
+                    const initials = ((c.name||'?').charAt(0) + (c.lastName||'').charAt(0)).toUpperCase();
+                    const tempColor = { quente: '#f87171', morno: '#fbbf24', frio: '#7aafc8' }[c.temperature] || '#6b7280';
+                    return `
+                    <div draggable="true" ondragstart="pipelineDragStart(event,'${c.id}')" ondragend="pipelineDragEnd(event)"
+                         onclick="openHistoryModal('${c.id}')"
+                         class="bg-[#141414] border border-sant-border rounded-lg p-3 cursor-grab hover:border-sant-purple/40 transition-colors">
+                        <div class="flex items-center gap-2 mb-1.5">
+                            <div class="w-7 h-7 rounded-full bg-sant-purple/15 text-sant-purple text-[10px] font-bold flex items-center justify-center shrink-0">${initials}</div>
+                            <p class="text-sm font-semibold text-white truncate flex-1">${fullName(c)}</p>
+                            <span class="w-2 h-2 rounded-full shrink-0" style="background:${tempColor}" title="Temperatura: ${c.temperature||'—'}"></span>
+                        </div>
+                        ${c.company ? `<p class="text-[11px] text-gray-500 truncate mb-1">${c.company}</p>` : ''}
+                        ${c.dealValue ? `<p class="text-xs font-bold text-[#fbbf24]">R$ ${c.dealValue.toLocaleString('pt-BR')}</p>` : ''}
+                    </div>`;
+                }).join('') || `<p class="text-[11px] text-gray-700 italic text-center py-4">Nenhum lead aqui</p>`;
+
+                return `
+                <div id="pipeline-col-${stage.id}" class="pipeline-col w-72 shrink-0 flex flex-col bg-sant-surface border border-sant-border rounded-xl overflow-hidden"
+                     ondragover="pipelineDragOver(event,'${stage.id}')" ondragleave="pipelineDragLeave('${stage.id}')" ondrop="pipelineDrop(event,'${stage.id}')">
+                    <div class="p-3 border-b border-sant-border bg-[#0d0d0d] shrink-0">
+                        <div class="flex items-center justify-between mb-1">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full" style="background:${stage.color}"></span>
+                                <span class="text-xs font-bold uppercase tracking-wider" style="color:${stage.color}">${stage.label}</span>
+                            </div>
+                            <span class="text-xs bg-white/5 text-gray-300 px-2 py-0.5 rounded-full font-bold">${stageLeads.length}</span>
+                        </div>
+                        ${stageValue ? `<p class="text-[11px] text-gray-500">R$ ${stageValue.toLocaleString('pt-BR')}</p>` : ''}
+                    </div>
+                    <div class="p-2 space-y-2 min-h-[140px] flex-1">${cards}</div>
+                </div>`;
+            }).join('');
+        }
+
+        function pipelineDragStart(event, id) {
+            draggedPipelineLeadId = id;
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', id);
+        }
+        function pipelineDragEnd() {
+            draggedPipelineLeadId = null;
+            document.querySelectorAll('.pipeline-col').forEach(c => c.classList.remove('drag-over'));
+        }
+        function pipelineDragOver(event, stageId) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            document.getElementById('pipeline-col-' + stageId).classList.add('drag-over');
+        }
+        function pipelineDragLeave(stageId) {
+            document.getElementById('pipeline-col-' + stageId).classList.remove('drag-over');
+        }
+        function pipelineDrop(event, stageId) {
+            event.preventDefault();
+            document.getElementById('pipeline-col-' + stageId).classList.remove('drag-over');
+            const id = event.dataTransfer.getData('text/plain') || draggedPipelineLeadId;
+            if (id) moveLeadToStage(id, stageId);
+        }
+        function moveLeadToStage(id, stageId) {
+            const c = contacts.find(x => x.id === id);
+            if (!c) return;
+            const wentToLost = stageId === 'perdido' && c.pipelineStage !== 'perdido';
+            c.pipelineStage = stageId;
+            saveToStorage(id);
+            renderPipeline();
+            if (wentToLost && !c.lossReason) {
+                showToast('Lead movido para Perdido — abra o histórico dele para registrar o motivo.');
+                openHistoryModal(id);
             }
         }
 
@@ -17837,6 +17959,7 @@
                 instagram: c.instagram || '', linkedin: c.linkedin || '',
                 category: c.category || '', "isLead": c.isLead || false,
                 temperature: c.temperature || 'frio', "dealValue": c.dealValue || 0, "totalRevenue": c.totalRevenue || 0,
+                "pipelineStage": c.pipelineStage || 'novo',
                 "communicationConsent": c.communicationConsent || { given: false, channels: [], date: '' },
                 birth: c.birth || '', notes: c.notes || '', origin: c.origin || '',
                 "preferredChannel": c.preferredChannel || '',
