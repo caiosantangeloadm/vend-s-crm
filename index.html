@@ -4640,8 +4640,9 @@
                     flat.push(t);
                 }
             });
-            let html = flat.map(t => `<option value="${t}">${t}</option>`).join('');
+            let html = flat.sort((a,b) => a.localeCompare(b, 'pt-BR')).map(t => `<option value="${t}">${t}</option>`).join('');
             Object.keys(groups).sort((a,b) => a.localeCompare(b, 'pt-BR')).forEach(g => {
+                groups[g].sort((a,b) => a.child.localeCompare(b.child, 'pt-BR'));
                 html += `<optgroup label="${g}">${groups[g].map(x => `<option value="${x.full}">${x.child}</option>`).join('')}</optgroup>`;
             });
             return html;
