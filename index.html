@@ -9182,15 +9182,17 @@
                     const tempColor = { quente: '#f87171', morno: '#fbbf24', frio: '#7aafc8' }[c.temperature] || '#6b7280';
                     return `
                     <div draggable="true" ondragstart="pipelineDragStart(event,'${c.id}')" ondragend="pipelineDragEnd(event)"
-                         onclick="openHistoryModal('${c.id}')"
                          class="bg-[#141414] border border-sant-border rounded-lg p-3 cursor-grab hover:border-sant-purple/40 transition-colors">
-                        <div class="flex items-center gap-2 mb-1.5">
+                        <div onclick="openHistoryModal('${c.id}')" class="flex items-center gap-2 mb-1.5 cursor-pointer">
                             <div class="w-7 h-7 rounded-full bg-sant-purple/15 text-sant-purple text-[10px] font-bold flex items-center justify-center shrink-0">${initials}</div>
                             <p class="text-sm font-semibold text-white truncate flex-1">${fullName(c)}</p>
                             <span class="w-2 h-2 rounded-full shrink-0" style="background:${tempColor}" title="Temperatura: ${c.temperature||'—'}"></span>
                         </div>
                         ${c.company ? `<p class="text-[11px] text-gray-500 truncate mb-1">${c.company}</p>` : ''}
-                        ${c.dealValue ? `<p class="text-xs font-bold text-[#fbbf24]">R$ ${c.dealValue.toLocaleString('pt-BR')}</p>` : ''}
+                        ${c.dealValue ? `<p class="text-xs font-bold text-[#fbbf24] mb-1.5">R$ ${c.dealValue.toLocaleString('pt-BR')}</p>` : ''}
+                        <select onclick="event.stopPropagation()" onchange="moveLeadToStage('${c.id}', this.value)" class="w-full mt-1 bg-[#0a0a0a] border border-sant-border rounded-md px-2 py-1.5 text-[11px] text-gray-300 outline-none focus:border-sant-purple">
+                            ${PIPELINE_STAGES.map(s => `<option value="${s.id}" ${s.id === stage.id ? 'selected' : ''}>${s.label}</option>`).join('')}
+                        </select>
                     </div>`;
                 }).join('') || `<p class="text-[11px] text-gray-700 italic text-center py-4">Nenhum lead aqui</p>`;
 
