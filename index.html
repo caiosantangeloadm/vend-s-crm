@@ -163,6 +163,16 @@
             animation: checkPop 0.65s ease forwards;
             text-shadow: 0 0 12px rgba(91,143,168,0.6);
         }
+        /* Celebração ao ganhar um negócio no Pipeline de Vendas */
+        @keyframes dealConfettiFall {
+            0%   { opacity: 0; transform: translateY(-20px) rotate(0deg); }
+            10%  { opacity: 1; }
+            100% { opacity: 0; transform: translateY(320px) rotate(400deg); }
+        }
+        .deal-confetti-piece {
+            position: fixed; top: 0; pointer-events: none; z-index: 9999;
+            font-size: 22px; animation: dealConfettiFall 1.4s ease-in forwards;
+        }
         @keyframes noteSavePulse {
             0%   { box-shadow: 0 0 0 0 rgba(91,143,168,0.5); }
             60%  { box-shadow: 0 0 0 6px rgba(91,143,168,0.15); }
@@ -9324,14 +9334,31 @@
             saveToStorage(id);
             renderPipeline();
         }
+        function celebrateWonDeal() {
+            const emojis = ['🎉','🎊','💰','✨','🏆'];
+            for (let i = 0; i < 16; i++) {
+                const piece = document.createElement('div');
+                piece.className = 'deal-confetti-piece';
+                piece.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+                piece.style.left = Math.random() * 100 + 'vw';
+                piece.style.animationDelay = (Math.random() * 0.3) + 's';
+                document.body.appendChild(piece);
+                setTimeout(() => piece.remove(), 1800);
+            }
+        }
         function moveLeadToStage(id, stageId) {
             const c = contacts.find(x => x.id === id);
             if (!c) return;
             const wentToLost = stageId === 'perdido' && c.pipelineStage !== 'perdido';
+            const wentToWon = stageId === 'ganho' && c.pipelineStage !== 'ganho';
             if (c.pipelineStage !== stageId) c.stageEnteredAt = new Date().toISOString();
             c.pipelineStage = stageId;
             saveToStorage(id);
             renderPipeline();
+            if (wentToWon) {
+                celebrateWonDeal();
+                showToast(`🎉 Negócio fechado com ${fullName(c)}! Parabéns!`);
+            }
             if (wentToLost && !c.lossReason) {
                 showToast('Lead movido para Perdido — abra o histórico dele para registrar o motivo.');
                 openHistoryModal(id);
