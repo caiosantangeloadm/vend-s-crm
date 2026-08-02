@@ -2418,7 +2418,12 @@
                                 <option value="became_lead">Contato virar Lead</option>
                                 <option value="inactive_days">Contato ficar inativo (sem interação) 🥶</option>
                                 <option value="tag_added">Etiqueta ser adicionada 🏷️</option>
+                                <option value="pipeline_stage">Lead mudar de estágio no Pipeline 📊</option>
                             </select>
+                        </div>
+                        <div id="automationPipelineStageBox" class="hidden mb-4">
+                            <label class="block text-[10px] text-gray-500 uppercase mb-1">Qual estágio dispara a automação</label>
+                            <select id="automationTriggerStage" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan"></select>
                         </div>
                         <div id="automationInactiveDaysBox" class="hidden mb-4">
                             <label class="block text-[10px] text-gray-500 uppercase mb-1">Dias sem interação</label>
@@ -9372,11 +9377,13 @@
         function moveLeadToStage(id, stageId) {
             const c = contacts.find(x => x.id === id);
             if (!c) return;
+            const oldStageSnapshot = { ...c };
             const wentToLost = stageId === 'perdido' && c.pipelineStage !== 'perdido';
             const wentToWon = stageId === 'ganho' && c.pipelineStage !== 'ganho';
             if (c.pipelineStage !== stageId) c.stageEnteredAt = new Date().toISOString();
             c.pipelineStage = stageId;
             saveToStorage(id);
+            runAutomationsForContact(oldStageSnapshot, c);
             renderPipeline();
             if (wentToWon) {
                 celebrateWonDeal();
@@ -19602,6 +19609,7 @@
             became_lead: 'Contato vira Lead',
             inactive_days: '🥶 Contato fica inativo',
             tag_added: '🏷️ Etiqueta adicionada',
+            pipeline_stage: '📊 Lead muda de estágio',
         };
 
         // Migra automações do formato antigo (ação única) para o novo formato de sequência (steps[])
@@ -19629,7 +19637,7 @@
             if (!box) return;
             if (!automationRules.length) { box.innerHTML = '<p class="text-xs text-gray-600 italic text-center py-6">Nenhuma automação criada ainda.</p>'; return; }
             box.innerHTML = automationRules.map(r => {
-                const trigLabel = (AUTOMATION_TRIGGER_LABELS[r.trigger] || r.trigger) + (r.trigger === 'inactive_days' ? ` (${r.inactiveDays || 30}d)` : '') + (r.trigger === 'tag_added' ? ` "${r.triggerTagName || ''}"` : '');
+                const trigLabel = (AUTOMATION_TRIGGER_LABELS[r.trigger] || r.trigger) + (r.trigger === 'inactive_days' ? ` (${r.inactiveDays || 30}d)` : '') + (r.trigger === 'tag_added' ? ` "${r.triggerTagName || ''}"` : '') + (r.trigger === 'pipeline_stage' ? ` "${(PIPELINE_STAGES.find(s=>s.id===r.triggerStage)||{}).label || ''}"` : '');
                 const steps = r.steps || [];
                 const stepsSummary = steps.length === 1
                     ? (steps[0].action === 'add_tag' ? `adiciona etiqueta "${steps[0].tagName}"` : steps[0].action === 'remove_tag' ? `remove etiqueta "${steps[0].tagName}"` : steps[0].action === 'add_to_list' ? `adiciona à lista "${steps[0].listName}"` : `cria tarefa "${steps[0].taskTitle}" (D+${steps[0].daysOffset})`)
@@ -19667,6 +19675,14 @@
             const trigger = document.getElementById('automationTrigger').value;
             document.getElementById('automationInactiveDaysBox').classList.toggle('hidden', trigger !== 'inactive_days');
             document.getElementById('automationTriggerTagBox').classList.toggle('hidden', trigger !== 'tag_added');
+            const stageBox = document.getElementById('automationPipelineStageBox');
+            if (stageBox) {
+                stageBox.classList.toggle('hidden', trigger !== 'pipeline_stage');
+                if (trigger === 'pipeline_stage') {
+                    const sel = document.getElementById('automationTriggerStage');
+                    if (sel && !sel.innerHTML) sel.innerHTML = PIPELINE_STAGES.map(s => `<option value="${s.id}">${s.label}</option>`).join('');
+                }
+            }
             const stopBox = document.getElementById('automationStopBox');
             stopBox.classList.toggle('hidden', trigger === 'inactive_days');
             stopBox.classList.toggle('flex', trigger !== 'inactive_days');
@@ -19760,7 +19776,10 @@
             const listDatalist = document.getElementById('automationListSuggestions');
             if (listDatalist) listDatalist.innerHTML = contactLists.map(l => `<option value="${l}">`).join('');
             renderAutomationSteps();
+            const stageSel = document.getElementById('automationTriggerStage');
+            if (stageSel) stageSel.innerHTML = PIPELINE_STAGES.map(s => `<option value="${s.id}">${s.label}</option>`).join('');
             updateAutomationEditorUI();
+            if (r && r.triggerStage && stageSel) stageSel.value = r.triggerStage;
             document.getElementById('automationEditorBox').classList.remove('hidden');
             document.getElementById('automationEditorBox').scrollIntoView({behavior:'smooth', block:'nearest'});
         }
@@ -19789,6 +19808,7 @@
                 trigger,
                 inactiveDays: parseInt(document.getElementById('automationInactiveDays').value) || 30,
                 triggerTagName,
+                triggerStage: document.getElementById('automationTriggerStage') ? document.getElementById('automationTriggerStage').value : '',
                 stopIfContacted: document.getElementById('automationStopIfContacted').checked,
                 steps: currentAutomationSteps.map(s => ({...s})),
                 active: true,
@@ -19984,6 +20004,11 @@
                     const hasNow = (newContact.tags || []).includes(rule.triggerTagName);
                     const hadBefore = !!oldContact && (oldContact.tags || []).includes(rule.triggerTagName);
                     fires = hasNow && !hadBefore;
+                }
+                if (rule.trigger === 'pipeline_stage' && rule.triggerStage) {
+                    const stageNow = newContact.pipelineStage || 'novo';
+                    const stageBefore = oldContact ? (oldContact.pipelineStage || 'novo') : null;
+                    fires = stageNow === rule.triggerStage && stageBefore !== rule.triggerStage;
                 }
                 if (!fires) return;
                 if (!automationSeqState[newContact.id]) automationSeqState[newContact.id] = {};
