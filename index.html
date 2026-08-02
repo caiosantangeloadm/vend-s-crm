@@ -9250,15 +9250,18 @@
                 const cards = stageLeads.map(c => {
                     const initials = ((c.name||'?').charAt(0) + (c.lastName||'').charAt(0)).toUpperCase();
                     const tempColor = { quente: '#f87171', morno: '#fbbf24', frio: '#7aafc8' }[c.temperature] || '#6b7280';
+                    const daysInStage = c.stageEnteredAt ? _daysBetween(c.stageEnteredAt.substring(0,10), getSPTodayStr()) : null;
+                    const isStuck = daysInStage !== null && daysInStage >= 14 && stage.id !== 'ganho' && stage.id !== 'perdido';
                     return `
                     <div draggable="true" ondragstart="pipelineDragStart(event,'${c.id}')" ondragend="pipelineDragEnd(event)"
-                         class="bg-[#141414] border border-sant-border rounded-lg p-3 cursor-grab hover:border-sant-purple/40 transition-colors">
+                         class="bg-[#141414] border ${isStuck ? 'border-red-500/40' : 'border-sant-border'} rounded-lg p-3 cursor-grab hover:border-sant-purple/40 transition-colors">
                         <div onclick="openHistoryModal('${c.id}')" class="flex items-center gap-2 mb-1.5 cursor-pointer">
                             <div class="w-7 h-7 rounded-full bg-sant-purple/15 text-sant-purple text-[10px] font-bold flex items-center justify-center shrink-0">${initials}</div>
                             <p class="text-sm font-semibold text-white truncate flex-1">${fullName(c)}</p>
                             <span class="w-2 h-2 rounded-full shrink-0" style="background:${tempColor}" title="Temperatura: ${c.temperature||'—'}"></span>
                         </div>
                         ${c.company ? `<p class="text-[11px] text-gray-500 truncate mb-1">${c.company}</p>` : ''}
+                        ${daysInStage !== null ? `<p class="text-[10px] ${isStuck ? 'text-red-400' : 'text-gray-600'} mb-1 flex items-center gap-1"><i class="ph ph-clock-countdown"></i> ${daysInStage === 0 ? 'Hoje' : daysInStage + 'd'} neste estágio${isStuck ? ' — parado!' : ''}</p>` : ''}
                         <div class="flex items-center gap-1 mb-1.5" onclick="event.stopPropagation()">
                             <span class="text-xs font-bold text-[#fbbf24] shrink-0">R$</span>
                             <input type="number" min="0" step="1" value="${c.dealValue || ''}" placeholder="0" onchange="updateLeadDealValue('${c.id}', this.value)" class="w-full bg-transparent border-b border-sant-border focus:border-[#fbbf24] outline-none text-xs font-bold text-[#fbbf24] py-0.5">
@@ -9321,6 +9324,7 @@
             const c = contacts.find(x => x.id === id);
             if (!c) return;
             const wentToLost = stageId === 'perdido' && c.pipelineStage !== 'perdido';
+            if (c.pipelineStage !== stageId) c.stageEnteredAt = new Date().toISOString();
             c.pipelineStage = stageId;
             saveToStorage(id);
             renderPipeline();
@@ -11975,6 +11979,8 @@
                 isLead: document.getElementById('contactIsLead').checked,
                 temperature: document.querySelector('input[name="contactTemp"]:checked') ? document.querySelector('input[name="contactTemp"]:checked').value : 'frio',
                 dealValue: parseFloat(document.getElementById('contactDealValue').value) || 0,
+                pipelineStage: existing ? (existing.pipelineStage || 'novo') : 'novo',
+                stageEnteredAt: existing ? (existing.stageEnteredAt || existing.createdAt || new Date().toISOString()) : new Date().toISOString(),
                 photo: document.getElementById('contactPhoto').value.trim(),
                 tags: [...currentContactTags],
                 lists: [...currentContactLists],
@@ -18042,7 +18048,7 @@
                 instagram: c.instagram || '', linkedin: c.linkedin || '',
                 category: c.category || '', "isLead": c.isLead || false,
                 temperature: c.temperature || 'frio', "dealValue": c.dealValue || 0, "totalRevenue": c.totalRevenue || 0,
-                "pipelineStage": c.pipelineStage || 'novo',
+                "pipelineStage": c.pipelineStage || 'novo', "stageEnteredAt": c.stageEnteredAt || null,
                 "communicationConsent": c.communicationConsent || { given: false, channels: [], date: '' },
                 birth: c.birth || '', notes: c.notes || '', origin: c.origin || '',
                 "preferredChannel": c.preferredChannel || '',
