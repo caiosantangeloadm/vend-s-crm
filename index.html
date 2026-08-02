@@ -9269,7 +9269,10 @@
                         <select onclick="event.stopPropagation()" onchange="moveLeadToStage('${c.id}', this.value)" class="w-full mt-1 bg-[#0a0a0a] border border-sant-border rounded-md px-2 py-1.5 text-[11px] text-gray-300 outline-none focus:border-sant-purple">
                             ${PIPELINE_STAGES.map(s => `<option value="${s.id}" ${s.id === stage.id ? 'selected' : ''}>${s.label}</option>`).join('')}
                         </select>
-                        <button onclick="event.stopPropagation(); openFollowupTaskFromLead('${c.id}')" class="w-full mt-1.5 flex items-center justify-center gap-1.5 text-[11px] text-sant-cyan hover:text-white border border-sant-cyan/25 hover:bg-sant-cyan/10 rounded-md px-2 py-1.5 transition-colors"><i class="ph ph-check-square"></i> Criar tarefa de follow-up</button>
+                        <div class="flex gap-1.5 mt-1.5">
+                            <button onclick="event.stopPropagation(); openFollowupTaskFromLead('${c.id}')" title="Criar tarefa de follow-up" class="flex-1 flex items-center justify-center gap-1 text-[11px] text-sant-cyan hover:text-white border border-sant-cyan/25 hover:bg-sant-cyan/10 rounded-md px-2 py-1.5 transition-colors"><i class="ph ph-check-square"></i> Tarefa</button>
+                            <button onclick="event.stopPropagation(); openMeetingFromLead('${c.id}')" title="Agendar reunião/ligação" class="flex-1 flex items-center justify-center gap-1 text-[11px] text-sant-purple hover:text-white border border-sant-purple/25 hover:bg-sant-purple/10 rounded-md px-2 py-1.5 transition-colors"><i class="ph ph-calendar-plus"></i> Agenda</button>
+                        </div>
                     </div>`;
                 }).join('') || `<p class="text-[11px] text-gray-700 italic text-center py-4">Nenhum lead aqui</p>`;
 
@@ -21260,6 +21263,19 @@
             populateContactSelect('taskContactId', contactId);
             document.getElementById('taskPriority').value = 'high';
             takeModalSnapshot('taskModal');
+        }
+
+        // Cria compromisso (reunião/ligação) direto de um lead no Pipeline de Vendas
+        function openMeetingFromLead(contactId) {
+            const c = contacts.find(x => x.id === contactId);
+            if (!c) return;
+            openEventModal();
+            document.getElementById('eventTitle').value = `Reunião: ${fullName(c)}`;
+            document.getElementById('eventType').value = 'meeting';
+            currentEventParticipants = [contactId];
+            fillEventParticipantSelect();
+            renderEventParticipants();
+            takeModalSnapshot('eventModal');
         }
         function renderTaskCustomFields() {
             const container = document.getElementById('taskCustomFieldsContainer');
