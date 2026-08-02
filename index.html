@@ -1157,6 +1157,25 @@
                     <button id="pipelineClearFilters" onclick="clearPipelineFilters()" class="hidden text-xs text-gray-500 hover:text-red-400 transition-colors flex items-center gap-1"><i class="ph ph-x-circle"></i> Limpar filtros</button>
                 </div>
 
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                    <div class="bg-sant-surface border border-sant-border rounded-xl p-3">
+                        <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Leads (aberto)</p>
+                        <p id="pipelineMetricOpen" class="text-lg font-bold text-white">0</p>
+                    </div>
+                    <div class="bg-sant-surface border border-sant-border rounded-xl p-3">
+                        <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Taxa de Conversão</p>
+                        <p id="pipelineMetricConversion" class="text-lg font-bold text-green-400">—</p>
+                    </div>
+                    <div class="bg-sant-surface border border-sant-border rounded-xl p-3">
+                        <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Ganhos x Perdidos</p>
+                        <p id="pipelineMetricWonLost" class="text-lg font-bold text-white">0 <span class="text-gray-600">×</span> 0</p>
+                    </div>
+                    <div class="bg-sant-surface border border-sant-border rounded-xl p-3">
+                        <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Ticket Médio (Ganhos)</p>
+                        <p id="pipelineMetricTicket" class="text-lg font-bold text-[#fbbf24]">R$ 0</p>
+                    </div>
+                </div>
+
                 <div id="pipelineBoard" class="flex gap-4 overflow-x-auto pb-4"></div>
             </div>
 
@@ -9205,10 +9224,25 @@
                 .filter(c => !pipelineFilters.category || c.category === pipelineFilters.category)
                 .filter(c => !pipelineFilters.origin || c.origin === pipelineFilters.origin);
 
-            const openValue = leads.filter(c => getPipelineStage(c) !== 'ganho' && getPipelineStage(c) !== 'perdido')
-                .reduce((sum, c) => sum + (c.dealValue || 0), 0);
+            const openLeads = leads.filter(c => getPipelineStage(c) !== 'ganho' && getPipelineStage(c) !== 'perdido');
+            const openValue = openLeads.reduce((sum, c) => sum + (c.dealValue || 0), 0);
             const valEl = document.getElementById('pipelineOpenValue');
             if (valEl) valEl.innerText = 'R$ ' + openValue.toLocaleString('pt-BR');
+
+            // Métricas de conversão
+            const wonLeads = leads.filter(c => getPipelineStage(c) === 'ganho');
+            const lostLeads = leads.filter(c => getPipelineStage(c) === 'perdido');
+            const decided = wonLeads.length + lostLeads.length;
+            const conversionRate = decided > 0 ? Math.round((wonLeads.length / decided) * 100) : null;
+            const avgTicket = wonLeads.length ? wonLeads.reduce((s,c) => s + (c.dealValue||0), 0) / wonLeads.length : 0;
+            const mOpen = document.getElementById('pipelineMetricOpen');
+            const mConv = document.getElementById('pipelineMetricConversion');
+            const mWonLost = document.getElementById('pipelineMetricWonLost');
+            const mTicket = document.getElementById('pipelineMetricTicket');
+            if (mOpen) mOpen.innerText = openLeads.length;
+            if (mConv) mConv.innerText = conversionRate === null ? '—' : conversionRate + '%';
+            if (mWonLost) mWonLost.innerHTML = `${wonLeads.length} <span class="text-gray-600">×</span> ${lostLeads.length}`;
+            if (mTicket) mTicket.innerText = 'R$ ' + Math.round(avgTicket).toLocaleString('pt-BR');
 
             board.innerHTML = PIPELINE_STAGES.map(stage => {
                 const stageLeads = leads.filter(c => getPipelineStage(c) === stage.id);
