@@ -9190,7 +9190,10 @@
                             <span class="w-2 h-2 rounded-full shrink-0" style="background:${tempColor}" title="Temperatura: ${c.temperature||'—'}"></span>
                         </div>
                         ${c.company ? `<p class="text-[11px] text-gray-500 truncate mb-1">${c.company}</p>` : ''}
-                        ${c.dealValue ? `<p class="text-xs font-bold text-[#fbbf24] mb-1.5">R$ ${c.dealValue.toLocaleString('pt-BR')}</p>` : ''}
+                        <div class="flex items-center gap-1 mb-1.5" onclick="event.stopPropagation()">
+                            <span class="text-xs font-bold text-[#fbbf24] shrink-0">R$</span>
+                            <input type="number" min="0" step="1" value="${c.dealValue || ''}" placeholder="0" onchange="updateLeadDealValue('${c.id}', this.value)" class="w-full bg-transparent border-b border-sant-border focus:border-[#fbbf24] outline-none text-xs font-bold text-[#fbbf24] py-0.5">
+                        </div>
                         <select onclick="event.stopPropagation()" onchange="moveLeadToStage('${c.id}', this.value)" class="w-full mt-1 bg-[#0a0a0a] border border-sant-border rounded-md px-2 py-1.5 text-[11px] text-gray-300 outline-none focus:border-sant-purple">
                             ${PIPELINE_STAGES.map(s => `<option value="${s.id}" ${s.id === stage.id ? 'selected' : ''}>${s.label}</option>`).join('')}
                         </select>
@@ -9237,6 +9240,13 @@
             document.getElementById('pipeline-col-' + stageId).classList.remove('drag-over');
             const id = event.dataTransfer.getData('text/plain') || draggedPipelineLeadId;
             if (id) moveLeadToStage(id, stageId);
+        }
+        function updateLeadDealValue(id, value) {
+            const c = contacts.find(x => x.id === id);
+            if (!c) return;
+            c.dealValue = parseFloat(value) || 0;
+            saveToStorage(id);
+            renderPipeline();
         }
         function moveLeadToStage(id, stageId) {
             const c = contacts.find(x => x.id === id);
