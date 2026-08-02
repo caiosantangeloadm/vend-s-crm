@@ -1147,6 +1147,16 @@
                     <button onclick="openModal(true)" class="bg-sant-purple text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-purple-500 transition-colors flex items-center gap-2 shrink-0"><i class="ph ph-plus"></i> Novo Lead</button>
                 </div>
 
+                <div class="flex items-center gap-2 mb-4 flex-wrap">
+                    <select id="pipelineFilterCategory" onchange="setPipelineFilter('category', this.value)" class="bg-sant-surface border border-sant-border rounded-lg px-3 py-2 text-xs text-gray-300 outline-none focus:border-sant-purple">
+                        <option value="">Todas as categorias</option>
+                    </select>
+                    <select id="pipelineFilterOrigin" onchange="setPipelineFilter('origin', this.value)" class="bg-sant-surface border border-sant-border rounded-lg px-3 py-2 text-xs text-gray-300 outline-none focus:border-sant-purple">
+                        <option value="">Todas as origens</option>
+                    </select>
+                    <button id="pipelineClearFilters" onclick="clearPipelineFilters()" class="hidden text-xs text-gray-500 hover:text-red-400 transition-colors flex items-center gap-1"><i class="ph ph-x-circle"></i> Limpar filtros</button>
+                </div>
+
                 <div id="pipelineBoard" class="flex gap-4 overflow-x-auto pb-4"></div>
             </div>
 
@@ -9160,15 +9170,40 @@
             { id: 'perdido',     label: 'Perdido',          color: '#f87171' },
         ];
         let draggedPipelineLeadId = null;
+        let pipelineFilters = { category: '', origin: '' };
 
         function getPipelineStage(c) {
             return c.pipelineStage || 'novo';
         }
 
+        function setPipelineFilter(key, value) {
+            pipelineFilters[key] = value;
+            renderPipeline();
+        }
+        function clearPipelineFilters() {
+            pipelineFilters = { category: '', origin: '' };
+            document.getElementById('pipelineFilterCategory').value = '';
+            document.getElementById('pipelineFilterOrigin').value = '';
+            renderPipeline();
+        }
+        function fillPipelineFilterSelects() {
+            const catSel = document.getElementById('pipelineFilterCategory');
+            const orgSel = document.getElementById('pipelineFilterOrigin');
+            if (catSel) catSel.innerHTML = `<option value="">Todas as categorias</option>` +
+                [...categories].sort((a,b) => a.localeCompare(b,'pt-BR')).map(c => `<option value="${c}" ${pipelineFilters.category===c?'selected':''}>${c}</option>`).join('');
+            if (orgSel) orgSel.innerHTML = `<option value="">Todas as origens</option>` +
+                [...origins].sort((a,b) => a.localeCompare(b,'pt-BR')).map(o => `<option value="${o}" ${pipelineFilters.origin===o?'selected':''}>${o}</option>`).join('');
+        }
+
         function renderPipeline() {
             const board = document.getElementById('pipelineBoard');
             if (!board) return;
-            const leads = contacts.filter(c => c.isLead && !c.deletedAt);
+            fillPipelineFilterSelects();
+            const clearBtn = document.getElementById('pipelineClearFilters');
+            if (clearBtn) clearBtn.classList.toggle('hidden', !pipelineFilters.category && !pipelineFilters.origin);
+            const leads = contacts.filter(c => c.isLead && !c.deletedAt)
+                .filter(c => !pipelineFilters.category || c.category === pipelineFilters.category)
+                .filter(c => !pipelineFilters.origin || c.origin === pipelineFilters.origin);
 
             const openValue = leads.filter(c => getPipelineStage(c) !== 'ganho' && getPipelineStage(c) !== 'perdido')
                 .reduce((sum, c) => sum + (c.dealValue || 0), 0);
