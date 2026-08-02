@@ -1144,6 +1144,7 @@
                         <p class="text-[10px] text-gray-500 uppercase tracking-wider">Valor em aberto</p>
                         <p id="pipelineOpenValue" class="text-xl font-bold text-[#fbbf24]">R$ 0</p>
                     </div>
+                    <button onclick="openModal(true)" class="bg-sant-purple text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-purple-500 transition-colors flex items-center gap-2 shrink-0"><i class="ph ph-plus"></i> Novo Lead</button>
                 </div>
 
                 <div id="pipelineBoard" class="flex gap-4 overflow-x-auto pb-4"></div>
@@ -11996,6 +11997,7 @@
             closeModal();
             showToast('Contato salvo com sucesso!');
             if (document.getElementById('view-dashboard').classList.contains('hidden') === false) renderDashboard();
+            if (document.getElementById('view-pipeline').classList.contains('hidden') === false) renderPipeline();
         }
 
         // ── Detecção de duplicidade ──────────────────────────────────────
@@ -19240,11 +19242,11 @@
             });
         }
 
-        function openModal() {
+        function openModal(presetLead = false) {
             document.getElementById('contactForm').reset();
             document.getElementById('contactId').value = '';
-            document.getElementById('contactIsLead').checked = false;
-            document.getElementById('tempContainer').classList.add('hidden');
+            document.getElementById('contactIsLead').checked = presetLead;
+            document.getElementById('tempContainer').classList.toggle('hidden', !presetLead);
             document.getElementById('modalTitle').innerText = 'Novo Contato';
             document.getElementById('contactCode').value = `#${getNextContactCode()}`;
             document.getElementById('btnGoToHistoryFromModal').classList.add('hidden');
