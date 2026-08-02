@@ -1029,6 +1029,7 @@
                             <button onclick="toggleBulkCatMenu()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-300 hover:text-sant-cyan text-xs font-medium transition-colors"><i class="ph ph-tag"></i> Mover categoria <i class="ph ph-caret-down text-[10px]"></i></button>
                             <div id="bulkCatMenu" class="hidden absolute right-0 mt-1 w-48 bg-[#141414] border border-sant-border rounded-xl shadow-2xl z-30 overflow-hidden max-h-56 overflow-y-auto"></div>
                         </div>
+                        <button onclick="bulkMarkAsLead()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sant-purple/10 border border-sant-purple/30 hover:bg-sant-purple/20 text-sant-purple text-xs font-medium transition-colors"><i class="ph ph-kanban"></i> Marcar como Lead</button>
                         <button onclick="bulkDelete()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-400 text-xs font-medium transition-colors"><i class="ph ph-trash"></i> Excluir</button>
                         <button onclick="exitBulkMode()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sant-surface border border-sant-border text-gray-500 hover:text-white text-xs font-medium transition-colors"><i class="ph ph-x"></i> Cancelar</button>
                     </div>
@@ -19170,6 +19171,25 @@
                 showToast(`${n} contato${n>1?'s':''} movido${n>1?'s':''} para "${cat}"!`);
             });
             document.getElementById('bulkCatMenu').classList.add('hidden');
+        }
+
+        function bulkMarkAsLead() {
+            if (!selectedContactIds.size) { showToast('Selecione ao menos um contato.', 'error'); return; }
+            const n = selectedContactIds.size;
+            showConfirm(`Marcar ${n} contato${n>1?'s':''} como Lead?`, 'Eles entrarão no Pipeline de Vendas, na coluna "Novo Lead".', () => {
+                selectedContactIds.forEach(id => {
+                    const c = contacts.find(x => x.id === id);
+                    if (c && !c.isLead) {
+                        c.isLead = true;
+                        if (!c.pipelineStage) c.pipelineStage = 'novo';
+                        if (!c.stageEnteredAt) c.stageEnteredAt = new Date().toISOString();
+                        cloudSyncContact(c);
+                    }
+                });
+                saveToStorage();
+                exitBulkMode();
+                showToast(`${n} contato${n>1?'s':''} marcado${n>1?'s':''} como Lead!`);
+            });
         }
 
         function bulkExportVcf() {
