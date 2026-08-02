@@ -1154,6 +1154,7 @@
                         <p class="text-[10px] text-gray-500 uppercase tracking-wider">Valor em aberto</p>
                         <p id="pipelineOpenValue" class="text-xl font-bold text-[#fbbf24]">R$ 0</p>
                     </div>
+                    <button onclick="exportPipelineCsv()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-3 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 shrink-0" title="Exportar Pipeline em CSV"><i class="ph ph-file-csv"></i></button>
                     <button onclick="openModal(true)" class="bg-sant-purple text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-purple-500 transition-colors flex items-center gap-2 shrink-0"><i class="ph ph-plus"></i> Novo Lead</button>
                 </div>
 
@@ -19387,6 +19388,16 @@
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
             URL.revokeObjectURL(a.href);
             showToast(`${inactive.length} contatos exportados!`);
+        }
+
+        function exportPipelineCsv() {
+            const leads = contacts.filter(c => c.isLead && !c.deletedAt);
+            const rows = leads.map(c => {
+                const stage = PIPELINE_STAGES.find(s => s.id === getPipelineStage(c));
+                const daysInStage = c.stageEnteredAt ? _daysBetween(c.stageEnteredAt.substring(0,10), getSPTodayStr()) : '';
+                return [stage ? stage.label : '', fullName(c), c.company || '', c.temperature || '', c.dealValue || 0, daysInStage, c.origin || ''];
+            });
+            downloadReportCsv(`pipeline_vendas_${getSPTodayStr()}.csv`, ['Estágio', 'Nome', 'Empresa', 'Temperatura', 'Valor', 'Dias no Estágio', 'Origem'], rows);
         }
 
         function exportLeadsCsv() {
