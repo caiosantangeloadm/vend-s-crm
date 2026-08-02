@@ -9207,6 +9207,18 @@
         ];
         let draggedPipelineLeadId = null;
         let pipelineFilters = { category: '', origin: '' };
+        let pipelineWipLimits = JSON.parse(localStorage.getItem('vends_pipeline_wip_limits') || '{}');
+
+        function editPipelineWipLimit(stageId) {
+            const current = pipelineWipLimits[stageId] || '';
+            const input = prompt('Limite máximo de leads nesta coluna (deixe vazio para remover o limite):', current);
+            if (input === null) return;
+            const n = parseInt(input);
+            if (input.trim() === '' || isNaN(n) || n <= 0) delete pipelineWipLimits[stageId];
+            else pipelineWipLimits[stageId] = n;
+            localStorage.setItem('vends_pipeline_wip_limits', JSON.stringify(pipelineWipLimits));
+            renderPipeline();
+        }
 
         function getPipelineStage(c) {
             return c.pipelineStage || 'novo';
@@ -9293,8 +9305,10 @@
                     </div>`;
                 }).join('') || `<p class="text-[11px] text-gray-700 italic text-center py-4">Nenhum lead aqui</p>`;
 
+                const wipLimit = pipelineWipLimits[stage.id];
+                const overLimit = wipLimit && stageLeads.length > wipLimit;
                 return `
-                <div id="pipeline-col-${stage.id}" class="pipeline-col w-72 shrink-0 flex flex-col bg-sant-surface border border-sant-border rounded-xl overflow-hidden"
+                <div id="pipeline-col-${stage.id}" class="pipeline-col w-72 shrink-0 flex flex-col bg-sant-surface border ${overLimit ? 'border-red-500/50' : 'border-sant-border'} rounded-xl overflow-hidden"
                      ondragover="pipelineDragOver(event,'${stage.id}')" ondragleave="pipelineDragLeave('${stage.id}')" ondrop="pipelineDrop(event,'${stage.id}')">
                     <div class="p-3 border-b border-sant-border bg-[#0d0d0d] shrink-0">
                         <div class="flex items-center justify-between mb-1">
@@ -9302,9 +9316,10 @@
                                 <span class="w-2 h-2 rounded-full" style="background:${stage.color}"></span>
                                 <span class="text-xs font-bold uppercase tracking-wider" style="color:${stage.color}">${stage.label}</span>
                             </div>
-                            <span class="text-xs bg-white/5 text-gray-300 px-2 py-0.5 rounded-full font-bold">${stageLeads.length}</span>
+                            <span onclick="editPipelineWipLimit('${stage.id}')" title="Clique para definir um limite de WIP" class="text-xs ${overLimit ? 'bg-red-500/20 text-red-400' : 'bg-white/5 text-gray-300'} px-2 py-0.5 rounded-full font-bold cursor-pointer hover:opacity-80">${stageLeads.length}${wipLimit ? '/' + wipLimit : ''}</span>
                         </div>
                         ${stageValue ? `<p class="text-[11px] text-gray-500">R$ ${stageValue.toLocaleString('pt-BR')}</p>` : ''}
+                        ${overLimit ? `<p class="text-[10px] text-red-400 mt-0.5 flex items-center gap-1"><i class="ph ph-warning"></i> Limite excedido</p>` : ''}
                     </div>
                     <div class="p-2 space-y-2 min-h-[140px] flex-1">${cards}</div>
                 </div>`;
