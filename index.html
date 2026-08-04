@@ -1155,6 +1155,10 @@
                         <p class="text-[10px] text-gray-500 uppercase tracking-wider">Valor em aberto</p>
                         <p id="pipelineOpenValue" class="text-xl font-bold text-[#fbbf24]">R$ 0</p>
                     </div>
+                    <label title="Importar leads via CSV (colunas: Nome, Empresa, Telefone, E-mail, Valor)" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-3 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 shrink-0 cursor-pointer">
+                        <i class="ph ph-upload-simple"></i>
+                        <input type="file" accept=".csv" class="hidden" onchange="importPipelineLeadsCsv(event)">
+                    </label>
                     <button onclick="exportPipelineCsv()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-3 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 shrink-0" title="Exportar Pipeline em CSV"><i class="ph ph-file-csv"></i></button>
                     <button onclick="openModal(true)" class="bg-sant-purple text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-purple-500 transition-colors flex items-center gap-2 shrink-0"><i class="ph ph-plus"></i> Novo Lead</button>
                 </div>
@@ -19430,6 +19434,73 @@
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
             URL.revokeObjectURL(a.href);
             showToast(`${inactive.length} contatos exportados!`);
+        }
+
+        // Importa leads em massa via CSV — formato simples: Nome;Empresa;Telefone;E-mail;Valor
+        function importPipelineLeadsCsv(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                let rows;
+                try { rows = parseCsv(e.target.result); }
+                catch (err) { showToast('Erro ao ler o arquivo CSV.', 'error'); event.target.value = ''; return; }
+                if (rows.length < 2) { showToast('CSV vazio ou sem dados.', 'error'); event.target.value = ''; return; }
+
+                const header = rows[0].map(h => h.trim().toLowerCase());
+                const col = (name) => header.indexOf(name);
+                const idxName = col('nome'), idxCompany = col('empresa'), idxPhone = col('telefone'), idxEmail = col('e-mail'), idxValue = col('valor');
+                if (idxName === -1) {
+                    showToast('CSV precisa ter ao menos a coluna "Nome". Colunas aceitas: Nome, Empresa, Telefone, E-mail, Valor.', 'error');
+                    event.target.value = '';
+                    return;
+                }
+
+                const defaultCategory = categories[0] || 'Outro';
+                const defaultOrigin = origins.indexOf('Outro') !== -1 ? 'Outro' : (origins[0] || '');
+                let imported = 0;
+
+                for (let i = 1; i < rows.length; i++) {
+                    const r = rows[i];
+                    const fullNameRaw = (r[idxName] || '').trim();
+                    if (!fullNameRaw) continue;
+                    const parts = fullNameRaw.split(/\s+/);
+                    const name = parts.shift() || '';
+                    const lastName = parts.join(' ');
+
+                    const contact = {
+                        id: crypto.randomUUID(),
+                        name, lastName,
+                        category: defaultCategory,
+                        origin: defaultOrigin,
+                        company: idxCompany !== -1 ? (r[idxCompany] || '').trim() : '',
+                        phoneProf: idxPhone !== -1 ? formatPhoneDigits(r[idxPhone]) : '',
+                        emailProf: idxEmail !== -1 ? (r[idxEmail] || '').trim() : '',
+                        isLead: true,
+                        temperature: 'frio',
+                        dealValue: idxValue !== -1 ? (parseFloat((r[idxValue]||'0').replace(/[^\d.,]/g,'').replace(',','.')) || 0) : 0,
+                        pipelineStage: 'novo',
+                        stageEnteredAt: new Date().toISOString(),
+                        createdAt: new Date().toISOString(),
+                        code: getNextContactCode() + imported,
+                        tags: [], lists: [], customFields: [], interactions: [], links: [], quickNotes: [],
+                        changeLog: [],
+                    };
+                    contacts.push(contact);
+                    cloudSyncContact(contact);
+                    imported++;
+                }
+
+                saveToStorage();
+                event.target.value = '';
+                if (imported > 0) {
+                    renderPipeline();
+                    showToast(`${imported} lead${imported>1?'s':''} importado${imported>1?'s':''}!`);
+                } else {
+                    showToast('Nenhum lead válido encontrado no CSV.', 'error');
+                }
+            };
+            reader.readAsText(file, 'UTF-8');
         }
 
         function exportPipelineCsv() {
