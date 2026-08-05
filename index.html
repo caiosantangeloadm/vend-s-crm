@@ -1192,6 +1192,24 @@
                     </div>
                 </div>
 
+                <div class="bg-sant-surface border border-sant-border rounded-xl p-4 mb-5">
+                    <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+                        <p class="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-2"><i class="ph ph-target text-green-400"></i> Meta de Fechamento do Mês</p>
+                        <button onclick="editPipelineMonthlyGoal()" class="text-[11px] text-gray-500 hover:text-sant-cyan transition-colors flex items-center gap-1"><i class="ph ph-pencil-simple"></i> Definir meta</button>
+                    </div>
+                    <div id="pipelineGoalNoTarget" class="hidden text-xs text-gray-600 italic">Nenhuma meta definida ainda — clique em "Definir meta".</div>
+                    <div id="pipelineGoalBox" class="hidden">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <span id="pipelineGoalWonLabel" class="text-sm text-white font-bold">R$ 0</span>
+                            <span id="pipelineGoalTargetLabel" class="text-xs text-gray-500">de R$ 0</span>
+                        </div>
+                        <div class="h-2.5 bg-[#1f1f1f] rounded-full overflow-hidden">
+                            <div id="pipelineGoalBar" class="h-full bg-green-500 rounded-full transition-all" style="width:0%"></div>
+                        </div>
+                        <p id="pipelineGoalPct" class="text-[11px] text-gray-500 mt-1.5"></p>
+                    </div>
+                </div>
+
                 <div id="pipelineBoard" class="flex gap-4 overflow-x-auto pb-4"></div>
             </div>
 
@@ -9218,6 +9236,44 @@
         let draggedPipelineLeadId = null;
         let pipelineFilters = { category: '', origin: '' };
         let pipelineWipLimits = JSON.parse(localStorage.getItem('vends_pipeline_wip_limits') || '{}');
+        let pipelineMonthlyGoals = JSON.parse(localStorage.getItem('vends_pipeline_monthly_goals') || '{}');
+
+        function editPipelineMonthlyGoal() {
+            const monthKey = getSPTodayStr().substring(0,7);
+            const current = pipelineMonthlyGoals[monthKey] || '';
+            const input = prompt('Meta de valor fechado (R$) este mês:', current);
+            if (input === null) return;
+            const n = parseFloat(input.replace(/[^\d.,]/g,'').replace(',','.'));
+            if (isNaN(n) || n <= 0) delete pipelineMonthlyGoals[monthKey];
+            else pipelineMonthlyGoals[monthKey] = n;
+            localStorage.setItem('vends_pipeline_monthly_goals', JSON.stringify(pipelineMonthlyGoals));
+            renderPipelineGoal();
+        }
+
+        function renderPipelineGoal() {
+            const monthKey = getSPTodayStr().substring(0,7);
+            const goal = pipelineMonthlyGoals[monthKey];
+            const noTargetEl = document.getElementById('pipelineGoalNoTarget');
+            const boxEl = document.getElementById('pipelineGoalBox');
+            if (!goal) {
+                if (noTargetEl) noTargetEl.classList.remove('hidden');
+                if (boxEl) boxEl.classList.add('hidden');
+                return;
+            }
+            if (noTargetEl) noTargetEl.classList.add('hidden');
+            if (boxEl) boxEl.classList.remove('hidden');
+
+            const wonThisMonth = contacts.filter(c => c.isLead && !c.deletedAt && getPipelineStage(c) === 'ganho'
+                && c.stageEnteredAt && c.stageEnteredAt.substring(0,7) === monthKey)
+                .reduce((sum, c) => sum + (c.dealValue || 0), 0);
+            const pct = Math.min(100, Math.round((wonThisMonth / goal) * 100));
+
+            document.getElementById('pipelineGoalWonLabel').innerText = 'R$ ' + wonThisMonth.toLocaleString('pt-BR');
+            document.getElementById('pipelineGoalTargetLabel').innerText = 'de R$ ' + goal.toLocaleString('pt-BR');
+            document.getElementById('pipelineGoalBar').style.width = pct + '%';
+            document.getElementById('pipelineGoalBar').className = 'h-full rounded-full transition-all ' + (pct >= 100 ? 'bg-green-500' : pct >= 50 ? 'bg-sant-cyan' : 'bg-amber-500');
+            document.getElementById('pipelineGoalPct').innerText = pct >= 100 ? '🎉 Meta batida!' : `${pct}% da meta`;
+        }
 
         function editPipelineWipLimit(stageId) {
             const current = pipelineWipLimits[stageId] || '';
@@ -9257,6 +9313,7 @@
             const board = document.getElementById('pipelineBoard');
             if (!board) return;
             fillPipelineFilterSelects();
+            renderPipelineGoal();
             const clearBtn = document.getElementById('pipelineClearFilters');
             if (clearBtn) clearBtn.classList.toggle('hidden', !pipelineFilters.category && !pipelineFilters.origin);
             const leads = contacts.filter(c => c.isLead && !c.deletedAt)
