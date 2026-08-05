@@ -9247,6 +9247,7 @@
             if (isNaN(n) || n <= 0) delete pipelineMonthlyGoals[monthKey];
             else pipelineMonthlyGoals[monthKey] = n;
             localStorage.setItem('vends_pipeline_monthly_goals', JSON.stringify(pipelineMonthlyGoals));
+            syncPreferencesToSupabase();
             renderPipelineGoal();
         }
 
@@ -9283,6 +9284,7 @@
             if (input.trim() === '' || isNaN(n) || n <= 0) delete pipelineWipLimits[stageId];
             else pipelineWipLimits[stageId] = n;
             localStorage.setItem('vends_pipeline_wip_limits', JSON.stringify(pipelineWipLimits));
+            syncPreferencesToSupabase();
             renderPipeline();
         }
 
@@ -18394,6 +18396,8 @@
                     "automationExecutionLog": automationExecutionLog,
                     "messageSignature": localStorage.getItem('sant_crm_message_signature') || '',
                     "icsFeedToken": icsFeedToken || null,
+                    "pipelineMonthlyGoals": pipelineMonthlyGoals,
+                    "pipelineWipLimits": pipelineWipLimits,
                 };
                 await sb.from('user_preferences').upsert(row, { onConflict: 'user_id' });
                 markSyncSuccess();
@@ -18444,6 +18448,8 @@
                 if (data.automationRules?.length) { automationRules = data.automationRules; migrateAutomationRules(); localStorage.setItem('sant_crm_automations', JSON.stringify(automationRules)); }
                 if (data.messageSignature)          localStorage.setItem('sant_crm_message_signature', data.messageSignature);
                 if (data.savedFilters?.length)      { savedFilters = data.savedFilters; localStorage.setItem('vends_saved_filters', JSON.stringify(savedFilters)); renderSavedFilters(); }
+                if (data.pipelineMonthlyGoals && Object.keys(data.pipelineMonthlyGoals).length) { pipelineMonthlyGoals = data.pipelineMonthlyGoals; localStorage.setItem('vends_pipeline_monthly_goals', JSON.stringify(pipelineMonthlyGoals)); }
+                if (data.pipelineWipLimits && Object.keys(data.pipelineWipLimits).length) { pipelineWipLimits = data.pipelineWipLimits; localStorage.setItem('vends_pipeline_wip_limits', JSON.stringify(pipelineWipLimits)); }
                 {
                     const localResetAt = localStorage.getItem('vends_contact_accesses_reset_at') || '';
                     const cloudResetAt = data.contactAccessesResetAt || '';
@@ -18502,6 +18508,7 @@
                 if (data.bigGoalsPeriod && data.bigGoalsPeriod !== bigGoalsPeriod) { bigGoalsPeriod = data.bigGoalsPeriod; }
                 if (currentView === 'contacts') renderContacts(document.getElementById('searchInput') ? document.getElementById('searchInput').value : '');
                 if (currentView === 'dashboard') renderDashboard();
+                if (currentView === 'pipeline') renderPipeline();
                 // Token do feed .ics: usa o da nuvem se existir; senão gera um na primeira vez
                 if (data.icsFeedToken) { icsFeedToken = data.icsFeedToken; localStorage.setItem('vends_ics_feed_token', icsFeedToken); }
                 else if (!icsFeedToken) { icsFeedToken = generateIcsFeedToken(); localStorage.setItem('vends_ics_feed_token', icsFeedToken); }
