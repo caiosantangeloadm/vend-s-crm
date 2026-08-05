@@ -1601,6 +1601,9 @@
                         <button onclick="copyAllEmails()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors">
                             <i class="ph ph-copy"></i> Copiar Todos E-mails
                         </button>
+                        <button onclick="copyAllPhones()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors">
+                            <i class="ph ph-copy"></i> Copiar Todos Telefones
+                        </button>
                         <button onclick="exportDirectoryCsv()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors">
                             <i class="ph ph-file-csv"></i> Exportar CSV
                         </button>
@@ -19722,6 +19725,25 @@
                 textArea.select();
                 try { document.execCommand('copy'); showToast(`${uniqueEmails.length} e-mails copiados! (Fallback)`); } 
                 catch (err) { showToast('Erro ao copiar e-mails.', 'error'); }
+                document.body.removeChild(textArea);
+            });
+        }
+
+        function copyAllPhones() {
+            const phones = contacts.flatMap(c => [c.phoneProf, c.phonePess, c.phone]).filter(Boolean);
+            const uniquePhones = [...new Set(phones)];
+            if(uniquePhones.length === 0) { showToast('Nenhum telefone encontrado na base.', 'error'); return; }
+
+            const text = uniquePhones.join(', ');
+            navigator.clipboard.writeText(text).then(() => {
+                showToast(`${uniquePhones.length} telefones copiados!`);
+            }).catch(() => {
+                const textArea = document.createElement("textarea");
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                try { document.execCommand('copy'); showToast(`${uniquePhones.length} telefones copiados! (Fallback)`); }
+                catch (err) { showToast('Erro ao copiar telefones.', 'error'); }
                 document.body.removeChild(textArea);
             });
         }
