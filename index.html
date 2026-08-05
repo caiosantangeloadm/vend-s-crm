@@ -9379,10 +9379,11 @@
                     return `
                     <div draggable="true" ondragstart="pipelineDragStart(event,'${c.id}')" ondragend="pipelineDragEnd(event)"
                          class="bg-[#141414] border ${isStuck ? 'border-red-500/40' : 'border-sant-border'} rounded-lg p-3 cursor-grab hover:border-sant-purple/40 transition-colors">
-                        <div onclick="openHistoryModal('${c.id}')" class="flex items-center gap-2 mb-1.5 cursor-pointer">
-                            <div class="w-7 h-7 rounded-full bg-sant-purple/15 text-sant-purple text-[10px] font-bold flex items-center justify-center shrink-0">${initials}</div>
-                            <p class="text-sm font-semibold text-white truncate flex-1">${fullName(c)}</p>
+                        <div class="flex items-center gap-2 mb-1.5">
+                            <div onclick="openHistoryModal('${c.id}')" class="w-7 h-7 rounded-full bg-sant-purple/15 text-sant-purple text-[10px] font-bold flex items-center justify-center shrink-0 cursor-pointer">${initials}</div>
+                            <p onclick="openHistoryModal('${c.id}')" class="text-sm font-semibold text-white truncate flex-1 cursor-pointer">${fullName(c)}</p>
                             <span class="w-2 h-2 rounded-full shrink-0" style="background:${tempColor}" title="Temperatura: ${c.temperature||'—'}"></span>
+                            <button onclick="event.stopPropagation(); removeLeadFromPipeline('${c.id}')" title="Remover do Pipeline (mantém o contato)" class="text-gray-600 hover:text-red-400 transition-colors shrink-0"><i class="ph ph-x text-xs"></i></button>
                         </div>
                         ${c.company ? `<p class="text-[11px] text-gray-500 truncate mb-1">${c.company}</p>` : ''}
                         ${daysInStage !== null ? `<p class="text-[10px] ${isStuck ? 'text-red-400' : 'text-gray-600'} mb-1 flex items-center gap-1"><i class="ph ph-clock-countdown"></i> ${daysInStage === 0 ? 'Hoje' : daysInStage + 'd'} neste estágio${isStuck ? ' — parado!' : ''}</p>` : ''}
@@ -9449,6 +9450,16 @@
             document.getElementById('pipeline-col-' + stageId).classList.remove('drag-over');
             const id = event.dataTransfer.getData('text/plain') || draggedPipelineLeadId;
             if (id) moveLeadToStage(id, stageId);
+        }
+        function removeLeadFromPipeline(id) {
+            const c = contacts.find(x => x.id === id);
+            if (!c) return;
+            showConfirm(`Remover ${fullName(c)} do Pipeline?`, 'O contato continua existindo normalmente — só deixa de aparecer como Lead.', () => {
+                c.isLead = false;
+                saveToStorage(id);
+                renderPipeline();
+                showToast('Removido do Pipeline.');
+            });
         }
         function updateLeadDealValue(id, value) {
             const c = contacts.find(x => x.id === id);
