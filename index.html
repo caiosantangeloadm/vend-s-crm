@@ -9393,6 +9393,11 @@
                         <select onclick="event.stopPropagation()" onchange="moveLeadToStage('${c.id}', this.value)" class="w-full mt-1 bg-[#0a0a0a] border border-sant-border rounded-md px-2 py-1.5 text-[11px] text-gray-300 outline-none focus:border-sant-purple">
                             ${PIPELINE_STAGES.map(s => `<option value="${s.id}" ${s.id === stage.id ? 'selected' : ''}>${s.label}</option>`).join('')}
                         </select>
+                        ${stage.id === 'perdido' ? `
+                        <select onclick="event.stopPropagation()" onchange="setLeadLossReason('${c.id}', this.value)" class="w-full mt-1.5 bg-[#0a0a0a] border ${c.lossReason ? 'border-red-500/30' : 'border-sant-border'} rounded-md px-2 py-1.5 text-[11px] text-red-300 outline-none focus:border-red-400">
+                            <option value="">Motivo da perda...</option>
+                            ${Object.entries(LOSS_REASON_LABELS).map(([key, label]) => `<option value="${key}" ${c.lossReason === key ? 'selected' : ''}>${label}</option>`).join('')}
+                        </select>` : ''}
                         <div class="flex gap-1.5 mt-1.5">
                             <button onclick="event.stopPropagation(); openFollowupTaskFromLead('${c.id}')" title="Criar tarefa de follow-up" class="flex-1 flex items-center justify-center gap-1 text-[11px] text-sant-cyan hover:text-white border border-sant-cyan/25 hover:bg-sant-cyan/10 rounded-md px-2 py-1.5 transition-colors"><i class="ph ph-check-square"></i> Tarefa</button>
                             <button onclick="event.stopPropagation(); openMeetingFromLead('${c.id}')" title="Agendar reunião/ligação" class="flex-1 flex items-center justify-center gap-1 text-[11px] text-sant-purple hover:text-white border border-sant-purple/25 hover:bg-sant-purple/10 rounded-md px-2 py-1.5 transition-colors"><i class="ph ph-calendar-plus"></i> Agenda</button>
@@ -9485,8 +9490,7 @@
                 showToast(`🎉 Negócio fechado com ${fullName(c)}! Parabéns!`);
             }
             if (wentToLost && !c.lossReason) {
-                showToast('Lead movido para Perdido — abra o histórico dele para registrar o motivo.');
-                openHistoryModal(id);
+                showToast('Lead movido para Perdido — selecione o motivo no card.');
             }
         }
 
@@ -24253,6 +24257,13 @@
             c.totalRevenue = parseFloat(value) || 0;
             saveToStorage(c.id);
             showToast('Valor total atualizado.');
+        }
+        function setLeadLossReason(id, value) {
+            const c = contacts.find(x => x.id === id);
+            if (!c) return;
+            c.lossReason = value;
+            saveToStorage(id);
+            showToast(value ? 'Motivo registrado.' : 'Motivo removido.');
         }
         function setLossReason(value) {
             if (!currentHistoryContactId) return;
