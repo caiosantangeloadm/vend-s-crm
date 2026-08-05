@@ -9766,6 +9766,13 @@
             // Inline: italic *text* or _text_
             s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
             s = s.replace(/_(.+?)_/g, '<em>$1</em>');
+            // Backlink: [[Título da Nota]] — vira link clicável se a nota existir
+            s = s.replace(/\[\[(.+?)\]\]/g, (m, title) => {
+                const target = notes.find(n => !n.deletedAt && (n.title||'').trim().toLowerCase() === title.trim().toLowerCase());
+                return target
+                    ? `<span onclick="event.stopPropagation(); startEditNote('${target.id}')" class="text-sant-cyan hover:underline cursor-pointer font-medium">${title}</span>`
+                    : `<span class="text-gray-600" title="Nota não encontrada">[[${title}]]</span>`;
+            });
             // Line breaks (preserve newlines outside list items)
             s = s.replace(/\n/g, '<br>');
             // Clean up <br> inside <ul> tags
@@ -10286,6 +10293,22 @@
             const n = notes.find(x => x.id === id);
             if (n) { n.color = color; n.updatedAt = new Date().toISOString(); saveNotesToStorage(); cloudSyncNote(n); renderNotes(); }
         }
+        // Backlinks: notas que citam esta (via [[Título]]) no corpo do texto
+        function renderNoteBacklinksHtml(n) {
+            if (!n.title) return '';
+            const titleLower = n.title.trim().toLowerCase();
+            const refPattern = new RegExp('\\[\\[\\s*' + titleLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*\\]\\]', 'i');
+            const backlinks = notes.filter(x => x.id !== n.id && !x.deletedAt && refPattern.test(x.body || ''));
+            if (!backlinks.length) return '';
+            return `
+                <div class="mb-2 pt-2 border-t border-sant-border">
+                    <p class="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 flex items-center gap-1"><i class="ph ph-link"></i> Mencionada em ${backlinks.length}</p>
+                    <div class="flex flex-wrap gap-1.5">
+                        ${backlinks.map(x => `<span onclick="event.stopPropagation(); startEditNote('${x.id}')" class="px-2 py-0.5 rounded-full bg-sant-cyan/10 border border-sant-cyan/25 text-sant-cyan text-[11px] cursor-pointer hover:bg-sant-cyan/20 transition-colors">${x.title || '(sem título)'}</span>`).join('')}
+                    </div>
+                </div>`;
+        }
+
         function startEditNote(id) {
             const n = notes.find(x => x.id === id);
             if (!n) return;
@@ -10309,6 +10332,8 @@
                         onkeydown="if(event.key==='Enter'){event.preventDefault();addEditNoteTag('${id}')}">
                     <button type="button" onclick="addEditNoteTag('${id}')" class="bg-sant-purple/20 hover:bg-sant-purple text-sant-purple hover:text-white px-3 py-1.5 rounded-lg text-xs transition-colors border border-sant-purple/30 shrink-0"><i class="ph ph-plus"></i></button>
                 </div>
+                <p class="text-[10px] text-gray-600 mb-2">Dica: cite outra nota com <code class="text-gray-500">[[Título da Nota]]</code></p>
+                ${renderNoteBacklinksHtml(n)}
                 <div class="mb-2">
                     <div id="noteAttachmentsList-${id}" class="space-y-1.5 mb-1.5"></div>
                     <label id="noteAttachUploadLabel-${id}" class="flex items-center gap-1.5 text-xs text-gray-400 hover:text-sant-cyan cursor-pointer transition-colors w-fit">
