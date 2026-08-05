@@ -1646,7 +1646,11 @@
                 <!-- Relatório de Funil de Vendas (Pipeline) -->
                 <div id="report-pipelinefunnel" class="report-content hidden flex flex-col">
                     <div id="pipelineFunnelSummary" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 shrink-0"></div>
-                    <div id="pipelineFunnelBars" class="bg-sant-surface border border-sant-border rounded-2xl p-5 space-y-3 pb-10"></div>
+                    <div id="pipelineFunnelBars" class="bg-sant-surface border border-sant-border rounded-2xl p-5 space-y-3 mb-6 shrink-0"></div>
+                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-5 pb-10">
+                        <p class="text-xs font-bold text-white uppercase tracking-wide mb-3 flex items-center gap-2"><i class="ph ph-hourglass text-sant-cyan"></i> Tempo Médio por Estágio</p>
+                        <div id="pipelineAvgTimeBars"></div>
+                    </div>
                 </div>
 
                 <!-- Relatório de Inatividade -->
@@ -9448,7 +9452,12 @@
             const oldStageSnapshot = { ...c };
             const wentToLost = stageId === 'perdido' && c.pipelineStage !== 'perdido';
             const wentToWon = stageId === 'ganho' && c.pipelineStage !== 'ganho';
-            if (c.pipelineStage !== stageId) c.stageEnteredAt = new Date().toISOString();
+            if (c.pipelineStage !== stageId) {
+                const now = new Date().toISOString();
+                c.stageEnteredAt = now;
+                if (!c.stageHistory) c.stageHistory = [];
+                c.stageHistory.push({ stage: stageId, enteredAt: now });
+            }
             c.pipelineStage = stageId;
             saveToStorage(id);
             runAutomationsForContact(oldStageSnapshot, c);
@@ -12111,6 +12120,7 @@
                 dealValue: parseFloat(document.getElementById('contactDealValue').value) || 0,
                 pipelineStage: existing ? (existing.pipelineStage || 'novo') : 'novo',
                 stageEnteredAt: existing ? (existing.stageEnteredAt || existing.createdAt || new Date().toISOString()) : new Date().toISOString(),
+                stageHistory: existing ? (existing.stageHistory || []) : [{ stage: 'novo', enteredAt: new Date().toISOString() }],
                 photo: document.getElementById('contactPhoto').value.trim(),
                 tags: [...currentContactTags],
                 lists: [...currentContactLists],
@@ -17317,6 +17327,33 @@
                         </div>
                     </div>`;
                 }).join('');
+
+            // Tempo médio por estágio — usa o histórico de transições (stageHistory)
+            const durationsByStage = {};
+            PIPELINE_STAGES.forEach(s => durationsByStage[s.id] = []);
+            leads.forEach(c => {
+                const hist = c.stageHistory || [];
+                for (let i = 0; i < hist.length - 1; i++) {
+                    const days = (new Date(hist[i+1].enteredAt) - new Date(hist[i].enteredAt)) / 86400000;
+                    if (days >= 0 && durationsByStage[hist[i].stage]) durationsByStage[hist[i].stage].push(days);
+                }
+            });
+            const avgTimeBox = document.getElementById('pipelineAvgTimeBars');
+            if (avgTimeBox) {
+                const rows = PIPELINE_STAGES.filter(s => s.id !== 'ganho' && s.id !== 'perdido').map(s => {
+                    const arr = durationsByStage[s.id];
+                    const avg = arr.length ? (arr.reduce((a,b)=>a+b,0) / arr.length) : null;
+                    return { stage: s, avg, n: arr.length };
+                });
+                const hasData = rows.some(r => r.avg !== null);
+                avgTimeBox.innerHTML = !hasData
+                    ? `<p class="text-xs text-gray-600 italic">Ainda não há dados suficientes (precisa de leads que já passaram por mais de um estágio).</p>`
+                    : rows.map(r => `
+                        <div class="flex items-center justify-between py-1.5 border-b border-sant-border/50 last:border-0">
+                            <span class="text-xs text-gray-300 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full" style="background:${r.stage.color}"></span> ${r.stage.label}</span>
+                            <span class="text-xs font-bold ${r.avg === null ? 'text-gray-700' : 'text-white'}">${r.avg === null ? '—' : (r.avg < 1 ? 'menos de 1 dia' : Math.round(r.avg) + ' dia' + (Math.round(r.avg)!==1?'s':''))}</span>
+                        </div>`).join('');
+            }
         }
 
         function generateLeadsReport() {
@@ -18231,6 +18268,7 @@
                 category: c.category || '', "isLead": c.isLead || false,
                 temperature: c.temperature || 'frio', "dealValue": c.dealValue || 0, "totalRevenue": c.totalRevenue || 0,
                 "pipelineStage": c.pipelineStage || 'novo', "stageEnteredAt": c.stageEnteredAt || null,
+                "stageHistory": c.stageHistory || [],
                 "communicationConsent": c.communicationConsent || { given: false, channels: [], date: '' },
                 birth: c.birth || '', notes: c.notes || '', origin: c.origin || '',
                 "preferredChannel": c.preferredChannel || '',
@@ -19565,6 +19603,7 @@
                         dealValue: idxValue !== -1 ? (parseFloat((r[idxValue]||'0').replace(/[^\d.,]/g,'').replace(',','.')) || 0) : 0,
                         pipelineStage: 'novo',
                         stageEnteredAt: new Date().toISOString(),
+                        stageHistory: [{ stage: 'novo', enteredAt: new Date().toISOString() }],
                         createdAt: new Date().toISOString(),
                         code: getNextContactCode() + imported,
                         tags: [], lists: [], customFields: [], interactions: [], links: [], quickNotes: [],
