@@ -9246,6 +9246,23 @@
         let pipelineFilters = { category: '', origin: '' };
         let pipelineWipLimits = JSON.parse(localStorage.getItem('vends_pipeline_wip_limits') || '{}');
         let pipelineMonthlyGoals = JSON.parse(localStorage.getItem('vends_pipeline_monthly_goals') || '{}');
+        let pipelineStageLabels = JSON.parse(localStorage.getItem('vends_pipeline_stage_labels') || '{}');
+        (function applyPipelineStageLabels() {
+            PIPELINE_STAGES.forEach(s => { if (pipelineStageLabels[s.id]) s.label = pipelineStageLabels[s.id]; });
+        })();
+        function renamePipelineStage(stageId) {
+            const stage = PIPELINE_STAGES.find(s => s.id === stageId);
+            if (!stage) return;
+            const input = prompt('Novo nome para este estágio:', stage.label);
+            if (input === null) return;
+            const trimmed = input.trim();
+            if (!trimmed) return;
+            stage.label = trimmed;
+            pipelineStageLabels[stageId] = trimmed;
+            localStorage.setItem('vends_pipeline_stage_labels', JSON.stringify(pipelineStageLabels));
+            syncPreferencesToSupabase();
+            renderPipeline();
+        }
 
         function editPipelineMonthlyGoal() {
             const monthKey = getSPTodayStr().substring(0,7);
@@ -9391,8 +9408,9 @@
                     <div class="p-3 border-b border-sant-border bg-[#0d0d0d] shrink-0">
                         <div class="flex items-center justify-between mb-1">
                             <div class="flex items-center gap-2">
-                                <span class="w-2 h-2 rounded-full" style="background:${stage.color}"></span>
+                                <span class="w-2 h-2 rounded-full shrink-0" style="background:${stage.color}"></span>
                                 <span class="text-xs font-bold uppercase tracking-wider" style="color:${stage.color}">${stage.label}</span>
+                                <button onclick="renamePipelineStage('${stage.id}')" title="Renomear estágio" class="text-gray-600 hover:text-white transition-colors shrink-0"><i class="ph ph-pencil-simple text-[10px]"></i></button>
                             </div>
                             <span onclick="editPipelineWipLimit('${stage.id}')" title="Clique para definir um limite de WIP" class="text-xs ${overLimit ? 'bg-red-500/20 text-red-400' : 'bg-white/5 text-gray-300'} px-2 py-0.5 rounded-full font-bold cursor-pointer hover:opacity-80">${stageLeads.length}${wipLimit ? '/' + wipLimit : ''}</span>
                         </div>
@@ -18448,6 +18466,7 @@
                     "dndUntil": parseInt(localStorage.getItem('vends_dnd_until') || '0'),
                     "calWorkWeekMode": calWorkWeekMode,
                     "dismissedDupPairs": JSON.parse(localStorage.getItem('vends_dismissed_dup_pairs') || '[]'),
+                    "pipelineStageLabels": pipelineStageLabels,
                 };
                 await sb.from('user_preferences').upsert(row, { onConflict: 'user_id' });
                 markSyncSuccess();
@@ -18508,6 +18527,11 @@
                 }
                 if (data.calWorkWeekMode !== undefined && data.calWorkWeekMode !== null) { calWorkWeekMode = data.calWorkWeekMode; localStorage.setItem('vends_cal_workweek', calWorkWeekMode ? '1' : '0'); }
                 if (data.dismissedDupPairs?.length) localStorage.setItem('vends_dismissed_dup_pairs', JSON.stringify(data.dismissedDupPairs));
+                if (data.pipelineStageLabels && Object.keys(data.pipelineStageLabels).length) {
+                    pipelineStageLabels = data.pipelineStageLabels;
+                    localStorage.setItem('vends_pipeline_stage_labels', JSON.stringify(pipelineStageLabels));
+                    PIPELINE_STAGES.forEach(s => { if (pipelineStageLabels[s.id]) s.label = pipelineStageLabels[s.id]; });
+                }
                 {
                     const localResetAt = localStorage.getItem('vends_contact_accesses_reset_at') || '';
                     const cloudResetAt = data.contactAccessesResetAt || '';
