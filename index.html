@@ -5044,16 +5044,19 @@
             hist.unshift(q.trim());
             hist = hist.slice(0, 10); // máximo 10
             localStorage.setItem('vends_search_history', JSON.stringify(hist));
+            syncPreferencesToSupabase();
         }
 
         function removeSearchHistoryItem(q) {
             let hist = JSON.parse(localStorage.getItem('vends_search_history') || '[]');
             hist = hist.filter(x => x !== q);
             localStorage.setItem('vends_search_history', JSON.stringify(hist));
+            syncPreferencesToSupabase();
         }
 
         function clearSearchHistory() {
             localStorage.removeItem('vends_search_history');
+            syncPreferencesToSupabase();
             hideGlobalResults();
         }
 
@@ -6013,12 +6016,14 @@
         function setDnd(minutes) {
             const until = Date.now() + minutes * 60000;
             localStorage.setItem('vends_dnd_until', String(until));
+            syncPreferencesToSupabase();
             const label = minutes >= 1440 ? `até amanhã` : minutes >= 60 ? `por ${Math.round(minutes/60)}h` : `por ${minutes}min`;
             showToast(`🔕 Notificações silenciadas ${label}.`);
             updateDndUI();
         }
         function clearDnd() {
             localStorage.removeItem('vends_dnd_until');
+            syncPreferencesToSupabase();
             showToast('🔔 Notificações reativadas.');
             updateDndUI();
         }
@@ -10996,6 +11001,7 @@
             trackContactAccess(id);
             recentContactIds = [id, ...recentContactIds.filter(x => x !== id)].slice(0, 8);
             localStorage.setItem('vends_recent_contacts', JSON.stringify(recentContactIds));
+            syncPreferencesToSupabase();
             renderRecentContacts();
         }
 
@@ -13492,6 +13498,7 @@
         function toggleWorkWeekMode() {
             calWorkWeekMode = !calWorkWeekMode;
             localStorage.setItem('vends_cal_workweek', calWorkWeekMode ? '1' : '0');
+            syncPreferencesToSupabase();
             updateWorkWeekBtn();
             renderCalendar();
         }
@@ -18398,6 +18405,11 @@
                     "icsFeedToken": icsFeedToken || null,
                     "pipelineMonthlyGoals": pipelineMonthlyGoals,
                     "pipelineWipLimits": pipelineWipLimits,
+                    "searchHistory": JSON.parse(localStorage.getItem('vends_search_history') || '[]'),
+                    "recentContactIds": recentContactIds,
+                    "dndUntil": parseInt(localStorage.getItem('vends_dnd_until') || '0'),
+                    "calWorkWeekMode": calWorkWeekMode,
+                    "dismissedDupPairs": JSON.parse(localStorage.getItem('vends_dismissed_dup_pairs') || '[]'),
                 };
                 await sb.from('user_preferences').upsert(row, { onConflict: 'user_id' });
                 markSyncSuccess();
@@ -18450,6 +18462,14 @@
                 if (data.savedFilters?.length)      { savedFilters = data.savedFilters; localStorage.setItem('vends_saved_filters', JSON.stringify(savedFilters)); renderSavedFilters(); }
                 if (data.pipelineMonthlyGoals && Object.keys(data.pipelineMonthlyGoals).length) { pipelineMonthlyGoals = data.pipelineMonthlyGoals; localStorage.setItem('vends_pipeline_monthly_goals', JSON.stringify(pipelineMonthlyGoals)); }
                 if (data.pipelineWipLimits && Object.keys(data.pipelineWipLimits).length) { pipelineWipLimits = data.pipelineWipLimits; localStorage.setItem('vends_pipeline_wip_limits', JSON.stringify(pipelineWipLimits)); }
+                if (data.searchHistory?.length) localStorage.setItem('vends_search_history', JSON.stringify(data.searchHistory));
+                if (data.recentContactIds?.length) { recentContactIds = data.recentContactIds; localStorage.setItem('vends_recent_contacts', JSON.stringify(recentContactIds)); }
+                if (data.dndUntil) {
+                    const localDnd = parseInt(localStorage.getItem('vends_dnd_until') || '0');
+                    if (data.dndUntil > localDnd) localStorage.setItem('vends_dnd_until', String(data.dndUntil));
+                }
+                if (data.calWorkWeekMode !== undefined && data.calWorkWeekMode !== null) { calWorkWeekMode = data.calWorkWeekMode; localStorage.setItem('vends_cal_workweek', calWorkWeekMode ? '1' : '0'); }
+                if (data.dismissedDupPairs?.length) localStorage.setItem('vends_dismissed_dup_pairs', JSON.stringify(data.dismissedDupPairs));
                 {
                     const localResetAt = localStorage.getItem('vends_contact_accesses_reset_at') || '';
                     const cloudResetAt = data.contactAccessesResetAt || '';
@@ -20363,6 +20383,7 @@
             const dismissed = JSON.parse(localStorage.getItem('vends_dismissed_dup_pairs') || '[]');
             if (!dismissed.includes(key)) dismissed.push(key);
             localStorage.setItem('vends_dismissed_dup_pairs', JSON.stringify(dismissed));
+            syncPreferencesToSupabase();
             showToast('Par ignorado — não vai mais aparecer nesta lista.');
             renderAuditDuplicates();
         }
