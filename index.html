@@ -13268,6 +13268,9 @@
             select.innerHTML = messageTemplates.map(t => `<option value="${t.id}">${t.title}</option>`).join('');
             if (preselectTemplateId && messageTemplates.some(t => t.id === preselectTemplateId)) {
                 select.value = preselectTemplateId;
+            } else if (c.preferredChannel) {
+                const matchByChannel = messageTemplates.find(t => t.channel === c.preferredChannel);
+                if (matchByChannel) select.value = matchByChannel.id;
             }
             document.getElementById('sendMessageModal').classList.remove('hidden');
             loadSendMsgTemplate();
