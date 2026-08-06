@@ -19923,7 +19923,7 @@
                 const trigLabel = (AUTOMATION_TRIGGER_LABELS[r.trigger] || r.trigger) + (r.trigger === 'inactive_days' ? ` (${r.inactiveDays || 30}d)` : '') + (r.trigger === 'tag_added' ? ` "${r.triggerTagName || ''}"` : '') + (r.trigger === 'pipeline_stage' ? ` "${(PIPELINE_STAGES.find(s=>s.id===r.triggerStage)||{}).label || ''}"` : '');
                 const steps = r.steps || [];
                 const stepsSummary = steps.length === 1
-                    ? (steps[0].action === 'add_tag' ? `adiciona etiqueta "${steps[0].tagName}"` : steps[0].action === 'remove_tag' ? `remove etiqueta "${steps[0].tagName}"` : steps[0].action === 'add_to_list' ? `adiciona à lista "${steps[0].listName}"` : `cria tarefa "${steps[0].taskTitle}" (D+${steps[0].daysOffset})`)
+                    ? (steps[0].action === 'add_tag' ? `adiciona etiqueta "${steps[0].tagName}"` : steps[0].action === 'remove_tag' ? `remove etiqueta "${steps[0].tagName}"` : steps[0].action === 'add_to_list' ? `adiciona à lista "${steps[0].listName}"` : steps[0].action === 'change_stage' ? `move para "${(PIPELINE_STAGES.find(s=>s.id===steps[0].stage)||{}).label || steps[0].stage}" no Pipeline` : `cria tarefa "${steps[0].taskTitle}" (D+${steps[0].daysOffset})`)
                     : `${steps.length} etapas (D+${steps.map(s=>s.daysOffset).join(', D+')})`;
                 return `
                 <div class="bg-[#0a0a0a] border border-sant-border rounded-lg p-4">
@@ -19975,7 +19975,7 @@
         let currentAutomationSteps = [];
 
         function addAutomationStep() {
-            currentAutomationSteps.push({ id: crypto.randomUUID(), daysOffset: currentAutomationSteps.length === 0 ? 0 : 3, action: 'create_task', taskTitle: '', taskPriority: 'medium', tagName: '', listName: '' });
+            currentAutomationSteps.push({ id: crypto.randomUUID(), daysOffset: currentAutomationSteps.length === 0 ? 0 : 3, action: 'create_task', taskTitle: '', taskPriority: 'medium', tagName: '', listName: '', stage: 'novo' });
             renderAutomationSteps();
         }
         function removeAutomationStep(idx) {
@@ -20016,10 +20016,18 @@
                                 <option value="add_tag" ${step.action==='add_tag'?'selected':''}>Adicionar etiqueta</option>
                                 <option value="remove_tag" ${step.action==='remove_tag'?'selected':''}>Remover etiqueta</option>
                                 <option value="add_to_list" ${step.action==='add_to_list'?'selected':''}>Adicionar à lista</option>
+                                <option value="change_stage" ${step.action==='change_stage'?'selected':''}>Mudar estágio no Pipeline</option>
                             </select>
                         </div>
                     </div>
-                    ${step.action === 'create_task' ? `
+                    ${step.action === 'change_stage' ? `
+                        <div>
+                            <label class="block text-[10px] text-gray-500 uppercase mb-1">Novo estágio</label>
+                            <select onchange="updateAutomationStep(${i},'stage',this.value)" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sant-cyan">
+                                ${PIPELINE_STAGES.map(s => `<option value="${s.id}" ${step.stage===s.id?'selected':''}>${s.label}</option>`).join('')}
+                            </select>
+                            <p class="text-[10px] text-gray-600 mt-1">Move o contato para este estágio (marca como Lead automaticamente, se ainda não for).</p>
+                        </div>` : step.action === 'create_task' ? `
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
                             <div class="md:col-span-2">
                                 <label class="block text-[10px] text-gray-500 uppercase mb-1">Título da tarefa</label>
@@ -20055,7 +20063,7 @@
             document.getElementById('automationInactiveDays').value = r ? (r.inactiveDays || 30) : 30;
             document.getElementById('automationTriggerTag').value = r ? (r.triggerTagName || '') : '';
             document.getElementById('automationStopIfContacted').checked = r ? (r.stopIfContacted !== false) : true;
-            currentAutomationSteps = r ? (r.steps || []).map(s => ({...s})) : [{ id: crypto.randomUUID(), daysOffset: 0, action: 'create_task', taskTitle: '', taskPriority: 'medium', tagName: '', listName: '' }];
+            currentAutomationSteps = r ? (r.steps || []).map(s => ({...s})) : [{ id: crypto.randomUUID(), daysOffset: 0, action: 'create_task', taskTitle: '', taskPriority: 'medium', tagName: '', listName: '', stage: 'novo' }];
             const listDatalist = document.getElementById('automationListSuggestions');
             if (listDatalist) listDatalist.innerHTML = contactLists.map(l => `<option value="${l}">`).join('');
             renderAutomationSteps();
@@ -20216,6 +20224,22 @@
                 if (currentView === 'contacts') renderContacts();
                 showToast(`⚡ Automação "${rule.name}": ${fullName(contact)} adicionado à lista "${step.listName}"`);
                 logAutomationExecution(rule, contact, `Adicionado à lista "${step.listName}"`);
+                return;
+            }
+            if (step.action === 'change_stage') {
+                if (!step.stage) return;
+                if (!contact.isLead) contact.isLead = true;
+                if (contact.pipelineStage === step.stage) return;
+                const now = new Date().toISOString();
+                if (!contact.stageHistory) contact.stageHistory = [];
+                contact.stageHistory.push({ stage: step.stage, enteredAt: now });
+                contact.stageEnteredAt = now;
+                contact.pipelineStage = step.stage;
+                saveToStorage(contact.id);
+                if (currentView === 'pipeline') renderPipeline();
+                const stageLabel = (PIPELINE_STAGES.find(s => s.id === step.stage) || {}).label || step.stage;
+                showToast(`⚡ Automação "${rule.name}": ${fullName(contact)} movido para "${stageLabel}" no Pipeline`);
+                logAutomationExecution(rule, contact, `Movido para "${stageLabel}" no Pipeline`);
                 return;
             }
             if (step.action !== 'create_task') return;
