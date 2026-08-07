@@ -1176,6 +1176,12 @@
                     <select id="pipelineFilterOrigin" onchange="setPipelineFilter('origin', this.value)" class="bg-sant-surface border border-sant-border rounded-lg px-3 py-2 text-xs text-gray-300 outline-none focus:border-sant-purple">
                         <option value="">Todas as origens</option>
                     </select>
+                    <select id="pipelineSortSelect" onchange="setPipelineSort(this.value)" class="bg-sant-surface border border-sant-border rounded-lg px-3 py-2 text-xs text-gray-300 outline-none focus:border-sant-purple">
+                        <option value="recent">Mais recentes</option>
+                        <option value="value_desc">Maior valor</option>
+                        <option value="value_asc">Menor valor</option>
+                        <option value="stuck">Mais tempo parado</option>
+                    </select>
                     <button id="pipelineClearFilters" onclick="clearPipelineFilters()" class="hidden text-xs text-gray-500 hover:text-red-400 transition-colors flex items-center gap-1"><i class="ph ph-x-circle"></i> Limpar filtros</button>
                 </div>
 
@@ -9268,6 +9274,20 @@
         ];
         let draggedPipelineLeadId = null;
         let pipelineFilters = { category: '', origin: '' };
+        let pipelineSort = localStorage.getItem('vends_pipeline_sort') || 'recent';
+        function setPipelineSort(val) {
+            pipelineSort = val;
+            localStorage.setItem('vends_pipeline_sort', val);
+            renderPipeline();
+        }
+        function sortPipelineLeads(list) {
+            const sorted = [...list];
+            if (pipelineSort === 'value_desc') sorted.sort((a,b) => (b.dealValue||0) - (a.dealValue||0));
+            else if (pipelineSort === 'value_asc') sorted.sort((a,b) => (a.dealValue||0) - (b.dealValue||0));
+            else if (pipelineSort === 'stuck') sorted.sort((a,b) => (a.stageEnteredAt||'') .localeCompare(b.stageEnteredAt||''));
+            else sorted.sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||''));
+            return sorted;
+        }
         let pipelineWipLimits = JSON.parse(localStorage.getItem('vends_pipeline_wip_limits') || '{}');
         let pipelineMonthlyGoals = JSON.parse(localStorage.getItem('vends_pipeline_monthly_goals') || '{}');
         let pipelineStageLabels = JSON.parse(localStorage.getItem('vends_pipeline_stage_labels') || '{}');
@@ -9429,6 +9449,8 @@
             if (!board) return;
             fillPipelineFilterSelects();
             renderPipelineGoal();
+            const sortSelEl = document.getElementById('pipelineSortSelect');
+            if (sortSelEl && sortSelEl.value !== pipelineSort) sortSelEl.value = pipelineSort;
             const clearBtn = document.getElementById('pipelineClearFilters');
             if (clearBtn) clearBtn.classList.toggle('hidden', !pipelineFilters.category && !pipelineFilters.origin);
             const leads = contacts.filter(c => c.isLead && !c.deletedAt)
@@ -9456,7 +9478,7 @@
             if (mTicket) mTicket.innerText = 'R$ ' + Math.round(avgTicket).toLocaleString('pt-BR');
 
             board.innerHTML = PIPELINE_STAGES.map(stage => {
-                const stageLeads = leads.filter(c => getPipelineStage(c) === stage.id);
+                const stageLeads = sortPipelineLeads(leads.filter(c => getPipelineStage(c) === stage.id));
                 const stageValue = stageLeads.reduce((sum, c) => sum + (c.dealValue || 0), 0);
                 const cards = stageLeads.map(c => {
                     const initials = ((c.name||'?').charAt(0) + (c.lastName||'').charAt(0)).toUpperCase();
