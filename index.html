@@ -9474,6 +9474,7 @@
                         </div>
                         ${c.company ? `<p class="text-[11px] text-gray-500 truncate mb-1">${c.company}</p>` : ''}
                         ${c.origin ? `<p class="text-[10px] text-gray-600 mb-1 flex items-center gap-1"><i class="ph ph-funnel"></i> ${c.origin}</p>` : ''}
+                        ${c.nextStep ? `<p class="text-[10px] text-amber-300 mb-1 flex items-center gap-1 truncate" title="Próximo passo: ${c.nextStep}"><i class="ph ph-arrow-circle-right shrink-0"></i> <span class="truncate">${c.nextStep}</span></p>` : ''}
                         ${daysInStage !== null ? `<p class="text-[10px] ${isStuck ? 'text-red-400' : 'text-gray-600'} mb-1 flex items-center gap-1"><i class="ph ph-clock-countdown"></i> ${daysInStage === 0 ? 'Hoje' : daysInStage + 'd'} neste estágio${isStuck ? ' — parado!' : ''}</p>` : ''}
                         <div class="flex items-center gap-1 mb-1.5" onclick="event.stopPropagation()">
                             <span class="text-xs font-bold text-[#fbbf24] shrink-0">R$</span>
