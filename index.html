@@ -9491,6 +9491,7 @@
                         <div class="flex gap-1.5 mt-1.5">
                             <button onclick="event.stopPropagation(); openFollowupTaskFromLead('${c.id}')" title="Criar tarefa de follow-up" class="flex-1 flex items-center justify-center gap-1 text-[11px] text-sant-cyan hover:text-white border border-sant-cyan/25 hover:bg-sant-cyan/10 rounded-md px-2 py-1.5 transition-colors"><i class="ph ph-check-square"></i> Tarefa</button>
                             <button onclick="event.stopPropagation(); openMeetingFromLead('${c.id}')" title="Agendar reunião/ligação" class="flex-1 flex items-center justify-center gap-1 text-[11px] text-sant-purple hover:text-white border border-sant-purple/25 hover:bg-sant-purple/10 rounded-md px-2 py-1.5 transition-colors"><i class="ph ph-calendar-plus"></i> Agenda</button>
+                            <button onclick="event.stopPropagation(); duplicateLeadFromPipeline('${c.id}')" title="Duplicar lead" class="flex items-center justify-center text-[11px] text-gray-400 hover:text-white border border-sant-border hover:bg-white/5 rounded-md px-2 py-1.5 transition-colors"><i class="ph ph-copy"></i></button>
                         </div>
                     </div>`;
                 }).join('') || `<p class="text-[11px] text-gray-700 italic text-center py-4">Nenhum lead aqui</p>`;
@@ -9539,6 +9540,23 @@
             document.getElementById('pipeline-col-' + stageId).classList.remove('drag-over');
             const id = event.dataTransfer.getData('text/plain') || draggedPipelineLeadId;
             if (id) moveLeadToStage(id, stageId);
+        }
+        function duplicateLeadFromPipeline(id) {
+            const c = contacts.find(x => x.id === id);
+            if (!c) return;
+            openModal(true);
+            document.getElementById('contactCategory').value = c.category || '';
+            document.getElementById('contactOrigin').value = c.origin || '';
+            document.getElementById('contactCompany').value = c.company || '';
+            document.getElementById('contactJob').value = c.job || '';
+            document.getElementById('contactDealValue').value = c.dealValue || '';
+            const tempRadio = document.querySelector(`input[name="contactTemp"][value="${c.temperature || 'frio'}"]`);
+            if (tempRadio) tempRadio.checked = true;
+            currentContactTags = c.tags ? [...c.tags] : [];
+            renderContactTagPills();
+            takeModalSnapshot('contactModal');
+            document.getElementById('contactName').focus();
+            showToast('Dados de empresa/categoria/origem copiados — complete o nome e contato.', 'info');
         }
         function removeLeadFromPipeline(id) {
             const c = contacts.find(x => x.id === id);
