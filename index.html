@@ -1069,6 +1069,12 @@
                             </select>
                         </div>
                         <div>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1.5">Estágio Pipeline</label>
+                            <select id="filterPipelineStage" onchange="applyAdvFilters()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none appearance-none">
+                                <option value="">Todos</option>
+                            </select>
+                        </div>
+                        <div>
                             <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1.5">Tag</label>
                             <select id="filterTag" onchange="applyAdvFilters()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none appearance-none">
                                 <option value="">Todas</option>
@@ -4824,7 +4830,7 @@
         let eventTemplates = JSON.parse(localStorage.getItem('sant_crm_event_templates') || '[]');
         let currentPlaybookSteps = [];
         let automationRules = [];
-        let activeFilters = { category: '', isLead: '', temperature: '', tag: '', origin: '', list: '', city: '', state: '', intType: '', intFrom: '', intTo: '' };
+        let activeFilters = { category: '', isLead: '', temperature: '', tag: '', origin: '', list: '', city: '', state: '', intType: '', intFrom: '', intTo: '', pipelineStage: '' };
         let quickFilterNoCategory = false;
         let quickFilterNoOrigin = false;
         let quickFilterNeverContacted = false;
@@ -11191,6 +11197,7 @@
             if (activeFilters.isLead === 'yes') filtered = filtered.filter(c => c.isLead);
             if (activeFilters.isLead === 'no') filtered = filtered.filter(c => !c.isLead);
             if (activeFilters.temperature) filtered = filtered.filter(c => c.isLead && c.temperature === activeFilters.temperature);
+            if (activeFilters.pipelineStage) filtered = filtered.filter(c => c.isLead && (c.pipelineStage || 'novo') === activeFilters.pipelineStage);
             if (activeFilters.tag)    filtered = filtered.filter(c => c.tags && c.tags.includes(activeFilters.tag));
             if (activeFilters.origin) filtered = filtered.filter(c => (c.origin || '') === activeFilters.origin);
             if (activeFilters.list)   filtered = filtered.filter(c => (c.lists || []).includes(activeFilters.list));
@@ -22694,7 +22701,7 @@
         }
 
         function hasActiveFilters() {
-            return activeFilters.category || activeFilters.isLead || activeFilters.temperature || activeFilters.tag || activeFilters.origin || activeFilters.list || activeFilters.city || activeFilters.state || activeFilters.intType;
+            return activeFilters.category || activeFilters.isLead || activeFilters.temperature || activeFilters.tag || activeFilters.origin || activeFilters.list || activeFilters.city || activeFilters.state || activeFilters.intType || activeFilters.pipelineStage;
         }
 
         function setTaskProdPeriod(preset) {
@@ -22848,6 +22855,10 @@
         }
 
         function fillLocationFilters() {
+            const stageEl = document.getElementById('filterPipelineStage');
+            if (stageEl && stageEl.options.length <= 1) {
+                stageEl.innerHTML = '<option value="">Todos</option>' + PIPELINE_STAGES.map(s => `<option value="${s.id}">${s.label}</option>`).join('');
+            }
             // Origens
             const origEl = document.getElementById('filterOrigin');
             if (origEl) {
@@ -22931,6 +22942,7 @@
             activeFilters.intType     = document.getElementById('filterIntType')?.value || '';
             activeFilters.intFrom     = document.getElementById('filterIntFrom')?.value || '';
             activeFilters.intTo       = document.getElementById('filterIntTo')?.value   || '';
+            activeFilters.pipelineStage = document.getElementById('filterPipelineStage')?.value || '';
             const search = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
             renderContacts(search);
             updateSaveFilterBtn();
@@ -22943,8 +22955,8 @@
             quickFilterNoPhone = false;
             quickFilterNoEmail = false;
             quickFilterInactiveDash = false;
-            activeFilters = { category: '', isLead: '', temperature: '', tag: '', origin: '', list: '', city: '', state: '', intType: '', intFrom: '', intTo: '' };
-            ['filterCategory','filterLead','filterTemp','filterTag','filterOrigin','filterList','filterCity','filterState','filterIntType','filterIntFrom','filterIntTo'].forEach(id => {
+            activeFilters = { category: '', isLead: '', temperature: '', tag: '', origin: '', list: '', city: '', state: '', intType: '', intFrom: '', intTo: '', pipelineStage: '' };
+            ['filterCategory','filterLead','filterTemp','filterTag','filterOrigin','filterList','filterCity','filterState','filterIntType','filterIntFrom','filterIntTo','filterPipelineStage'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.value = '';
             });
@@ -22981,8 +22993,8 @@
         }
 
         function clearAdvFilters() {
-            activeFilters = { category: '', isLead: '', temperature: '', tag: '', origin: '', list: '', city: '', state: '', intType: '', intFrom: '', intTo: '' };
-            ['filterCategory','filterLead','filterTemp','filterTag','filterOrigin','filterList','filterCity','filterState','filterIntType','filterIntFrom','filterIntTo'].forEach(id => {
+            activeFilters = { category: '', isLead: '', temperature: '', tag: '', origin: '', list: '', city: '', state: '', intType: '', intFrom: '', intTo: '', pipelineStage: '' };
+            ['filterCategory','filterLead','filterTemp','filterTag','filterOrigin','filterList','filterCity','filterState','filterIntType','filterIntFrom','filterIntTo','filterPipelineStage'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.value = '';
             });
