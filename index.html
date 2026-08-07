@@ -9395,6 +9395,7 @@
                             <button onclick="event.stopPropagation(); removeLeadFromPipeline('${c.id}')" title="Remover do Pipeline (mantém o contato)" class="text-gray-600 hover:text-red-400 transition-colors shrink-0"><i class="ph ph-x text-xs"></i></button>
                         </div>
                         ${c.company ? `<p class="text-[11px] text-gray-500 truncate mb-1">${c.company}</p>` : ''}
+                        ${c.origin ? `<p class="text-[10px] text-gray-600 mb-1 flex items-center gap-1"><i class="ph ph-funnel"></i> ${c.origin}</p>` : ''}
                         ${daysInStage !== null ? `<p class="text-[10px] ${isStuck ? 'text-red-400' : 'text-gray-600'} mb-1 flex items-center gap-1"><i class="ph ph-clock-countdown"></i> ${daysInStage === 0 ? 'Hoje' : daysInStage + 'd'} neste estágio${isStuck ? ' — parado!' : ''}</p>` : ''}
                         <div class="flex items-center gap-1 mb-1.5" onclick="event.stopPropagation()">
                             <span class="text-xs font-bold text-[#fbbf24] shrink-0">R$</span>
