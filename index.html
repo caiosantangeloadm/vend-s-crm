@@ -2138,6 +2138,14 @@
                             </div>
                         </div>
                     </div>
+                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 mt-5">
+                        <div class="flex items-center justify-between mb-5">
+                            <p class="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-2"><i class="ph ph-flag-banner text-sant-cyan"></i> Feriados Personalizados</p>
+                            <button onclick="addCustomHoliday()" class="text-[11px] text-sant-cyan hover:text-white transition-colors flex items-center gap-1"><i class="ph ph-plus"></i> Adicionar</button>
+                        </div>
+                        <p class="text-[11px] text-gray-600 mb-3">Feriados municipais, folgas da empresa etc. — aparecem na Agenda igual aos feriados nacionais.</p>
+                        <div id="customHolidaysList" class="space-y-2"></div>
+                    </div>
                 </div>
 
                 <!-- Painel: Backup -->
@@ -14296,10 +14304,54 @@
         }
         function getBrazilianHoliday(dateStr) {
             if (!dateStr) return null;
+            const custom = getCustomHolidays().find(h => h.date === dateStr || (h.recurring && h.date.substring(5) === dateStr.substring(5)));
+            if (custom) return custom.name;
             const year = parseInt(dateStr.substring(0, 4));
             return getBrazilianHolidaysForYear(year)[dateStr] || null;
         }
         // ── fim Feriados Nacionais ────────────────────────────────────────────
+
+        // ── Feriados Personalizados (municipais, folgas da empresa etc.) ──────
+        function getCustomHolidays() {
+            return JSON.parse(localStorage.getItem('vends_custom_holidays') || '[]');
+        }
+        function saveCustomHolidays(list) {
+            localStorage.setItem('vends_custom_holidays', JSON.stringify(list));
+            syncPreferencesToSupabase();
+        }
+        function addCustomHoliday() {
+            const name = prompt('Nome do feriado/folga:');
+            if (name === null || !name.trim()) return;
+            const date = prompt('Data (AAAA-MM-DD):', getSPTodayStr());
+            if (date === null || !/^\d{4}-\d{2}-\d{2}$/.test(date.trim())) { showToast('Data inválida — use o formato AAAA-MM-DD.', 'error'); return; }
+            const recurring = confirm('Esse feriado se repete todo ano na mesma data? (OK = sim, Cancelar = só este ano)');
+            const list = getCustomHolidays();
+            list.push({ id: crypto.randomUUID(), name: name.trim(), date: date.trim(), recurring });
+            saveCustomHolidays(list);
+            renderCustomHolidaysList();
+            renderCalendar();
+            showToast('Feriado adicionado!');
+        }
+        function removeCustomHoliday(id) {
+            const list = getCustomHolidays().filter(h => h.id !== id);
+            saveCustomHolidays(list);
+            renderCustomHolidaysList();
+            renderCalendar();
+        }
+        function renderCustomHolidaysList() {
+            const box = document.getElementById('customHolidaysList');
+            if (!box) return;
+            const list = getCustomHolidays().sort((a,b) => a.date.localeCompare(b.date));
+            if (!list.length) { box.innerHTML = '<p class="text-xs text-gray-600 italic">Nenhum feriado personalizado ainda.</p>'; return; }
+            box.innerHTML = list.map(h => `
+                <div class="flex items-center justify-between bg-[#0a0a0a] border border-sant-border rounded-lg px-3 py-2">
+                    <div>
+                        <span class="text-sm text-white">${h.name}</span>
+                        <span class="text-xs text-gray-500 ml-2">${h.date.split('-').reverse().join('/')}${h.recurring ? ' (todo ano)' : ''}</span>
+                    </div>
+                    <button onclick="removeCustomHoliday('${h.id}')" class="text-gray-500 hover:text-red-400 transition-colors"><i class="ph ph-trash text-sm"></i></button>
+                </div>`).join('');
+        }
 
         // ── Resumo da Agenda (copiar/WhatsApp) ────────────────────────────────
         let agendaSummaryPeriod = 'today';
@@ -18592,6 +18644,7 @@
                     "dismissedDupPairs": JSON.parse(localStorage.getItem('vends_dismissed_dup_pairs') || '[]'),
                     "pipelineStageLabels": pipelineStageLabels,
                     "pipelineSegmentGoals": pipelineSegmentGoals,
+                    "customHolidays": JSON.parse(localStorage.getItem('vends_custom_holidays') || '[]'),
                 };
                 await sb.from('user_preferences').upsert(row, { onConflict: 'user_id' });
                 markSyncSuccess();
@@ -18658,6 +18711,7 @@
                     PIPELINE_STAGES.forEach(s => { if (pipelineStageLabels[s.id]) s.label = pipelineStageLabels[s.id]; });
                 }
                 if (data.pipelineSegmentGoals && Object.keys(data.pipelineSegmentGoals).length) { pipelineSegmentGoals = data.pipelineSegmentGoals; localStorage.setItem('vends_pipeline_segment_goals', JSON.stringify(pipelineSegmentGoals)); }
+                if (data.customHolidays?.length) { localStorage.setItem('vends_custom_holidays', JSON.stringify(data.customHolidays)); if (currentView === 'calendar') renderCalendar(); }
                 {
                     const localResetAt = localStorage.getItem('vends_contact_accesses_reset_at') || '';
                     const cloudResetAt = data.contactAccessesResetAt || '';
@@ -19952,7 +20006,7 @@
             if (tab === 'eventtypes')  renderSEventTypes();
             if (tab === 'tags')        renderSTags();
             if (tab === 'templates')   renderSTemplates();
-            if (tab === 'blocks')      renderSBlocks();
+            if (tab === 'blocks')      { renderSBlocks(); renderCustomHolidaysList(); }
             if (tab === 'backup')      renderSBackup();
             if (tab === 'security')    renderSSecurity();
             if (tab === 'audit')       renderSAudit();
