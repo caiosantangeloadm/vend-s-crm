@@ -9485,12 +9485,15 @@
                     const tempColor = { quente: '#f87171', morno: '#fbbf24', frio: '#7aafc8' }[c.temperature] || '#6b7280';
                     const daysInStage = c.stageEnteredAt ? _daysBetween(c.stageEnteredAt.substring(0,10), getSPTodayStr()) : null;
                     const isStuck = daysInStage !== null && daysInStage >= 14 && stage.id !== 'ganho' && stage.id !== 'perdido';
+                    const relScore = calcRelScore(c);
+                    const scoreColor = relScore.score >= 70 ? '#4ade80' : relScore.score >= 40 ? '#fbbf24' : '#f87171';
                     return `
                     <div draggable="true" ondragstart="pipelineDragStart(event,'${c.id}')" ondragend="pipelineDragEnd(event)"
                          class="bg-[#141414] border ${isStuck ? 'border-red-500/40' : 'border-sant-border'} rounded-lg p-3 cursor-grab hover:border-sant-purple/40 transition-colors">
                         <div class="flex items-center gap-2 mb-1.5">
                             <div onclick="openHistoryModal('${c.id}')" class="w-7 h-7 rounded-full bg-sant-purple/15 text-sant-purple text-[10px] font-bold flex items-center justify-center shrink-0 cursor-pointer">${initials}</div>
                             <p onclick="openHistoryModal('${c.id}')" class="text-sm font-semibold text-white truncate flex-1 cursor-pointer">${fullName(c)}</p>
+                            <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0" style="color:${scoreColor};background:${scoreColor}18;border:1px solid ${scoreColor}30" title="Score de relacionamento: ${relScore.score}/100">${relScore.score}</span>
                             <span class="w-2 h-2 rounded-full shrink-0" style="background:${tempColor}" title="Temperatura: ${c.temperature||'—'}"></span>
                             <button onclick="event.stopPropagation(); removeLeadFromPipeline('${c.id}')" title="Remover do Pipeline (mantém o contato)" class="text-gray-600 hover:text-red-400 transition-colors shrink-0"><i class="ph ph-x text-xs"></i></button>
                         </div>
