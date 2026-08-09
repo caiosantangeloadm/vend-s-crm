@@ -6501,7 +6501,7 @@
                 title: n.title || '', body: n.body || '',
                 color: n.color || 'default', pinned: n.pinned || false, favorite: n.favorite || false,
                 archived: n.archived || false,
-                "contactId": n.contactId || '', "dueDate": n.dueDate || '', "emailAlert": n.emailAlert || '0',
+                "contactId": n.contactId || '', "dueDate": n.dueDate || '', "reminderRecur": n.reminderRecur || 'none', "emailAlert": n.emailAlert || '0',
                 folder: n.folder || '',
                 "kanbanColumn": n.kanbanColumn || 'inbox',
                 tags: n.tags || [],
@@ -10498,6 +10498,13 @@
                             <i class="ph ph-bell text-sant-cyan"></i>
                             <input type="date" id="editNoteDueDate-${id}" value="${n.dueDate || ''}" class="bg-[#141414] border border-sant-border rounded-lg px-2 py-1 text-xs text-gray-300 outline-none focus:border-sant-cyan transition-colors">
                         </label>
+                        <select id="editNoteReminderRecur-${id}" title="Repetir lembrete" class="bg-[#141414] border border-sant-border rounded-lg px-2 py-1 text-xs text-gray-300 outline-none">
+                            <option value="none" ${(!n.reminderRecur || n.reminderRecur==='none')?'selected':''}>Não repetir</option>
+                            <option value="daily" ${n.reminderRecur==='daily'?'selected':''}>Repetir diariamente</option>
+                            <option value="weekly" ${n.reminderRecur==='weekly'?'selected':''}>Repetir semanalmente</option>
+                            <option value="monthly" ${n.reminderRecur==='monthly'?'selected':''}>Repetir mensalmente</option>
+                            <option value="yearly" ${n.reminderRecur==='yearly'?'selected':''}>Repetir anualmente</option>
+                        </select>
                         <label class="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer" title="Alerta por e-mail">
                             <i class="ph ph-envelope text-sant-cyan"></i>
                             <select id="editNoteEmailAlert-${id}" class="bg-[#141414] border border-sant-border rounded-lg px-2 py-1 text-xs text-gray-300 outline-none">
@@ -10747,6 +10754,7 @@
             n.folder = document.getElementById('editNoteFolder-'+id).value.trim();
             n.tags = [...(editNoteTagsTemp[id] || [])];
             n.dueDate = document.getElementById('editNoteDueDate-'+id).value || '';
+            n.reminderRecur = document.getElementById('editNoteReminderRecur-'+id)?.value || 'none';
             n.emailAlert = document.getElementById('editNoteEmailAlert-'+id)?.value || '0';
             delete editNoteTagsTemp[id];
             delete editNoteChecklistTemp[id];
@@ -10803,7 +10811,8 @@
                           : isToday   ? 'text-[#fbbf24] border-[#fbbf24]/30 bg-[#fbbf24]/10'
                           :             'text-sant-cyan border-sant-cyan/30 bg-sant-cyan/10';
                 const icon = isOverdue ? 'ph-warning-circle' : 'ph-bell';
-                return `<span class="inline-flex items-center gap-1 px-2 py-0.5 mb-2 rounded text-[10px] font-medium border ${cls}"><i class="ph ${icon}"></i> ${isOverdue ? 'Vencida: ' : isToday ? 'Vence hoje: ' : 'Lembrete: '}${label}</span>`;
+                const recurTag = n.reminderRecur && n.reminderRecur !== 'none' ? ` <i class="ph ph-repeat" title="Lembrete recorrente"></i>` : '';
+                return `<span class="inline-flex items-center gap-1 px-2 py-0.5 mb-2 rounded text-[10px] font-medium border ${cls}"><i class="ph ${icon}"></i> ${isOverdue ? 'Vencida: ' : isToday ? 'Vence hoje: ' : 'Lembrete: '}${label}${recurTag}</span>`;
             })() : '';
             const hasChecklist = n.checklist && n.checklist.length > 0;
             const checklistDone = hasChecklist ? n.checklist.filter(it => it.done).length : 0;
@@ -25257,6 +25266,19 @@
                 addNotification('task', `Lembrete de nota`, msg, n.id);
                 showPushNotification('📝 Lembrete de nota', msg, `note-${n.id}`);
                 localStorage.setItem(notifKey, '1');
+                // Lembrete recorrente: avança a data pra próxima ocorrência, sem apagar a nota
+                if (n.reminderRecur && n.reminderRecur !== 'none') {
+                    let next = n.dueDate;
+                    if (n.reminderRecur === 'daily')   next = addDaysToDateStr(n.dueDate, 1);
+                    else if (n.reminderRecur === 'weekly')  next = addDaysToDateStr(n.dueDate, 7);
+                    else if (n.reminderRecur === 'monthly') next = addMonthsToDateStr(n.dueDate, 1);
+                    else if (n.reminderRecur === 'yearly')  next = addMonthsToDateStr(n.dueDate, 12);
+                    n.dueDate = next;
+                    n.updatedAt = new Date().toISOString();
+                    saveNotesToStorage();
+                    cloudSyncNote(n);
+                    if (currentView === 'notes') renderNotes();
+                }
             });
         }
 
