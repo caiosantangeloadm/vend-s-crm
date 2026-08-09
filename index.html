@@ -3317,10 +3317,16 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5 flex items-center gap-1"><i class="ph ph-bell"></i> Lembretes <span class="text-gray-600 normal-case font-normal">(pode marcar mais de um)</span></label>
-                        <input type="hidden" id="taskNotification" value="0">
-                        <div id="taskReminderChips" class="flex flex-wrap gap-1.5"></div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5 flex items-center gap-1"><i class="ph ph-user"></i> Responsável <span class="text-gray-600 normal-case font-normal">(opcional)</span></label>
+                        <input type="text" id="taskResponsible" placeholder="Ex: Ana, Carlos..." list="taskResponsibleSuggestions" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                        <datalist id="taskResponsibleSuggestions"></datalist>
                     </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5 flex items-center gap-1"><i class="ph ph-bell"></i> Lembretes <span class="text-gray-600 normal-case font-normal">(pode marcar mais de um)</span></label>
+                    <input type="hidden" id="taskNotification" value="0">
+                    <div id="taskReminderChips" class="flex flex-wrap gap-1.5"></div>
                 </div>
 
                 <div>
@@ -6249,7 +6255,7 @@
                 id: t.id, user_id: currentUser?.id || null,
                 title: t.title || '', "desc": t.desc || '',
                 date: t.date || '', time: t.time || '', "dueDate": t.dueDate || '',
-                priority: t.priority || 'medium', completed: t.completed || false,
+                priority: t.priority || 'medium', responsible: t.responsible || '', completed: t.completed || false,
                 "completedAt": t.completedAt || '', "kanbanColumn": t.kanbanColumn || 'todo',
                 notification: t.notification || '0', "reminders": t.reminders || [], "notifiedOffsets": t.notifiedOffsets || [], "emailAlert": t.emailAlert || '0', recurrence: t.recurrence || 'none',
                 "recurrenceInterval": t.recurrenceInterval || 1,
@@ -16169,6 +16175,7 @@
                         ${hasChainLink ? `<button onclick="openTaskDependencyModal('${t.id}')" class="text-[11px] text-sant-purple/80 hover:text-sant-purple mt-1 flex items-center gap-1"><i class="ph ph-flow-arrow"></i> Ver cadeia de dependências</button>` : ''}
                         ${isOverdue ? `<p class="text-[11px] text-red-400 mt-1 font-semibold flex items-center gap-1"><i class="ph ph-warning-circle"></i> Vencida — ${dateTimeDisplay}</p>` : (dateTimeDisplay ? `<p class="text-[11px] text-sant-cyan mt-1"><i class="ph ph-calendar-blank"></i> ${dateTimeDisplay}</p>` : '')}
                         ${t.estimatedMinutes ? `<p class="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1"><i class="ph ph-hourglass"></i> Estimado: ${formatEstimate(t.estimatedMinutes)}</p>` : ''}
+                        ${t.responsible ? `<p class="text-[11px] text-sant-purple mt-0.5 flex items-center gap-1"><i class="ph ph-user"></i> ${t.responsible}</p>` : ''}
                         ${t.dueDate && !t.completed ? (() => {
                             const dueFmt = t.dueDate.split('-').reverse().join('/');
                             const overdueDeadline = t.dueDate < todayStr;
@@ -16806,6 +16813,12 @@
             showToast(`${pb.steps.length} tarefa(s) criada(s) a partir do playbook!`);
         }
 
+        function fillTaskResponsibleSuggestions() {
+            const dl = document.getElementById('taskResponsibleSuggestions');
+            if (!dl) return;
+            const names = [...new Set(tasks.map(t => (t.responsible||'').trim()).filter(Boolean))].sort((a,b) => a.localeCompare(b,'pt-BR'));
+            dl.innerHTML = names.map(n => `<option value="${n}">`).join('');
+        }
         function saveTask() {
             const id = document.getElementById('taskId').value;
             const title = document.getElementById('taskTitle').value;
@@ -16820,6 +16833,7 @@
                 time: document.getElementById('taskTime').value,
                 dueDate: document.getElementById('taskDueDate').value,
                 priority: document.getElementById('taskPriority').value,
+                responsible: document.getElementById('taskResponsible').value.trim(),
                 reminders: [...currentTaskReminders].sort((a,b) => a - b),
                 notification: currentTaskReminders.length ? String(Math.min(...currentTaskReminders)) : '0',
                 notifiedOffsets: existingTask ? (existingTask.notifiedOffsets || []) : [],
@@ -16908,6 +16922,8 @@
             document.getElementById('taskTime').value = t.time || '';
             document.getElementById('taskDueDate').value = t.dueDate || '';
             document.getElementById('taskPriority').value = t.priority || 'medium';
+            document.getElementById('taskResponsible').value = t.responsible || '';
+            fillTaskResponsibleSuggestions();
             document.getElementById('taskNotification').value = t.notification || '0';
             currentTaskReminders = (t.reminders && t.reminders.length) ? [...t.reminders] : (t.notification && t.notification !== '0' ? [parseInt(t.notification)] : []);
             renderTaskReminderChips();
@@ -17021,6 +17037,8 @@
             document.getElementById('taskDate').value = t.date || '';
             document.getElementById('taskTime').value = t.time || '';
             document.getElementById('taskPriority').value = t.priority || 'medium';
+            document.getElementById('taskResponsible').value = t.responsible || '';
+            fillTaskResponsibleSuggestions();
             document.getElementById('taskNotification').value = t.notification || '0';
             currentTaskReminders = (t.reminders && t.reminders.length) ? [...t.reminders] : (t.notification && t.notification !== '0' ? [parseInt(t.notification)] : []);
             renderTaskReminderChips();
@@ -21867,6 +21885,8 @@
             document.getElementById('taskTime').value = '';
             document.getElementById('taskDueDate').value = '';
             document.getElementById('taskPriority').value = 'medium';
+            document.getElementById('taskResponsible').value = '';
+            fillTaskResponsibleSuggestions();
             document.getElementById('taskNotification').value = '0';
             currentTaskReminders = [];
             renderTaskReminderChips();
