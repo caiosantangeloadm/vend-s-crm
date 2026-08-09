@@ -1667,6 +1667,14 @@
 
                 <!-- Relatório de Funil de Vendas (Pipeline) -->
                 <div id="report-pipelinefunnel" class="report-content hidden flex flex-col">
+                    <div class="flex justify-end gap-2 mb-4 shrink-0">
+                        <button onclick="exportPipelineFunnelCsv()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors">
+                            <i class="ph ph-file-csv"></i> Exportar CSV
+                        </button>
+                        <button onclick="exportPipelineFunnelPdf()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors">
+                            <i class="ph ph-file-pdf"></i> Exportar PDF
+                        </button>
+                    </div>
                     <div id="pipelineFunnelSummary" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 shrink-0"></div>
                     <div id="pipelineFunnelBars" class="bg-sant-surface border border-sant-border rounded-2xl p-5 space-y-3 mb-6 shrink-0"></div>
                     <div class="bg-sant-surface border border-sant-border rounded-2xl p-5 pb-10">
@@ -17516,6 +17524,21 @@
             cloudSyncContact(c);
             showToast(`Lead adiado por ${n} dia(s) — some dos relatórios até ${c.tempSnoozeUntil.split('-').reverse().join('/')}.`);
             generateLeadsReport();
+        }
+
+        function getPipelineFunnelReportRows() {
+            const leads = contacts.filter(c => c.isLead && !c.deletedAt);
+            return PIPELINE_STAGES.map(s => {
+                const stageLeads = leads.filter(c => getPipelineStage(c) === s.id);
+                const value = stageLeads.reduce((sum,c) => sum + (c.dealValue||0), 0);
+                return [s.label, stageLeads.length, 'R$ ' + value.toLocaleString('pt-BR')];
+            });
+        }
+        function exportPipelineFunnelCsv() {
+            downloadReportCsv(`funil_de_vendas_${getSPTodayStr()}.csv`, ['Estágio', 'Quantidade', 'Valor'], getPipelineFunnelReportRows());
+        }
+        function exportPipelineFunnelPdf() {
+            printReportPdf('Funil de Vendas', ['Estágio', 'Quantidade', 'Valor'], getPipelineFunnelReportRows());
         }
 
         function generatePipelineFunnelReport() {
