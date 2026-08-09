@@ -6507,6 +6507,7 @@
                 tags: n.tags || [],
                 checklist: n.checklist || [],
                 attachments: n.attachments || [],
+                "versionHistory": n.versionHistory || [],
                 "sortOrder": n.sortOrder ?? null,
                 "deletedAt": n.deletedAt || null,
                 "createdAt": n.createdAt || new Date().toISOString(),
@@ -10481,6 +10482,11 @@
                 </div>
                 <p class="text-[10px] text-gray-600 mb-2">Dica: cite outra nota com <code class="text-gray-500">[[Título da Nota]]</code></p>
                 ${renderNoteBacklinksHtml(n)}
+                ${(n.versionHistory && n.versionHistory.length) ? `
+                <div class="mb-2">
+                    <button type="button" onclick="toggleNoteVersionHistory('${id}')" class="flex items-center gap-1.5 text-xs text-gray-400 hover:text-sant-cyan transition-colors mb-1.5"><i class="ph ph-clock-counter-clockwise"></i> Histórico de versões (${n.versionHistory.length})</button>
+                    <div id="noteVersionHistory-${id}" class="hidden space-y-1.5"></div>
+                </div>` : ''}
                 <div class="mb-2">
                     <div id="noteAttachmentsList-${id}" class="space-y-1.5 mb-1.5"></div>
                     <label id="noteAttachUploadLabel-${id}" class="flex items-center gap-1.5 text-xs text-gray-400 hover:text-sant-cyan cursor-pointer transition-colors w-fit">
@@ -10745,11 +10751,48 @@
             renderEditNoteChecklist(id);
             document.getElementById('editNoteChecklistInput-'+id).focus();
         }
+        function toggleNoteVersionHistory(id) {
+            const box = document.getElementById('noteVersionHistory-'+id);
+            if (!box) return;
+            const hidden = box.classList.toggle('hidden');
+            if (hidden) return;
+            const n = notes.find(x => x.id === id);
+            const versions = (n && n.versionHistory) || [];
+            box.innerHTML = versions.map(v => `
+                <div class="bg-[#0a0a0a] border border-sant-border rounded-lg px-3 py-2">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-[10px] text-gray-500">${formatNoteDate(v.savedAt)}</span>
+                        <button type="button" onclick="restoreNoteVersion('${id}','${v.id}')" class="text-[10px] text-sant-cyan hover:text-white transition-colors">Restaurar esta versão</button>
+                    </div>
+                    <p class="text-xs text-gray-400 truncate">${(v.title || '(sem título)')}</p>
+                </div>`).join('');
+        }
+        function restoreNoteVersion(id, versionId) {
+            const n = notes.find(x => x.id === id);
+            if (!n) return;
+            const v = (n.versionHistory || []).find(x => x.id === versionId);
+            if (!v) return;
+            showConfirm('Restaurar esta versão?', 'O conteúdo atual (título e corpo) será substituído pela versão selecionada — isso também vira um novo item no histórico, então nada se perde.', () => {
+                document.getElementById('editNoteTitle-'+id).value = v.title;
+                document.getElementById('editNoteBody-'+id).value = v.body;
+                autoGrowNoteTextarea(document.getElementById('editNoteBody-'+id));
+                updateNoteWordCount('editNoteBody-'+id, 'editNoteWordCount-'+id);
+                showToast('Versão restaurada — clique em Salvar pra confirmar.');
+            });
+        }
         function saveEditNote(id) {
             const n = notes.find(x => x.id === id);
             if (!n) return;
-            n.title = document.getElementById('editNoteTitle-'+id).value.trim();
-            n.body = document.getElementById('editNoteBody-'+id).value.trim();
+            const newTitle = document.getElementById('editNoteTitle-'+id).value.trim();
+            const newBody = document.getElementById('editNoteBody-'+id).value.trim();
+            // Histórico de versões: só grava um snapshot se título ou corpo realmente mudaram
+            if ((n.title || '') !== newTitle || (n.body || '') !== newBody) {
+                if (!n.versionHistory) n.versionHistory = [];
+                n.versionHistory.unshift({ id: crypto.randomUUID(), title: n.title || '', body: n.body || '', savedAt: n.updatedAt || n.createdAt || new Date().toISOString() });
+                if (n.versionHistory.length > 20) n.versionHistory.length = 20;
+            }
+            n.title = newTitle;
+            n.body = newBody;
             n.checklist = (editNoteChecklistTemp[id] || []).filter(it => it.text.trim());
             n.contactId = document.getElementById('editNoteContact-'+id).value || null;
             n.folder = document.getElementById('editNoteFolder-'+id).value.trim();
