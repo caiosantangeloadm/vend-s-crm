@@ -1398,6 +1398,7 @@
                         <button onclick="filterTasks('all')" id="btnFilterAll" class="filter-status-btn px-4 py-1.5 rounded-full bg-sant-cyan text-sant-bg font-semibold text-sm transition-colors">Todas</button>
                         <button onclick="filterTasks('pending')" id="btnFilterPending" class="filter-status-btn px-4 py-1.5 rounded-full border border-sant-border text-gray-400 hover:text-white transition-colors text-sm">Pendentes</button>
                         <button onclick="filterTasks('completed')" id="btnFilterCompleted" class="filter-status-btn px-4 py-1.5 rounded-full border border-sant-border text-gray-400 hover:text-white transition-colors text-sm">Concluídas</button>
+                        <button onclick="filterTasks('someday')" id="btnFilterSomeday" class="filter-status-btn px-4 py-1.5 rounded-full border border-sant-border text-gray-400 hover:text-white transition-colors text-sm flex items-center gap-1.5"><i class="ph ph-lightbulb"></i> Algum Dia</button>
                         <button onclick="filterTasks('archived')" id="btnFilterArchived" class="filter-status-btn px-4 py-1.5 rounded-full border border-sant-border text-gray-400 hover:text-white transition-colors text-sm flex items-center gap-1.5"><i class="ph ph-archive"></i> Arquivadas</button>
                         <button onclick="filterTasks('trash')" id="btnFilterTrash" class="filter-status-btn px-4 py-1.5 rounded-full border border-sant-border text-gray-400 hover:text-red-400 transition-colors text-sm flex items-center gap-1.5"><i class="ph ph-trash"></i> Lixeira</button>
                         <button onclick="toggleTaskFocus()" id="btnTaskFocus" class="px-4 py-1.5 rounded-full border border-[#fbbf24]/40 text-[#fbbf24]/60 hover:text-[#fbbf24] hover:border-[#fbbf24] transition-colors text-sm flex items-center gap-1.5">
@@ -6255,7 +6256,7 @@
                 id: t.id, user_id: currentUser?.id || null,
                 title: t.title || '', "desc": t.desc || '',
                 date: t.date || '', time: t.time || '', "dueDate": t.dueDate || '',
-                priority: t.priority || 'medium', responsible: t.responsible || '', completed: t.completed || false,
+                priority: t.priority || 'medium', responsible: t.responsible || '', someday: t.someday || false, completed: t.completed || false,
                 "completedAt": t.completedAt || '', "kanbanColumn": t.kanbanColumn || 'todo',
                 notification: t.notification || '0', "reminders": t.reminders || [], "notifiedOffsets": t.notifiedOffsets || [], "emailAlert": t.emailAlert || '0', recurrence: t.recurrence || 'none',
                 "recurrenceInterval": t.recurrenceInterval || 1,
@@ -15845,7 +15846,7 @@
             if (waitBtn) waitBtn.className = 'px-4 py-1.5 rounded-full border border-sant-purple/40 text-sant-purple/60 hover:text-sant-purple hover:border-sant-purple transition-colors text-sm flex items-center gap-1.5';
             if (taskViewMode === 'kanban') switchTaskView('list');
             document.querySelectorAll('button[id^="btnFilter"]').forEach(b => { b.className = 'filter-status-btn px-4 py-1.5 rounded-full border border-sant-border text-gray-400 hover:text-white transition-colors text-sm'; });
-            const btn = f==='all'? 'btnFilterAll' : f==='pending'? 'btnFilterPending' : f==='completed' ? 'btnFilterCompleted' : f==='trash' ? 'btnFilterTrash' : 'btnFilterArchived';
+            const btn = f==='all'? 'btnFilterAll' : f==='pending'? 'btnFilterPending' : f==='completed' ? 'btnFilterCompleted' : f==='trash' ? 'btnFilterTrash' : f==='someday' ? 'btnFilterSomeday' : 'btnFilterArchived';
             document.getElementById(btn).className = 'filter-status-btn px-4 py-1.5 rounded-full bg-sant-cyan text-sant-bg font-semibold text-sm transition-colors';
             const searchVal = document.getElementById('taskSearchInput') ? document.getElementById('taskSearchInput').value : '';
             renderTasks(f, searchVal);
@@ -15931,7 +15932,16 @@
                     : emptyState('ph-trash', 'Lixeira vazia', 'Tarefas excluídas aparecem aqui por 30 dias.');
                 return;
             }
-            let filtered = (filter === 'archived' ? tasks.filter(t => t.archived) : tasks.filter(t => !t.archived)).filter(t => !t.deletedAt);
+            if (filter === 'someday') {
+                let someday = tasks.filter(t => t.someday && !t.deletedAt && !t.archived && !t.completed);
+                if (searchTerm) { const term = searchTerm.toLowerCase(); someday = someday.filter(t => t.title.toLowerCase().includes(term)); }
+                someday.sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||''));
+                list.innerHTML = someday.length
+                    ? someday.map(t => taskCardHtml(t, todayStr)).join('')
+                    : emptyState('ph-lightbulb', 'Nenhuma ideia guardada', 'Marque uma tarefa como "Algum Dia / Talvez" pra tirá-la da lista ativa sem perder a ideia.');
+                return;
+            }
+            let filtered = (filter === 'archived' ? tasks.filter(t => t.archived) : tasks.filter(t => !t.archived)).filter(t => !t.deletedAt).filter(t => !t.someday);
             if(filter === 'pending') filtered = filtered.filter(t => !t.completed);
             if(filter === 'completed') filtered = filtered.filter(t => t.completed);
 
@@ -16227,6 +16237,7 @@
                         <div class="flex flex-wrap justify-end gap-1.5 sm:gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onclick="toggleTaskSnoozeMenu('${t.id}')" class="text-gray-400 hover:text-amber-400" title="Adiar tarefa"><i class="ph ph-alarm text-lg"></i></button>
                             <button onclick="toggleTaskWaiting('${t.id}')" class="${t.waiting ? 'text-sant-purple' : 'text-gray-400 hover:text-sant-purple'}" title="${t.waiting ? 'Remover Aguardando Terceiros' : 'Marcar como Aguardando Terceiros'}"><i class="ph ph-hourglass-medium text-lg"></i></button>
+                            <button onclick="toggleTaskSomeday('${t.id}')" class="${t.someday ? 'text-amber-300' : 'text-gray-400 hover:text-amber-300'}" title="${t.someday ? 'Voltar para lista ativa' : 'Guardar em Algum Dia / Talvez'}"><i class="ph ph-lightbulb text-lg"></i></button>
                             ${(!t.completed && t.recurrence && t.recurrence !== 'none') ? `<button onclick="skipTaskOccurrence('${t.id}')" class="text-gray-400 hover:text-orange-400" title="Pular esta ocorrência (avança pra próxima data sem concluir)"><i class="ph ph-skip-forward text-lg"></i></button>` : ''}
                             <button onclick="duplicateTask('${t.id}')" class="text-gray-400 hover:text-sant-cyan" title="Duplicar tarefa"><i class="ph ph-copy text-lg"></i></button>
                             ${t.archived
@@ -16256,6 +16267,22 @@
                 t.waitingNote = note.trim();
                 t.waitingSince = getSPTodayStr();
                 showToast('Tarefa marcada como "Aguardando Terceiros".');
+            }
+            saveTasksToStorage();
+            cloudSyncTask(t);
+            _refreshCurrentTaskView();
+            if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
+        }
+
+        function toggleTaskSomeday(id) {
+            const t = tasks.find(x => x.id === id);
+            if (!t) return;
+            if (t.someday) {
+                t.someday = false;
+                showToast('Tarefa voltou para a lista ativa.');
+            } else {
+                t.someday = true;
+                showToast('Guardada em "Algum Dia / Talvez".');
             }
             saveTasksToStorage();
             cloudSyncTask(t);
