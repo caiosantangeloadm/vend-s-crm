@@ -10466,7 +10466,7 @@
             const hasChecklist = editNoteChecklistTemp[id].length > 0;
             card.innerHTML = `
                 <input type="text" id="editNoteTitle-${id}" value="${(n.title||'').replace(/"/g,'&quot;')}" placeholder="Título" class="w-full bg-transparent border-none outline-none text-white font-bold mb-2 placeholder-gray-600">
-                <textarea id="editNoteBody-${id}" rows="8" placeholder="Nota..." oninput="updateNoteWordCount('editNoteBody-${id}','editNoteWordCount-${id}')" class="w-full bg-transparent border-none outline-none text-sm text-gray-300 placeholder-gray-600 resize-none ${hasChecklist ? 'hidden' : ''}">${n.body||''}</textarea>
+                <textarea id="editNoteBody-${id}" rows="16" placeholder="Nota..." oninput="updateNoteWordCount('editNoteBody-${id}','editNoteWordCount-${id}'); autoGrowNoteTextarea(this)" class="w-full bg-transparent border-none outline-none text-sm text-gray-300 placeholder-gray-600 resize-y min-h-[220px] ${hasChecklist ? 'hidden' : ''}">${n.body||''}</textarea>
                 <p id="editNoteWordCount-${id}" class="${hasChecklist ? 'hidden' : ''} text-[10px] text-gray-600 text-right -mt-1 mb-1"></p>
                 <div id="editNoteChecklistBox-${id}" class="${hasChecklist ? '' : 'hidden'} mb-2"></div>
                 <button type="button" onclick="toggleEditNoteChecklistMode('${id}')" id="editNoteChecklistToggle-${id}" class="mb-2 flex items-center gap-1.5 text-xs ${hasChecklist ? 'text-sant-cyan border-sant-cyan/40' : 'text-gray-400'} hover:text-sant-cyan transition-colors border border-sant-border rounded-lg px-2 py-1.5">
@@ -10526,6 +10526,7 @@
             renderEditNoteTagPills(id);
             if (hasChecklist) renderEditNoteChecklist(id);
             updateNoteWordCount('editNoteBody-'+id, 'editNoteWordCount-'+id);
+            autoGrowNoteTextarea(document.getElementById('editNoteBody-'+id));
             renderNoteAttachments(id);
         }
 
@@ -10947,6 +10948,12 @@
             const words = text ? text.split(/\s+/).length : 0;
             const chars = ta.value.length;
             label.textContent = `${words} palavra${words!==1?'s':''} · ${chars} caractere${chars!==1?'s':''}`;
+        }
+        // Cresce a caixa de texto da nota automaticamente conforme o conteúdo, em vez de ficar espremida
+        function autoGrowNoteTextarea(ta) {
+            if (!ta) return;
+            ta.style.height = 'auto';
+            ta.style.height = ta.scrollHeight + 'px';
         }
         function setNoteFolderFilter(val) {
             noteFolderFilter = val;
