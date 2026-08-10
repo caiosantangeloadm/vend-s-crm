@@ -2873,6 +2873,16 @@
                                         class="w-full bg-[#141414] border border-sant-border rounded-lg pl-9 pr-4 py-2.5 text-sm text-white focus:border-[#fbbf24] outline-none transition-colors">
                                 </div>
                             </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-gray-400 uppercase mb-2">Produtos/Serviços do Negócio (opcional)</label>
+                                <div class="flex gap-2 mb-2">
+                                    <select id="contactPipelineProductSelect" class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#fbbf24]"></select>
+                                    <input type="number" id="contactPipelineProductQty" value="1" min="1" step="1" class="w-16 bg-[#141414] border border-sant-border rounded-lg px-2 py-2 text-sm text-white outline-none focus:border-[#fbbf24]">
+                                    <button type="button" onclick="addContactPipelineProduct()" class="bg-[#fbbf24] text-sant-bg px-3 py-2 rounded-lg text-sm font-bold hover:brightness-95 transition-all shrink-0">Add</button>
+                                </div>
+                                <div id="contactPipelineProductsList" class="space-y-1.5"></div>
+                                <p class="text-[10px] text-gray-600 mt-1">Adicionar itens soma automaticamente ao Valor Potencial acima.</p>
+                            </div>
                         </div>
                     </div>
 
@@ -5013,6 +5023,7 @@
         let currentContactTags = [];
         let currentContactLists = [];
         let currentContactCustomFields = [];
+        let currentContactPipelineProducts = [];
         let currentChecklist = [];
         let currentTaskTags = [];
         // ── Lembretes múltiplos por tarefa ────────────────────────────────
@@ -9691,6 +9702,7 @@
                         </div>
                         ${c.company ? `<p class="text-[11px] text-gray-500 truncate mb-1">${c.company}</p>` : ''}
                         ${c.origin ? `<p class="text-[10px] text-gray-600 mb-1 flex items-center gap-1"><i class="ph ph-funnel"></i> ${c.origin}</p>` : ''}
+                        ${c.pipelineProducts && c.pipelineProducts.length ? `<p class="text-[10px] text-gray-600 mb-1 flex items-center gap-1" title="${c.pipelineProducts.map(it=>`${it.qty}x ${it.name}`).join(', ')}"><i class="ph ph-package"></i> ${c.pipelineProducts.length} ite${c.pipelineProducts.length>1?'ns':'m'} do catálogo</p>` : ''}
                         ${c.nextStep ? `<p class="text-[10px] text-amber-300 mb-1 flex items-center gap-1 truncate" title="Próximo passo: ${c.nextStep}"><i class="ph ph-arrow-circle-right shrink-0"></i> <span class="truncate">${c.nextStep}</span></p>` : ''}
                         ${daysInStage !== null ? `<p class="text-[10px] ${isStuck ? 'text-red-400' : 'text-gray-600'} mb-1 flex items-center gap-1"><i class="ph ph-clock-countdown"></i> ${daysInStage === 0 ? 'Hoje' : daysInStage + 'd'} neste estágio${isStuck ? ' — parado!' : ''}</p>` : ''}
                         <div class="flex items-center gap-1 mb-1.5" onclick="event.stopPropagation()">
@@ -12854,6 +12866,7 @@
                 isLead: document.getElementById('contactIsLead').checked,
                 temperature: document.querySelector('input[name="contactTemp"]:checked') ? document.querySelector('input[name="contactTemp"]:checked').value : 'frio',
                 dealValue: parseFloat(document.getElementById('contactDealValue').value) || 0,
+                pipelineProducts: [...currentContactPipelineProducts],
                 pipelineStage: existing ? (existing.pipelineStage || 'novo') : 'novo',
                 stageEnteredAt: existing ? (existing.stageEnteredAt || existing.createdAt || new Date().toISOString()) : new Date().toISOString(),
                 stageHistory: existing ? (existing.stageHistory || []) : [{ stage: 'novo', enteredAt: new Date().toISOString() }],
@@ -13100,6 +13113,9 @@
             fillContactListOptions();
             currentContactCustomFields = contact.customFields ? contact.customFields.map(f => ({...f})) : [];
             renderContactCustomFields();
+            currentContactPipelineProducts = contact.pipelineProducts ? contact.pipelineProducts.map(f => ({...f})) : [];
+            fillContactPipelineProductSelect();
+            renderContactPipelineProducts();
             takeModalSnapshot('contactModal');
         }
 
@@ -19103,6 +19119,7 @@
                 instagram: c.instagram || '', linkedin: c.linkedin || '',
                 category: c.category || '', "isLead": c.isLead || false,
                 temperature: c.temperature || 'frio', "dealValue": c.dealValue || 0, "totalRevenue": c.totalRevenue || 0,
+                "pipelineProducts": c.pipelineProducts || [],
                 "pipelineStage": c.pipelineStage || 'novo', "stageEnteredAt": c.stageEnteredAt || null,
                 "stageHistory": c.stageHistory || [],
                 "communicationConsent": c.communicationConsent || { given: false, channels: [], date: '' },
@@ -20553,6 +20570,9 @@
             populateContactSelect('contactReferredBy', '');
             currentContactCustomFields = [];
             renderContactCustomFields();
+            currentContactPipelineProducts = [];
+            fillContactPipelineProductSelect();
+            renderContactPipelineProducts();
             previewContactPhoto('');
             document.getElementById('contactModal').classList.remove('hidden');
             takeModalSnapshot('contactModal');
@@ -23812,6 +23832,57 @@
         function removeContactCustomField(index) {
             currentContactCustomFields.splice(index, 1);
             renderContactCustomFields();
+        }
+
+        // ── Produtos/Serviços do Catálogo vinculados ao Negócio (Pipeline) ──
+        function fillContactPipelineProductSelect() {
+            const sel = document.getElementById('contactPipelineProductSelect');
+            if (!sel) return;
+            const activeProducts = products.filter(p => !p.deletedAt && p.active !== false).sort((a,b) => a.name.localeCompare(b.name, 'pt-BR'));
+            if (!activeProducts.length) { sel.innerHTML = '<option value="">Nenhum item ativo no Catálogo</option>'; return; }
+            sel.innerHTML = activeProducts.map(p => `<option value="${p.id}">${p.name} (R$ ${(p.price||0).toLocaleString('pt-BR')})</option>`).join('');
+        }
+        function renderContactPipelineProducts() {
+            const container = document.getElementById('contactPipelineProductsList');
+            if (!container) return;
+            if (!currentContactPipelineProducts.length) {
+                container.innerHTML = '<p class="text-xs text-gray-600 italic">Nenhum item do catálogo vinculado ainda.</p>';
+                return;
+            }
+            container.innerHTML = currentContactPipelineProducts.map((it, i) => `
+                <div class="flex items-center justify-between gap-2 bg-[#141414] border border-sant-border rounded-lg px-3 py-1.5">
+                    <span class="text-xs text-gray-300 truncate">${it.qty}x ${it.name}</span>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <span class="text-xs font-bold text-[#fbbf24]">R$ ${(it.price * it.qty).toLocaleString('pt-BR')}</span>
+                        <button type="button" onclick="removeContactPipelineProduct(${i})" class="text-gray-500 hover:text-red-500"><i class="ph ph-trash"></i></button>
+                    </div>
+                </div>`).join('');
+        }
+        function recalcContactPipelineDealValue() {
+            if (!currentContactPipelineProducts.length) return;
+            const total = currentContactPipelineProducts.reduce((s, it) => s + (it.price * it.qty), 0);
+            const dv = document.getElementById('contactDealValue');
+            if (dv) dv.value = total;
+        }
+        function addContactPipelineProduct() {
+            const sel = document.getElementById('contactPipelineProductSelect');
+            const qtyInput = document.getElementById('contactPipelineProductQty');
+            const productId = sel ? sel.value : '';
+            if (!productId) return;
+            const p = products.find(x => x.id === productId);
+            if (!p) return;
+            const qty = Math.max(1, parseInt(qtyInput.value) || 1);
+            const existing = currentContactPipelineProducts.find(it => it.productId === productId);
+            if (existing) existing.qty += qty;
+            else currentContactPipelineProducts.push({ productId: p.id, name: p.name, price: p.price || 0, qty });
+            renderContactPipelineProducts();
+            recalcContactPipelineDealValue();
+            qtyInput.value = 1;
+        }
+        function removeContactPipelineProduct(index) {
+            currentContactPipelineProducts.splice(index, 1);
+            renderContactPipelineProducts();
+            recalcContactPipelineDealValue();
         }
 
         function addTagToContact() {
