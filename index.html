@@ -326,6 +326,9 @@
             <button onclick="switchView('pipeline')" id="nav-pipeline" class="nav-item tooltip-nav flex items-center justify-center w-full py-4 text-gray-400 hover:text-white transition-colors" data-tip="Pipeline de Vendas">
                 <i class="ph ph-kanban text-2xl"></i>
             </button>
+            <button onclick="switchView('catalog')" id="nav-catalog" class="nav-item tooltip-nav flex items-center justify-center w-full py-4 text-gray-400 hover:text-white transition-colors" data-tip="Catálogo de Produtos & Serviços">
+                <i class="ph ph-package text-2xl"></i>
+            </button>
             <button onclick="switchView('calendar')" id="nav-calendar" class="nav-item tooltip-nav flex items-center justify-center w-full py-4 text-gray-400 hover:text-white transition-colors" data-tip="Agenda">
                 <i class="ph ph-calendar-blank text-2xl"></i>
             </button>
@@ -1230,6 +1233,115 @@
                 </div>
 
                 <div id="pipelineBoard" class="flex gap-4 overflow-x-auto pb-4"></div>
+            </div>
+
+            <!-- ── VIEW CATÁLOGO DE PRODUTOS & SERVIÇOS (V1) ── -->
+            <div id="view-catalog" class="hidden max-w-7xl mx-auto pb-10">
+                <div class="flex items-center gap-4 mb-6 shrink-0 flex-wrap">
+                    <div class="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-2xl border border-amber-500/20"><i class="ph ph-package"></i></div>
+                    <div class="flex-1 min-w-[200px]">
+                        <h2 class="text-2xl font-bold text-white">Catálogo de Produtos & Serviços</h2>
+                        <p class="text-sm text-gray-500">Base pra precificação, custos e futuras vendas</p>
+                    </div>
+                    <button onclick="openProductModal()" class="bg-amber-500 text-sant-bg px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-amber-400 transition-colors flex items-center gap-2 shrink-0"><i class="ph ph-plus"></i> Novo Item</button>
+                </div>
+
+                <div class="flex items-center gap-2 mb-4 flex-wrap">
+                    <select id="catalogFilterType" onchange="renderCatalog()" class="bg-sant-surface border border-sant-border rounded-lg px-3 py-2 text-xs text-gray-300 outline-none focus:border-amber-400">
+                        <option value="">Todos os tipos</option>
+                        <option value="produto">Produto</option>
+                        <option value="servico">Serviço</option>
+                        <option value="curso">Curso</option>
+                        <option value="palestra">Palestra</option>
+                        <option value="treinamento">Treinamento</option>
+                        <option value="mentoria">Mentoria</option>
+                    </select>
+                    <select id="catalogFilterActive" onchange="renderCatalog()" class="bg-sant-surface border border-sant-border rounded-lg px-3 py-2 text-xs text-gray-300 outline-none focus:border-amber-400">
+                        <option value="">Ativos e inativos</option>
+                        <option value="active">Só ativos</option>
+                        <option value="inactive">Só inativos</option>
+                    </select>
+                    <input type="text" id="catalogSearchInput" oninput="renderCatalog()" placeholder="Buscar..." class="bg-sant-surface border border-sant-border rounded-lg px-3 py-2 text-xs text-gray-300 outline-none focus:border-amber-400 flex-1 min-w-[160px]">
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                    <div class="bg-sant-surface border border-sant-border rounded-xl p-3">
+                        <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Itens Ativos</p>
+                        <p id="catalogMetricActive" class="text-lg font-bold text-white">0</p>
+                    </div>
+                    <div class="bg-sant-surface border border-sant-border rounded-xl p-3">
+                        <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Preço Médio</p>
+                        <p id="catalogMetricAvgPrice" class="text-lg font-bold text-[#fbbf24]">R$ 0</p>
+                    </div>
+                    <div class="bg-sant-surface border border-sant-border rounded-xl p-3">
+                        <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Margem Média</p>
+                        <p id="catalogMetricAvgMargin" class="text-lg font-bold text-green-400">—</p>
+                    </div>
+                    <div class="bg-sant-surface border border-sant-border rounded-xl p-3">
+                        <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Valor Total do Catálogo</p>
+                        <p id="catalogMetricTotal" class="text-lg font-bold text-sant-cyan">R$ 0</p>
+                    </div>
+                </div>
+
+                <div id="catalogGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-10"></div>
+            </div>
+
+            <!-- ── MODAL: Produto/Serviço ── -->
+            <div id="productModal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+                <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-5">
+                            <h3 id="productModalTitle" class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-package text-amber-400"></i> Novo Item</h3>
+                            <button onclick="closeProductModal()" class="text-gray-500 hover:text-white"><i class="ph ph-x text-xl"></i></button>
+                        </div>
+                        <input type="hidden" id="productId">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Nome</label>
+                                <input type="text" id="productName" placeholder="Ex: Mentoria de Vendas Individual" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-400">
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Tipo</label>
+                                    <select id="productType" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-400">
+                                        <option value="produto">Produto</option>
+                                        <option value="servico">Serviço</option>
+                                        <option value="curso">Curso</option>
+                                        <option value="palestra">Palestra</option>
+                                        <option value="treinamento">Treinamento</option>
+                                        <option value="mentoria">Mentoria</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Status</label>
+                                    <select id="productActive" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-400">
+                                        <option value="true">Ativo</option>
+                                        <option value="false">Inativo</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Preço de Venda (R$)</label>
+                                    <input type="number" id="productPrice" min="0" step="0.01" placeholder="0,00" oninput="updateProductMarginPreview()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-400">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Custo (R$)</label>
+                                    <input type="number" id="productCost" min="0" step="0.01" placeholder="0,00" oninput="updateProductMarginPreview()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-400">
+                                </div>
+                            </div>
+                            <p id="productMarginPreview" class="text-xs text-gray-500"></p>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Descrição</label>
+                                <textarea id="productDesc" rows="3" placeholder="Detalhes, escopo, o que está incluído..." class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-400 resize-none"></textarea>
+                            </div>
+                        </div>
+                        <div class="flex gap-3 mt-6">
+                            <button onclick="closeProductModal()" class="flex-1 px-4 py-2 rounded-lg border border-sant-border text-gray-400 hover:text-white text-sm transition-colors">Cancelar</button>
+                            <button onclick="saveProduct()" class="flex-1 bg-amber-500 text-sant-bg px-4 py-2 rounded-lg text-sm font-bold hover:bg-amber-400 transition-colors">Salvar</button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div id="view-calendar" class="hidden max-w-6xl mx-auto flex flex-col">
@@ -4794,6 +4906,7 @@
             return html;
         }
         let notes = [];
+        let products = [];
         let newNoteColor = '';
         let newNoteTags = [];
         let editNoteTagsTemp = {};
@@ -6140,6 +6253,7 @@
             tags = JSON.parse(localStorage.getItem('sant_crm_tags') || '[]');
             tagColors = JSON.parse(localStorage.getItem('sant_crm_tag_colors') || '{}');
             notes = JSON.parse(localStorage.getItem('sant_crm_notes') || '[]');
+            products = JSON.parse(localStorage.getItem('sant_crm_products') || '[]');
             notifications = JSON.parse(localStorage.getItem('vends_notifications') || '[]');
             scheduleBlocks = JSON.parse(localStorage.getItem('sant_crm_schedule_blocks') || '[]');
             messageTemplates = JSON.parse(localStorage.getItem('sant_crm_message_templates') || JSON.stringify(defaultMessageTemplates));
@@ -6172,6 +6286,7 @@
                     loadTasksFromSupabase();
                     loadEventsFromSupabase();
                     loadNotesFromSupabase();
+                    loadProductsFromSupabase();
                     await loadPreferencesFromSupabase();
                     cloudPrefsLoaded = true;
                     // Só sincroniza o streak DEPOIS da reconciliação acima terminar — evita
@@ -6411,10 +6526,10 @@
                     if (item.action === 'delete') {
                         await withTimeout(sb.from(item.table).delete().eq('id', item.id), 5000);
                     } else {
-                        const arr = { contacts, tasks, events, notes }[item.table];
+                        const arr = { contacts, tasks, events, notes, products }[item.table];
                         const record = arr?.find(x => x.id === item.id);
                         if (!record) continue; // registro não existe mais localmente, nada a sincronizar
-                        const rowFn = { contacts: contactToRow, tasks: taskToRow, events: eventToRow, notes: noteToRow }[item.table];
+                        const rowFn = { contacts: contactToRow, tasks: taskToRow, events: eventToRow, notes: noteToRow, products: productToRow }[item.table];
                         await withTimeout(sb.from(item.table).upsert(rowFn(record), { onConflict: 'id' }), 5000);
                     }
                 } catch(e) {
@@ -6550,6 +6665,37 @@
                 localStorage.setItem('sant_crm_notes', JSON.stringify(notes));
                 if (currentView === 'notes') renderNotes();
             } catch(e) { console.warn('Notes load:', e.message); }
+        }
+        // ── Catálogo de Produtos & Serviços ─────────────────────────────────
+        function saveProductsToStorage() { localStorage.setItem('sant_crm_products', JSON.stringify(products)); }
+        function productToRow(p) {
+            return {
+                id: p.id, user_id: currentUser?.id || null,
+                name: p.name || '', type: p.type || 'produto',
+                price: p.price || 0, cost: p.cost || 0,
+                description: p.description || '', active: p.active !== false,
+                "deletedAt": p.deletedAt || null,
+                "createdAt": p.createdAt || new Date().toISOString(),
+                "updatedAt": p.updatedAt || new Date().toISOString(),
+            };
+        }
+        async function cloudSyncProduct(p) {
+            const sb = getSB(); if (!sb || !currentUser) return;
+            await syncOrQueue('products', 'upsert', p.id, () => sb.from('products').upsert(productToRow(p), { onConflict: 'id' }));
+        }
+        async function cloudDeleteProduct(id) {
+            const sb = getSB(); if (!sb || !currentUser) return;
+            await syncOrQueue('products', 'delete', id, () => sb.from('products').delete().eq('id', id));
+        }
+        async function loadProductsFromSupabase() {
+            const sb = getSB(); if (!sb || !currentUser) return;
+            try {
+                const { data, error } = await sb.from('products').select('*').order('"createdAt"', { ascending: false });
+                if (error || !data || !data.length) return;
+                products = _mergeCloudData(data, products, 'products');
+                localStorage.setItem('sant_crm_products', JSON.stringify(products));
+                if (currentView === 'catalog') renderCatalog();
+            } catch(e) { console.warn('Products load:', e.message); }
         }
         // ─────────────────────────────────────────────────────────────────────
 
@@ -9259,6 +9405,7 @@
 
             if(viewId === 'contacts') renderContacts();
             if(viewId === 'pipeline') renderPipeline();
+            if(viewId === 'catalog') renderCatalog();
             if(viewId === 'dashboard') renderDashboard();
             if(viewId === 'myweek') renderMyWeek();
             if(viewId === 'feed') renderActivityFeed();
@@ -9651,6 +9798,144 @@
             if (wentToLost && !c.lossReason) {
                 showToast('Lead movido para Perdido — selecione o motivo no card.');
             }
+        }
+
+        // ── Catálogo de Produtos & Serviços (V1) ────────────────────────────
+        const PRODUCT_TYPE_LABELS = { produto: 'Produto', servico: 'Serviço', curso: 'Curso', palestra: 'Palestra', treinamento: 'Treinamento', mentoria: 'Mentoria' };
+        const PRODUCT_TYPE_ICONS  = { produto: 'ph-cube', servico: 'ph-handshake', curso: 'ph-graduation-cap', palestra: 'ph-microphone-stage', treinamento: 'ph-chalkboard-teacher', mentoria: 'ph-compass' };
+
+        function calcProductMargin(price, cost) {
+            price = parseFloat(price) || 0;
+            cost = parseFloat(cost) || 0;
+            const profit = price - cost;
+            const pct = price > 0 ? Math.round((profit / price) * 100) : null;
+            return { profit, pct };
+        }
+
+        function openProductModal(id) {
+            const p = id ? products.find(x => x.id === id) : null;
+            document.getElementById('productId').value = p ? p.id : '';
+            document.getElementById('productModalTitle').innerHTML = p
+                ? '<i class="ph ph-package text-amber-400"></i> Editar Item'
+                : '<i class="ph ph-package text-amber-400"></i> Novo Item';
+            document.getElementById('productName').value = p ? p.name : '';
+            document.getElementById('productType').value = p ? (p.type || 'produto') : 'produto';
+            document.getElementById('productActive').value = p ? String(p.active !== false) : 'true';
+            document.getElementById('productPrice').value = p ? (p.price || '') : '';
+            document.getElementById('productCost').value = p ? (p.cost || '') : '';
+            document.getElementById('productDesc').value = p ? (p.description || '') : '';
+            updateProductMarginPreview();
+            document.getElementById('productModal').classList.remove('hidden');
+        }
+        function closeProductModal() {
+            document.getElementById('productModal').classList.add('hidden');
+        }
+        function updateProductMarginPreview() {
+            const price = document.getElementById('productPrice').value;
+            const cost = document.getElementById('productCost').value;
+            const el = document.getElementById('productMarginPreview');
+            if (!el) return;
+            if (!price) { el.textContent = ''; return; }
+            const { profit, pct } = calcProductMargin(price, cost);
+            el.innerHTML = `Margem: <span class="font-bold ${profit >= 0 ? 'text-green-400' : 'text-red-400'}">R$ ${profit.toLocaleString('pt-BR')}${pct !== null ? ` (${pct}%)` : ''}</span>`;
+        }
+        function saveProduct() {
+            const name = document.getElementById('productName').value.trim();
+            if (!name) { showToast('Dê um nome ao item do catálogo!', 'error'); return; }
+            const id = document.getElementById('productId').value;
+            const existing = id ? products.find(x => x.id === id) : null;
+            const p = {
+                id: id || crypto.randomUUID(),
+                name,
+                type: document.getElementById('productType').value,
+                active: document.getElementById('productActive').value === 'true',
+                price: parseFloat(document.getElementById('productPrice').value) || 0,
+                cost: parseFloat(document.getElementById('productCost').value) || 0,
+                description: document.getElementById('productDesc').value.trim(),
+                createdAt: existing ? (existing.createdAt || new Date().toISOString()) : new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                deletedAt: existing ? (existing.deletedAt || null) : null,
+            };
+            if (existing) {
+                const idx = products.findIndex(x => x.id === id);
+                products[idx] = p;
+            } else {
+                products.push(p);
+            }
+            saveProductsToStorage();
+            cloudSyncProduct(p);
+            closeProductModal();
+            renderCatalog();
+            showToast('Item salvo!');
+        }
+        function deleteProduct(id) {
+            const p = products.find(x => x.id === id);
+            if (!p) return;
+            showConfirm(`Excluir "${p.name}" do catálogo?`, 'Isso não afeta negociações do Pipeline que já usaram esse item.', () => {
+                products = products.filter(x => x.id !== id);
+                saveProductsToStorage();
+                cloudDeleteProduct(id);
+                renderCatalog();
+                showToast('Item excluído.');
+            });
+        }
+        function renderCatalog() {
+            const grid = document.getElementById('catalogGrid');
+            if (!grid) return;
+            const typeFilter = document.getElementById('catalogFilterType')?.value || '';
+            const activeFilter = document.getElementById('catalogFilterActive')?.value || '';
+            const term = (document.getElementById('catalogSearchInput')?.value || '').toLowerCase();
+
+            let list = products.filter(p => !p.deletedAt);
+            if (typeFilter) list = list.filter(p => p.type === typeFilter);
+            if (activeFilter === 'active') list = list.filter(p => p.active !== false);
+            if (activeFilter === 'inactive') list = list.filter(p => p.active === false);
+            if (term) list = list.filter(p => p.name.toLowerCase().includes(term) || (p.description||'').toLowerCase().includes(term));
+            list.sort((a,b) => a.name.localeCompare(b.name, 'pt-BR'));
+
+            const activeItems = products.filter(p => !p.deletedAt && p.active !== false);
+            const avgPrice = activeItems.length ? activeItems.reduce((s,p) => s + (p.price||0), 0) / activeItems.length : 0;
+            const marginPcts = activeItems.map(p => calcProductMargin(p.price, p.cost).pct).filter(x => x !== null);
+            const avgMargin = marginPcts.length ? Math.round(marginPcts.reduce((a,b) => a+b, 0) / marginPcts.length) : null;
+            const totalValue = activeItems.reduce((s,p) => s + (p.price||0), 0);
+            document.getElementById('catalogMetricActive').innerText = activeItems.length;
+            document.getElementById('catalogMetricAvgPrice').innerText = 'R$ ' + Math.round(avgPrice).toLocaleString('pt-BR');
+            document.getElementById('catalogMetricAvgMargin').innerText = avgMargin === null ? '—' : avgMargin + '%';
+            document.getElementById('catalogMetricTotal').innerText = 'R$ ' + totalValue.toLocaleString('pt-BR');
+
+            if (!list.length) {
+                grid.innerHTML = `<div class="col-span-full">${emptyState('ph-package', 'Catálogo vazio', 'Cadastre produtos, serviços, cursos, palestras, treinamentos ou mentorias pra começar.')}</div>`;
+                return;
+            }
+
+            grid.innerHTML = list.map(p => {
+                const { profit, pct } = calcProductMargin(p.price, p.cost);
+                const icon = PRODUCT_TYPE_ICONS[p.type] || 'ph-cube';
+                const typeLabel = PRODUCT_TYPE_LABELS[p.type] || p.type;
+                return `
+                <div class="bg-sant-surface border ${p.active === false ? 'border-sant-border opacity-60' : 'border-sant-border'} rounded-2xl p-5 flex flex-col hover:border-amber-400/40 transition-colors">
+                    <div class="flex items-start justify-between gap-2 mb-2">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <div class="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0"><i class="ph ${icon}"></i></div>
+                            <div class="min-w-0">
+                                <p class="text-sm font-bold text-white truncate">${p.name}</p>
+                                <p class="text-[10px] text-gray-500 uppercase tracking-wide">${typeLabel}${p.active === false ? ' · Inativo' : ''}</p>
+                            </div>
+                        </div>
+                    </div>
+                    ${p.description ? `<p class="text-xs text-gray-500 mb-3 line-clamp-2">${p.description}</p>` : ''}
+                    <div class="mt-auto pt-3 border-t border-sant-border flex items-center justify-between">
+                        <div>
+                            <p class="text-lg font-bold text-[#fbbf24]">R$ ${(p.price||0).toLocaleString('pt-BR')}</p>
+                            ${p.cost ? `<p class="text-[10px] ${profit >= 0 ? 'text-green-400' : 'text-red-400'}">Margem: R$ ${profit.toLocaleString('pt-BR')}${pct !== null ? ` (${pct}%)` : ''}</p>` : ''}
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <button onclick="openProductModal('${p.id}')" class="text-gray-400 hover:text-amber-400 p-1.5" title="Editar"><i class="ph ph-pencil-simple"></i></button>
+                            <button onclick="deleteProduct('${p.id}')" class="text-gray-400 hover:text-red-400 p-1.5" title="Excluir"><i class="ph ph-trash"></i></button>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
         }
 
         // ── Minha Semana (Tarefas + Agenda + Follow-ups em uma visão única) ──
