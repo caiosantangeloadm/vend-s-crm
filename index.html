@@ -24772,6 +24772,7 @@
             const docs = c.documents || [];
             if (docs.length === 0) {
                 box.innerHTML = '<p class="text-xs text-gray-600 italic">Nenhum documento ou proposta cadastrada ainda.</p>';
+                fillContactDocCatalogSelect(c);
                 return;
             }
             const todayStr = getSPTodayStr();
