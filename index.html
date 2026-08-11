@@ -1335,7 +1335,7 @@
                                     <input type="number" id="productPrice" min="0" step="0.01" placeholder="0,00" oninput="updateProductMarginPreview()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-400">
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Custo (R$)</label>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Custo Variável (R$)</label>
                                     <input type="number" id="productCost" min="0" step="0.01" placeholder="0,00" oninput="updateProductMarginPreview()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-400">
                                 </div>
                                 <div>
@@ -1350,6 +1350,10 @@
                                         <option value="turma">Turma/Vaga</option>
                                     </select>
                                 </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Custo Fixo Mensal (R$) <span class="font-normal normal-case text-gray-600">— aluguel, ferramentas, mão de obra fixa etc.</span></label>
+                                <input type="number" id="productFixedCost" min="0" step="0.01" placeholder="0,00" oninput="updateProductMarginPreview()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-400">
                             </div>
                             <p id="productMarginPreview" class="text-xs text-gray-500"></p>
                             <div>
@@ -6743,6 +6747,7 @@
                 name: p.name || '', type: p.type || 'produto',
                 unit: p.unit || 'unidade',
                 price: p.price || 0, cost: p.cost || 0,
+                "fixedCost": p.fixedCost || 0,
                 description: p.description || '', active: p.active !== false,
                 "deletedAt": p.deletedAt || null,
                 "createdAt": p.createdAt || new Date().toISOString(),
@@ -9959,6 +9964,7 @@
             document.getElementById('productActive').value = p ? String(p.active !== false) : 'true';
             document.getElementById('productPrice').value = p ? (p.price || '') : '';
             document.getElementById('productCost').value = p ? (p.cost || '') : '';
+            document.getElementById('productFixedCost').value = p ? (p.fixedCost || '') : '';
             document.getElementById('productDesc').value = p ? (p.description || '') : '';
             updateProductMarginPreview();
             document.getElementById('productModal').classList.remove('hidden');
@@ -9969,11 +9975,17 @@
         function updateProductMarginPreview() {
             const price = document.getElementById('productPrice').value;
             const cost = document.getElementById('productCost').value;
+            const fixedCost = parseFloat(document.getElementById('productFixedCost').value) || 0;
             const el = document.getElementById('productMarginPreview');
             if (!el) return;
             if (!price) { el.textContent = ''; return; }
             const { profit, pct } = calcProductMargin(price, cost);
-            el.innerHTML = `Margem: <span class="font-bold ${profit >= 0 ? 'text-green-400' : 'text-red-400'}">R$ ${profit.toLocaleString('pt-BR')}${pct !== null ? ` (${pct}%)` : ''}</span>`;
+            let html = `Margem: <span class="font-bold ${profit >= 0 ? 'text-green-400' : 'text-red-400'}">R$ ${profit.toLocaleString('pt-BR')}${pct !== null ? ` (${pct}%)` : ''}</span>`;
+            if (fixedCost > 0 && profit > 0) {
+                const breakEven = Math.ceil(fixedCost / profit);
+                html += ` &nbsp;·&nbsp; Ponto de equilíbrio: <span class="font-bold text-sant-cyan">${breakEven}x/mês</span> pra cobrir o custo fixo`;
+            }
+            el.innerHTML = html;
         }
         function saveProduct() {
             const name = document.getElementById('productName').value.trim();
@@ -9988,6 +10000,7 @@
                 active: document.getElementById('productActive').value === 'true',
                 price: parseFloat(document.getElementById('productPrice').value) || 0,
                 cost: parseFloat(document.getElementById('productCost').value) || 0,
+                fixedCost: parseFloat(document.getElementById('productFixedCost').value) || 0,
                 description: document.getElementById('productDesc').value.trim(),
                 createdAt: existing ? (existing.createdAt || new Date().toISOString()) : new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
@@ -10221,6 +10234,7 @@
             });
             return sorted.map(p => {
                 const { profit, pct } = calcProductMargin(p.price, p.cost);
+                const breakEven = (p.fixedCost > 0 && profit > 0) ? Math.ceil(p.fixedCost / profit) : null;
                 return [
                     p.name, getProductTypeLabel(p.type),
                     'R$ ' + (p.price||0).toLocaleString('pt-BR'),
@@ -10228,17 +10242,19 @@
                     'R$ ' + profit.toLocaleString('pt-BR'),
                     pct === null ? '—' : pct + '%',
                     PRODUCT_UNIT_LABELS[p.unit] || '',
+                    'R$ ' + (p.fixedCost||0).toLocaleString('pt-BR'),
+                    breakEven === null ? '—' : breakEven + 'x/mês',
                 ];
             });
         }
         function exportCatalogMarginCsv() {
             downloadReportCsv(`vends_catalogo_margem_${getSPTodayStr()}.csv`,
-                ['Item', 'Tipo', 'Preço', 'Custo', 'Margem (R$)', 'Margem (%)', 'Unidade'],
+                ['Item', 'Tipo', 'Preço', 'Custo Variável', 'Margem (R$)', 'Margem (%)', 'Unidade', 'Custo Fixo Mensal', 'Ponto de Equilíbrio'],
                 getCatalogMarginReportRows());
         }
         function exportCatalogMarginPdf() {
             printReportPdf('Precificação/Margem do Catálogo',
-                ['Item', 'Tipo', 'Preço', 'Custo', 'Margem (R$)', 'Margem (%)', 'Unidade'],
+                ['Item', 'Tipo', 'Preço', 'Custo Variável', 'Margem (R$)', 'Margem (%)', 'Unidade', 'Custo Fixo Mensal', 'Ponto de Equilíbrio'],
                 getCatalogMarginReportRows());
         }
         function generateCatalogMarginReport() {
@@ -10287,18 +10303,23 @@
                         <th class="text-left px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Item</th>
                         <th class="text-left px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Tipo</th>
                         <th class="text-center px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Preço</th>
-                        <th class="text-center px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Custo</th>
+                        <th class="text-center px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Custo Variável</th>
                         <th class="text-center px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Margem</th>
+                        <th class="text-center px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Custo Fixo/mês</th>
+                        <th class="text-center px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Ponto de Equilíbrio</th>
                     </tr></thead>
                     <tbody>${sorted.map(x => {
                         const { p, m } = x;
                         const marginColor = m.pct === null ? 'text-gray-500' : m.pct >= 50 ? 'text-green-400' : m.pct >= 30 ? 'text-amber-400' : 'text-red-400';
+                        const breakEven = (p.fixedCost > 0 && m.profit > 0) ? Math.ceil(p.fixedCost / m.profit) : null;
                         return `<tr class="border-b border-sant-border/50 hover:bg-white/3 transition-colors">
                             <td class="px-4 py-3 font-medium text-white">${p.name}</td>
                             <td class="px-3 py-3 text-gray-400">${getProductTypeLabel(p.type)}</td>
                             <td class="px-3 py-3 text-center text-[#fbbf24] font-bold">R$ ${(p.price||0).toLocaleString('pt-BR')}</td>
                             <td class="px-3 py-3 text-center text-gray-400">R$ ${(p.cost||0).toLocaleString('pt-BR')}</td>
                             <td class="px-3 py-3 text-center font-bold ${marginColor}">${m.pct === null ? '—' : m.pct + '%'}${m.pct !== null ? ` <span class="text-[10px] font-normal text-gray-500">(R$ ${m.profit.toLocaleString('pt-BR')})</span>` : ''}</td>
+                            <td class="px-3 py-3 text-center text-gray-500">${p.fixedCost ? 'R$ ' + p.fixedCost.toLocaleString('pt-BR') : '—'}</td>
+                            <td class="px-3 py-3 text-center text-sant-cyan font-bold">${breakEven === null ? '—' : breakEven + 'x/mês'}</td>
                         </tr>`;
                     }).join('')}</tbody>
                 </table>
