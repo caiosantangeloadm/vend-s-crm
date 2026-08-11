@@ -4523,6 +4523,12 @@
                     </h4>
                     <div id="contactDocsList" class="space-y-2 mb-3"></div>
                     <div class="bg-[#0a0a0a] border border-sant-border rounded-lg p-4 space-y-3">
+                        <div id="contactDocFromCatalogBlock" class="hidden">
+                            <label class="block text-xs font-semibold text-gray-400 uppercase mb-1.5">Preencher a partir do Catálogo (opcional)</label>
+                            <select id="contactDocFromCatalog" onchange="fillContactDocFromCatalog()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-3 text-sm text-white outline-none focus:border-sant-cyan transition-colors">
+                                <option value="">— Selecionar item —</option>
+                            </select>
+                        </div>
                         <div>
                             <label class="block text-xs font-semibold text-gray-400 uppercase mb-1.5">Título</label>
                             <input type="text" id="contactDocTitle" placeholder="Ex: Proposta Comercial v1" class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-3 text-base text-white outline-none focus:border-sant-cyan transition-colors">
@@ -24798,6 +24804,27 @@
                     </div>
                 </div>`;
             }).join('');
+            fillContactDocCatalogSelect(c);
+        }
+        function fillContactDocCatalogSelect(c) {
+            const block = document.getElementById('contactDocFromCatalogBlock');
+            const sel = document.getElementById('contactDocFromCatalog');
+            if (!block || !sel) return;
+            const items = c.pipelineProducts || [];
+            if (!items.length) { block.classList.add('hidden'); sel.innerHTML = '<option value="">— Selecionar item —</option>'; return; }
+            block.classList.remove('hidden');
+            sel.innerHTML = '<option value="">— Selecionar item —</option>' + items.map((it,i) =>
+                `<option value="${i}">${it.name} (R$ ${(it.price||0).toLocaleString('pt-BR')})</option>`).join('');
+        }
+        function fillContactDocFromCatalog() {
+            const sel = document.getElementById('contactDocFromCatalog');
+            const idx = sel.value;
+            if (idx === '') return;
+            const c = contacts.find(x => x.id === currentHistoryContactId);
+            if (!c || !c.pipelineProducts || !c.pipelineProducts[idx]) return;
+            const it = c.pipelineProducts[idx];
+            document.getElementById('contactDocTitle').value = `Proposta – ${it.name}`;
+            document.getElementById('contactDocTitle').focus();
         }
 
         function addContactDoc() {
