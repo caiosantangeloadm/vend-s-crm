@@ -644,6 +644,21 @@
                     </div>
                 </div>
 
+                <!-- Card: Vendas (Catálogo & Pipeline) -->
+                <div id="dashSalesCard" data-dash-title="Vendas — Catálogo & Pipeline" class="hidden bg-sant-surface border border-sant-border rounded-2xl p-6">
+                    <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase mb-4 flex items-center gap-2"><i class="ph ph-package text-amber-400"></i> Vendas — Catálogo &amp; Pipeline</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                            <p class="text-[10px] text-gray-500 uppercase tracking-wide mb-2">Ticket médio por tipo</p>
+                            <div id="dashSalesTicketByType" class="space-y-2"></div>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-gray-500 uppercase tracking-wide mb-2">Mais usados em negociações</p>
+                            <div id="dashSalesTopProducts" class="space-y-2"></div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Card: Taxa de Follow-up -->
                 <div id="dashFollowupCard" data-dash-title="Taxa de Follow-ups" class="bg-sant-surface border border-sant-border rounded-2xl p-6">
                     <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase mb-5 flex items-center gap-2"><i class="ph ph-arrow-counter-clockwise text-sant-cyan"></i> Taxa de Resposta — Follow-ups</p>
@@ -7023,6 +7038,7 @@
             renderProductivityChart();
             renderInteractionDonut();
             renderLeadsEvolution();
+            renderSalesDashboardCard();
             renderLeadsFunnel();
             renderDashSmartLists();
             renderHealthDashboard();
@@ -7364,6 +7380,7 @@
             { id: 'dashAttentionCard',      title: 'Hoje Preciso de Atenção' },
             { id: 'dashFollowupCard',       title: 'Taxa de Follow-ups' },
             { id: 'dashLeadsEvolutionCard', title: 'Evolução de Leads' },
+            { id: 'dashSalesCard',          title: 'Vendas — Catálogo & Pipeline' },
             { id: 'dashStreakCard',          title: 'Streak de Uso' },
             { id: 'dashGoalsCard',          title: 'Metas da Semana' },
             { id: 'dashBigGoalsCard',       title: 'Metas Maiores' },
@@ -10149,6 +10166,49 @@
                     ${collapsed ? '' : `<div class="space-y-1.5 mt-2">${items.map(p => productListRowHtml(p)).join('')}</div>`}
                 </div>`;
             }).join('');
+        }
+
+        // ── Dashboard: Card de Vendas (Catálogo & Pipeline) ─────────────────
+        function renderSalesDashboardCard() {
+            const card = document.getElementById('dashSalesCard');
+            const ticketEl = document.getElementById('dashSalesTicketByType');
+            const topEl = document.getElementById('dashSalesTopProducts');
+            if (!card || !ticketEl || !topEl) return;
+
+            const active = products.filter(p => !p.deletedAt && p.active !== false);
+            if (!active.length) { card.classList.add('hidden'); return; }
+            card.classList.remove('hidden');
+
+            // Ticket médio por tipo (preço médio dos itens ativos do catálogo, por tipo)
+            const byType = {};
+            active.forEach(p => {
+                if (!byType[p.type]) byType[p.type] = [];
+                byType[p.type].push(p.price || 0);
+            });
+            const typeRows = Object.entries(byType)
+                .map(([type, prices]) => ({ type, avg: prices.reduce((a,b)=>a+b,0) / prices.length }))
+                .sort((a,b) => b.avg - a.avg);
+            ticketEl.innerHTML = typeRows.length ? typeRows.map(r => `
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-xs text-gray-400 flex items-center gap-1.5 truncate"><i class="ph ${getProductTypeIcon(r.type)} text-amber-400 shrink-0"></i> ${getProductTypeLabel(r.type)}</span>
+                    <span class="text-xs font-bold text-[#fbbf24] shrink-0">R$ ${Math.round(r.avg).toLocaleString('pt-BR')}</span>
+                </div>`).join('') : '<p class="text-xs text-gray-600 italic">Sem itens no catálogo.</p>';
+
+            // Produtos/serviços mais usados em negociações (soma de qty em contact.pipelineProducts)
+            const usage = {};
+            contacts.forEach(c => {
+                if (!c.pipelineProducts || !c.pipelineProducts.length) return;
+                c.pipelineProducts.forEach(it => {
+                    if (!usage[it.productId]) usage[it.productId] = { name: it.name, qty: 0 };
+                    usage[it.productId].qty += it.qty || 0;
+                });
+            });
+            const topUsage = Object.values(usage).sort((a,b) => b.qty - a.qty).slice(0, 5);
+            topEl.innerHTML = topUsage.length ? topUsage.map(u => `
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-xs text-gray-400 truncate">${u.name}</span>
+                    <span class="text-xs font-bold text-sant-cyan shrink-0">${u.qty}x</span>
+                </div>`).join('') : '<p class="text-xs text-gray-600 italic">Nenhum item vinculado a negociações ainda.</p>';
         }
 
         // ── Relatório: Precificação/Margem do Catálogo ──────────────────────
