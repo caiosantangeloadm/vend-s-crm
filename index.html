@@ -1819,6 +1819,21 @@
                     </div>
                 </div>
 
+                <!-- Relatório de Precificação/Margem (Catálogo) -->
+                <div id="report-catalogmargin" class="report-content hidden flex flex-col">
+                    <div class="flex justify-end gap-2 mb-4 shrink-0">
+                        <button onclick="exportCatalogMarginCsv()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors">
+                            <i class="ph ph-file-csv"></i> Exportar CSV
+                        </button>
+                        <button onclick="exportCatalogMarginPdf()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors">
+                            <i class="ph ph-file-pdf"></i> Exportar PDF
+                        </button>
+                    </div>
+                    <div id="catalogMarginSummary" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 shrink-0"></div>
+                    <div id="catalogMarginAlert" class="mb-5 shrink-0"></div>
+                    <div id="catalogMarginTable" class="pb-10"></div>
+                </div>
+
                 <!-- Relatório de Inatividade -->
                 <div id="report-inactivity" class="report-content hidden flex flex-col">
                     <!-- Controles -->
@@ -10136,6 +10151,100 @@
             }).join('');
         }
 
+        // ── Relatório: Precificação/Margem do Catálogo ──────────────────────
+        function getCatalogMarginReportRows() {
+            const active = products.filter(p => !p.deletedAt && p.active !== false);
+            const sorted = [...active].sort((a,b) => {
+                const pctA = calcProductMargin(a.price, a.cost).pct;
+                const pctB = calcProductMargin(b.price, b.cost).pct;
+                return (pctB === null ? -1 : pctB) - (pctA === null ? -1 : pctA);
+            });
+            return sorted.map(p => {
+                const { profit, pct } = calcProductMargin(p.price, p.cost);
+                return [
+                    p.name, getProductTypeLabel(p.type),
+                    'R$ ' + (p.price||0).toLocaleString('pt-BR'),
+                    'R$ ' + (p.cost||0).toLocaleString('pt-BR'),
+                    'R$ ' + profit.toLocaleString('pt-BR'),
+                    pct === null ? '—' : pct + '%',
+                    PRODUCT_UNIT_LABELS[p.unit] || '',
+                ];
+            });
+        }
+        function exportCatalogMarginCsv() {
+            downloadReportCsv(`vends_catalogo_margem_${getSPTodayStr()}.csv`,
+                ['Item', 'Tipo', 'Preço', 'Custo', 'Margem (R$)', 'Margem (%)', 'Unidade'],
+                getCatalogMarginReportRows());
+        }
+        function exportCatalogMarginPdf() {
+            printReportPdf('Precificação/Margem do Catálogo',
+                ['Item', 'Tipo', 'Preço', 'Custo', 'Margem (R$)', 'Margem (%)', 'Unidade'],
+                getCatalogMarginReportRows());
+        }
+        function generateCatalogMarginReport() {
+            const semEl = document.getElementById('catalogMarginSummary');
+            const alertEl = document.getElementById('catalogMarginAlert');
+            const tblEl = document.getElementById('catalogMarginTable');
+            if (!semEl || !tblEl) return;
+
+            const active = products.filter(p => !p.deletedAt && p.active !== false);
+            if (!active.length) {
+                semEl.innerHTML = '';
+                alertEl.innerHTML = '';
+                tblEl.innerHTML = emptyState('ph-percent', 'Nenhum item ativo no Catálogo', 'Cadastre produtos/serviços na aba Catálogo pra ver a análise de margem aqui.');
+                return;
+            }
+
+            const items = active.map(p => ({ p, m: calcProductMargin(p.price, p.cost) }));
+            const withMargin = items.filter(x => x.m.pct !== null);
+            const totalValue = active.reduce((s,p) => s + (p.price||0), 0);
+            const avgMargin = withMargin.length ? Math.round(withMargin.reduce((s,x) => s + x.m.pct, 0) / withMargin.length) : null;
+            const bestItem = withMargin.reduce((best, x) => (!best || x.m.pct > best.m.pct) ? x : best, null);
+            const lowMarginItems = withMargin.filter(x => x.m.pct < 30);
+
+            semEl.innerHTML = [
+                { label: 'Itens ativos', value: active.length, color: 'text-white' },
+                { label: 'Valor total do catálogo', value: 'R$ ' + totalValue.toLocaleString('pt-BR'), color: 'text-sant-cyan', small: true },
+                { label: 'Margem média', value: avgMargin === null ? '—' : avgMargin + '%', color: 'text-green-400' },
+                { label: 'Melhor margem', value: bestItem ? bestItem.p.name : '—', color: 'text-[#fbbf24]', small: true, sub: bestItem ? bestItem.m.pct + '%' : '' },
+            ].map(k => `<div class="bg-sant-surface border border-sant-border rounded-xl p-4 text-center">
+                <p class="text-2xl font-bold ${k.color} ${k.small?'text-base leading-snug mt-1':''}">${k.value}</p>
+                ${k.sub ? `<p class="text-xs font-bold text-[#fbbf24]">${k.sub}</p>` : ''}
+                <p class="text-[10px] text-gray-500 mt-1">${k.label}</p>
+            </div>`).join('');
+
+            alertEl.innerHTML = lowMarginItems.length
+                ? `<div class="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 flex items-center gap-3">
+                    <i class="ph ph-warning-circle text-red-400 text-xl shrink-0"></i>
+                    <p class="text-sm text-red-300"><b>${lowMarginItems.length} ite${lowMarginItems.length>1?'ns':'m'}</b> com margem abaixo de 30%: ${lowMarginItems.map(x=>x.p.name).join(', ')}</p>
+                   </div>`
+                : '';
+
+            const sorted = [...items].sort((a,b) => (b.m.pct === null ? -1 : b.m.pct) - (a.m.pct === null ? -1 : a.m.pct));
+            tblEl.innerHTML = `<div class="bg-sant-surface border border-sant-border rounded-2xl overflow-hidden">
+                <table class="w-full text-sm">
+                    <thead><tr class="border-b border-sant-border bg-[#0d0d0d]">
+                        <th class="text-left px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Item</th>
+                        <th class="text-left px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Tipo</th>
+                        <th class="text-center px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Preço</th>
+                        <th class="text-center px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Custo</th>
+                        <th class="text-center px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Margem</th>
+                    </tr></thead>
+                    <tbody>${sorted.map(x => {
+                        const { p, m } = x;
+                        const marginColor = m.pct === null ? 'text-gray-500' : m.pct >= 50 ? 'text-green-400' : m.pct >= 30 ? 'text-amber-400' : 'text-red-400';
+                        return `<tr class="border-b border-sant-border/50 hover:bg-white/3 transition-colors">
+                            <td class="px-4 py-3 font-medium text-white">${p.name}</td>
+                            <td class="px-3 py-3 text-gray-400">${getProductTypeLabel(p.type)}</td>
+                            <td class="px-3 py-3 text-center text-[#fbbf24] font-bold">R$ ${(p.price||0).toLocaleString('pt-BR')}</td>
+                            <td class="px-3 py-3 text-center text-gray-400">R$ ${(p.cost||0).toLocaleString('pt-BR')}</td>
+                            <td class="px-3 py-3 text-center font-bold ${marginColor}">${m.pct === null ? '—' : m.pct + '%'}${m.pct !== null ? ` <span class="text-[10px] font-normal text-gray-500">(R$ ${m.profit.toLocaleString('pt-BR')})</span>` : ''}</td>
+                        </tr>`;
+                    }).join('')}</tbody>
+                </table>
+            </div>`;
+        }
+
         // ── Minha Semana (Tarefas + Agenda + Follow-ups em uma visão única) ──
         let myWeekOffset = 0;
         function navMyWeek(delta) {
@@ -17770,6 +17879,9 @@
                 { id: 'leads', label: 'Oportunidades', icon: 'ph-star' },
                 { id: 'pipelinefunnel', label: 'Funil de Vendas', icon: 'ph-kanban' },
             ]},
+            { name: 'Catálogo', icon: 'ph-package', reports: [
+                { id: 'catalogmargin', label: 'Precificação/Margem', icon: 'ph-percent' },
+            ]},
             { name: 'Agenda', icon: 'ph-calendar-blank', reports: [
                 { id: 'birthdays', label: 'Aniversariantes',          icon: 'ph-cake' },
                 { id: 'eventtime', label: 'Tempo por Tipo de Evento', icon: 'ph-hourglass' },
@@ -17840,6 +17952,7 @@
             if(tabId === 'directory') generateDirectoryReport();
             if(tabId === 'leads') generateLeadsReport();
             if(tabId === 'pipelinefunnel') generatePipelineFunnelReport();
+            if(tabId === 'catalogmargin') generateCatalogMarginReport();
             if(tabId === 'inactivity') generateInactivityReport();
             if(tabId === 'geography')  generateGeographyReport();
             if(tabId === 'monthly')   initMonthlyReport();
