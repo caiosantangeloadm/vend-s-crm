@@ -1360,6 +1360,13 @@
                                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Descrição</label>
                                 <textarea id="productDesc" rows="3" placeholder="Detalhes, escopo, o que está incluído..." class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-400 resize-none"></textarea>
                             </div>
+                            <div id="productPriceHistoryBlock" class="hidden">
+                                <button type="button" onclick="toggleProductPriceHistory()" class="w-full flex items-center justify-between text-xs font-bold text-gray-500 uppercase hover:text-gray-300 transition-colors">
+                                    <span class="flex items-center gap-1.5"><i class="ph ph-clock-counter-clockwise"></i> Histórico de Preço (<span id="productPriceHistoryCount">0</span>)</span>
+                                    <i id="productPriceHistoryCaret" class="ph ph-caret-down"></i>
+                                </button>
+                                <div id="productPriceHistoryList" class="hidden mt-2 space-y-1.5 max-h-40 overflow-y-auto"></div>
+                            </div>
                         </div>
                         <div class="flex gap-3 mt-6">
                             <button onclick="closeProductModal()" class="flex-1 px-4 py-2 rounded-lg border border-sant-border text-gray-400 hover:text-white text-sm transition-colors">Cancelar</button>
@@ -6748,6 +6755,7 @@
                 unit: p.unit || 'unidade',
                 price: p.price || 0, cost: p.cost || 0,
                 "fixedCost": p.fixedCost || 0,
+                "priceHistory": p.priceHistory || [],
                 description: p.description || '', active: p.active !== false,
                 "deletedAt": p.deletedAt || null,
                 "createdAt": p.createdAt || new Date().toISOString(),
@@ -9967,7 +9975,31 @@
             document.getElementById('productFixedCost').value = p ? (p.fixedCost || '') : '';
             document.getElementById('productDesc').value = p ? (p.description || '') : '';
             updateProductMarginPreview();
+            renderProductPriceHistory(p);
             document.getElementById('productModal').classList.remove('hidden');
+        }
+        function renderProductPriceHistory(p) {
+            const block = document.getElementById('productPriceHistoryBlock');
+            const list = document.getElementById('productPriceHistoryList');
+            const countEl = document.getElementById('productPriceHistoryCount');
+            if (!block) return;
+            const history = p && p.priceHistory ? p.priceHistory : [];
+            if (!history.length) { block.classList.add('hidden'); return; }
+            block.classList.remove('hidden');
+            countEl.textContent = history.length;
+            list.classList.add('hidden');
+            document.getElementById('productPriceHistoryCaret').className = 'ph ph-caret-down';
+            list.innerHTML = history.map(h => `
+                <div class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 flex items-center justify-between text-[11px]">
+                    <span class="text-gray-400">${new Date(h.changedAt).toLocaleDateString('pt-BR')}</span>
+                    <span class="text-gray-300">Preço: R$ ${(h.price||0).toLocaleString('pt-BR')} · Custo: R$ ${(h.cost||0).toLocaleString('pt-BR')}${h.fixedCost ? ` · Fixo: R$ ${h.fixedCost.toLocaleString('pt-BR')}` : ''}</span>
+                </div>`).join('');
+        }
+        function toggleProductPriceHistory() {
+            const list = document.getElementById('productPriceHistoryList');
+            const caret = document.getElementById('productPriceHistoryCaret');
+            const nowHidden = list.classList.toggle('hidden');
+            caret.className = nowHidden ? 'ph ph-caret-down' : 'ph ph-caret-up';
         }
         function closeProductModal() {
             document.getElementById('productModal').classList.add('hidden');
@@ -10005,7 +10037,12 @@
                 createdAt: existing ? (existing.createdAt || new Date().toISOString()) : new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
                 deletedAt: existing ? (existing.deletedAt || null) : null,
+                priceHistory: existing ? (existing.priceHistory || []) : [],
             };
+            if (existing && (existing.price !== p.price || existing.cost !== p.cost || existing.fixedCost !== p.fixedCost)) {
+                p.priceHistory = [{ price: existing.price || 0, cost: existing.cost || 0, fixedCost: existing.fixedCost || 0, changedAt: new Date().toISOString() }, ...p.priceHistory];
+                if (p.priceHistory.length > 20) p.priceHistory.length = 20;
+            }
             if (existing) {
                 const idx = products.findIndex(x => x.id === id);
                 products[idx] = p;
