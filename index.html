@@ -2487,6 +2487,12 @@
                                     </select>
                                 </div>
                                 <div class="flex items-center justify-between">
+                                    <div><p class="text-sm text-white">Retenção da Lixeira</p><p class="text-xs text-gray-500">Excluir Notas/Tarefas/Eventos permanentemente após</p></div>
+                                    <select onchange="saveTrashRetentionDays(this.value)" id="s-trash-retention" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                                        <option value="7">7 dias</option><option value="15">15 dias</option><option value="30">30 dias</option><option value="60">60 dias</option><option value="90">90 dias</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center justify-between">
                                     <div><p class="text-sm text-white">Notificações do sistema</p><p class="text-xs text-gray-500">Testar o som e a notificação in-app</p></div>
                                     <button onclick="testNotification()" class="text-sm text-sant-cyan border border-sant-cyan/30 hover:bg-sant-cyan/10 px-4 py-2 rounded-lg transition-colors flex items-center gap-2"><i class="ph ph-bell-ringing"></i> Testar</button>
                                 </div>
@@ -22146,6 +22152,8 @@
             if (capEl) capEl.value = localStorage.getItem('vends_daily_capacity_hours') || '8';
             const pinEl = document.getElementById('s-max-pinned');
             if (pinEl) pinEl.value = localStorage.getItem('vends_max_pinned') || '10';
+            const trashEl = document.getElementById('s-trash-retention');
+            if (trashEl) trashEl.value = localStorage.getItem('vends_trash_retention_days') || '30';
             fillCadenceTargetValueSelect();
             renderCadenceOverridesList();
             renderShortcutsEditor();
