@@ -10112,6 +10112,27 @@
                 showToast('Item excluído.');
             });
         }
+        function duplicateProduct(id) {
+            const p = products.find(x => x.id === id);
+            if (!p) return;
+            const copy = {
+                id: crypto.randomUUID(),
+                name: `Cópia de ${p.name}`,
+                type: p.type, unit: p.unit,
+                active: p.active !== false,
+                price: p.price || 0, cost: p.cost || 0, fixedCost: p.fixedCost || 0,
+                description: p.description || '',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                deletedAt: null,
+                priceHistory: [],
+            };
+            products.push(copy);
+            saveProductsToStorage();
+            cloudSyncProduct(copy);
+            renderCatalog();
+            showToast('Item duplicado!');
+        }
         let catalogViewMode = 'list';
         let catalogCollapsedTypes = [];
         function loadCatalogViewPrefs() {
@@ -10166,6 +10187,7 @@
                         ${p.cost ? `<p class="text-[10px] ${profit >= 0 ? 'text-green-400' : 'text-red-400'}">Margem: R$ ${profit.toLocaleString('pt-BR')}${pct !== null ? ` (${pct}%)` : ''}</p>` : ''}
                     </div>
                     <div class="flex items-center gap-1.5">
+                        <button onclick="duplicateProduct('${p.id}')" class="text-gray-400 hover:text-amber-400 p-1.5" title="Duplicar"><i class="ph ph-copy"></i></button>
                         <button onclick="openProductModal('${p.id}')" class="text-gray-400 hover:text-amber-400 p-1.5" title="Editar"><i class="ph ph-pencil-simple"></i></button>
                         <button onclick="deleteProduct('${p.id}')" class="text-gray-400 hover:text-red-400 p-1.5" title="Excluir"><i class="ph ph-trash"></i></button>
                     </div>
@@ -10188,6 +10210,7 @@
                     ${p.cost ? `<p class="text-[10px] ${profit >= 0 ? 'text-green-400' : 'text-red-400'}">${pct !== null ? pct + '%' : ''} margem</p>` : ''}
                 </div>
                 <div class="flex items-center gap-1 shrink-0">
+                    <button onclick="duplicateProduct('${p.id}')" class="text-gray-400 hover:text-amber-400 p-1.5" title="Duplicar"><i class="ph ph-copy"></i></button>
                     <button onclick="openProductModal('${p.id}')" class="text-gray-400 hover:text-amber-400 p-1.5" title="Editar"><i class="ph ph-pencil-simple"></i></button>
                     <button onclick="deleteProduct('${p.id}')" class="text-gray-400 hover:text-red-400 p-1.5" title="Excluir"><i class="ph ph-trash"></i></button>
                 </div>
