@@ -1203,7 +1203,7 @@
                     <button id="pipelineClearFilters" onclick="clearPipelineFilters()" class="hidden text-xs text-gray-500 hover:text-red-400 transition-colors flex items-center gap-1"><i class="ph ph-x-circle"></i> Limpar filtros</button>
                 </div>
 
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
                     <div class="bg-sant-surface border border-sant-border rounded-xl p-3">
                         <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Leads (aberto)</p>
                         <p id="pipelineMetricOpen" class="text-lg font-bold text-white">0</p>
@@ -1219,6 +1219,10 @@
                     <div class="bg-sant-surface border border-sant-border rounded-xl p-3">
                         <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Ticket Médio (Ganhos)</p>
                         <p id="pipelineMetricTicket" class="text-lg font-bold text-[#fbbf24]">R$ 0</p>
+                    </div>
+                    <div class="bg-sant-surface border border-sant-border rounded-xl p-3" title="Soma do valor em aberto ponderado pela probabilidade de fechamento de cada estágio">
+                        <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Previsão Ponderada</p>
+                        <p id="pipelineMetricForecast" class="text-lg font-bold text-sant-cyan">R$ 0</p>
                     </div>
                 </div>
 
@@ -9595,6 +9599,23 @@
         (function applyPipelineStageLabels() {
             PIPELINE_STAGES.forEach(s => { if (pipelineStageLabels[s.id]) s.label = pipelineStageLabels[s.id]; });
         })();
+        const PIPELINE_STAGE_DEFAULT_PROBABILITY = { novo: 10, contato: 25, proposta: 50, negociacao: 75, ganho: 100, perdido: 0 };
+        let pipelineStageProbabilities = JSON.parse(localStorage.getItem('vends_pipeline_stage_probabilities') || '{}');
+        function getStageProbability(stageId) {
+            if (stageId in pipelineStageProbabilities) return pipelineStageProbabilities[stageId];
+            return PIPELINE_STAGE_DEFAULT_PROBABILITY[stageId] !== undefined ? PIPELINE_STAGE_DEFAULT_PROBABILITY[stageId] : 50;
+        }
+        function editPipelineStageProbability(stageId) {
+            const stage = PIPELINE_STAGES.find(s => s.id === stageId);
+            if (!stage) return;
+            const input = prompt(`Probabilidade de fechamento pro estágio "${stage.label}" (0 a 100):`, getStageProbability(stageId));
+            if (input === null) return;
+            const val = Math.max(0, Math.min(100, parseInt(input) || 0));
+            pipelineStageProbabilities[stageId] = val;
+            localStorage.setItem('vends_pipeline_stage_probabilities', JSON.stringify(pipelineStageProbabilities));
+            syncPreferencesToSupabase();
+            renderPipeline();
+        }
         function renamePipelineStage(stageId) {
             const stage = PIPELINE_STAGES.find(s => s.id === stageId);
             if (!stage) return;
@@ -9760,8 +9781,11 @@
 
             const openLeads = leads.filter(c => getPipelineStage(c) !== 'ganho' && getPipelineStage(c) !== 'perdido');
             const openValue = openLeads.reduce((sum, c) => sum + (c.dealValue || 0), 0);
+            const weightedValue = openLeads.reduce((sum, c) => sum + (c.dealValue || 0) * (getStageProbability(getPipelineStage(c)) / 100), 0);
             const valEl = document.getElementById('pipelineOpenValue');
             if (valEl) valEl.innerText = 'R$ ' + openValue.toLocaleString('pt-BR');
+            const mForecast = document.getElementById('pipelineMetricForecast');
+            if (mForecast) mForecast.innerText = 'R$ ' + Math.round(weightedValue).toLocaleString('pt-BR');
 
             // Métricas de conversão
             const wonLeads = leads.filter(c => getPipelineStage(c) === 'ganho');
@@ -9834,6 +9858,7 @@
                                 <span class="w-2 h-2 rounded-full shrink-0" style="background:${stage.color}"></span>
                                 <span class="text-xs font-bold uppercase tracking-wider" style="color:${stage.color}">${stage.label}</span>
                                 <button onclick="renamePipelineStage('${stage.id}')" title="Renomear estágio" class="text-gray-600 hover:text-white transition-colors shrink-0"><i class="ph ph-pencil-simple text-[10px]"></i></button>
+                                ${stage.id !== 'ganho' && stage.id !== 'perdido' ? `<span onclick="editPipelineStageProbability('${stage.id}')" title="Clique para definir a probabilidade de fechamento" class="text-[10px] text-gray-500 hover:text-white cursor-pointer border border-sant-border rounded-full px-1.5 shrink-0">${getStageProbability(stage.id)}%</span>` : ''}
                             </div>
                             <span onclick="editPipelineWipLimit('${stage.id}')" title="Clique para definir um limite de WIP" class="text-xs ${overLimit ? 'bg-red-500/20 text-red-400' : 'bg-white/5 text-gray-300'} px-2 py-0.5 rounded-full font-bold cursor-pointer hover:opacity-80">${stageLeads.length}${wipLimit ? '/' + wipLimit : ''}</span>
                         </div>
@@ -19654,6 +19679,7 @@
                     "calWorkWeekMode": calWorkWeekMode,
                     "dismissedDupPairs": JSON.parse(localStorage.getItem('vends_dismissed_dup_pairs') || '[]'),
                     "pipelineStageLabels": pipelineStageLabels,
+                    "pipelineStageProbabilities": pipelineStageProbabilities,
                     "pipelineSegmentGoals": pipelineSegmentGoals,
                     "customHolidays": JSON.parse(localStorage.getItem('vends_custom_holidays') || '[]'),
                 };
@@ -19728,6 +19754,7 @@
                     PIPELINE_STAGES.forEach(s => { if (pipelineStageLabels[s.id]) s.label = pipelineStageLabels[s.id]; });
                 }
                 if (data.pipelineSegmentGoals && Object.keys(data.pipelineSegmentGoals).length) { pipelineSegmentGoals = data.pipelineSegmentGoals; localStorage.setItem('vends_pipeline_segment_goals', JSON.stringify(pipelineSegmentGoals)); }
+                if (data.pipelineStageProbabilities && Object.keys(data.pipelineStageProbabilities).length) { pipelineStageProbabilities = data.pipelineStageProbabilities; localStorage.setItem('vends_pipeline_stage_probabilities', JSON.stringify(pipelineStageProbabilities)); }
                 if (data.customHolidays?.length) { localStorage.setItem('vends_custom_holidays', JSON.stringify(data.customHolidays)); if (currentView === 'calendar') renderCalendar(); }
                 {
                     const localResetAt = localStorage.getItem('vends_contact_accesses_reset_at') || '';
