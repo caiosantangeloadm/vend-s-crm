@@ -2503,6 +2503,20 @@
                             </div>
                         </div>
                         <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
+                            <p class="text-xs font-bold text-white uppercase tracking-wide mb-5 flex items-center gap-2"><i class="ph ph-envelope-simple text-sant-cyan"></i> Notificações por E-mail</p>
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <div><p class="text-sm text-white">Resumo Diário (Briefing)</p><p class="text-xs text-gray-500">Agenda, tarefas e aniversários do dia — todo dia às 8h</p></div>
+                                    <button onclick="toggleEmailDaily()" id="s-email-daily-btn" class="text-sm border px-4 py-2 rounded-lg transition-colors flex items-center gap-2"></button>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <div><p class="text-sm text-white">Resumo Semanal</p><p class="text-xs text-gray-500">Compromissos, tarefas e aniversários da semana — toda segunda às 8h</p></div>
+                                    <button onclick="toggleEmailWeekly()" id="s-email-weekly-btn" class="text-sm border px-4 py-2 rounded-lg transition-colors flex items-center gap-2"></button>
+                                </div>
+                                <p class="text-[10px] text-gray-600">Enviados por alertas@vend-s.com.br. Pode levar até 24h para a mudança valer, dependendo do horário do próximo envio agendado.</p>
+                            </div>
+                        </div>
+                        <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
                             <p class="text-xs font-bold text-white uppercase tracking-wide mb-2 flex items-center gap-2"><i class="ph ph-timer text-sant-cyan"></i> Cadência Personalizada</p>
                             <p class="text-xs text-gray-500 mb-4">Defina um limite de inatividade diferente do padrão para uma Lista ou Etiqueta específica — ex: "Clientes VIP: 15 dias", "Família: 90 dias". Quando um contato pertence a mais de uma regra, vale a mais rígida (menor número de dias).</p>
                             <div id="cadenceOverridesList" class="space-y-2 mb-3"></div>
@@ -19539,6 +19553,8 @@
                     "bdayAdvance":    parseInt(localStorage.getItem('vends_bday_advance')    || '3'),
                     "inactivityDays": parseInt(localStorage.getItem('vends_inactivity_days') || '60'),
                     "trashRetentionDays": parseInt(localStorage.getItem('vends_trash_retention_days') || '30'),
+                    "emailDailyEnabled": localStorage.getItem('vends_email_daily_enabled') !== 'false',
+                    "emailWeeklyEnabled": localStorage.getItem('vends_email_weekly_enabled') !== 'false',
                     "slaHours": parseInt(localStorage.getItem('vends_sla_hours') || '24'),
                     "dailyCapacityHours": parseInt(localStorage.getItem('vends_daily_capacity_hours') || '8'),
                     "cadenceOverrides": cadenceOverrides,
@@ -19603,6 +19619,8 @@
                 if (data.bdayAdvance !== undefined && data.bdayAdvance !== null)    localStorage.setItem('vends_bday_advance', String(data.bdayAdvance));
                 if (data.inactivityDays !== undefined && data.inactivityDays !== null) localStorage.setItem('vends_inactivity_days', String(data.inactivityDays));
                 if (data.trashRetentionDays !== undefined && data.trashRetentionDays !== null) localStorage.setItem('vends_trash_retention_days', String(data.trashRetentionDays));
+                if (data.emailDailyEnabled !== undefined && data.emailDailyEnabled !== null) localStorage.setItem('vends_email_daily_enabled', String(data.emailDailyEnabled));
+                if (data.emailWeeklyEnabled !== undefined && data.emailWeeklyEnabled !== null) localStorage.setItem('vends_email_weekly_enabled', String(data.emailWeeklyEnabled));
                 if (data.slaHours !== undefined && data.slaHours !== null) localStorage.setItem('vends_sla_hours', String(data.slaHours));
                 if (data.dailyCapacityHours !== undefined && data.dailyCapacityHours !== null) localStorage.setItem('vends_daily_capacity_hours', String(data.dailyCapacityHours));
                 if (data.cadenceOverrides && Object.keys(data.cadenceOverrides).length) { cadenceOverrides = data.cadenceOverrides; localStorage.setItem('vends_cadence_overrides', JSON.stringify(cadenceOverrides)); }
@@ -22154,6 +22172,7 @@
             if (pinEl) pinEl.value = localStorage.getItem('vends_max_pinned') || '10';
             const trashEl = document.getElementById('s-trash-retention');
             if (trashEl) trashEl.value = localStorage.getItem('vends_trash_retention_days') || '30';
+            renderEmailToggles();
             fillCadenceTargetValueSelect();
             renderCadenceOverridesList();
             renderShortcutsEditor();
@@ -22364,6 +22383,35 @@
             localStorage.setItem('vends_trash_retention_days', val);
             showToast(`Itens excluídos ficam na Lixeira por ${val} dias antes de serem apagados definitivamente.`);
             syncPreferencesToSupabase();
+        }
+
+        function toggleEmailDaily() {
+            const cur = localStorage.getItem('vends_email_daily_enabled') !== 'false';
+            localStorage.setItem('vends_email_daily_enabled', cur ? 'false' : 'true');
+            showToast(cur ? 'Resumo diário por e-mail desativado.' : 'Resumo diário por e-mail ativado.');
+            syncPreferencesToSupabase();
+            renderEmailToggles();
+        }
+        function toggleEmailWeekly() {
+            const cur = localStorage.getItem('vends_email_weekly_enabled') !== 'false';
+            localStorage.setItem('vends_email_weekly_enabled', cur ? 'false' : 'true');
+            showToast(cur ? 'Resumo semanal por e-mail desativado.' : 'Resumo semanal por e-mail ativado.');
+            syncPreferencesToSupabase();
+            renderEmailToggles();
+        }
+        function renderEmailToggles() {
+            const dailyOn = localStorage.getItem('vends_email_daily_enabled') !== 'false';
+            const weeklyOn = localStorage.getItem('vends_email_weekly_enabled') !== 'false';
+            const dailyBtn = document.getElementById('s-email-daily-btn');
+            const weeklyBtn = document.getElementById('s-email-weekly-btn');
+            if (dailyBtn) {
+                dailyBtn.className = 'text-sm border px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ' + (dailyOn ? 'border-green-500/40 text-green-400' : 'border-sant-border text-gray-400 hover:border-sant-cyan hover:text-sant-cyan');
+                dailyBtn.innerHTML = dailyOn ? '<i class="ph ph-bell-ringing"></i> Ativado' : '<i class="ph ph-bell-slash"></i> Desativado';
+            }
+            if (weeklyBtn) {
+                weeklyBtn.className = 'text-sm border px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ' + (weeklyOn ? 'border-green-500/40 text-green-400' : 'border-sant-border text-gray-400 hover:border-sant-cyan hover:text-sant-cyan');
+                weeklyBtn.innerHTML = weeklyOn ? '<i class="ph ph-bell-ringing"></i> Ativado' : '<i class="ph ph-bell-slash"></i> Desativado';
+            }
         }
 
         // ── SLA de Primeira Resposta a Lead ─────────────────────────────────
