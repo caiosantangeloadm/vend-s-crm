@@ -2809,6 +2809,13 @@
                     <div class="p-4 rounded-xl border border-sant-border bg-[#141414]/50 space-y-4">
                         <h4 class="text-xs font-bold text-sant-cyan uppercase tracking-wider flex items-center gap-2"><i class="ph ph-briefcase"></i> Profissional</h4>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="md:col-span-2">
+                                <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-1">CNPJ <span class="normal-case font-normal text-gray-600">(opcional — preenche empresa e endereço automaticamente)</span></label>
+                                <div class="flex gap-2">
+                                    <input type="text" id="contactCnpj" placeholder="00.000.000/0000-00" maxlength="18" oninput="maskCnpj(this)" onblur="lookupCnpj()" class="flex-1 bg-[#141414] border border-sant-border rounded-md px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none">
+                                    <button type="button" onclick="lookupCnpj()" id="cnpjLookupBtn" class="shrink-0 bg-[#1a1a1a] border border-sant-border hover:border-sant-cyan text-gray-300 hover:text-sant-cyan px-3 rounded-md text-sm transition-colors"><i class="ph ph-magnifying-glass"></i></button>
+                                </div>
+                            </div>
                             <div>
                                 <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Empresa</label>
                                 <input type="text" id="contactCompany" class="w-full bg-[#141414] border border-sant-border rounded-md px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none">
@@ -13012,6 +13019,42 @@
             }
         }
 
+        function maskCnpj(input) {
+            let v = input.value.replace(/\D/g, '').slice(0, 14);
+            v = v.replace(/^(\d{2})(\d)/, '$1.$2');
+            v = v.replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3');
+            v = v.replace(/\.(\d{3})(\d)/, '.$1/$2');
+            v = v.replace(/(\d{4})(\d)/, '$1-$2');
+            input.value = v;
+        }
+        // Busca automática de razão social/endereço pelo CNPJ (API pública BrasilAPI, gratuita, sem chave)
+        async function lookupCnpj() {
+            const input = document.getElementById('contactCnpj');
+            const digits = input.value.replace(/\D/g, '');
+            if (digits.length !== 14) return;
+            const btn = document.getElementById('cnpjLookupBtn');
+            const origIcon = btn ? btn.innerHTML : '';
+            if (btn) btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i>';
+            try {
+                const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`);
+                if (!res.ok) { showToast('CNPJ não encontrado.', 'error'); return; }
+                const data = await res.json();
+                const companyEl = document.getElementById('contactCompany');
+                if (companyEl && !companyEl.value) companyEl.value = data.razao_social || data.nome_fantasia || companyEl.value;
+                const siteMap = { addressStreet: data.logradouro, addressNumber: data.numero, addressNeighborhood: data.bairro, addressCity: data.municipio, addressState: data.uf, addressZip: data.cep };
+                Object.entries(siteMap).forEach(([id, val]) => {
+                    const el = document.getElementById('contact' + id.charAt(0).toUpperCase() + id.slice(1));
+                    if (el && !el.value && val) el.value = val;
+                });
+                showToast('Dados da empresa preenchidos!');
+            } catch(e) {
+                console.warn('Busca de CNPJ falhou:', e.message);
+                showToast('Não foi possível buscar o CNPJ agora.', 'error');
+            } finally {
+                if (btn) btn.innerHTML = origIcon;
+            }
+        }
+
         function buildAddressString(c) {
             const parts = [];
             if (c.addressStreet) parts.push(c.addressStreet + (c.addressNumber ? ', ' + c.addressNumber : ''));
@@ -13142,6 +13185,7 @@
                 preferredChannel: document.getElementById('contactPreferredChannel').value,
                 referredByContactId: document.getElementById('contactReferredBy').value,
                 company: document.getElementById('contactCompany').value,
+                cnpj: document.getElementById('contactCnpj').value,
                 companyFounded: document.getElementById('contactCompanyFounded').value,
                 job: document.getElementById('contactJob').value,
                 emailProf: document.getElementById('contactEmailProf').value,
@@ -13374,6 +13418,7 @@
             populateContactSelect('contactReferredBy', contact.referredByContactId);
             document.getElementById('contactCompany').value = contact.company || '';
             document.getElementById('contactCompanyFounded').value = contact.companyFounded || '';
+            document.getElementById('contactCnpj').value = contact.cnpj || '';
             document.getElementById('contactJob').value = contact.job || '';
             document.getElementById('contactEmailProf').value = contact.emailProf || contact.email || '';
             document.getElementById('contactPhoneProf').value = contact.phoneProf || contact.phone || '';
@@ -14129,6 +14174,7 @@
             document.getElementById('contactOrigin').value = c.origin || '';
             document.getElementById('contactCompany').value = c.company || '';
             document.getElementById('contactCompanyFounded').value = c.companyFounded || '';
+            document.getElementById('contactCnpj').value = c.cnpj || '';
             document.getElementById('contactJob').value = c.job || '';
             document.getElementById('contactSite').value = c.site || '';
             document.getElementById('contactInstagram').value = c.instagram || '';
@@ -19415,7 +19461,7 @@
                 name: c.name || '', "lastName": c.lastName || '', nickname: c.nickname || '',
                 phone: c.phone || '', "phoneProf": c.phoneProf || '', "phonePess": c.phonePess || '',
                 email: c.email || '', "emailProf": c.emailProf || '', "emailPess": c.emailPess || '',
-                company: c.company || '', "companyFounded": c.companyFounded || '', job: c.job || '', site: c.site || '',
+                company: c.company || '', "companyFounded": c.companyFounded || '', job: c.job || '', site: c.site || '', cnpj: c.cnpj || '',
                 instagram: c.instagram || '', linkedin: c.linkedin || '',
                 category: c.category || '', "isLead": c.isLead || false,
                 temperature: c.temperature || 'frio', "dealValue": c.dealValue || 0, "totalRevenue": c.totalRevenue || 0,
