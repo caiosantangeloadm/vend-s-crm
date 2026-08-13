@@ -2947,11 +2947,17 @@
                             </div>
                             <div>
                                 <label class="block text-[10px] font-semibold text-gray-400 uppercase mb-2">Produtos/Serviços do Negócio (opcional)</label>
-                                <div class="flex gap-2 mb-2">
-                                    <select id="contactPipelineProductSelect" class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#fbbf24]"></select>
-                                    <input type="number" id="contactPipelineProductQty" value="1" min="1" step="1" class="w-16 bg-[#141414] border border-sant-border rounded-lg px-2 py-2 text-sm text-white outline-none focus:border-[#fbbf24]" title="Quantidade">
-                                    <input type="number" id="contactPipelineProductDiscount" value="0" min="0" max="100" step="1" class="w-16 bg-[#141414] border border-sant-border rounded-lg px-2 py-2 text-sm text-white outline-none focus:border-[#fbbf24]" title="Desconto (%)" placeholder="% off">
-                                    <button type="button" onclick="addContactPipelineProduct()" class="bg-[#fbbf24] text-sant-bg px-3 py-2 rounded-lg text-sm font-bold hover:brightness-95 transition-all shrink-0">Add</button>
+                                <select id="contactPipelineProductSelect" class="w-full mb-2 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#fbbf24]"></select>
+                                <div class="flex items-end gap-2 mb-2">
+                                    <div class="w-20">
+                                        <label class="block text-[9px] font-semibold text-gray-500 uppercase mb-1">Qtd.</label>
+                                        <input type="number" id="contactPipelineProductQty" value="1" min="1" step="1" class="w-full bg-[#141414] border border-sant-border rounded-lg px-2 py-2 text-sm text-white outline-none focus:border-[#fbbf24]">
+                                    </div>
+                                    <div class="w-24">
+                                        <label class="block text-[9px] font-semibold text-gray-500 uppercase mb-1">Desconto %</label>
+                                        <input type="number" id="contactPipelineProductDiscount" value="0" min="0" max="100" step="1" class="w-full bg-[#141414] border border-sant-border rounded-lg px-2 py-2 text-sm text-white outline-none focus:border-[#fbbf24]">
+                                    </div>
+                                    <button type="button" onclick="addContactPipelineProduct()" class="flex-1 bg-[#fbbf24] text-sant-bg px-3 py-2 rounded-lg text-sm font-bold hover:brightness-95 transition-all">Adicionar</button>
                                 </div>
                                 <div id="contactPipelineProductsList" class="space-y-1.5"></div>
                                 <p class="text-[10px] text-gray-600 mt-1">Adicionar itens soma automaticamente ao Valor Potencial acima (já com desconto aplicado).</p>
