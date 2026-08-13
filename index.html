@@ -1827,6 +1827,7 @@
                     <div id="lossReasonReportSection" class="hidden bg-sant-surface border border-sant-border rounded-2xl p-5 mb-8 shrink-0">
                         <p class="text-xs font-bold text-white uppercase tracking-wide mb-4 flex items-center gap-2"><i class="ph ph-thumbs-down text-red-400"></i> Motivos de Recusa/Perda</p>
                         <div id="lossReasonBars" class="space-y-3"></div>
+                        <div id="lossReasonInsight" class="mt-4 pt-4 border-t border-sant-border"></div>
                     </div>
                     <div id="leadsDetailedLists" class="space-y-8 pb-10 pr-2"></div>
                 </div>
@@ -18486,6 +18487,35 @@
                     </div>
                 </div>`;
             }).join('') + `<p class="text-[10px] text-gray-600 pt-1">${total} lead${total!==1?'s':''} com motivo registrado</p>`;
+
+            // Insight: motivo mais comum por categoria/origem (só quando há dados suficientes por grupo)
+            const topKey = entries[0][0];
+            const topLabel = LOSS_REASON_LABELS[topKey] || topKey;
+            const topPct = Math.round((entries[0][1]/total)*100);
+            const insightEl = document.getElementById('lossReasonInsight');
+            if (insightEl) {
+                let html = `<p class="text-xs text-gray-400 mb-2"><i class="ph ph-lightbulb text-amber-400"></i> Motivo mais comum no geral: <b class="text-white">${topLabel}</b> (${topPct}% dos casos).</p>`;
+                const buildGroupInsight = (groupFn, groupLabel) => {
+                    const groups = {};
+                    cold.forEach(c => {
+                        const g = groupFn(c) || 'Não informado';
+                        if (!groups[g]) groups[g] = {};
+                        groups[g][c.lossReason] = (groups[g][c.lossReason] || 0) + 1;
+                    });
+                    const rows = Object.entries(groups)
+                        .filter(([,counts]) => Object.values(counts).reduce((a,b)=>a+b,0) >= 2)
+                        .map(([g, counts]) => {
+                            const [reasonKey, reasonCount] = Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];
+                            const gTotal = Object.values(counts).reduce((a,b)=>a+b,0);
+                            return `<li><b class="text-gray-300">${g}</b>: ${LOSS_REASON_LABELS[reasonKey] || reasonKey} (${reasonCount}/${gTotal})</li>`;
+                        });
+                    if (!rows.length) return '';
+                    return `<p class="text-[10px] text-gray-500 uppercase tracking-wide mt-3 mb-1">Por ${groupLabel}</p><ul class="text-xs text-gray-400 space-y-0.5">${rows.join('')}</ul>`;
+                };
+                html += buildGroupInsight(c => c.category, 'Categoria');
+                html += buildGroupInsight(c => c.origin, 'Origem');
+                insightEl.innerHTML = html;
+            }
         }
 
         function snoozeLeadTemperature(id) {
