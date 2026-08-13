@@ -19590,7 +19590,7 @@
                 };
                 await sb.from('user_preferences').upsert(row, { onConflict: 'user_id' });
                 markSyncSuccess();
-            } catch(e) { console.warn('Prefs sync:', e.message); }
+            } catch(e) { console.warn('Prefs sync:', e.message); showToast('Erro ao sincronizar preferências: ' + e.message, 'error'); }
         }
 
         async function loadPreferencesFromSupabase() {
