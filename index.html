@@ -659,6 +659,15 @@
                     </div>
                 </div>
 
+                <!-- Card: Negócios Parados (Pipeline) -->
+                <div id="dashStuckDealsCard" data-dash-title="Negócios Parados" class="hidden bg-sant-surface border border-red-500/20 rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <p class="text-[10px] text-red-400 font-bold tracking-wider uppercase flex items-center gap-2"><i class="ph ph-warning-circle text-base"></i> Negócios Parados</p>
+                        <span id="dashStuckDealsCount" class="text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 rounded-full px-2 py-0.5"></span>
+                    </div>
+                    <div id="dashStuckDealsList" class="space-y-2"></div>
+                </div>
+
                 <!-- Card: Taxa de Follow-up -->
                 <div id="dashFollowupCard" data-dash-title="Taxa de Follow-ups" class="bg-sant-surface border border-sant-border rounded-2xl p-6">
                     <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase mb-5 flex items-center gap-2"><i class="ph ph-arrow-counter-clockwise text-sant-cyan"></i> Taxa de Resposta — Follow-ups</p>
@@ -7121,6 +7130,7 @@
             renderInteractionDonut();
             renderLeadsEvolution();
             renderSalesDashboardCard();
+            renderStuckDealsCard(todayStr);
             renderLeadsFunnel();
             renderDashSmartLists();
             renderHealthDashboard();
@@ -7463,6 +7473,7 @@
             { id: 'dashFollowupCard',       title: 'Taxa de Follow-ups' },
             { id: 'dashLeadsEvolutionCard', title: 'Evolução de Leads' },
             { id: 'dashSalesCard',          title: 'Vendas — Catálogo & Pipeline' },
+            { id: 'dashStuckDealsCard',     title: 'Negócios Parados' },
             { id: 'dashStreakCard',          title: 'Streak de Uso' },
             { id: 'dashGoalsCard',          title: 'Metas da Semana' },
             { id: 'dashBigGoalsCard',       title: 'Metas Maiores' },
@@ -10373,6 +10384,40 @@
                     <span class="text-xs text-gray-400 truncate">${u.name}</span>
                     <span class="text-xs font-bold text-sant-cyan shrink-0">${u.qty}x</span>
                 </div>`).join('') : '<p class="text-xs text-gray-600 italic">Nenhum item vinculado a negociações ainda.</p>';
+        }
+
+        // ── Dashboard: Card de Negócios Parados (Pipeline) ──────────────────
+        function renderStuckDealsCard(todayStr) {
+            const card = document.getElementById('dashStuckDealsCard');
+            const countEl = document.getElementById('dashStuckDealsCount');
+            const listEl = document.getElementById('dashStuckDealsList');
+            if (!card || !listEl) return;
+
+            const stuck = contacts.filter(c => {
+                if (!c.isLead || c.deletedAt) return false;
+                const stage = getPipelineStage(c);
+                if (stage === 'ganho' || stage === 'perdido') return false;
+                if (!c.stageEnteredAt) return false;
+                const days = _daysBetween(c.stageEnteredAt.substring(0,10), todayStr);
+                return days >= 14;
+            }).map(c => ({ c, days: _daysBetween(c.stageEnteredAt.substring(0,10), todayStr), stage: PIPELINE_STAGES.find(s => s.id === getPipelineStage(c)) }))
+              .sort((a,b) => b.days - a.days);
+
+            if (!stuck.length) { card.classList.add('hidden'); return; }
+            card.classList.remove('hidden');
+            countEl.textContent = stuck.length;
+
+            listEl.innerHTML = stuck.slice(0, 8).map(({ c, days, stage }) => `
+                <div onclick="openHistoryModal('${c.id}')" class="flex items-center justify-between gap-2 p-2.5 bg-[#0a0a0a] border border-sant-border rounded-lg cursor-pointer hover:border-red-400/30 transition-colors">
+                    <div class="min-w-0 flex-1">
+                        <p class="text-sm text-white truncate">${fullName(c)}</p>
+                        <p class="text-[10px] text-gray-500 truncate">${stage ? stage.label : '—'}${c.company ? ' · ' + c.company : ''}</p>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <p class="text-xs font-bold text-red-400">${days}d parado</p>
+                        ${c.dealValue ? `<p class="text-[10px] text-[#fbbf24]">R$ ${c.dealValue.toLocaleString('pt-BR')}</p>` : ''}
+                    </div>
+                </div>`).join('');
         }
 
         // ── Relatório: Precificação/Margem do Catálogo ──────────────────────
