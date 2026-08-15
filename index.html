@@ -2501,6 +2501,12 @@
                                     </select>
                                 </div>
                                 <div class="flex items-center justify-between">
+                                    <div><p class="text-sm text-white">Buffer entre Compromissos</p><p class="text-xs text-gray-500">Avisar quando dois compromissos ficarem colados com menos de</p></div>
+                                    <select onchange="localStorage.setItem('vends_buffer_minutes', this.value); syncPreferencesToSupabase(); showToast('Preferência salva!')" id="s-buffer-minutes" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                                        <option value="0">Desativado</option><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="30">30 min</option><option value="60">60 min</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center justify-between">
                                     <div><p class="text-sm text-white">Retenção da Lixeira</p><p class="text-xs text-gray-500">Excluir Notas/Tarefas/Eventos permanentemente após</p></div>
                                     <select onchange="saveTrashRetentionDays(this.value)" id="s-trash-retention" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
                                         <option value="7">7 dias</option><option value="15">15 dias</option><option value="30">30 dias</option><option value="60">60 dias</option><option value="90">90 dias</option>
@@ -9325,6 +9331,23 @@
                 const r2 = getEventTimeRange(e);
                 if (!r2) return false;
                 return range[0] < r2[1] && r2[0] < range[1];
+            });
+        }
+        // Compromissos que respeitam o Buffer Mínimo configurado (não se sobrepõem, mas ficam colados demais)
+        function findBufferConflicts(movedEvent, dateStr) {
+            const bufferMin = parseInt(localStorage.getItem('vends_buffer_minutes') || '0');
+            if (!bufferMin) return [];
+            const range = getEventTimeRange(movedEvent);
+            if (!range) return [];
+            return events.filter(e => {
+                if (e.id === movedEvent.id) return false;
+                if (!isEventOnDate(e, dateStr)) return false;
+                const r2 = getEventTimeRange(e);
+                if (!r2) return false;
+                const overlaps = range[0] < r2[1] && r2[0] < range[1];
+                if (overlaps) return false;
+                const withBuffer = (range[0] - bufferMin) < r2[1] && r2[0] < (range[1] + bufferMin);
+                return withBuffer;
             });
         }
 
@@ -16385,7 +16408,13 @@
             if (conflicts.length) {
                 showToast(`${id ? 'Compromisso atualizado' : 'Compromisso agendado'} — ⚠️ conflita com "${conflicts[0].title}"${conflicts.length>1?` e mais ${conflicts.length-1}`:''}`, 'error');
             } else {
-                showToast(id ? 'Compromisso atualizado!' : 'Compromisso agendado!');
+                const bufferConflicts = findBufferConflicts(event, event.startDate);
+                if (bufferConflicts.length) {
+                    const bufferMin = parseInt(localStorage.getItem('vends_buffer_minutes') || '0');
+                    showToast(`${id ? 'Compromisso atualizado' : 'Compromisso agendado'} — ⏱ menos de ${bufferMin}min de intervalo com "${bufferConflicts[0].title}"`, 'info');
+                } else {
+                    showToast(id ? 'Compromisso atualizado!' : 'Compromisso agendado!');
+                }
             }
             if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
         }
@@ -19737,6 +19766,7 @@
                     "bdayAdvance":    parseInt(localStorage.getItem('vends_bday_advance')    || '3'),
                     "inactivityDays": parseInt(localStorage.getItem('vends_inactivity_days') || '60'),
                     "trashRetentionDays": parseInt(localStorage.getItem('vends_trash_retention_days') || '30'),
+                    "bufferMinutes": parseInt(localStorage.getItem('vends_buffer_minutes') || '0'),
                     "emailDailyEnabled": localStorage.getItem('vends_email_daily_enabled') !== 'false',
                     "emailWeeklyEnabled": localStorage.getItem('vends_email_weekly_enabled') !== 'false',
                     "slaHours": parseInt(localStorage.getItem('vends_sla_hours') || '24'),
@@ -19804,6 +19834,7 @@
                 if (data.bdayAdvance !== undefined && data.bdayAdvance !== null)    localStorage.setItem('vends_bday_advance', String(data.bdayAdvance));
                 if (data.inactivityDays !== undefined && data.inactivityDays !== null) localStorage.setItem('vends_inactivity_days', String(data.inactivityDays));
                 if (data.trashRetentionDays !== undefined && data.trashRetentionDays !== null) localStorage.setItem('vends_trash_retention_days', String(data.trashRetentionDays));
+                if (data.bufferMinutes !== undefined && data.bufferMinutes !== null) localStorage.setItem('vends_buffer_minutes', String(data.bufferMinutes));
                 if (data.emailDailyEnabled !== undefined && data.emailDailyEnabled !== null) localStorage.setItem('vends_email_daily_enabled', String(data.emailDailyEnabled));
                 if (data.emailWeeklyEnabled !== undefined && data.emailWeeklyEnabled !== null) localStorage.setItem('vends_email_weekly_enabled', String(data.emailWeeklyEnabled));
                 if (data.slaHours !== undefined && data.slaHours !== null) localStorage.setItem('vends_sla_hours', String(data.slaHours));
@@ -22358,6 +22389,8 @@
             if (pinEl) pinEl.value = localStorage.getItem('vends_max_pinned') || '10';
             const trashEl = document.getElementById('s-trash-retention');
             if (trashEl) trashEl.value = localStorage.getItem('vends_trash_retention_days') || '30';
+            const bufferEl = document.getElementById('s-buffer-minutes');
+            if (bufferEl) bufferEl.value = localStorage.getItem('vends_buffer_minutes') || '0';
             renderEmailToggles();
             fillCadenceTargetValueSelect();
             renderCadenceOverridesList();
