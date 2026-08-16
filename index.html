@@ -5154,18 +5154,25 @@
                 banner.classList.add('hidden');
                 return;
             }
-            const daysLeft = Math.ceil((new Date(currentOrg.trial_ends_at) - new Date()) / 86400000);
+            const msLeft = new Date(currentOrg.trial_ends_at) - new Date();
+            const daysLeft = Math.ceil(msLeft / 86400000);
             if (daysLeft > 3) { banner.classList.add('hidden'); return; }
             banner.classList.remove('hidden');
             banner.classList.add('flex');
-            if (daysLeft <= 0) {
+            if (msLeft <= 0) {
                 banner.style.background = '#ef4444'; banner.style.color = '#fff';
                 textEl.textContent = 'Seu período de teste acabou. Entre em contato pra continuar usando o Vend-s.';
             } else {
                 banner.style.background = '#fbbf24'; banner.style.color = '#000';
-                textEl.textContent = `Seu período de teste acaba em ${daysLeft} dia${daysLeft>1?'s':''}. Assine pra não perder o acesso.`;
+                const h = Math.floor(msLeft / 3600000);
+                const d = Math.floor(h / 24);
+                const remH = h % 24;
+                const m = Math.floor((msLeft % 3600000) / 60000);
+                const countdown = d > 0 ? `${d}d ${remH}h` : `${h}h ${m}min`;
+                textEl.textContent = `⏳ Seu período de teste acaba em ${countdown}. Assine pra não perder o acesso.`;
             }
         }
+        setInterval(() => { if (typeof currentOrg !== 'undefined') renderTrialBanner(); }, 60000);
         // ── Minha Empresa (perfil da organização/conta) ──────────────────────
         function renderAccountBadge() {
             const el = document.getElementById('accountBadge');
