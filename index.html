@@ -4992,6 +4992,27 @@
             if (typeof initApp === 'function') initApp();
             // Inicia sync em tempo real
             setTimeout(() => startRealtimeSync(), 1500);
+            // Garante que a conta tem uma organização (base da Fase 5 de comercialização — não afeta nada do uso atual)
+            ensureOrganization();
+        }
+
+        // ── Fase 5 (comercialização): organização/assinatura por conta ──────
+        // Não migra nenhuma tabela de dados existente — só controla plano/status.
+        // Hoje toda conta nova recebe trial de 14 dias automaticamente; contas internas
+        // (como a do Caio) são marcadas manualmente como "unlimited" no banco.
+        let currentOrg = null;
+        async function ensureOrganization() {
+            const sb = getSB();
+            if (!sb || !currentUser) return;
+            try {
+                const { data: existing } = await sb.from('organizations').select('*').eq('owner_user_id', currentUser.id).maybeSingle();
+                if (existing) { currentOrg = existing; return; }
+                const trialEndsAt = new Date(Date.now() + 14 * 86400000).toISOString();
+                const { data: created, error } = await sb.from('organizations')
+                    .insert({ owner_user_id: currentUser.id, plan: 'trial', status: 'trialing', trial_ends_at: trialEndsAt })
+                    .select().single();
+                if (!error) currentOrg = created;
+            } catch(e) { console.warn('Organizations:', e.message); }
         }
 
         async function doLogout() {
