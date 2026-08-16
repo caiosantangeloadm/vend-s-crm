@@ -279,6 +279,39 @@
                         style="background:#5b8fa8;color:#030303">
                         <i class="ph ph-sign-in"></i> Entrar
                     </button>
+                    <button onclick="showSignupCard()" class="w-full py-2 text-xs text-gray-500 hover:text-sant-cyan transition-colors">Não tem conta? <span class="font-bold">Criar conta grátis</span></button>
+                </div>
+            </div>
+
+            <!-- Card de cadastro (nova conta / trial) -->
+            <div id="signupCard" class="hidden bg-sant-surface border border-sant-border rounded-2xl p-8 shadow-2xl">
+                <h2 class="text-xl font-bold text-white mb-1">Criar conta grátis</h2>
+                <p class="text-xs text-gray-500 mb-6">14 dias de teste, sem cartão de crédito.</p>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Nome</label>
+                        <input type="text" id="signupName" placeholder="Seu nome"
+                            class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-3 text-sm text-white outline-none focus:border-sant-cyan transition-colors">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">E-mail</label>
+                        <input type="email" id="signupEmail" placeholder="seu@email.com"
+                            class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-3 text-sm text-white outline-none focus:border-sant-cyan transition-colors">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Senha</label>
+                        <input type="password" id="signupPassword" placeholder="Mínimo 6 caracteres"
+                            class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-3 text-sm text-white outline-none focus:border-sant-cyan transition-colors"
+                            onkeydown="if(event.key==='Enter')doSignup()">
+                    </div>
+                    <p id="signupError" class="hidden text-xs text-red-400 flex items-center gap-1.5"><i class="ph ph-warning-circle"></i> <span></span></p>
+                    <p id="signupSuccess" class="hidden text-xs text-green-400 flex items-center gap-1.5"><i class="ph ph-check-circle"></i> <span></span></p>
+                    <button onclick="doSignup()" id="signupBtn"
+                        class="w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2"
+                        style="background:#5b8fa8;color:#030303">
+                        <i class="ph ph-user-plus"></i> Criar conta
+                    </button>
+                    <button onclick="showLoginCard()" class="w-full py-2 text-xs text-gray-500 hover:text-white transition-colors">Já tem conta? Entrar</button>
                 </div>
             </div>
             <!-- Etapa 2: código do autenticador (só aparece se o 2FA estiver ativado) -->
@@ -4899,6 +4932,54 @@
             } else {
                 document.getElementById('loginScreen').style.display = 'flex';
                 setTimeout(() => document.getElementById('loginEmail')?.focus(), 100);
+            }
+        }
+
+        function showSignupCard() {
+            document.getElementById('loginCard').classList.add('hidden');
+            document.getElementById('signupCard').classList.remove('hidden');
+        }
+        function showLoginCard() {
+            document.getElementById('signupCard').classList.add('hidden');
+            document.getElementById('loginCard').classList.remove('hidden');
+        }
+        function showSignupError(msg) {
+            const el = document.getElementById('signupError');
+            document.getElementById('signupSuccess').classList.add('hidden');
+            el.querySelector('span').textContent = msg;
+            el.classList.remove('hidden');
+        }
+        async function doSignup() {
+            const sb = getSB();
+            const name = document.getElementById('signupName').value.trim();
+            const email = document.getElementById('signupEmail').value.trim();
+            const password = document.getElementById('signupPassword').value;
+            const btn = document.getElementById('signupBtn');
+            document.getElementById('signupError').classList.add('hidden');
+            document.getElementById('signupSuccess').classList.add('hidden');
+            if (!name) { showSignupError('Informe seu nome.'); return; }
+            if (!email) { showSignupError('Informe seu e-mail.'); return; }
+            if (!password || password.length < 6) { showSignupError('A senha precisa ter pelo menos 6 caracteres.'); return; }
+            btn.disabled = true;
+            btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Criando conta...';
+            const { data, error } = await sb.auth.signUp({
+                email, password,
+                options: { data: { full_name: name } }
+            });
+            btn.disabled = false;
+            btn.innerHTML = '<i class="ph ph-user-plus"></i> Criar conta';
+            if (error) {
+                showSignupError(error.message.includes('already registered') ? 'Este e-mail já tem conta cadastrada.' : 'Não foi possível criar a conta. Tente novamente.');
+                return;
+            }
+            if (data.session) {
+                // Confirmação de e-mail desativada no projeto — já entra direto
+                currentUser = data.user;
+                showAppAfterLogin();
+            } else {
+                const el = document.getElementById('signupSuccess');
+                el.querySelector('span').textContent = 'Conta criada! Verifique seu e-mail pra confirmar o acesso antes de entrar.';
+                el.classList.remove('hidden');
             }
         }
 
