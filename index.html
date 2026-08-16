@@ -424,7 +424,7 @@
                 <!-- Selo discreto de trial acabando -->
                 <span id="trialBanner" class="hidden items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold shrink-0">
                     <i class="ph ph-clock-countdown"></i> <span id="trialBannerText"></span>
-                    <i class="ph ph-x ml-1 cursor-pointer opacity-70 hover:opacity-100" onclick="event.stopPropagation(); dismissTrialBanner()" title="Dispensar por hoje"></i>
+                    <i id="trialBannerDismiss" class="ph ph-x ml-1 cursor-pointer opacity-70 hover:opacity-100" onclick="event.stopPropagation(); dismissTrialBanner()" title="Dispensar por hoje"></i>
                 </span>
                 <!-- Indicador de Sincronização -->
                 <div onclick="showToast(document.getElementById('realtimeDot').title)" class="hidden md:flex items-center gap-1.5 cursor-pointer shrink-0" title="Sincronização">
@@ -5163,16 +5163,18 @@
             }
             const msLeft = new Date(currentOrg.trial_ends_at) - new Date();
             const daysLeft = Math.ceil(msLeft / 86400000);
-            if (daysLeft > 3) { banner.classList.add('hidden'); return; }
-            // Expirado sempre mostra, mesmo dispensado hoje — mas o aviso de "acabando" pode ser dispensado por dia
+            const urgent = daysLeft <= 3;
+            // Expirado sempre mostra, mesmo dispensado hoje — mas o aviso "acabando" pode ser dispensado por dia (só quando urgente)
             const dismissedToday = localStorage.getItem('vends_trial_banner_dismissed') === getSPTodayStr();
-            if (msLeft > 0 && dismissedToday) { banner.classList.add('hidden'); return; }
+            if (msLeft > 0 && urgent && dismissedToday) { banner.classList.add('hidden'); return; }
             banner.classList.remove('hidden');
             banner.classList.add('inline-flex');
+            const dismissIcon = document.getElementById('trialBannerDismiss');
+            if (dismissIcon) dismissIcon.style.display = urgent ? '' : 'none';
             if (msLeft <= 0) {
                 banner.style.background = 'rgba(239,68,68,0.12)'; banner.style.borderColor = 'rgba(239,68,68,0.35)'; banner.style.color = '#f87171';
                 textEl.textContent = 'Teste expirado — fale com a gente';
-            } else {
+            } else if (urgent) {
                 banner.style.background = 'rgba(251,191,36,0.10)'; banner.style.borderColor = 'rgba(251,191,36,0.3)'; banner.style.color = '#fbbf24';
                 const h = Math.floor(msLeft / 3600000);
                 const d = Math.floor(h / 24);
@@ -5180,6 +5182,9 @@
                 const m = Math.floor((msLeft % 3600000) / 60000);
                 const countdown = d > 0 ? `${d}d ${remH}h` : `${h}h ${m}min`;
                 textEl.textContent = `Trial: ${countdown}`;
+            } else {
+                banner.style.background = 'rgba(255,255,255,0.04)'; banner.style.borderColor = 'rgba(255,255,255,0.1)'; banner.style.color = '#6b7280';
+                textEl.textContent = `Trial: ${daysLeft} dias restantes`;
             }
         }
         setInterval(() => { if (typeof currentOrg !== 'undefined') renderTrialBanner(); }, 60000);
