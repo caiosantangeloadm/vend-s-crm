@@ -496,6 +496,10 @@
             <i class="ph ph-wifi-slash"></i> <span id="offlineBannerText">Sem conexão — suas alterações estão sendo salvas neste dispositivo e serão sincronizadas quando a internet voltar.</span>
         </div>
 
+        <div id="trialBanner" class="hidden fixed top-0 left-0 right-0 z-[59] text-xs font-bold text-center py-1.5 items-center justify-center gap-2">
+            <i class="ph ph-clock-countdown"></i> <span id="trialBannerText"></span>
+        </div>
+
         <div id="mainContentArea" class="flex-1 overflow-y-auto px-3 sm:px-8 pt-28 pb-24">
 
             <div id="view-dashboard" class="hidden max-w-6xl mx-auto space-y-6">
@@ -5140,6 +5144,27 @@
                 if (el) el.style.display = restricted ? 'none' : '';
             });
             renderAccountBadge();
+            renderTrialBanner();
+        }
+        function renderTrialBanner() {
+            const banner = document.getElementById('trialBanner');
+            const textEl = document.getElementById('trialBannerText');
+            if (!banner || !textEl) return;
+            if (!currentOrg || currentOrg.unlimited || currentOrg.plan !== 'trial' || !currentOrg.trial_ends_at) {
+                banner.classList.add('hidden');
+                return;
+            }
+            const daysLeft = Math.ceil((new Date(currentOrg.trial_ends_at) - new Date()) / 86400000);
+            if (daysLeft > 3) { banner.classList.add('hidden'); return; }
+            banner.classList.remove('hidden');
+            banner.classList.add('flex');
+            if (daysLeft <= 0) {
+                banner.style.background = '#ef4444'; banner.style.color = '#fff';
+                textEl.textContent = 'Seu período de teste acabou. Entre em contato pra continuar usando o Vend-s.';
+            } else {
+                banner.style.background = '#fbbf24'; banner.style.color = '#000';
+                textEl.textContent = `Seu período de teste acaba em ${daysLeft} dia${daysLeft>1?'s':''}. Assine pra não perder o acesso.`;
+            }
         }
         // ── Minha Empresa (perfil da organização/conta) ──────────────────────
         function renderAccountBadge() {
