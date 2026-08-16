@@ -5087,12 +5087,15 @@
             if (!sb || !currentUser) return;
             try {
                 const { data: existing } = await sb.from('organizations').select('*').eq('owner_user_id', currentUser.id).maybeSingle();
-                if (existing) { currentOrg = existing; return; }
-                const trialEndsAt = new Date(Date.now() + 14 * 86400000).toISOString();
-                const { data: created, error } = await sb.from('organizations')
-                    .insert({ owner_user_id: currentUser.id, plan: 'trial', status: 'trialing', trial_ends_at: trialEndsAt })
-                    .select().single();
-                if (!error) currentOrg = created;
+                if (existing) {
+                    currentOrg = existing;
+                } else {
+                    const trialEndsAt = new Date(Date.now() + 14 * 86400000).toISOString();
+                    const { data: created, error } = await sb.from('organizations')
+                        .insert({ owner_user_id: currentUser.id, plan: 'trial', status: 'trialing', trial_ends_at: trialEndsAt })
+                        .select().single();
+                    if (!error) currentOrg = created;
+                }
             } catch(e) { console.warn('Organizations:', e.message); }
             applyPlanRestrictions();
         }
