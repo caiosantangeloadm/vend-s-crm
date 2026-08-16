@@ -5094,6 +5094,23 @@
                     .select().single();
                 if (!error) currentOrg = created;
             } catch(e) { console.warn('Organizations:', e.message); }
+            applyPlanRestrictions();
+        }
+        // Módulos exclusivos do plano Profissional — Essencial não vê nem acessa
+        const PLAN_RESTRICTED_VIEWS = ['pipeline', 'catalog'];
+        const PLAN_CONTACT_LIMIT_ESSENCIAL = 500;
+        function isEssencialPlan() {
+            return !!(currentOrg && !currentOrg.unlimited && currentOrg.plan === 'essencial');
+        }
+        function isPlanRestrictedView(viewId) {
+            return isEssencialPlan() && PLAN_RESTRICTED_VIEWS.includes(viewId);
+        }
+        function applyPlanRestrictions() {
+            const restricted = isEssencialPlan();
+            ['nav-pipeline', 'nav-catalog'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = restricted ? 'none' : '';
+            });
         }
 
         async function doLogout() {
@@ -9681,6 +9698,10 @@
         }
 
         function switchView(viewId) {
+            if (isPlanRestrictedView(viewId)) {
+                showToast('Esse módulo faz parte do plano Profissional. Faça upgrade pra desbloquear.', 'error');
+                return;
+            }
             currentView = viewId;
             document.querySelectorAll('main > div > div[id^="view-"]').forEach(el => el.classList.add('hidden'));
             document.getElementById('view-' + viewId).classList.remove('hidden');
@@ -13394,6 +13415,13 @@
         function saveContact() {
             const id = document.getElementById('contactId').value;
             const existing = id ? contacts.find(c => c.id === id) : null;
+            if (!existing && isEssencialPlan()) {
+                const activeCount = contacts.filter(c => !c.deletedAt).length;
+                if (activeCount >= PLAN_CONTACT_LIMIT_ESSENCIAL) {
+                    showToast(`Limite de ${PLAN_CONTACT_LIMIT_ESSENCIAL} contatos do plano Essencial atingido. Faça upgrade pro Profissional pra continuar cadastrando.`, 'error');
+                    return;
+                }
+            }
             const contact = {
                 id: id || crypto.randomUUID(),
                 name: document.getElementById('contactName').value,
