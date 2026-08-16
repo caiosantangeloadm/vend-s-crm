@@ -5905,6 +5905,15 @@
         }
         // ─────────────────────────────────────────────────────────────
 
+        // Limpa hash residual de redirect de autenticação (#error=..., #access_token=...) que o
+        // navegador tenta usar como âncora de scroll, cortando o topo da tela de login
+        (function cleanAuthHash() {
+            if (/^#(error|access_token)/.test(window.location.hash)) {
+                history.replaceState(null, '', window.location.pathname + window.location.search);
+                window.scrollTo(0, 0);
+            }
+        })();
+
         async function init() {
             if (window.supabase) {
                 await checkAuthSession();
