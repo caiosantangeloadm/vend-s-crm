@@ -419,6 +419,8 @@
                     <div id="globalSearchResults" class="hidden absolute right-0 top-12 w-96 max-h-[70vh] overflow-y-auto rounded-2xl border border-sant-border shadow-2xl z-50" style="background:#0d0d0d;">
                     </div>
                 </div>
+                <!-- Conta/Empresa logada -->
+                <span id="accountBadge" onclick="switchView('settings');setTimeout(()=>switchSettingsTab('company'),100)" class="hidden md:inline-flex items-center px-2.5 py-1 rounded-lg border border-sant-border bg-white/5 text-[11px] text-gray-400 hover:text-sant-cyan hover:border-sant-cyan/40 cursor-pointer transition-colors max-w-[160px] truncate shrink-0"></span>
                 <!-- Indicador de Sincronização -->
                 <div onclick="showToast(document.getElementById('realtimeDot').title)" class="hidden md:flex items-center gap-1.5 cursor-pointer shrink-0" title="Sincronização">
                     <div id="realtimeDot" class="hidden w-2 h-2 rounded-full bg-green-400" style="box-shadow:0 0 6px #4ade80"></div>
@@ -2383,6 +2385,29 @@
                         </div>
                         <p class="text-[11px] text-gray-600 mb-3">Feriados municipais, folgas da empresa etc. — aparecem na Agenda igual aos feriados nacionais.</p>
                         <div id="customHolidaysList" class="space-y-2"></div>
+                    </div>
+                </div>
+
+                <!-- Painel: Minha Empresa -->
+                <div id="spanel-company" class="settings-panel hidden">
+                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 max-w-lg">
+                        <p class="text-xs font-bold text-white uppercase tracking-wide mb-1 flex items-center gap-2"><i class="ph ph-buildings text-sant-cyan"></i> Minha Empresa</p>
+                        <p class="text-xs text-gray-500 mb-5">Esses dados identificam sua conta — aparecem no topo do app e servem de base pra futura emissão de cobrança.</p>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-1.5">Nome da Empresa</label>
+                                <input type="text" id="companyName" placeholder="Ex: Santangelo Consultoria" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-sant-cyan transition-colors">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-1.5">CNPJ <span class="normal-case font-normal text-gray-600">(opcional)</span></label>
+                                <input type="text" id="companyCnpj" placeholder="00.000.000/0000-00" maxlength="18" oninput="maskCnpj(this)" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-sant-cyan transition-colors">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-1.5">Nome do Responsável</label>
+                                <input type="text" id="companyOwnerName" placeholder="Seu nome" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-sant-cyan transition-colors">
+                            </div>
+                            <button onclick="saveCompanyProfile()" class="bg-sant-cyan text-sant-bg px-5 py-2.5 rounded-lg text-sm font-bold hover:brightness-95 transition-all">Salvar</button>
+                        </div>
                     </div>
                 </div>
 
@@ -5114,6 +5139,45 @@
                 const el = document.getElementById(id);
                 if (el) el.style.display = restricted ? 'none' : '';
             });
+            renderAccountBadge();
+        }
+        // ── Minha Empresa (perfil da organização/conta) ──────────────────────
+        function renderAccountBadge() {
+            const el = document.getElementById('accountBadge');
+            if (!el || !currentOrg) return;
+            const label = currentOrg.company_name || currentOrg.owner_name || (currentUser ? currentUser.email : '');
+            if (!label) { el.classList.add('hidden'); return; }
+            el.textContent = label;
+            el.title = 'Conta: ' + label;
+            el.classList.remove('hidden');
+        }
+        function renderCompanyProfile() {
+            if (!currentOrg) return;
+            const nameEl = document.getElementById('companyName');
+            const cnpjEl = document.getElementById('companyCnpj');
+            const ownerEl = document.getElementById('companyOwnerName');
+            if (nameEl) nameEl.value = currentOrg.company_name || '';
+            if (cnpjEl) cnpjEl.value = currentOrg.cnpj || '';
+            if (ownerEl) ownerEl.value = currentOrg.owner_name || '';
+        }
+        async function saveCompanyProfile() {
+            const sb = getSB();
+            if (!sb || !currentOrg) return;
+            const company_name = document.getElementById('companyName').value.trim();
+            const cnpj = document.getElementById('companyCnpj').value.trim();
+            const owner_name = document.getElementById('companyOwnerName').value.trim();
+            try {
+                const { data, error } = await sb.from('organizations')
+                    .update({ company_name, cnpj, owner_name, updated_at: new Date().toISOString() })
+                    .eq('id', currentOrg.id).select().single();
+                if (error) throw error;
+                currentOrg = data;
+                renderAccountBadge();
+                showToast('Dados da empresa salvos!');
+            } catch(e) {
+                console.warn('Company profile:', e.message);
+                showToast('Não foi possível salvar agora.', 'error');
+            }
         }
 
         async function doLogout() {
@@ -21265,6 +21329,7 @@
                 { id: 'automations', label: 'Automações',            icon: 'ph-lightning' },
             ]},
             { name: 'Sistema', icon: 'ph-shield-check', tabs: [
+                { id: 'company',  label: 'Minha Empresa',      icon: 'ph-buildings' },
                 { id: 'backup',   label: 'Backup',             icon: 'ph-hard-drives' },
                 { id: 'security', label: 'Segurança',          icon: 'ph-lock-key' },
                 { id: 'audit',    label: 'Auditoria de Dados', icon: 'ph-magnifying-glass' },
@@ -21335,6 +21400,7 @@
             if (tab === 'tags')        renderSTags();
             if (tab === 'templates')   renderSTemplates();
             if (tab === 'blocks')      { renderSBlocks(); renderCustomHolidaysList(); }
+            if (tab === 'company')     renderCompanyProfile();
             if (tab === 'backup')      renderSBackup();
             if (tab === 'security')    renderSSecurity();
             if (tab === 'audit')       renderSAudit();
