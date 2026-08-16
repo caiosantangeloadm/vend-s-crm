@@ -4589,9 +4589,12 @@
                     </div>
                 </div>
                 <div id="linkedItemsSection" class="px-4 pt-4">
-                    <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 mb-2">
-                        <i class="ph ph-link"></i> Compromissos &amp; Tarefas Vinculadas
-                    </h4>
+                    <div class="flex items-center justify-between mb-2">
+                        <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                            <i class="ph ph-link"></i> Compromissos &amp; Tarefas Vinculadas
+                        </h4>
+                        <button onclick="viewContactAgenda(currentHistoryContactId)" class="text-[11px] text-sant-cyan hover:text-white transition-colors flex items-center gap-1"><i class="ph ph-calendar-blank"></i> Ver na Agenda</button>
+                    </div>
                     <div id="linkedOverdueBanner" class="hidden mb-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/25 text-red-400 text-xs font-medium flex items-center gap-1.5"></div>
                     <div id="linkedItemsList" class="space-y-2 mb-2"></div>
                 </div>
@@ -15094,6 +15097,18 @@
         function setCalFilterContact(val) {
             calFilterContact = val;
             renderCalendar();
+        }
+        function viewContactAgenda(id) {
+            const c = contacts.find(x => x.id === id);
+            if (!c) return;
+            closeHistoryModal();
+            switchView('calendar');
+            calFilterContact = id;
+            const sel = document.getElementById('calContactFilter');
+            if (sel) sel.value = id;
+            renderCalFilterBar();
+            renderCalendar();
+            showToast(`Mostrando a agenda de ${fullName(c)}.`);
         }
         function setCalFilterTag(val) {
             calFilterTag = val;
