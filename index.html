@@ -6239,7 +6239,9 @@
                 const daysStalled = _daysBetween(lastActivity, todayStr);
                 if (daysStalled < STALLED_TASK_REMINDER_DAYS) return;
 
-                const notifKey = `vends_stalled_notified_${t.id}_${todayStr}`;
+                // Avisa uma vez só por período de inatividade (não repete todo dia) — só volta a
+                // avisar se a tarefa for atualizada e ficar parada de novo a partir daí
+                const notifKey = `vends_stalled_notified_${t.id}_${lastActivity}`;
                 if (localStorage.getItem(notifKey)) return;
 
                 const title = `🕸️ Tarefa parada: ${t.title}`;
@@ -26695,6 +26697,7 @@
         function checkNoteReminders() {
             const todayStr = getSPTodayStr();
             notes.forEach(n => {
+                if (n.deletedAt || n.archived) return;
                 if (!n.dueDate || n.dueDate > todayStr) return;
                 const notifKey = `vends_note_notified_${n.id}_${todayStr}`;
                 if (localStorage.getItem(notifKey)) return;
