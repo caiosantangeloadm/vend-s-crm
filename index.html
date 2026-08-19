@@ -423,7 +423,7 @@
                 <span id="accountBadge" onclick="switchView('settings');setTimeout(()=>switchSettingsTab('company'),100)" class="hidden md:inline-flex items-center px-2.5 py-1 rounded-lg border border-sant-border bg-white/5 text-[11px] text-gray-400 hover:text-sant-cyan hover:border-sant-cyan/40 cursor-pointer transition-colors max-w-[160px] truncate shrink-0"></span>
                 <!-- Selo discreto de trial acabando -->
                 <span id="trialBanner" class="hidden items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold shrink-0">
-                    <i class="ph ph-clock-countdown"></i> <span id="trialBannerText"></span>
+                    <i id="trialBannerIcon" class="ph ph-clock-countdown"></i> <span id="trialBannerText"></span>
                     <i id="trialBannerDismiss" class="ph ph-x ml-1 cursor-pointer opacity-70 hover:opacity-100" onclick="event.stopPropagation(); dismissTrialBanner()" title="Dispensar por hoje"></i>
                 </span>
                 <!-- Indicador de Sincronização -->
@@ -5188,7 +5188,23 @@
             const banner = document.getElementById('trialBanner');
             const textEl = document.getElementById('trialBannerText');
             if (!banner || !textEl) return;
-            if (!currentOrg || currentOrg.unlimited || currentOrg.plan !== 'trial' || !currentOrg.trial_ends_at) {
+            if (!currentOrg || currentOrg.unlimited) { banner.classList.add('hidden'); return; }
+
+            // Plano pago ativo: mostra selo verde com o plano, em vez da contagem de trial
+            if (currentOrg.status === 'active' && currentOrg.plan && currentOrg.plan !== 'trial') {
+                const dismissIcon = document.getElementById('trialBannerDismiss');
+                if (dismissIcon) dismissIcon.style.display = 'none';
+                banner.classList.remove('hidden');
+                banner.classList.add('inline-flex');
+                banner.style.background = 'rgba(74,222,128,0.10)'; banner.style.borderColor = 'rgba(74,222,128,0.3)'; banner.style.color = '#4ade80';
+                const planIcon = document.getElementById('trialBannerIcon');
+                if (planIcon) planIcon.className = 'ph ph-check-circle';
+                const planLabel = currentOrg.plan === 'profissional' ? 'Profissional' : 'Essencial';
+                textEl.textContent = `Plano: ${planLabel}`;
+                return;
+            }
+
+            if (currentOrg.plan !== 'trial' || !currentOrg.trial_ends_at) {
                 banner.classList.add('hidden');
                 return;
             }
@@ -5202,6 +5218,8 @@
             banner.classList.add('inline-flex');
             const dismissIcon = document.getElementById('trialBannerDismiss');
             if (dismissIcon) dismissIcon.style.display = urgent ? '' : 'none';
+            const planIcon2 = document.getElementById('trialBannerIcon');
+            if (planIcon2) planIcon2.className = 'ph ph-clock-countdown';
             if (msLeft <= 0) {
                 banner.style.background = 'rgba(239,68,68,0.12)'; banner.style.borderColor = 'rgba(239,68,68,0.35)'; banner.style.color = '#f87171';
                 textEl.textContent = 'Teste expirado — fale com a gente';
