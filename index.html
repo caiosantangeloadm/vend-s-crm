@@ -2426,6 +2426,26 @@
                             <button onclick="saveCompanyProfile()" class="bg-sant-cyan text-sant-bg px-5 py-2.5 rounded-lg text-sm font-bold hover:brightness-95 transition-all">Salvar</button>
                         </div>
                     </div>
+
+                    <div id="subscriptionSection" class="hidden bg-sant-surface border border-sant-border rounded-2xl p-6 max-w-lg mt-4">
+                        <p class="text-xs font-bold text-white uppercase tracking-wide mb-1 flex items-center gap-2"><i class="ph ph-credit-card text-[#fbbf24]"></i> Assinatura</p>
+                        <p class="text-xs text-gray-500 mb-5">Escolha um plano pra continuar usando o Vend-s depois do período de teste.</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div class="border border-sant-border rounded-xl p-4">
+                                <p class="text-sm font-bold text-white mb-1">Essencial</p>
+                                <p class="text-lg font-bold text-sant-cyan mb-2">R$ 39,90<span class="text-[10px] text-gray-500 font-normal">/mês</span></p>
+                                <p class="text-[11px] text-gray-500 mb-3">Contatos, Agenda, Tarefas, Notas — até 500 contatos</p>
+                                <button onclick="startSubscription('essencial')" id="btnSubEssencial" class="w-full bg-[#141414] border border-sant-border hover:border-sant-cyan text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">Assinar</button>
+                            </div>
+                            <div class="border border-[#fbbf24]/40 rounded-xl p-4 bg-[#fbbf24]/5">
+                                <p class="text-sm font-bold text-white mb-1">Profissional</p>
+                                <p class="text-lg font-bold text-[#fbbf24] mb-2">R$ 69,90<span class="text-[10px] text-gray-500 font-normal">/mês</span></p>
+                                <p class="text-[11px] text-gray-500 mb-3">Tudo do Essencial + Pipeline, Catálogo, Automações</p>
+                                <button onclick="startSubscription('profissional')" id="btnSubProfissional" class="w-full bg-[#fbbf24] text-sant-bg px-4 py-2 rounded-lg text-sm font-bold hover:brightness-95 transition-colors">Assinar</button>
+                            </div>
+                        </div>
+                        <p id="subscriptionMsg" class="hidden text-xs mt-3"></p>
+                    </div>
                 </div>
 
                 <!-- Painel: Backup -->
@@ -5217,6 +5237,64 @@
             if (nameEl) nameEl.value = currentOrg.company_name || '';
             if (cnpjEl) cnpjEl.value = currentOrg.cnpj || '';
             if (ownerEl) ownerEl.value = currentOrg.owner_name || '';
+
+            const subSection = document.getElementById('subscriptionSection');
+            if (subSection) subSection.classList.toggle('hidden', !!currentOrg.unlimited);
+        }
+        async function startSubscription(plan) {
+            const sb = getSB();
+            if (!sb || !currentOrg) return;
+            const btn = document.getElementById(plan === 'profissional' ? 'btnSubProfissional' : 'btnSubEssencial');
+            const msgEl = document.getElementById('subscriptionMsg');
+            msgEl.classList.add('hidden');
+
+            let cpfCnpj = null;
+            if (!currentOrg.cnpj) {
+                cpfCnpj = prompt('Pra criar sua assinatura, informe seu CPF ou CNPJ (só números):');
+                if (!cpfCnpj) return;
+            }
+
+            btn.disabled = true;
+            const origText = btn.textContent;
+            btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Processando...';
+
+            try {
+                const { data: sessionData } = await sb.auth.getSession();
+                const token = sessionData?.session?.access_token;
+                const res = await fetch(`${SUPABASE_URL}/functions/v1/create-subscription`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify({ plan, cpfCnpj }),
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    if (data.error === 'cpf_cnpj_required') {
+                        msgEl.textContent = 'Não conseguimos identificar seu CPF/CNPJ — tente novamente.';
+                    } else {
+                        msgEl.textContent = 'Não foi possível criar a assinatura agora. Tente novamente em instantes.';
+                    }
+                    msgEl.className = 'text-xs mt-3 text-red-400';
+                    msgEl.classList.remove('hidden');
+                    return;
+                }
+                currentOrg.asaas_subscription_id = data.subscriptionId;
+                if (data.invoiceUrl) {
+                    window.open(data.invoiceUrl, '_blank');
+                    msgEl.textContent = 'Assinatura criada! Finalize o pagamento na aba que abriu.';
+                } else {
+                    msgEl.textContent = 'Assinatura criada! Aguardando confirmação do pagamento.';
+                }
+                msgEl.className = 'text-xs mt-3 text-green-400';
+                msgEl.classList.remove('hidden');
+            } catch(e) {
+                console.warn('startSubscription:', e.message);
+                msgEl.textContent = 'Erro de conexão. Tente novamente.';
+                msgEl.className = 'text-xs mt-3 text-red-400';
+                msgEl.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = origText;
+            }
         }
         async function saveCompanyProfile() {
             const sb = getSB();
