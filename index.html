@@ -5279,8 +5279,7 @@
                 }
                 currentOrg.asaas_subscription_id = data.subscriptionId;
                 if (data.invoiceUrl) {
-                    window.open(data.invoiceUrl, '_blank');
-                    msgEl.textContent = 'Assinatura criada! Finalize o pagamento na aba que abriu.';
+                    msgEl.innerHTML = `Assinatura criada! <a href="${data.invoiceUrl}" target="_blank" rel="noopener" class="underline font-bold text-sant-cyan hover:text-white">Clique aqui pra finalizar o pagamento</a> (o link também foi enviado pro seu e-mail).`;
                 } else {
                     msgEl.textContent = 'Assinatura criada! Aguardando confirmação do pagamento.';
                 }
