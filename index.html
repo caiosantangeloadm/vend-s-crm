@@ -1525,9 +1525,14 @@
                                 <button onclick="closeAgendaMoreMenu(); openEventsTrashModal()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-red-400 transition-colors text-left"><i class="ph ph-trash text-red-400"></i> Lixeira da Agenda</button>
                             </div>
                         </div>
-                        <button onclick="openEventModal()" class="bg-sant-purple hover:bg-purple-800 text-white px-5 py-2 rounded-lg flex items-center gap-2 transition-all font-medium">
-                            <i class="ph ph-plus"></i> Evento
-                        </button>
+                        <div class="flex rounded-lg overflow-hidden">
+                            <button onclick="openEventModal()" class="bg-sant-purple hover:bg-purple-800 text-white px-5 py-2 flex items-center gap-2 transition-all font-medium">
+                                <i class="ph ph-plus"></i> Evento
+                            </button>
+                            <button onclick="openTaskFromAgenda()" title="Nova tarefa nesta data" class="bg-sant-purple hover:bg-purple-800 text-white px-3 py-2 flex items-center gap-1.5 transition-all font-medium border-l border-purple-900">
+                                <i class="ph ph-check-square"></i> Tarefa
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -15196,6 +15201,13 @@
             });
         }
 
+        function openTaskFromAgenda() {
+            const y = currentMonthDate.getFullYear();
+            const m = String(currentMonthDate.getMonth() + 1).padStart(2, '0');
+            const d = String(currentMonthDate.getDate()).padStart(2, '0');
+            openTaskModal('', `${y}-${m}-${d}`);
+        }
+
         function switchToDayView(dateStr) {
             const parts = dateStr.split('-');
             currentMonthDate = new Date(parts[0], parts[1] - 1, parts[2]);
@@ -23482,10 +23494,10 @@
             tryCloseModal('eventModal', () => document.getElementById('eventModal').classList.add('hidden'));
         }
         
-        function openTaskModal(presetParentId = '') {
+        function openTaskModal(presetParentId = '', presetDate = '') {
             document.getElementById('taskId').value = '';
             document.getElementById('taskTitle').value = '';
-            document.getElementById('taskDate').value = getSPTodayStr();
+            document.getElementById('taskDate').value = presetDate || getSPTodayStr();
             document.getElementById('taskTime').value = '';
             document.getElementById('taskDueDate').value = '';
             document.getElementById('taskPriority').value = 'medium';
