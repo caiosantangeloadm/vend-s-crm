@@ -129,6 +129,23 @@
            mesmo em telas muito baixas — vira scroll em vez de cortar. */
         aside nav.flex-1 { overflow-y: auto; }
 
+        /* ── Celular em pé (retrato) ──────────────────────────────────────────
+           O cabeçalho não tinha nenhum ajuste pra telas estreitas: logo grande +
+           busca fixa de 256px + vários botões numa linha sem quebra faziam o
+           conteúdo "vazar" pra fora da tela — o sino de notificações (e o botão
+           de silenciar) ficavam depois da borda direita, inacessíveis. */
+        @media (max-width: 640px) {
+            header.h-20 { height: auto !important; min-height: 56px; padding: 8px 10px !important; }
+            header.h-20 img { height: 32px !important; }
+            header.h-20 div[style*="width:1px"] { display: none !important; }
+            header.h-20 span[style*="tracking"] { display: none !important; }
+            header.h-20 .ml-auto { gap: 6px !important; }
+            #globalSearchWrap { flex: 1 1 auto; min-width: 0; }
+            #globalSearchWrap > div.flex { width: 100% !important; padding: 6px 8px !important; }
+            #streakBadge, header.h-20 button[title="Central de Ajuda (?)"] { display: none !important; }
+            #notifPanel { top: 60px !important; right: 8px !important; left: 8px !important; width: auto !important; max-height: calc(100vh - 76px) !important; }
+        }
+
         /* ── Central de Notificações ── */
         #notifPanel {
             position: fixed; top: 80px; right: 16px; width: 360px; max-height: calc(100vh - 100px);
