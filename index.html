@@ -5218,7 +5218,13 @@
                 const planIcon = document.getElementById('trialBannerIcon');
                 if (planIcon) planIcon.className = 'ph ph-check-circle';
                 const planLabel = currentOrg.plan === 'profissional' ? 'Profissional' : 'Essencial';
-                textEl.textContent = `Plano: ${planLabel}`;
+                if (currentOrg.plan_renews_at) {
+                    const daysToRenew = Math.ceil((new Date(currentOrg.plan_renews_at + 'T00:00:00') - new Date(getSPTodayStr() + 'T00:00:00')) / 86400000);
+                    const renewTxt = daysToRenew <= 0 ? 'renova hoje' : daysToRenew === 1 ? 'renova amanhã' : `renova em ${daysToRenew}d`;
+                    textEl.textContent = `Plano: ${planLabel} · ${renewTxt}`;
+                } else {
+                    textEl.textContent = `Plano: ${planLabel}`;
+                }
                 return;
             }
 
