@@ -1982,6 +1982,17 @@
                     <div id="catalogMarginTable" class="pb-10"></div>
                 </div>
 
+                <!-- Relatório de Mais Vendidos (Catálogo × Pipeline) -->
+                <div id="report-topselling" class="report-content hidden flex flex-col">
+                    <div class="flex justify-end gap-2 mb-4 shrink-0">
+                        <button onclick="exportTopSellingCsv()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors">
+                            <i class="ph ph-file-csv"></i> Exportar CSV
+                        </button>
+                    </div>
+                    <div id="topSellingSummary" class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6 shrink-0"></div>
+                    <div id="topSellingTable" class="pb-10"></div>
+                </div>
+
                 <!-- Relatório de Inatividade -->
                 <div id="report-inactivity" class="report-content hidden flex flex-col">
                     <!-- Controles -->
@@ -11174,6 +11185,61 @@
             </div>`;
         }
 
+        // ── Relatório de Mais Vendidos (produtos/serviços em negócios GANHOS) ─
+        function getTopSellingReportRows() {
+            const usage = {};
+            contacts.filter(c => c.isLead && !c.deletedAt && getPipelineStage(c) === 'ganho').forEach(c => {
+                (c.pipelineProducts || []).forEach(it => {
+                    if (!usage[it.productId]) usage[it.productId] = { name: it.name, qty: 0, revenue: 0, deals: 0 };
+                    const lineTotal = (it.price || 0) * (it.qty || 0) * (1 - (it.discountPct || 0) / 100);
+                    usage[it.productId].qty += it.qty || 0;
+                    usage[it.productId].revenue += lineTotal;
+                    usage[it.productId].deals += 1;
+                });
+            });
+            return Object.values(usage).sort((a,b) => b.revenue - a.revenue);
+        }
+        function exportTopSellingCsv() {
+            const rows = getTopSellingReportRows().map(u => [u.name, u.deals, u.qty, 'R$ ' + u.revenue.toLocaleString('pt-BR')]);
+            downloadReportCsv(`vends_mais_vendidos_${getSPTodayStr()}.csv`, ['Item', 'Negócios Ganhos', 'Quantidade', 'Receita'], rows);
+        }
+        function generateTopSellingReport() {
+            const summaryEl = document.getElementById('topSellingSummary');
+            const tblEl = document.getElementById('topSellingTable');
+            if (!summaryEl || !tblEl) return;
+
+            const rows = getTopSellingReportRows();
+            if (!rows.length) {
+                summaryEl.innerHTML = '';
+                tblEl.innerHTML = emptyState('ph-trophy', 'Ainda sem dados', 'Assim que negócios com produtos do Catálogo forem marcados como "Ganho" no Pipeline, o ranking aparece aqui.');
+                return;
+            }
+
+            const totalRevenue = rows.reduce((s,u) => s + u.revenue, 0);
+            const totalQty = rows.reduce((s,u) => s + u.qty, 0);
+            summaryEl.innerHTML = [
+                { label: 'Itens diferentes vendidos', value: rows.length, color: 'text-white' },
+                { label: 'Quantidade total', value: totalQty, color: 'text-sant-cyan' },
+                { label: 'Receita total (negócios ganhos)', value: 'R$ ' + Math.round(totalRevenue).toLocaleString('pt-BR'), color: 'text-green-400' },
+            ].map(k => `<div class="bg-sant-surface border border-sant-border rounded-xl p-4 text-center">
+                <p class="text-2xl font-bold ${k.color}">${k.value}</p>
+                <p class="text-[10px] text-gray-500 mt-1">${k.label}</p>
+            </div>`).join('');
+
+            const maxRevenue = Math.max(...rows.map(u => u.revenue), 1);
+            tblEl.innerHTML = `<div class="bg-sant-surface border border-sant-border rounded-2xl p-5 space-y-3">` +
+                rows.map((u, i) => `
+                    <div>
+                        <div class="flex items-center justify-between mb-1 gap-2">
+                            <span class="text-sm font-medium text-gray-300 flex items-center gap-2 min-w-0"><span class="text-xs font-bold text-amber-400 shrink-0">#${i+1}</span> <span class="truncate">${u.name}</span></span>
+                            <span class="text-xs text-gray-500 shrink-0">${u.qty}x · ${u.deals} negócio${u.deals!==1?'s':''} · <span class="text-green-400 font-bold">R$ ${Math.round(u.revenue).toLocaleString('pt-BR')}</span></span>
+                        </div>
+                        <div class="h-2 bg-[#1f1f1f] rounded-full overflow-hidden">
+                            <div class="h-full rounded-full bg-amber-400" style="width:${Math.round((u.revenue/maxRevenue)*100)}%"></div>
+                        </div>
+                    </div>`).join('') + `</div>`;
+        }
+
         // ── Minha Semana (Tarefas + Agenda + Follow-ups em uma visão única) ──
         let myWeekOffset = 0;
         function navMyWeek(delta) {
@@ -18883,6 +18949,7 @@
             ]},
             { name: 'Catálogo', icon: 'ph-package', reports: [
                 { id: 'catalogmargin', label: 'Precificação/Margem', icon: 'ph-percent' },
+                { id: 'topselling', label: 'Mais Vendidos', icon: 'ph-trophy' },
             ]},
             { name: 'Agenda', icon: 'ph-calendar-blank', reports: [
                 { id: 'birthdays', label: 'Aniversariantes',          icon: 'ph-cake' },
@@ -18956,6 +19023,7 @@
             if(tabId === 'leads') generateLeadsReport();
             if(tabId === 'pipelinefunnel') generatePipelineFunnelReport();
             if(tabId === 'catalogmargin') generateCatalogMarginReport();
+            if(tabId === 'topselling') generateTopSellingReport();
             if(tabId === 'inactivity') generateInactivityReport();
             if(tabId === 'geography')  generateGeographyReport();
             if(tabId === 'monthly')   initMonthlyReport();
