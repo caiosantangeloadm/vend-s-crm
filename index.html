@@ -1267,6 +1267,7 @@
                         <option value="value_desc">Maior valor</option>
                         <option value="value_asc">Menor valor</option>
                         <option value="stuck">Mais tempo parado</option>
+                        <option value="manual">Manual (arrastar pra ordenar)</option>
                     </select>
                     <button id="pipelineClearFilters" onclick="clearPipelineFilters()" class="hidden text-xs text-gray-500 hover:text-red-400 transition-colors flex items-center gap-1"><i class="ph ph-x-circle"></i> Limpar filtros</button>
                     <button onclick="togglePipelineSelectMode()" class="ml-auto text-xs px-3 py-2 rounded-lg border transition-colors flex items-center gap-1.5" id="pipelineSelectModeBtn"><i class="ph ph-checks"></i> Selecionar</button>
@@ -10029,13 +10030,45 @@
             localStorage.setItem('vends_pipeline_sort', val);
             renderPipeline();
         }
-        function sortPipelineLeads(list) {
+        function sortPipelineLeads(list, stageId) {
             const sorted = [...list];
             if (pipelineSort === 'value_desc') sorted.sort((a,b) => (b.dealValue||0) - (a.dealValue||0));
             else if (pipelineSort === 'value_asc') sorted.sort((a,b) => (a.dealValue||0) - (b.dealValue||0));
             else if (pipelineSort === 'stuck') sorted.sort((a,b) => (a.stageEnteredAt||'') .localeCompare(b.stageEnteredAt||''));
+            else if (pipelineSort === 'manual' && stageId) {
+                const order = pipelineManualOrder[stageId] || [];
+                sorted.sort((a,b) => {
+                    const ia = order.indexOf(a.id), ib = order.indexOf(b.id);
+                    if (ia === -1 && ib === -1) return (b.createdAt||'').localeCompare(a.createdAt||'');
+                    if (ia === -1) return 1;
+                    if (ib === -1) return -1;
+                    return ia - ib;
+                });
+            }
             else sorted.sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||''));
             return sorted;
+        }
+
+        // ── Ordem manual (arrastar pra reordenar dentro do mesmo estágio) ────
+        let pipelineManualOrder = JSON.parse(localStorage.getItem('vends_pipeline_manual_order') || '{}');
+        function savePipelineManualOrder() { localStorage.setItem('vends_pipeline_manual_order', JSON.stringify(pipelineManualOrder)); }
+        function reorderPipelineLeadManually(stageId, draggedId, targetId, before) {
+            const stageLeads = sortPipelineLeads(contacts.filter(c => c.isLead && !c.deletedAt && getPipelineStage(c) === stageId), stageId);
+            let order = stageLeads.map(c => c.id).filter(id => id !== draggedId);
+            const targetIdx = order.indexOf(targetId);
+            const insertAt = targetIdx === -1 ? order.length : (before ? targetIdx : targetIdx + 1);
+            order.splice(insertAt, 0, draggedId);
+            pipelineManualOrder[stageId] = order;
+            savePipelineManualOrder();
+            if (pipelineSort !== 'manual') { pipelineSort = 'manual'; localStorage.setItem('vends_pipeline_sort', 'manual'); }
+            renderPipeline();
+        }
+        function getStageAgingColor(days, stageId) {
+            if (days === null || stageId === 'ganho' || stageId === 'perdido') return null;
+            if (days >= 30) return { border: 'border-red-600/60', text: 'text-red-500', label: ' — muito parado!' };
+            if (days >= 14) return { border: 'border-red-500/40', text: 'text-red-400', label: ' — parado!' };
+            if (days >= 7) return { border: 'border-amber-500/40', text: 'text-amber-400', label: '' };
+            return { border: 'border-sant-border', text: 'text-gray-600', label: '' };
         }
         let pipelineWipLimits = JSON.parse(localStorage.getItem('vends_pipeline_wip_limits') || '{}');
         let pipelineMonthlyGoals = JSON.parse(localStorage.getItem('vends_pipeline_monthly_goals') || '{}');
@@ -10269,20 +10302,21 @@
             }
 
             board.innerHTML = PIPELINE_STAGES.map(stage => {
-                const stageLeads = sortPipelineLeads(leads.filter(c => getPipelineStage(c) === stage.id));
+                const stageLeads = sortPipelineLeads(leads.filter(c => getPipelineStage(c) === stage.id), stage.id);
                 const stageValue = stageLeads.reduce((sum, c) => sum + (c.dealValue || 0), 0);
                 const cards = stageLeads.map(c => {
                     const initials = ((c.name||'?').charAt(0) + (c.lastName||'').charAt(0)).toUpperCase();
                     const tempColor = { quente: '#f87171', morno: '#fbbf24', frio: '#7aafc8' }[c.temperature] || '#6b7280';
                     const daysInStage = c.stageEnteredAt ? _daysBetween(c.stageEnteredAt.substring(0,10), getSPTodayStr()) : null;
-                    const isStuck = daysInStage !== null && daysInStage >= 14 && stage.id !== 'ganho' && stage.id !== 'perdido';
+                    const aging = getStageAgingColor(daysInStage, stage.id);
                     const relScore = calcRelScore(c);
                     const scoreColor = relScore.score >= 70 ? '#4ade80' : relScore.score >= 40 ? '#fbbf24' : '#f87171';
                     const isSelected = pipelineSelectedLeadIds.has(c.id);
                     return `
                     <div draggable="${!pipelineSelectMode}" ondragstart="pipelineDragStart(event,'${c.id}')" ondragend="pipelineDragEnd(event)"
+                         ondragover="pipelineCardDragOver(event,'${c.id}')" ondrop="pipelineCardDrop(event,'${stage.id}','${c.id}')"
                          onclick="${pipelineSelectMode ? `togglePipelineLeadSelect('${c.id}')` : ''}"
-                         class="bg-[#141414] border ${isSelected ? 'border-sant-purple' : (isStuck ? 'border-red-500/40' : 'border-sant-border')} rounded-lg p-3 ${pipelineSelectMode ? 'cursor-pointer' : 'cursor-grab'} hover:border-sant-purple/40 transition-colors ${isSelected ? 'bg-sant-purple/10' : ''}">
+                         class="pipeline-card bg-[#141414] border ${isSelected ? 'border-sant-purple' : (aging ? aging.border : 'border-sant-border')} rounded-lg p-3 ${pipelineSelectMode ? 'cursor-pointer' : 'cursor-grab'} hover:border-sant-purple/40 transition-colors ${isSelected ? 'bg-sant-purple/10' : ''}">
                         <div class="flex items-center gap-2 mb-1.5">
                             ${pipelineSelectMode ? `<input type="checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); togglePipelineLeadSelect('${c.id}')" class="w-4 h-4 rounded border-sant-border accent-purple-600 shrink-0">` : ''}
                             <div onclick="event.stopPropagation(); openHistoryModal('${c.id}')" class="w-7 h-7 rounded-full bg-sant-purple/15 text-sant-purple text-[10px] font-bold flex items-center justify-center shrink-0 cursor-pointer">${initials}</div>
@@ -10296,7 +10330,7 @@
                         ${c.pipelineProducts && c.pipelineProducts.length ? `<p class="text-[10px] text-gray-600 mb-1 flex items-center gap-1" title="${c.pipelineProducts.map(it=>`${it.qty}x ${it.name}`).join(', ')}"><i class="ph ph-package"></i> ${c.pipelineProducts.length} ite${c.pipelineProducts.length>1?'ns':'m'} do catálogo</p>` : ''}
                         ${c.paymentTerms ? `<p class="text-[10px] text-gray-600 mb-1 flex items-center gap-1 truncate" title="Condição de pagamento: ${c.paymentTerms}"><i class="ph ph-credit-card shrink-0"></i> <span class="truncate">${c.paymentTerms}</span></p>` : ''}
                         ${c.nextStep ? `<p class="text-[10px] text-amber-300 mb-1 flex items-center gap-1 truncate" title="Próximo passo: ${c.nextStep}"><i class="ph ph-arrow-circle-right shrink-0"></i> <span class="truncate">${c.nextStep}</span></p>` : ''}
-                        ${daysInStage !== null ? `<p class="text-[10px] ${isStuck ? 'text-red-400' : 'text-gray-600'} mb-1 flex items-center gap-1"><i class="ph ph-clock-countdown"></i> ${daysInStage === 0 ? 'Hoje' : daysInStage + 'd'} neste estágio${isStuck ? ' — parado!' : ''}</p>` : ''}
+                        ${daysInStage !== null ? `<p class="text-[10px] ${aging ? aging.text : 'text-gray-600'} mb-1 flex items-center gap-1"><i class="ph ph-clock-countdown"></i> ${daysInStage === 0 ? 'Hoje' : daysInStage + 'd'} neste estágio${aging ? aging.label : ''}</p>` : ''}
                         <div class="flex items-center gap-1 mb-1.5" onclick="event.stopPropagation()">
                             <span class="text-xs font-bold text-[#fbbf24] shrink-0">R$</span>
                             <input type="number" min="0" step="1" value="${c.dealValue || ''}" placeholder="0" onchange="updateLeadDealValue('${c.id}', this.value)" class="w-full bg-transparent border-b border-sant-border focus:border-[#fbbf24] outline-none text-xs font-bold text-[#fbbf24] py-0.5">
@@ -10362,6 +10396,26 @@
             document.getElementById('pipeline-col-' + stageId).classList.remove('drag-over');
             const id = event.dataTransfer.getData('text/plain') || draggedPipelineLeadId;
             if (id) moveLeadToStage(id, stageId);
+        }
+        // Arrastar um card sobre outro (mesmo estágio ou não) reordena manualmente
+        function pipelineCardDragOver(event, targetId) {
+            if (!draggedPipelineLeadId || draggedPipelineLeadId === targetId) return;
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        function pipelineCardDrop(event, stageId, targetId) {
+            event.preventDefault();
+            event.stopPropagation();
+            const colEl = document.getElementById('pipeline-col-' + stageId);
+            if (colEl) colEl.classList.remove('drag-over');
+            const draggedId = event.dataTransfer.getData('text/plain') || draggedPipelineLeadId;
+            if (!draggedId || draggedId === targetId) return;
+            const draggedContact = contacts.find(c => c.id === draggedId);
+            if (!draggedContact) return;
+            if (getPipelineStage(draggedContact) !== stageId) moveLeadToStage(draggedId, stageId, true);
+            const rect = event.currentTarget.getBoundingClientRect();
+            const before = (event.clientY - rect.top) < rect.height / 2;
+            reorderPipelineLeadManually(stageId, draggedId, targetId, before);
         }
         function duplicateLeadFromPipeline(id) {
             const c = contacts.find(x => x.id === id);
