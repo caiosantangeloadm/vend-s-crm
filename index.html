@@ -1901,6 +1901,7 @@
                         <p class="text-xs font-bold text-white uppercase tracking-wide mb-4 flex items-center gap-2"><i class="ph ph-thumbs-down text-red-400"></i> Motivos de Recusa/Perda</p>
                         <div id="lossReasonBars" class="space-y-3"></div>
                         <div id="lossReasonInsight" class="mt-4 pt-4 border-t border-sant-border"></div>
+                        <div id="lossReasonOriginMatrix" class="mt-4 pt-4 border-t border-sant-border overflow-x-auto"></div>
                     </div>
                     <div id="leadsDetailedLists" class="space-y-8 pb-10 pr-2"></div>
                 </div>
@@ -19001,8 +19002,52 @@
                     return `<p class="text-[10px] text-gray-500 uppercase tracking-wide mt-3 mb-1">Por ${groupLabel}</p><ul class="text-xs text-gray-400 space-y-0.5">${rows.join('')}</ul>`;
                 };
                 html += buildGroupInsight(c => c.category, 'Categoria');
-                html += buildGroupInsight(c => c.origin, 'Origem');
                 insightEl.innerHTML = html;
+            }
+
+            // Tabela completa: % de cada motivo de perda, por origem do lead
+            const matrixEl = document.getElementById('lossReasonOriginMatrix');
+            if (matrixEl) {
+                const byOrigin = {};
+                cold.forEach(c => {
+                    const o = c.origin || 'Não informado';
+                    if (!byOrigin[o]) byOrigin[o] = {};
+                    byOrigin[o][c.lossReason] = (byOrigin[o][c.lossReason] || 0) + 1;
+                });
+                const originsWithData = Object.entries(byOrigin)
+                    .map(([o, counts]) => ({ origin: o, counts, total: Object.values(counts).reduce((a,b)=>a+b,0) }))
+                    .filter(x => x.total >= 2)
+                    .sort((a,b) => b.total - a.total);
+                const reasonKeysUsed = Object.keys(LOSS_REASON_LABELS).filter(k => cold.some(c => c.lossReason === k));
+
+                if (!originsWithData.length || reasonKeysUsed.length < 2) {
+                    matrixEl.innerHTML = '';
+                } else {
+                    matrixEl.innerHTML = `
+                        <p class="text-[10px] text-gray-500 uppercase tracking-wide mb-2">Motivo de perda × Origem</p>
+                        <table class="w-full text-xs min-w-[480px]">
+                            <thead>
+                                <tr class="text-gray-500 text-left border-b border-sant-border">
+                                    <th class="py-1.5 pr-2 font-medium">Origem</th>
+                                    ${reasonKeysUsed.map(k => `<th class="py-1.5 px-2 font-medium text-center">${LOSS_REASON_LABELS[k]}</th>`).join('')}
+                                    <th class="py-1.5 pl-2 font-medium text-right">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${originsWithData.map(row => `
+                                    <tr class="border-b border-sant-border/40 last:border-0">
+                                        <td class="py-1.5 pr-2 text-gray-300">${row.origin}</td>
+                                        ${reasonKeysUsed.map(k => {
+                                            const n = row.counts[k] || 0;
+                                            const pct = n ? Math.round((n / row.total) * 100) : 0;
+                                            return `<td class="py-1.5 px-2 text-center ${n ? 'text-white font-semibold' : 'text-gray-700'}">${n ? pct + '%' : '—'}</td>`;
+                                        }).join('')}
+                                        <td class="py-1.5 pl-2 text-right text-gray-500">${row.total}</td>
+                                    </tr>`).join('')}
+                            </tbody>
+                        </table>
+                        <p class="text-[10px] text-gray-600 pt-2">Só mostra origens com 2+ leads perdidos, pra evitar % enganosa com amostra pequena.</p>`;
+                }
             }
         }
 
