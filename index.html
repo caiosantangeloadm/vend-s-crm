@@ -1381,6 +1381,10 @@
                         <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Valor Total do Catálogo</p>
                         <p id="catalogMetricTotal" class="text-lg font-bold text-sant-cyan">R$ 0</p>
                     </div>
+                    <div id="catalogLowStockCard" onclick="toggleCatalogLowStockFilter()" class="hidden bg-sant-surface border border-amber-500/30 rounded-xl p-3 cursor-pointer hover:border-amber-400/60 transition-colors">
+                        <p class="text-[10px] text-amber-400 uppercase tracking-wider mb-1"><i class="ph ph-warning"></i> Estoque Baixo</p>
+                        <p id="catalogMetricLowStock" class="text-lg font-bold text-amber-400">0</p>
+                    </div>
                 </div>
 
                 <div id="catalogGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-10"></div>
@@ -1440,6 +1444,22 @@
                                 <input type="number" id="productFixedCost" min="0" step="0.01" placeholder="0,00" oninput="updateProductMarginPreview()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-400">
                             </div>
                             <p id="productMarginPreview" class="text-xs text-gray-500"></p>
+                            <div class="bg-[#141414] border border-sant-border rounded-lg p-3">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" id="productTrackStock" onchange="toggleProductStockFields()" class="w-4 h-4 rounded border-sant-border accent-amber-500">
+                                    <span class="text-xs font-bold text-gray-400 uppercase">Controlar estoque deste item</span>
+                                </label>
+                                <div id="productStockFields" class="hidden grid grid-cols-2 gap-4 mt-3">
+                                    <div>
+                                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Estoque Atual</label>
+                                        <input type="number" id="productStock" min="0" step="1" placeholder="0" class="w-full bg-[#0a0a0a] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-400">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Avisar quando chegar em</label>
+                                        <input type="number" id="productMinStock" min="0" step="1" placeholder="Ex: 5" class="w-full bg-[#0a0a0a] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-400">
+                                    </div>
+                                </div>
+                            </div>
                             <div>
                                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Descrição</label>
                                 <textarea id="productDesc" rows="3" placeholder="Detalhes, escopo, o que está incluído..." class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-400 resize-none"></textarea>
@@ -7235,6 +7255,7 @@
                 price: p.price || 0, cost: p.cost || 0,
                 "fixedCost": p.fixedCost || 0,
                 "priceHistory": p.priceHistory || [],
+                "trackStock": !!p.trackStock, stock: p.stock || 0, "minStock": p.minStock || 0,
                 description: p.description || '', active: p.active !== false,
                 "deletedAt": p.deletedAt || null,
                 "createdAt": p.createdAt || new Date().toISOString(),
@@ -10616,6 +10637,10 @@
             document.getElementById('productCost').value = p ? (p.cost || '') : '';
             document.getElementById('productFixedCost').value = p ? (p.fixedCost || '') : '';
             document.getElementById('productDesc').value = p ? (p.description || '') : '';
+            document.getElementById('productTrackStock').checked = !!(p && p.trackStock);
+            document.getElementById('productStock').value = p && p.stock !== undefined ? p.stock : '';
+            document.getElementById('productMinStock').value = p && p.minStock !== undefined ? p.minStock : '';
+            toggleProductStockFields();
             updateProductMarginPreview();
             renderProductPriceHistory(p);
             document.getElementById('productModal').classList.remove('hidden');
@@ -10645,6 +10670,10 @@
         }
         function closeProductModal() {
             document.getElementById('productModal').classList.add('hidden');
+        }
+        function toggleProductStockFields() {
+            const on = document.getElementById('productTrackStock').checked;
+            document.getElementById('productStockFields').classList.toggle('hidden', !on);
         }
         function updateProductMarginPreview() {
             const price = document.getElementById('productPrice').value;
@@ -10676,6 +10705,9 @@
                 cost: parseFloat(document.getElementById('productCost').value) || 0,
                 fixedCost: parseFloat(document.getElementById('productFixedCost').value) || 0,
                 description: document.getElementById('productDesc').value.trim(),
+                trackStock: document.getElementById('productTrackStock').checked,
+                stock: parseInt(document.getElementById('productStock').value) || 0,
+                minStock: parseInt(document.getElementById('productMinStock').value) || 0,
                 createdAt: existing ? (existing.createdAt || new Date().toISOString()) : new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
                 deletedAt: existing ? (existing.deletedAt || null) : null,
@@ -10718,6 +10750,7 @@
                 active: p.active !== false,
                 price: p.price || 0, cost: p.cost || 0, fixedCost: p.fixedCost || 0,
                 description: p.description || '',
+                trackStock: !!p.trackStock, stock: p.stock || 0, minStock: p.minStock || 0,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
                 deletedAt: null,
@@ -10731,6 +10764,11 @@
         }
         let catalogViewMode = 'list';
         let catalogCollapsedTypes = [];
+        let catalogShowLowStockOnly = false;
+        function toggleCatalogLowStockFilter() {
+            catalogShowLowStockOnly = !catalogShowLowStockOnly;
+            renderCatalog();
+        }
         function loadCatalogViewPrefs() {
             catalogViewMode = localStorage.getItem('sant_crm_catalog_view') || 'list';
             catalogCollapsedTypes = JSON.parse(localStorage.getItem('vends_catalog_collapsed_types') || '[]');
@@ -10760,6 +10798,13 @@
             if (sel) sel.value = sel.value === typeId ? '' : typeId;
             renderCatalog();
         }
+        function stockBadgeHtml(p) {
+            if (!p.trackStock) return '';
+            const low = p.minStock > 0 && p.stock <= p.minStock;
+            const zero = p.stock <= 0;
+            const color = zero ? 'text-red-400 border-red-500/30 bg-red-500/10' : low ? 'text-amber-400 border-amber-500/30 bg-amber-500/10' : 'text-gray-400 border-sant-border bg-white/5';
+            return `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${color}" title="${zero ? 'Sem estoque!' : low ? 'Estoque baixo' : 'Estoque'}"><i class="ph ph-cube"></i> ${p.stock}${zero ? ' — acabou' : low ? ' — baixo' : ''}</span>`;
+        }
         function productCardHtml(p) {
             const { profit, pct } = calcProductMargin(p.price, p.cost);
             const icon = getProductTypeIcon(p.type);
@@ -10775,6 +10820,7 @@
                             <p class="text-[10px] text-gray-500 uppercase tracking-wide">${typeLabel}${p.active === false ? ' · Inativo' : ''}</p>
                         </div>
                     </div>
+                    ${stockBadgeHtml(p)}
                 </div>
                 ${p.description ? `<p class="text-xs text-gray-500 mb-3 line-clamp-2">${p.description}</p>` : ''}
                 <div class="mt-auto pt-3 border-t border-sant-border flex items-center justify-between">
@@ -10801,6 +10847,7 @@
                     <p class="text-sm font-semibold text-white truncate">${p.name}${p.active === false ? ' <span class="text-[10px] text-gray-500 font-normal">· Inativo</span>' : ''}</p>
                     ${p.description ? `<p class="text-[11px] text-gray-500 truncate">${p.description}</p>` : ''}
                 </div>
+                ${stockBadgeHtml(p) ? `<div class="shrink-0">${stockBadgeHtml(p)}</div>` : ''}
                 <div class="text-right shrink-0">
                     <p class="text-sm font-bold text-[#fbbf24]">R$ ${(p.price||0).toLocaleString('pt-BR')}${unitLabel ? `<span class="text-[10px] text-gray-500 font-normal"> / ${unitLabel}</span>` : ''}</p>
                     ${p.cost ? `<p class="text-[10px] ${profit >= 0 ? 'text-green-400' : 'text-red-400'}">${pct !== null ? pct + '%' : ''} margem</p>` : ''}
@@ -10825,7 +10872,18 @@
             if (activeFilter === 'active') list = list.filter(p => p.active !== false);
             if (activeFilter === 'inactive') list = list.filter(p => p.active === false);
             if (term) list = list.filter(p => p.name.toLowerCase().includes(term) || (p.description||'').toLowerCase().includes(term));
+            if (catalogShowLowStockOnly) list = list.filter(p => p.trackStock && p.minStock > 0 && p.stock <= p.minStock);
             list.sort((a,b) => a.name.localeCompare(b.name, 'pt-BR'));
+
+            const lowStockItems = products.filter(p => !p.deletedAt && p.trackStock && p.minStock > 0 && p.stock <= p.minStock);
+            const lowStockCard = document.getElementById('catalogLowStockCard');
+            const lowStockMetric = document.getElementById('catalogMetricLowStock');
+            if (lowStockCard) {
+                lowStockCard.classList.toggle('hidden', lowStockItems.length === 0);
+                lowStockCard.classList.toggle('border-amber-400', catalogShowLowStockOnly);
+                lowStockCard.classList.toggle('bg-amber-500/10', catalogShowLowStockOnly);
+            }
+            if (lowStockMetric) lowStockMetric.innerText = lowStockItems.length;
 
             const activeItems = products.filter(p => !p.deletedAt && p.active !== false);
             const avgPrice = activeItems.length ? activeItems.reduce((s,p) => s + (p.price||0), 0) / activeItems.length : 0;
