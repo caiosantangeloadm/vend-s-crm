@@ -889,23 +889,18 @@
                     <div id="dashSmartListsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
                 </div>
 
-                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 flex flex-col h-[400px]">
-                        <div class="flex justify-between items-center mb-6 shrink-0">
-                            <p class="text-xs font-bold text-white tracking-wide uppercase flex items-center gap-2"><i class="ph ph-clock text-sant-purple text-lg"></i> Agenda do Dia</p>
+                <!-- "Agenda do Dia" foi removida daqui: a mesma lista de compromissos de hoje já
+                     aparece completa no card "Briefing de Hoje", lá em cima — mantinha a mesma
+                     informação duas vezes na tela. Suas Tarefas ocupa a largura toda agora. -->
+                <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 flex flex-col h-[320px]">
+                    <div class="flex justify-between items-center mb-6 shrink-0">
+                        <p class="text-xs font-bold text-white tracking-wide uppercase flex items-center gap-2"><i class="ph ph-list-checks text-sant-cyan text-lg"></i> Suas Tarefas</p>
+                        <div class="flex items-center gap-3">
+                            <span id="dashTasksEstimate" class="text-[10px] text-gray-500 hidden"><i class="ph ph-hourglass"></i> <span id="dashTasksEstimateVal"></span></span>
+                            <button onclick="switchView('tasks')" class="text-[10px] font-bold uppercase text-gray-500 hover:text-sant-cyan transition-colors">Ver todas</button>
                         </div>
-                        <div id="dashEventsList" class="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar"></div>
                     </div>
-                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 flex flex-col h-[400px]">
-                        <div class="flex justify-between items-center mb-6 shrink-0">
-                            <p class="text-xs font-bold text-white tracking-wide uppercase flex items-center gap-2"><i class="ph ph-list-checks text-sant-cyan text-lg"></i> Suas Tarefas</p>
-                            <div class="flex items-center gap-3">
-                                <span id="dashTasksEstimate" class="text-[10px] text-gray-500 hidden"><i class="ph ph-hourglass"></i> <span id="dashTasksEstimateVal"></span></span>
-                                <button onclick="switchView('tasks')" class="text-[10px] font-bold uppercase text-gray-500 hover:text-sant-cyan transition-colors">Ver todas</button>
-                            </div>
-                        </div>
-                        <div id="dashTasksList" class="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar"></div>
-                    </div>
+                    <div id="dashTasksList" class="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar"></div>
                 </div>
 
                 <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 flex flex-col h-[320px]">
@@ -7482,6 +7477,9 @@
             }
 
             const agendaList = document.getElementById('dashEventsList');
+            // O card "Agenda do Dia" foi removido (duplicava o "Briefing de Hoje") — este bloco
+            // só roda se o elemento ainda existir, evitando quebrar o resto do renderDashboard().
+            if (agendaList) {
             let combinedEvents = [
                 ...todayBdays.map(c => ({ isBirthday: true, title: `Aniversário: ${fullName(c)}`, contact: c, startTime: '' })),
                 ...todayEvents
@@ -7526,6 +7524,7 @@
                     }
                 }).join('');
             }
+            } // fim if (agendaList)
 
             const pendingTasksToday = tasks.filter(t => !t.completed && !t.deletedAt && !t.archived && !t.someday && t.date === todayStr);
             const dTasksList = document.getElementById('dashTasksList');
