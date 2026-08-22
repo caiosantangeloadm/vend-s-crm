@@ -6276,6 +6276,85 @@
             navigator.serviceWorker.register('./sw.js').catch(() => {});
         }
 
+        // Checa lembretes por horário (eventos, deslocamento, tarefas) — chamada tanto no
+        // intervalo de 60s quanto imediatamente ao abrir o app. Sem limite superior de horário
+        // (só o controle notifiedDate/offset evita duplicar): assim, se o app ficou fechado
+        // durante a janela do alerta (ex: PC desligado), o lembrete "atrasado" aparece assim
+        // que o app é reaberto no mesmo dia, em vez de ser perdido pra sempre.
+        function checkTimedReminders() {
+            const currentStr = getSPTodayStr();
+            const timeFormatter = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false });
+            const [hStr, mStr] = timeFormatter.format(new Date()).split(':');
+            const currentMin = parseInt(hStr) * 60 + parseInt(mStr);
+
+            events.forEach(ev => {
+                // Compromissos recorrentes usam o MESMO objeto pra todas as ocorrências —
+                // por isso o controle de "já notificou" precisa ser por data (notifiedDate),
+                // não um boolean único, senão a 1ª ocorrência bloqueia todas as seguintes.
+                if(!ev.notification || ev.notification === "0" || ev.notifiedDate === currentStr || !isEventOnDate(ev, currentStr) || !ev.startTime) return;
+
+                const [h, m] = ev.startTime.split(':').map(Number);
+                const eventMin = h * 60 + m;
+                const alertMin = eventMin - parseInt(ev.notification);
+
+                if (currentMin >= alertMin) {
+                    fireNotification({ title: ev.title, startTime: ev.startTime, location: ev.location, id: ev.id });
+                    ev.notifiedDate = currentStr;
+                    saveEventsToStorage();
+                    cloudSyncEvent(ev);
+                }
+            });
+
+            events.forEach(ev => {
+                if (!ev.travelTime || ev.travelTime === "0" || ev.travelNotifiedDate === currentStr || !isEventOnDate(ev, currentStr) || !ev.startTime) return;
+
+                const [h, m] = ev.startTime.split(':').map(Number);
+                const eventMin = h * 60 + m;
+                const travelAlertMin = eventMin - parseInt(ev.travelTime);
+
+                if (currentMin >= travelAlertMin) {
+                    fireNotification({
+                        title: `🚗 Hora de sair — ${ev.title}`,
+                        startTime: ev.startTime,
+                        location: ev.location,
+                        id: ev.id,
+                        _notifType: 'event'
+                    });
+                    ev.travelNotifiedDate = currentStr;
+                    saveEventsToStorage();
+                    cloudSyncEvent(ev);
+                }
+            });
+
+            tasks.forEach(t => {
+                if (t.completed || t.date !== currentStr || !t.time) return;
+                const reminderList = (t.reminders && t.reminders.length) ? t.reminders : (t.notification && t.notification !== '0' ? [parseInt(t.notification)] : []);
+                if (!reminderList.length) return;
+
+                const [h, m] = t.time.split(':').map(Number);
+                const taskMin = h * 60 + m;
+                const firedOffsets = t.notifiedOffsets || [];
+                let changed = false;
+
+                reminderList.forEach(offset => {
+                    if (firedOffsets.includes(offset)) return;
+                    const alertMin = taskMin - offset;
+                    if (currentMin >= alertMin) {
+                        fireNotification({ title: t.title, startTime: t.time, location: 'Gestão de Tarefas', id: t.id, _notifType: 'task' });
+                        firedOffsets.push(offset);
+                        changed = true;
+                    }
+                });
+
+                if (changed) {
+                    t.notifiedOffsets = firedOffsets;
+                    t.notified = true;
+                    saveTasksToStorage();
+                    cloudSyncTask(t);
+                }
+            });
+        }
+
         function startNotificationEngine() {
             if(notificationInterval) clearInterval(notificationInterval);
             if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
@@ -6283,78 +6362,10 @@
             }
 
             notificationInterval = setInterval(() => {
+                checkTimedReminders();
                 const now = new Date();
-                const currentStr = getSPTodayStr();
                 const timeFormatter = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false });
                 const [hStr, mStr] = timeFormatter.format(now).split(':');
-                const currentMin = parseInt(hStr) * 60 + parseInt(mStr);
-
-                events.forEach(ev => {
-                    // Compromissos recorrentes usam o MESMO objeto pra todas as ocorrências —
-                    // por isso o controle de "já notificou" precisa ser por data (notifiedDate),
-                    // não um boolean único, senão a 1ª ocorrência bloqueia todas as seguintes.
-                    if(!ev.notification || ev.notification === "0" || ev.notifiedDate === currentStr || !isEventOnDate(ev, currentStr) || !ev.startTime) return;
-
-                    const [h, m] = ev.startTime.split(':').map(Number);
-                    const eventMin = h * 60 + m;
-                    const alertMin = eventMin - parseInt(ev.notification);
-
-                    if (currentMin >= alertMin && currentMin < eventMin) {
-                        fireNotification({ title: ev.title, startTime: ev.startTime, location: ev.location, id: ev.id });
-                        ev.notifiedDate = currentStr;
-                        saveEventsToStorage();
-                        cloudSyncEvent(ev);
-                    }
-                });
-
-                events.forEach(ev => {
-                    if (!ev.travelTime || ev.travelTime === "0" || ev.travelNotifiedDate === currentStr || !isEventOnDate(ev, currentStr) || !ev.startTime) return;
-
-                    const [h, m] = ev.startTime.split(':').map(Number);
-                    const eventMin = h * 60 + m;
-                    const travelAlertMin = eventMin - parseInt(ev.travelTime);
-
-                    if (currentMin >= travelAlertMin && currentMin < eventMin) {
-                        fireNotification({
-                            title: `🚗 Hora de sair — ${ev.title}`,
-                            startTime: ev.startTime,
-                            location: ev.location,
-                            id: ev.id,
-                            _notifType: 'event'
-                        });
-                        ev.travelNotifiedDate = currentStr;
-                        saveEventsToStorage();
-                        cloudSyncEvent(ev);
-                    }
-                });
-
-                tasks.forEach(t => {
-                    if (t.completed || t.date !== currentStr || !t.time) return;
-                    const reminderList = (t.reminders && t.reminders.length) ? t.reminders : (t.notification && t.notification !== '0' ? [parseInt(t.notification)] : []);
-                    if (!reminderList.length) return;
-
-                    const [h, m] = t.time.split(':').map(Number);
-                    const taskMin = h * 60 + m;
-                    const firedOffsets = t.notifiedOffsets || [];
-                    let changed = false;
-
-                    reminderList.forEach(offset => {
-                        if (firedOffsets.includes(offset)) return;
-                        const alertMin = taskMin - offset;
-                        if (currentMin >= alertMin && currentMin < taskMin) {
-                            fireNotification({ title: t.title, startTime: t.time, location: 'Gestão de Tarefas', id: t.id, _notifType: 'task' });
-                            firedOffsets.push(offset);
-                            changed = true;
-                        }
-                    });
-
-                    if (changed) {
-                        t.notifiedOffsets = firedOffsets;
-                        t.notified = true;
-                        saveTasksToStorage();
-                        cloudSyncTask(t);
-                    }
-                });
 
                 // Verifica aniversários uma vez por hora (quando minuto === 0)
                 if (parseInt(mStr) === 0) { checkBirthdayReminders(); checkCompanyAnniversaryReminders(); checkFollowupReminders(); checkNoteReminders(); checkDocumentExpiryReminders(); checkFrequencyReminders(); checkUrgentTaskReminders(); checkWaitingTaskReminders(); checkStalledTaskReminders(); checkTaskDueDateReminders(); runInactivityAutomations(); }
@@ -6371,6 +6382,7 @@
             }, 60000);
 
             // Verifica imediatamente ao abrir o app
+            checkTimedReminders();
             checkBirthdayReminders();
             checkCompanyAnniversaryReminders();
             checkFollowupReminders();
