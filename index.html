@@ -593,6 +593,14 @@
                     </div>
                 </div>
 
+                <!-- Seção: Foco de Hoje (cobre o bloco de 13 cards reordenáveis via Personalizar —
+                     o agrupamento continua estável mesmo depois de uma reordenação, porque
+                     applyDashOrder() sempre mantém esses cards contíguos, só muda a ordem interna) -->
+                <div class="flex items-center gap-3 pt-1">
+                    <span class="text-[11px] font-bold text-sant-cyan uppercase tracking-[2px]">Foco de Hoje</span>
+                    <div class="flex-1 h-px bg-sant-border"></div>
+                </div>
+
                 <!-- Card: Briefing de Hoje -->
                 <div id="dashTodayCard" data-dash-title="Briefing de Hoje" class="bg-sant-surface border border-sant-border rounded-2xl p-6">
                     <div class="flex items-center justify-between mb-4">
@@ -756,6 +764,12 @@
                     </div>
                 </div>
 
+                <!-- Seção: Desempenho da Semana -->
+                <div class="flex items-center gap-3 pt-2">
+                    <span class="text-[11px] font-bold text-sant-cyan uppercase tracking-[2px]">Desempenho da Semana</span>
+                    <div class="flex-1 h-px bg-sant-border"></div>
+                </div>
+
                 <!-- Card: Resumo Executivo (síntese em texto) -->
                 <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
                     <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase mb-3 flex items-center gap-2"><i class="ph ph-sparkle text-sant-cyan"></i> Resumo Executivo da Semana</p>
@@ -868,6 +882,12 @@
                         </div>
                         <button onclick="saveBigGoals()" class="mt-4 bg-sant-cyan text-sant-bg px-5 py-2 rounded-lg text-sm font-bold hover:bg-cyan-400 transition-colors">Salvar meta</button>
                     </div>
+                </div>
+
+                <!-- Seção: Contatos, Vendas & Produtividade -->
+                <div class="flex items-center gap-3 pt-2">
+                    <span class="text-[11px] font-bold text-sant-cyan uppercase tracking-[2px]">Contatos, Vendas &amp; Produtividade</span>
+                    <div class="flex-1 h-px bg-sant-border"></div>
                 </div>
 
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -985,6 +1005,12 @@
                         <p class="text-xs font-bold text-white tracking-wide uppercase flex items-center gap-2"><i class="ph ph-heartbeat text-sant-cyan text-lg"></i> Saúde da Base</p>
                     </div>
                     <div id="dashHealthGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"></div>
+                </div>
+
+                <!-- Seção: Agenda Futura & Aniversários -->
+                <div class="flex items-center gap-3 pt-2">
+                    <span class="text-[11px] font-bold text-sant-cyan uppercase tracking-[2px]">Agenda Futura &amp; Aniversários</span>
+                    <div class="flex-1 h-px bg-sant-border"></div>
                 </div>
 
                 <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 flex flex-col">
