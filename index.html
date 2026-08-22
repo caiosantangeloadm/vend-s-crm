@@ -6290,22 +6290,25 @@
                 const currentMin = parseInt(hStr) * 60 + parseInt(mStr);
 
                 events.forEach(ev => {
-                    if(!ev.notification || ev.notification === "0" || ev.notified || !isEventOnDate(ev, currentStr) || !ev.startTime) return;
-                    
+                    // Compromissos recorrentes usam o MESMO objeto pra todas as ocorrências —
+                    // por isso o controle de "já notificou" precisa ser por data (notifiedDate),
+                    // não um boolean único, senão a 1ª ocorrência bloqueia todas as seguintes.
+                    if(!ev.notification || ev.notification === "0" || ev.notifiedDate === currentStr || !isEventOnDate(ev, currentStr) || !ev.startTime) return;
+
                     const [h, m] = ev.startTime.split(':').map(Number);
                     const eventMin = h * 60 + m;
                     const alertMin = eventMin - parseInt(ev.notification);
 
                     if (currentMin >= alertMin && currentMin < eventMin) {
                         fireNotification({ title: ev.title, startTime: ev.startTime, location: ev.location, id: ev.id });
-                        ev.notified = true;
+                        ev.notifiedDate = currentStr;
                         saveEventsToStorage();
                         cloudSyncEvent(ev);
                     }
                 });
 
                 events.forEach(ev => {
-                    if (!ev.travelTime || ev.travelTime === "0" || ev.travelNotified || !isEventOnDate(ev, currentStr) || !ev.startTime) return;
+                    if (!ev.travelTime || ev.travelTime === "0" || ev.travelNotifiedDate === currentStr || !isEventOnDate(ev, currentStr) || !ev.startTime) return;
 
                     const [h, m] = ev.startTime.split(':').map(Number);
                     const eventMin = h * 60 + m;
@@ -6319,7 +6322,7 @@
                             id: ev.id,
                             _notifType: 'event'
                         });
-                        ev.travelNotified = true;
+                        ev.travelNotifiedDate = currentStr;
                         saveEventsToStorage();
                         cloudSyncEvent(ev);
                     }
@@ -7009,7 +7012,7 @@
                 "endDate": e.endDate || '', "endTime": e.endTime || '',
                 location: e.location || '', "virtualLocation": e.virtualLocation || '', "contactId": e.contactId || '',
                 participants: e.participants || [],
-                notification: e.notification || '0', "travelTime": e.travelTime || '0', "travelNotified": e.travelNotified || false, "emailAlert": e.emailAlert || '0', "desc": e.desc || '',
+                notification: e.notification || '0', "travelTime": e.travelTime || '0', "travelNotified": e.travelNotified || false, "travelNotifiedDate": e.travelNotifiedDate || '', "emailAlert": e.emailAlert || '0', "desc": e.desc || '',
                 recurrence: e.recurrence || 'none', "recurrenceInterval": e.recurrenceInterval || 1,
                 "recurrenceWeekdays": e.recurrenceWeekdays || [],
                 "recurrenceMonthlyMode": e.recurrenceMonthlyMode || 'date',
@@ -7020,7 +7023,7 @@
                 "excludedDates": e.excludedDates || [], uid: e.uid || '',
                 "createdAt": e.createdAt || new Date().toISOString(),
                 "changeLog": e.changeLog || [],
-                notified: e.notified || false,
+                notified: e.notified || false, "notifiedDate": e.notifiedDate || '',
                 "realizedDates": e.realizedDates || [],
                 outcomes: e.outcomes || {},
                 checklist: e.checklist || [],
