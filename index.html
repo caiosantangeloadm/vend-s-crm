@@ -6737,12 +6737,7 @@
             const notifType = ev._notifType || 'event';
             addNotification(notifType, ev.title, body || 'Compromisso agendado', ev.id);
 
-            if (!dnd && "Notification" in window && Notification.permission === "granted") {
-                new Notification("Vend-s CRM - Lembrete", {
-                    body: `${ev.title}\n${body}`,
-                    icon: "https://cdn-icons-png.flaticon.com/512/833/833602.png"
-                });
-            }
+            if (!dnd) showPushNotification("Vend-s CRM - Lembrete", `${ev.title}${body ? '\n' + body : ''}`, `event-${ev.id}`);
         }
 
         // ── Notificações Push (Web Notification API) ─────────────────────────
