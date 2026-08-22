@@ -1988,6 +1988,9 @@
                         <button onclick="exportTopSellingCsv()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors">
                             <i class="ph ph-file-csv"></i> Exportar CSV
                         </button>
+                        <button onclick="exportTopSellingPdf()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors">
+                            <i class="ph ph-file-pdf"></i> Exportar PDF
+                        </button>
                     </div>
                     <div id="topSellingSummary" class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6 shrink-0"></div>
                     <div id="topSellingTable" class="pb-10"></div>
@@ -11202,6 +11205,10 @@
         function exportTopSellingCsv() {
             const rows = getTopSellingReportRows().map(u => [u.name, u.deals, u.qty, 'R$ ' + u.revenue.toLocaleString('pt-BR')]);
             downloadReportCsv(`vends_mais_vendidos_${getSPTodayStr()}.csv`, ['Item', 'Negócios Ganhos', 'Quantidade', 'Receita'], rows);
+        }
+        function exportTopSellingPdf() {
+            const rows = getTopSellingReportRows().map(u => [u.name, u.deals, u.qty, 'R$ ' + u.revenue.toLocaleString('pt-BR')]);
+            printReportPdf('Mais Vendidos', ['Item', 'Negócios Ganhos', 'Quantidade', 'Receita'], rows);
         }
         function generateTopSellingReport() {
             const summaryEl = document.getElementById('topSellingSummary');
