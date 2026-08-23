@@ -550,7 +550,7 @@
                     <button onclick="toggleDashCustomize()" id="dashCustomizeBtn" class="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-sant-border text-gray-400 hover:text-white hover:border-sant-cyan transition-colors text-sm font-medium">
                         <i class="ph ph-sliders-horizontal text-base"></i> Personalizar
                     </button>
-                    <button id="dashReportBtn" onclick="exportDashboardPdfRich()" class="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-sant-border text-gray-400 hover:text-white hover:border-sant-cyan transition-colors text-sm font-medium">
+                    <button id="dashReportBtn" onclick="exportDashboardPdfRich()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2.5 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors">
                         <i class="ph ph-file-pdf text-base"></i> Gerar Relatório
                     </button>
                 </div>
@@ -2282,7 +2282,7 @@
                         <select id="noteFolderFilter" onchange="setNoteFolderFilter(this.value)" class="bg-sant-surface border border-sant-border rounded-lg px-3 py-2 text-xs text-gray-400 outline-none appearance-none">
                             <option value="">Todos os cadernos</option>
                         </select>
-                        <button onclick="exportNotesBatchPdf()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-sant-cyan hover:border-sant-cyan/40 transition-colors" title="Exporta em um só PDF as notas visíveis nesta tela (respeita busca/etiqueta/arquivo)">
+                        <button onclick="exportNotesBatchPdf()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors" title="Exporta em um só PDF as notas visíveis nesta tela (respeita busca/etiqueta/arquivo)">
                             <i class="ph ph-file-pdf"></i> Exportar PDF
                         </button>
                         <div class="relative">
