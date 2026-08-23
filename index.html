@@ -9249,7 +9249,7 @@
             const shown = items.slice(0, MAX);
             const extra = items.length - MAX;
 
-            badge.textContent = `${items.length} item${items.length !== 1 ? 'ns' : ''}`;
+            badge.textContent = items.length === 1 ? '1 item' : `${items.length} itens`;
 
             list.innerHTML = shown.map(item => `
                 <div class="flex items-center gap-3 ${item.bg} border ${item.border} rounded-xl px-3 py-2.5">
