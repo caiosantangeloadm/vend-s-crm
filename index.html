@@ -1110,6 +1110,9 @@
                         <button onclick="openQuickReview()" id="btnQuickReview" title="Revisão Rápida de contatos parados" class="p-2.5 bg-sant-surface border border-sant-border rounded-lg text-gray-500 hover:text-amber-400 hover:border-amber-400 transition-colors shrink-0">
                             <i class="ph ph-lightning text-lg"></i>
                         </button>
+                        <button onclick="openNearbyContactsModal()" id="btnNearbyContacts" title="Contatos Próximos (usa sua localização)" class="p-2.5 bg-sant-surface border border-sant-border rounded-lg text-gray-500 hover:text-sant-cyan hover:border-sant-cyan transition-colors shrink-0">
+                            <i class="ph ph-navigation-arrow text-lg"></i>
+                        </button>
                         <button onclick="toggleAdvFilters()" id="btnAdvFilters" title="Filtros Avançados" class="p-2.5 bg-sant-surface border border-sant-border rounded-lg text-gray-500 hover:text-sant-cyan hover:border-sant-cyan transition-colors shrink-0">
                             <i class="ph ph-funnel text-lg"></i>
                         </button>
@@ -4042,6 +4045,19 @@
                 <button id="wrPrevBtn" onclick="wrNav(-1)" class="flex items-center gap-2 px-4 py-2 rounded-lg border border-sant-border text-gray-400 hover:text-white text-sm transition-colors hidden"><i class="ph ph-caret-left"></i> Anterior</button>
                 <div class="flex-1"></div>
                 <button id="wrNextBtn" onclick="wrNav(1)" class="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-colors" style="background:#5b8fa8;color:#030303">Próximo <i class="ph ph-caret-right"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Contatos Próximos (geolocalização) -->
+    <div id="nearbyContactsModal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-5">
+                    <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-navigation-arrow text-sant-cyan"></i> Contatos Próximos</h3>
+                    <button onclick="closeNearbyContactsModal()" class="text-gray-500 hover:text-white"><i class="ph ph-x text-xl"></i></button>
+                </div>
+                <div id="nearbyContactsBody"></div>
             </div>
         </div>
     </div>
@@ -20002,6 +20018,110 @@
         }
         function closeAllReportPopups() {
             if (geoLeafletMap) geoLeafletMap.closePopup();
+        }
+
+        // ── Contatos Próximos (geolocalização do navegador) ──────────────────
+        // Reaproveita o mesmo cache de geocodificação por cidade do Mapa de Contatos
+        // (getGeoCache/saveGeoCache) — distância é por cidade, não endereço exato,
+        // mas é o suficiente pra saber "qual região visitar primeiro".
+        function haversineKm(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+        function openNearbyContactsModal() {
+            const modal = document.getElementById('nearbyContactsModal');
+            const body = document.getElementById('nearbyContactsBody');
+            modal.classList.remove('hidden');
+
+            if (!('geolocation' in navigator)) {
+                body.innerHTML = `<p class="text-sm text-gray-500 text-center py-8">Seu navegador não suporta geolocalização.</p>`;
+                return;
+            }
+
+            body.innerHTML = `<div class="flex flex-col items-center justify-center py-10 gap-3">
+                <i class="ph ph-spinner-gap animate-spin text-3xl text-sant-cyan"></i>
+                <p class="text-sm text-gray-500">Pedindo sua localização atual...</p>
+            </div>`;
+
+            navigator.geolocation.getCurrentPosition(
+                pos => renderNearbyContacts(pos.coords.latitude, pos.coords.longitude),
+                err => {
+                    const msg = err.code === 1
+                        ? 'Permissão de localização negada. Ative nas configurações do navegador/site pra usar esse recurso.'
+                        : 'Não foi possível obter sua localização agora. Tente novamente.';
+                    body.innerHTML = `<div class="flex flex-col items-center justify-center py-8 gap-2 text-center">
+                        <i class="ph ph-map-pin-line text-3xl text-gray-600"></i>
+                        <p class="text-sm text-gray-500">${msg}</p>
+                    </div>`;
+                },
+                { timeout: 10000, maximumAge: 300000 }
+            );
+        }
+        function closeNearbyContactsModal() {
+            document.getElementById('nearbyContactsModal').classList.add('hidden');
+        }
+        async function renderNearbyContacts(userLat, userLng) {
+            const body = document.getElementById('nearbyContactsBody');
+            const withAddr = contacts.filter(c => !c.deletedAt && (c.addressCity || '').trim());
+            if (!withAddr.length) {
+                body.innerHTML = `${emptyState('ph-map-pin', 'Nenhum contato com cidade cadastrada', 'Preencha o endereço dos seus contatos pra usar esse recurso.')}`;
+                return;
+            }
+
+            const groups = {};
+            withAddr.forEach(c => {
+                const key = `${c.addressCity.trim()}, ${(c.addressState||'').trim().toUpperCase()}`.replace(/, $/, '');
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(c);
+            });
+            const locations = Object.keys(groups);
+            const cache = getGeoCache();
+            const toGeocode = locations.filter(loc => !cache[loc]);
+
+            if (toGeocode.length) {
+                body.innerHTML = `<div class="flex flex-col items-center justify-center py-10 gap-3">
+                    <i class="ph ph-spinner-gap animate-spin text-3xl text-sant-cyan"></i>
+                    <p class="text-sm text-gray-500">Localizando ${toGeocode.length} cidade${toGeocode.length!==1?'s':''}...</p>
+                </div>`;
+                for (let i = 0; i < toGeocode.length; i++) {
+                    const loc = toGeocode[i];
+                    try {
+                        const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(loc + ', Brasil')}`);
+                        const data = await resp.json();
+                        if (data && data[0]) {
+                            cache[loc] = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+                            saveGeoCache(cache);
+                        }
+                    } catch(e) { console.warn('Geocode falhou para', loc, e.message); }
+                    if (i < toGeocode.length - 1) await new Promise(r => setTimeout(r, 1100));
+                }
+            }
+
+            const ranked = locations
+                .filter(loc => cache[loc])
+                .map(loc => ({ loc, list: groups[loc], km: haversineKm(userLat, userLng, cache[loc].lat, cache[loc].lng) }))
+                .sort((a,b) => a.km - b.km);
+
+            if (!ranked.length) {
+                body.innerHTML = `${emptyState('ph-map-pin', 'Não foi possível localizar as cidades', 'Tente novamente em alguns instantes.')}`;
+                return;
+            }
+
+            body.innerHTML = `<p class="text-xs text-gray-600 mb-4">Distância aproximada até a cidade de cada contato (não é o endereço exato).</p>` +
+                ranked.map(r => `
+                <div class="bg-[#0a0a0a] border border-sant-border rounded-lg p-3 mb-2">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-sm font-bold text-white flex items-center gap-1.5"><i class="ph ph-map-pin text-sant-cyan"></i> ${r.loc}</span>
+                        <span class="text-xs font-bold text-sant-cyan shrink-0">${r.km < 1 ? '< 1 km' : Math.round(r.km) + ' km'}</span>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5">
+                        ${r.list.slice(0,6).map(c => `<span onclick="closeNearbyContactsModal();openHistoryModal('${c.id}')" class="text-[11px] text-gray-400 hover:text-sant-cyan cursor-pointer bg-white/5 hover:bg-sant-cyan/10 px-2 py-1 rounded-full transition-colors">${fullName(c)}</span>`).join('')}
+                        ${r.list.length > 6 ? `<span class="text-[11px] text-gray-600 px-2 py-1">+${r.list.length - 6}</span>` : ''}
+                    </div>
+                </div>`).join('');
         }
         function viewCityContacts(city, state) {
             switchView('contacts');
