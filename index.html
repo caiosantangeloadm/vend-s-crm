@@ -12509,6 +12509,11 @@
             });
         }
 
+        function highlightNoteSearchTerm(txt) {
+            const term = (document.getElementById('notesSearchInput')?.value || '').trim();
+            if (!term || !txt) return txt;
+            return txt.replace(new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'), '<mark class="bg-[#5b8fa8]/30 text-[#7aafc8] rounded px-0.5">$1</mark>');
+        }
         function noteCardHtml(n) {
             if (n.deletedAt) {
                 const c = getNoteColor(n.color);
@@ -12570,7 +12575,7 @@
             <div id="note-${n.id}" draggable="true" ondragstart="onNoteDragStart(event,'${n.id}')" ondragover="event.preventDefault(); this.classList.add('note-drag-over')" ondragleave="this.classList.remove('note-drag-over')" ondrop="onNoteDrop(event,'${n.id}')" ondragend="this.classList.remove('note-drag-over')" class="${c.bg} ${n.favorite ? 'border-2 border-[#fbbf24]/60' : c.border + ' border'} rounded-2xl p-5 flex flex-col group relative min-h-[140px] ${n.archived ? 'opacity-80' : ''}">
                 ${n.archived ? `<div class="flex items-center gap-1 text-[10px] text-gray-500 mb-2 font-medium"><i class="ph ph-archive"></i> Arquivada</div>` : ''}
                 <div class="flex justify-between items-start gap-2 mb-1">
-                    ${n.title ? `<h3 class="font-bold text-white text-sm break-words flex-1">${n.title}</h3>` : '<div class="flex-1"></div>'}
+                    ${n.title ? `<h3 class="font-bold text-white text-sm break-words flex-1">${highlightNoteSearchTerm(n.title)}</h3>` : '<div class="flex-1"></div>'}
                     <div class="flex items-center gap-0.5 shrink-0">
                         <button onclick="event.stopPropagation(); toggleNoteFavorite('${n.id}')" class="text-gray-500 hover:text-[#fbbf24] transition-colors p-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 ${n.favorite ? '!opacity-100 text-[#fbbf24]' : ''}" title="${n.favorite ? 'Remover dos favoritos' : 'Marcar como favorita'}">
                             <i class="ph ${n.favorite ? 'ph-fill' : ''} ph-star text-sm"></i>
