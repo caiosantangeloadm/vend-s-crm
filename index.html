@@ -2489,6 +2489,26 @@
                     </div>
                 </div>
 
+                <!-- Painel: Campos Personalizados (catálogo central com tipo) -->
+                <div id="spanel-customfields" class="settings-panel hidden">
+                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
+                        <p class="text-xs font-bold text-white uppercase tracking-wide mb-2 flex items-center gap-2"><i class="ph ph-sliders text-sant-cyan"></i> Campos Personalizados de Contato</p>
+                        <p class="text-xs text-gray-500 mb-5">Defina campos padronizados (com tipo certo) pra usar no cadastro de contatos, em vez de digitar o nome do campo toda vez — evita "Instagram", "instagram" e "IG" virarem 3 campos diferentes.</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
+                            <input id="s-cf-label" type="text" placeholder="Nome do campo (ex: Instagram)" class="sm:col-span-2 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none transition-colors">
+                            <select id="s-cf-type" onchange="onSettingsCustomFieldTypeChange()" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none transition-colors">
+                                <option value="texto">Texto</option>
+                                <option value="numero">Número</option>
+                                <option value="data">Data</option>
+                                <option value="opcoes">Lista de opções</option>
+                            </select>
+                        </div>
+                        <input id="s-cf-options" type="text" placeholder="Opções separadas por vírgula (ex: Bronze, Prata, Ouro)" class="hidden w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none transition-colors mb-2">
+                        <button onclick="addSettingsCustomFieldDef()" class="w-full bg-sant-cyan text-sant-bg px-4 py-2 rounded-lg text-sm font-bold hover:bg-cyan-400 transition-colors mb-5"><i class="ph ph-plus"></i> Adicionar campo</button>
+                        <div id="s-cf-list" class="space-y-2"></div>
+                    </div>
+                </div>
+
                 <!-- Painel: Templates -->
                 <div id="spanel-templates" class="settings-panel hidden">
                     <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
@@ -5530,6 +5550,7 @@
         let scheduleBlocks = [];
         let tags = [];
         let tagColors = {};
+        let customFieldDefs = []; // catálogo de campos personalizados padronizados (Configurações → Dados Base)
         const tagColorPalette = ['#22d3ee','#a855f7','#f87171','#fbbf24','#34d399','#60a5fa','#f472b6','#facc15','#4ade80','#fb923c'];
         function getTagColor(tag) {
             if (tagColors[tag]) return tagColors[tag];
@@ -6949,6 +6970,7 @@
             tasks = JSON.parse(localStorage.getItem('sant_crm_tasks') || '[]');
             events = JSON.parse(localStorage.getItem('sant_crm_events') || '[]');
             tags = JSON.parse(localStorage.getItem('sant_crm_tags') || '[]');
+            customFieldDefs = JSON.parse(localStorage.getItem('vends_custom_field_defs') || '[]');
             tagColors = JSON.parse(localStorage.getItem('sant_crm_tag_colors') || '{}');
             notes = JSON.parse(localStorage.getItem('sant_crm_notes') || '[]');
             products = JSON.parse(localStorage.getItem('sant_crm_products') || '[]');
@@ -20726,6 +20748,7 @@
                 const row = {
                     user_id: currentUser.id,
                     categories, origins, tags,
+                    "customFieldDefs": customFieldDefs,
                     "productTypes": productTypes,
                     "catalogViewMode": localStorage.getItem('sant_crm_catalog_view') || 'list',
                     "catalogCollapsedTypes": JSON.parse(localStorage.getItem('vends_catalog_collapsed_types') || '[]'),
@@ -20808,6 +20831,7 @@
                 if (data.catalogCollapsedTypes)     { catalogCollapsedTypes = data.catalogCollapsedTypes; localStorage.setItem('vends_catalog_collapsed_types', JSON.stringify(catalogCollapsedTypes)); }
                 if (data.contactLists?.length)       { contactLists = data.contactLists; localStorage.setItem('sant_crm_contact_lists', JSON.stringify(contactLists)); }
                 if (data.tags?.length)              { tags = data.tags; localStorage.setItem('sant_crm_tags', JSON.stringify(tags)); }
+                if (data.customFieldDefs?.length)   { customFieldDefs = data.customFieldDefs; localStorage.setItem('vends_custom_field_defs', JSON.stringify(customFieldDefs)); }
                 if (data.tagColors && Object.keys(data.tagColors).length) { tagColors = data.tagColors; localStorage.setItem('sant_crm_tag_colors', JSON.stringify(tagColors)); }
                 if (data.messageTemplates?.length)  { messageTemplates = data.messageTemplates; localStorage.setItem('sant_crm_message_templates', JSON.stringify(messageTemplates)); }
                 if (data.scheduleBlocks?.length)    { scheduleBlocks = data.scheduleBlocks; localStorage.setItem('sant_crm_schedule_blocks', JSON.stringify(scheduleBlocks)); }
@@ -22160,6 +22184,7 @@
                 { id: 'lists',       label: 'Listas',           icon: 'ph-list-bullets' },
                 { id: 'eventtypes',  label: 'Tipos de Evento',  icon: 'ph-calendar-blank' },
                 { id: 'tags',        label: 'Tags',             icon: 'ph-tag-chevron' },
+                { id: 'customfields', label: 'Campos Personalizados', icon: 'ph-sliders' },
             ]},
             { name: 'Comunicação', icon: 'ph-chat-circle', tabs: [
                 { id: 'templates',   label: 'Templates',            icon: 'ph-file-text' },
@@ -22236,6 +22261,7 @@
             if (tab === 'lists')       renderSContactLists();
             if (tab === 'eventtypes')  renderSEventTypes();
             if (tab === 'tags')        renderSTags();
+            if (tab === 'customfields') renderSCustomFieldDefs();
             if (tab === 'templates')   renderSTemplates();
             if (tab === 'blocks')      { renderSBlocks(); renderCustomHolidaysList(); }
             if (tab === 'company')     renderCompanyProfile();
@@ -23200,6 +23226,63 @@
             saveTagsToStorage();
             renderSTags();
             showToast('Tag removida.');
+        }
+
+        // ── Campos Personalizados Padronizados (catálogo com tipo) ───────────
+        const CUSTOM_FIELD_TYPE_LABELS = { texto: 'Texto', numero: 'Número', data: 'Data', opcoes: 'Lista de opções' };
+        const CUSTOM_FIELD_TYPE_ICONS  = { texto: 'ph-text-aa', numero: 'ph-hash', data: 'ph-calendar-blank', opcoes: 'ph-list-bullets' };
+        function saveCustomFieldDefsToStorage() {
+            localStorage.setItem('vends_custom_field_defs', JSON.stringify(customFieldDefs));
+            syncPreferencesToSupabase();
+        }
+        function onSettingsCustomFieldTypeChange() {
+            const type = document.getElementById('s-cf-type').value;
+            document.getElementById('s-cf-options').classList.toggle('hidden', type !== 'opcoes');
+        }
+        function addSettingsCustomFieldDef() {
+            const labelInp = document.getElementById('s-cf-label');
+            const label = labelInp.value.trim();
+            const type = document.getElementById('s-cf-type').value;
+            if (!label) { showToast('Dê um nome ao campo.', 'error'); return; }
+            if (customFieldDefs.some(f => f.label.toLowerCase() === label.toLowerCase())) {
+                showToast('Já existe um campo personalizado com esse nome.', 'error'); return;
+            }
+            const options = type === 'opcoes'
+                ? document.getElementById('s-cf-options').value.split(',').map(o => o.trim()).filter(Boolean)
+                : [];
+            if (type === 'opcoes' && !options.length) { showToast('Informe pelo menos uma opção.', 'error'); return; }
+            customFieldDefs.push({ id: crypto.randomUUID(), label, type, options });
+            saveCustomFieldDefsToStorage();
+            labelInp.value = '';
+            document.getElementById('s-cf-options').value = '';
+            renderSCustomFieldDefs();
+            showToast('Campo personalizado criado!');
+        }
+        function deleteSettingsCustomFieldDef(id) {
+            const def = customFieldDefs.find(f => f.id === id);
+            if (!def) return;
+            showConfirm(`Excluir o campo "${def.label}"?`, 'Isso não apaga os valores já preenchidos nos contatos, só remove da lista de sugestões ao adicionar um novo campo.', () => {
+                customFieldDefs = customFieldDefs.filter(f => f.id !== id);
+                saveCustomFieldDefsToStorage();
+                renderSCustomFieldDefs();
+                showToast('Campo removido da lista de sugestões.');
+            });
+        }
+        function renderSCustomFieldDefs() {
+            const el = document.getElementById('s-cf-list');
+            if (!el) return;
+            if (!customFieldDefs.length) { el.innerHTML = '<p class="text-xs text-gray-600 italic">Nenhum campo personalizado definido ainda.</p>'; return; }
+            el.innerHTML = customFieldDefs.map(f => `
+                <div class="flex items-center justify-between bg-[#141414] border border-sant-border rounded-lg px-3 py-2.5">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <i class="ph ${CUSTOM_FIELD_TYPE_ICONS[f.type]||'ph-sliders'} text-sant-cyan shrink-0"></i>
+                        <div class="min-w-0">
+                            <p class="text-sm text-white font-medium truncate">${f.label}</p>
+                            <p class="text-[10px] text-gray-500">${CUSTOM_FIELD_TYPE_LABELS[f.type]||f.type}${f.type==='opcoes' && f.options?.length ? `: ${f.options.join(', ')}` : ''}</p>
+                        </div>
+                    </div>
+                    <button onclick="deleteSettingsCustomFieldDef('${f.id}')" class="text-gray-500 hover:text-red-400 p-1 shrink-0"><i class="ph ph-trash"></i></button>
+                </div>`).join('');
         }
 
         // Renomear/Mesclar tag em massa — atualiza todos os contatos, tarefas e notas de uma vez
@@ -25559,21 +25642,56 @@
                 container.innerHTML = '<p class="text-xs text-gray-600 italic">Nenhum campo personalizado. Ex: "Indicado por", "Plano de interesse".</p>';
                 return;
             }
-            container.innerHTML = currentContactCustomFields.map((f, i) => `
-                <div class="flex gap-2">
-                    <input type="text" value="${(f.label||'').replace(/"/g,'&quot;')}" oninput="currentContactCustomFields[${i}].label=this.value" placeholder="Nome do campo"
-                        class="w-2/5 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none transition-colors">
-                    <input type="text" value="${(f.value||'').replace(/"/g,'&quot;')}" oninput="currentContactCustomFields[${i}].value=this.value" placeholder="Valor"
-                        class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none transition-colors">
-                    <button type="button" onclick="removeContactCustomField(${i})" class="text-gray-400 hover:text-red-500 px-2 shrink-0"><i class="ph ph-trash"></i></button>
-                </div>`).join('');
+            container.innerHTML = currentContactCustomFields.map((f, i) => {
+                const matchedDef = customFieldDefs.find(d => d.label === f.label);
+                const isFree = !matchedDef;
+                const labelSelect = customFieldDefs.length ? `
+                    <select onchange="onContactCustomFieldLabelChange(${i}, this.value)" class="w-2/5 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none transition-colors">
+                        <option value="__free__" ${isFree?'selected':''}>Campo livre...</option>
+                        ${customFieldDefs.map(d => `<option value="${d.id}" ${matchedDef && matchedDef.id===d.id ? 'selected':''}>${d.label}</option>`).join('')}
+                    </select>` : '';
+                const freeLabelInput = (isFree || !customFieldDefs.length) ? `<input type="text" value="${(f.label||'').replace(/"/g,'&quot;')}" oninput="currentContactCustomFields[${i}].label=this.value" placeholder="Nome do campo"
+                        class="${customFieldDefs.length ? 'w-2/5 mt-1.5' : 'w-2/5'} bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none transition-colors">` : '';
+                let valueInput;
+                if (!isFree && matchedDef.type === 'data') {
+                    valueInput = `<input type="date" value="${f.value||''}" oninput="currentContactCustomFields[${i}].value=this.value" class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none transition-colors">`;
+                } else if (!isFree && matchedDef.type === 'numero') {
+                    valueInput = `<input type="number" value="${f.value||''}" oninput="currentContactCustomFields[${i}].value=this.value" class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none transition-colors">`;
+                } else if (!isFree && matchedDef.type === 'opcoes') {
+                    valueInput = `<select onchange="currentContactCustomFields[${i}].value=this.value" class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none transition-colors">
+                        <option value="">Selecione...</option>
+                        ${matchedDef.options.map(o=>`<option value="${o}" ${f.value===o?'selected':''}>${o}</option>`).join('')}
+                    </select>`;
+                } else {
+                    valueInput = `<input type="text" value="${(f.value||'').replace(/"/g,'&quot;')}" oninput="currentContactCustomFields[${i}].value=this.value" placeholder="Valor" class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none transition-colors">`;
+                }
+                return `<div class="flex flex-col gap-1.5">
+                    <div class="flex gap-2">
+                        ${labelSelect || ''}
+                        ${labelSelect ? '' : freeLabelInput}
+                        ${valueInput}
+                        <button type="button" onclick="removeContactCustomField(${i})" class="text-gray-400 hover:text-red-500 px-2 shrink-0"><i class="ph ph-trash"></i></button>
+                    </div>
+                    ${labelSelect ? freeLabelInput : ''}
+                </div>`;
+            }).join('');
+        }
+        function onContactCustomFieldLabelChange(i, val) {
+            if (val === '__free__') {
+                currentContactCustomFields[i].label = '';
+            } else {
+                const def = customFieldDefs.find(d => d.id === val);
+                currentContactCustomFields[i].label = def ? def.label : '';
+                currentContactCustomFields[i].value = '';
+            }
+            renderContactCustomFields();
         }
 
         function addContactCustomField() {
             currentContactCustomFields.push({ label: '', value: '' });
             renderContactCustomFields();
-            const inputs = document.querySelectorAll('#contactCustomFieldsContainer input');
-            if (inputs.length) inputs[inputs.length - 2].focus();
+            const inputs = document.querySelectorAll('#contactCustomFieldsContainer input, #contactCustomFieldsContainer select');
+            if (inputs.length) inputs[inputs.length - 2]?.focus();
         }
 
         function removeContactCustomField(index) {
