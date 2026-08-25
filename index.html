@@ -7179,7 +7179,13 @@
         async function syncOrQueue(table, action, id, networkCall) {
             queueOfflineSync(table, action, id);
             try {
-                await withTimeout(networkCall(), 5000);
+                const result = await withTimeout(networkCall(), 5000);
+                // O Supabase-js não lança exceção em erro do servidor (RLS, coluna
+                // inexistente, valor inválido etc.) — ele resolve a Promise normalmente
+                // com { error: {...} }. Sem checar isso aqui, um erro real era tratado
+                // como sucesso: a fila era limpa e o indicador ficava "Sincronizado" verde
+                // mesmo com a alteração nunca tendo chegado no banco de verdade.
+                if (result && result.error) throw result.error;
                 dequeueOfflineSync(table, id);
                 markSyncSuccess();
             } catch(e) {
@@ -7247,15 +7253,19 @@
             const remaining = [];
             for (const item of q) {
                 try {
+                    let result;
                     if (item.action === 'delete') {
-                        await withTimeout(sb.from(item.table).delete().eq('id', item.id), 5000);
+                        result = await withTimeout(sb.from(item.table).delete().eq('id', item.id), 5000);
                     } else {
                         const arr = { contacts, tasks, events, notes, products }[item.table];
                         const record = arr?.find(x => x.id === item.id);
                         if (!record) continue; // registro não existe mais localmente, nada a sincronizar
                         const rowFn = { contacts: contactToRow, tasks: taskToRow, events: eventToRow, notes: noteToRow, products: productToRow }[item.table];
-                        await withTimeout(sb.from(item.table).upsert(rowFn(record), { onConflict: 'id' }), 5000);
+                        result = await withTimeout(sb.from(item.table).upsert(rowFn(record), { onConflict: 'id' }), 5000);
                     }
+                    // Mesma correção do syncOrQueue: sem checar .error, um erro real do servidor
+                    // era tratado como sucesso e a alteração "sumia" da fila sem nunca ter sido salva.
+                    if (result && result.error) throw result.error;
                 } catch(e) {
                     console.warn('Offline queue replay failed:', item, e.message);
                     remaining.push(item);
