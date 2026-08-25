@@ -7309,6 +7309,23 @@
                 updateSyncIndicator();
                 showToast('Você está offline. Alterações continuam sendo salvas neste dispositivo.', 'error');
             });
+            // O canal de tempo real do Supabase pode "morrer" silenciosamente quando o
+            // notebook hiberna ou a aba fica muito tempo em segundo plano — sem isso, um
+            // dispositivo pode ficar minutos/horas sem receber alterações feitas em outro
+            // aparelho, mesmo aparentando estar "sincronizado" (o indicador só reflete o
+            // último envio, não o recebimento). Ao voltar a ficar visível, busca os dados
+            // mais recentes da nuvem e reabre o canal de tempo real do zero.
+            let lastVisibleSyncAt = 0;
+            document.addEventListener('visibilitychange', async () => {
+                if (document.visibilityState !== 'visible' || !currentUser || !navigator.onLine) return;
+                if (Date.now() - lastVisibleSyncAt < 15000) return; // evita rajadas de eventos
+                lastVisibleSyncAt = Date.now();
+                try {
+                    await Promise.all([loadContactsFromSupabase(), loadTasksFromSupabase(), loadEventsFromSupabase(), loadNotesFromSupabase()]);
+                    loadPreferencesFromSupabase();
+                } catch(e) { console.warn('Resync ao voltar à aba falhou:', e.message); }
+                startRealtimeSync();
+            });
             applyState();
         }
 
