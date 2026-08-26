@@ -1741,6 +1741,8 @@
                         </button>
                     </div>
                     <div class="flex items-center gap-2 sm:ml-auto flex-wrap">
+                        <button id="btnEmptyTasksTrash" onclick="emptyTasksTrash()" class="hidden items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors"><i class="ph ph-trash"></i> Esvaziar Lixeira</button>
+                        <button id="btnCleanOldCompletedTasks" onclick="cleanOldCompletedTasks()" class="hidden items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-red-400 hover:border-red-400/40 transition-colors" title="Move tarefas concluídas antigas pra Lixeira, liberando espaço"><i class="ph ph-broom"></i> Limpar Concluídas Antigas</button>
                         <div class="relative">
                             <select id="taskSortSelect" onchange="setTaskSort(this.value)" class="appearance-none bg-sant-surface border border-sant-border rounded-lg pl-7 pr-3 py-2 text-sm text-gray-400 outline-none transition-colors cursor-pointer hover:border-sant-cyan">
                                 <option value="date">Por data</option>
@@ -2306,6 +2308,9 @@
                         </button>
                         <button id="btnNotesTrash" onclick="toggleNotesTrash()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-red-400 transition-colors" title="Notas excluídas dos últimos 30 dias — restauráveis">
                             <i class="ph ph-trash"></i> Lixeira
+                        </button>
+                        <button id="btnNotesEmptyTrash" onclick="emptyNotesTrash()" class="hidden items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors" title="Excluir definitivamente todas as notas da lixeira">
+                            <i class="ph ph-trash"></i> Esvaziar Lixeira
                         </button>
                         <select id="noteFolderFilter" onchange="setNoteFolderFilter(this.value)" class="bg-sant-surface border border-sant-border rounded-lg px-3 py-2 text-xs text-gray-400 outline-none appearance-none">
                             <option value="">Todos os cadernos</option>
@@ -4449,7 +4454,10 @@
                 <button onclick="closeEventsTrashModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
             </div>
             <div class="overflow-y-auto custom-scrollbar p-5">
-                <p class="text-xs text-gray-500 mb-3">Compromissos excluídos ficam aqui por 30 dias antes de serem removidos definitivamente.</p>
+                <div class="flex items-center justify-between gap-3 mb-3">
+                    <p class="text-xs text-gray-500">Compromissos excluídos ficam aqui por 30 dias antes de serem removidos definitivamente.</p>
+                    <button id="btnEmptyEventsTrash" onclick="emptyEventsTrash()" class="hidden shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors"><i class="ph ph-trash"></i> Esvaziar</button>
+                </div>
                 <div id="eventsTrashList" class="space-y-2"></div>
             </div>
         </div>
@@ -11970,6 +11978,17 @@
             renderNotes();
             showToast('Nota excluída definitivamente.');
         }
+        function emptyNotesTrash() {
+            const trashed = notes.filter(n => n.deletedAt);
+            if (!trashed.length) return;
+            showConfirm(`Esvaziar a lixeira de Notas?`, `${trashed.length} nota${trashed.length!==1?'s serão excluídas':' será excluída'} definitivamente. Esta ação não pode ser desfeita.`, () => {
+                trashed.forEach(n => cloudDeleteNote(n.id));
+                notes = notes.filter(n => !n.deletedAt);
+                saveNotesToStorage();
+                renderNotes();
+                showToast('Lixeira de Notas esvaziada.');
+            });
+        }
         function purgeOldTrashedNotes() {
             const cutoff = Date.now() - (parseInt(localStorage.getItem('vends_trash_retention_days')) || 30) * 86400000;
             const toPurge = notes.filter(n => n.deletedAt && new Date(n.deletedAt).getTime() < cutoff);
@@ -12832,6 +12851,12 @@
                     trashBtn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-red-400 transition-colors';
                     trashBtn.innerHTML = `<i class="ph ph-trash"></i> Lixeira${trashCount > 0 ? ` <span class="ml-0.5 px-1.5 py-0.5 rounded-full bg-sant-border text-gray-400 text-[10px]">${trashCount}</span>` : ''}`;
                 }
+            }
+            const emptyTrashBtn = document.getElementById('btnNotesEmptyTrash');
+            if (emptyTrashBtn) {
+                const showIt = notesShowTrash && trashCount > 0;
+                emptyTrashBtn.classList.toggle('hidden', !showIt);
+                emptyTrashBtn.classList.toggle('flex', showIt);
             }
 
             filtered = filtered.filter(n =>
@@ -17502,10 +17527,24 @@
         function closeEventsTrashModal() {
             document.getElementById('eventsTrashModal').classList.add('hidden');
         }
+        function emptyEventsTrash() {
+            const trashed = events.filter(e => e.deletedAt);
+            if (!trashed.length) return;
+            showConfirm(`Esvaziar a lixeira da Agenda?`, `${trashed.length} compromisso${trashed.length!==1?'s serão excluídos':' será excluído'} definitivamente. Esta ação não pode ser desfeita.`, () => {
+                trashed.forEach(e => cloudDeleteEvent(e.id));
+                events = events.filter(e => !e.deletedAt);
+                saveEventsToStorage();
+                renderEventsTrashList();
+                renderCalendar();
+                showToast('Lixeira da Agenda esvaziada.');
+            });
+        }
         function renderEventsTrashList() {
             const box = document.getElementById('eventsTrashList');
             if (!box) return;
             const trashed = events.filter(e => e.deletedAt).sort((a,b) => (b.deletedAt||'').localeCompare(a.deletedAt||''));
+            const emptyBtn = document.getElementById('btnEmptyEventsTrash');
+            if (emptyBtn) { emptyBtn.classList.toggle('hidden', !trashed.length); emptyBtn.classList.toggle('flex', !!trashed.length); }
             if (!trashed.length) {
                 box.innerHTML = '<p class="text-xs text-gray-600 italic text-center py-6">Lixeira vazia.</p>';
                 return;
@@ -17763,6 +17802,39 @@
             document.getElementById(btn).className = 'filter-status-btn px-4 py-1.5 rounded-full bg-sant-cyan text-sant-bg font-semibold text-sm transition-colors';
             const searchVal = document.getElementById('taskSearchInput') ? document.getElementById('taskSearchInput').value : '';
             renderTasks(f, searchVal);
+            const emptyTrashBtn = document.getElementById('btnEmptyTasksTrash');
+            if (emptyTrashBtn) { const show = f === 'trash'; emptyTrashBtn.classList.toggle('hidden', !show); emptyTrashBtn.classList.toggle('flex', show); }
+            const cleanOldBtn = document.getElementById('btnCleanOldCompletedTasks');
+            if (cleanOldBtn) { const show = f === 'completed'; cleanOldBtn.classList.toggle('hidden', !show); cleanOldBtn.classList.toggle('flex', show); }
+        }
+        function emptyTasksTrash() {
+            const trashed = tasks.filter(t => t.deletedAt);
+            if (!trashed.length) { showToast('Lixeira de Tarefas já está vazia.'); return; }
+            showConfirm(`Esvaziar a lixeira de Tarefas?`, `${trashed.length} tarefa${trashed.length!==1?'s serão excluídas':' será excluída'} definitivamente. Esta ação não pode ser desfeita.`, () => {
+                trashed.forEach(t => cloudDeleteTask(t.id));
+                tasks = tasks.filter(t => !t.deletedAt);
+                saveTasksToStorage();
+                _refreshCurrentTaskView();
+                showToast('Lixeira de Tarefas esvaziada.');
+            });
+        }
+        function cleanOldCompletedTasks() {
+            const days = prompt('Mover para a Lixeira tarefas concluídas há mais de quantos dias?', '90');
+            if (days === null) return;
+            const n = parseInt(days);
+            if (!n || n < 1) { showToast('Informe um número de dias válido.', 'error'); return; }
+            const cutoffDate = addDaysToDateStr(getSPTodayStr(), -n);
+            const toClean = tasks.filter(t => t.completed && !t.deletedAt && t.completedAt && t.completedAt.substring(0,10) <= cutoffDate);
+            if (!toClean.length) { showToast(`Nenhuma tarefa concluída há mais de ${n} dias.`); return; }
+            showConfirm(`Mover ${toClean.length} tarefa${toClean.length!==1?'s':''} concluída${toClean.length!==1?'s':''} pra Lixeira?`, `Tarefas concluídas antes de ${cutoffDate.split('-').reverse().join('/')} vão pra Lixeira (restauráveis por 30 dias, como qualquer exclusão).`, () => {
+                toClean.forEach(t => {
+                    t.deletedAt = new Date().toISOString();
+                    saveTasksToStorage();
+                    cloudSyncTask(t);
+                });
+                _refreshCurrentTaskView();
+                showToast(`${toClean.length} tarefa${toClean.length!==1?'s':''} movida${toClean.length!==1?'s':''} pra Lixeira.`);
+            });
         }
 
         function setTaskSort(val) {
