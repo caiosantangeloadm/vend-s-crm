@@ -7189,6 +7189,14 @@
                 // como sucesso: a fila era limpa e o indicador ficava "Sincronizado" verde
                 // mesmo com a alteração nunca tendo chegado no banco de verdade.
                 if (result && result.error) throw result.error;
+                // Segunda blindagem: às vezes o Supabase responde "sucesso" (sem .error) mas com
+                // zero linhas afetadas — normalmente uma regra de segurança (RLS) no banco
+                // silenciosamente rejeitando a escrita daquele registro específico, em vez de
+                // gerar um erro visível. Sem essa checagem, a alteração "desaparecia" sem deixar
+                // rastro nenhum: nem erro, nem indicador pendente, nem dado salvo.
+                if (action === 'upsert' && result && Array.isArray(result.data) && result.data.length === 0) {
+                    throw new Error('gravação sem confirmação do servidor (0 linhas afetadas — possível bloqueio de permissão)');
+                }
                 dequeueOfflineSync(table, id);
                 markSyncSuccess();
             } catch(e) {
@@ -7264,11 +7272,14 @@
                         const record = arr?.find(x => x.id === item.id);
                         if (!record) continue; // registro não existe mais localmente, nada a sincronizar
                         const rowFn = { contacts: contactToRow, tasks: taskToRow, events: eventToRow, notes: noteToRow, products: productToRow }[item.table];
-                        result = await withTimeout(sb.from(item.table).upsert(rowFn(record), { onConflict: 'id' }), 5000);
+                        result = await withTimeout(sb.from(item.table).upsert(rowFn(record), { onConflict: 'id' }).select('id'), 5000);
                     }
                     // Mesma correção do syncOrQueue: sem checar .error, um erro real do servidor
                     // era tratado como sucesso e a alteração "sumia" da fila sem nunca ter sido salva.
                     if (result && result.error) throw result.error;
+                    if (item.action === 'upsert' && result && Array.isArray(result.data) && result.data.length === 0) {
+                        throw new Error('gravação sem confirmação do servidor (0 linhas afetadas)');
+                    }
                 } catch(e) {
                     console.warn('Offline queue replay failed:', item, e.message);
                     remaining.push(item);
@@ -7344,7 +7355,7 @@
 
         async function cloudSyncTask(t) {
             const sb = getSB(); if (!sb || !currentUser) return;
-            await syncOrQueue('tasks', 'upsert', t.id, () => sb.from('tasks').upsert(taskToRow(t), { onConflict: 'id' }));
+            await syncOrQueue('tasks', 'upsert', t.id, () => sb.from('tasks').upsert(taskToRow(t), { onConflict: 'id' }).select('id'));
         }
         async function cloudDeleteTask(id) {
             const sb = getSB(); if (!sb || !currentUser) return;
@@ -7352,7 +7363,7 @@
         }
         async function cloudSyncEvent(e) {
             const sb = getSB(); if (!sb || !currentUser) return;
-            await syncOrQueue('events', 'upsert', e.id, () => sb.from('events').upsert(eventToRow(e), { onConflict: 'id' }));
+            await syncOrQueue('events', 'upsert', e.id, () => sb.from('events').upsert(eventToRow(e), { onConflict: 'id' }).select('id'));
         }
         async function cloudDeleteEvent(id) {
             const sb = getSB(); if (!sb || !currentUser) return;
@@ -7385,7 +7396,7 @@
         }
         async function cloudSyncNote(n) {
             const sb = getSB(); if (!sb || !currentUser) return;
-            await syncOrQueue('notes', 'upsert', n.id, () => sb.from('notes').upsert(noteToRow(n), { onConflict: 'id' }));
+            await syncOrQueue('notes', 'upsert', n.id, () => sb.from('notes').upsert(noteToRow(n), { onConflict: 'id' }).select('id'));
         }
         async function cloudDeleteNote(id) {
             const sb = getSB(); if (!sb || !currentUser) return;
@@ -7440,7 +7451,7 @@
         }
         async function cloudSyncProduct(p) {
             const sb = getSB(); if (!sb || !currentUser) return;
-            await syncOrQueue('products', 'upsert', p.id, () => sb.from('products').upsert(productToRow(p), { onConflict: 'id' }));
+            await syncOrQueue('products', 'upsert', p.id, () => sb.from('products').upsert(productToRow(p), { onConflict: 'id' }).select('id'));
         }
         async function cloudDeleteProduct(id) {
             const sb = getSB(); if (!sb || !currentUser) return;
@@ -20693,7 +20704,7 @@
         async function cloudSyncContact(c) {
             const sb = getSB();
             if (!sb) return;
-            await syncOrQueue('contacts', 'upsert', c.id, () => sb.from('contacts').upsert(contactToRow(c), { onConflict: 'id' }));
+            await syncOrQueue('contacts', 'upsert', c.id, () => sb.from('contacts').upsert(contactToRow(c), { onConflict: 'id' }).select('id'));
         }
 
         // Deleta um contato do Supabase
