@@ -15628,8 +15628,13 @@
 
             const nextDateStr = addDaysToDateStr(dateStr, 7);
             const nextFmt = nextDateStr.split('-').reverse().join('/');
-            showConfirm(`Copiar ${toCopy.length} compromisso(s) deste dia para ${nextFmt}?`, 'Cada evento avulso será recriado no mesmo horário, uma semana depois.', () => {
+            showConfirm(`Copiar ${toCopy.length} compromisso(s) deste dia para ${nextFmt}?`, 'Cada evento avulso será recriado no mesmo horário, uma semana depois. Compromissos já copiados antes (mesmo título e horário no destino) são pulados automaticamente.', () => {
+                let copiedCount = 0, skippedCount = 0;
                 toCopy.forEach(e => {
+                    // Evita duplicar se já existe um compromisso igual (mesmo título+horário) no dia de destino —
+                    // acontece quando "Copiar Dia" é usado mais de uma vez pra mesma semana (ex: em 2 dispositivos).
+                    const alreadyThere = events.some(x => !x.deletedAt && x.startDate === nextDateStr && x.title === e.title && x.startTime === e.startTime);
+                    if (alreadyThere) { skippedCount++; return; }
                     const newEv = {
                         ...e, id: crypto.randomUUID(),
                         startDate: nextDateStr,
@@ -15638,10 +15643,11 @@
                     };
                     events.push(newEv);
                     cloudSyncEvent(newEv);
+                    copiedCount++;
                 });
                 saveEventsToStorage();
                 renderCalendar();
-                showToast(`${toCopy.length} compromisso(s) copiados para ${nextFmt}!`);
+                showToast(`${copiedCount} compromisso(s) copiados para ${nextFmt}!${skippedCount ? ` (${skippedCount} já existia${skippedCount>1?'m':''}, pulado${skippedCount>1?'s':''})` : ''}`);
             });
         }
 
@@ -15659,20 +15665,27 @@
 
             if (!toCopy.length) { showToast('Nenhum compromisso avulso nesta semana para copiar (eventos recorrentes já se repetem sozinhos).', 'error'); return; }
 
-            showConfirm(`Copiar ${toCopy.length} compromisso(s) desta semana para a próxima?`, 'Cada evento avulso será recriado 7 dias depois, no mesmo horário. Eventos recorrentes não são duplicados aqui, pois já se repetem sozinhos.', () => {
+            showConfirm(`Copiar ${toCopy.length} compromisso(s) desta semana para a próxima?`, 'Cada evento avulso será recriado 7 dias depois, no mesmo horário. Eventos recorrentes não são duplicados aqui, pois já se repetem sozinhos. Compromissos já copiados antes (mesmo título e horário no destino) são pulados automaticamente.', () => {
+                let copiedCount = 0, skippedCount = 0;
                 toCopy.forEach(e => {
+                    // Evita duplicar se já existe um compromisso igual (mesmo título+horário) no dia de destino —
+                    // acontece quando "Copiar Semana" é usado mais de uma vez pra mesma semana (ex: em 2 dispositivos).
+                    const targetDate = addDaysToDateStr(e.startDate, 7);
+                    const alreadyThere = events.some(x => !x.deletedAt && x.startDate === targetDate && x.title === e.title && x.startTime === e.startTime);
+                    if (alreadyThere) { skippedCount++; return; }
                     const newEv = {
                         ...e, id: crypto.randomUUID(),
-                        startDate: addDaysToDateStr(e.startDate, 7),
+                        startDate: targetDate,
                         endDate: e.endDate ? addDaysToDateStr(e.endDate, 7) : '',
                         excludedDates: [], recurrence: 'none', notified: false
                     };
                     events.push(newEv);
                     cloudSyncEvent(newEv);
+                    copiedCount++;
                 });
                 saveEventsToStorage();
                 renderCalendar();
-                showToast(`${toCopy.length} compromisso(s) copiados para a semana seguinte!`);
+                showToast(`${copiedCount} compromisso(s) copiados para a semana seguinte!${skippedCount ? ` (${skippedCount} já existia${skippedCount>1?'m':''}, pulado${skippedCount>1?'s':''})` : ''}`);
             });
         }
 
