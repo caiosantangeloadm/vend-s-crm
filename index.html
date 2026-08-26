@@ -4903,6 +4903,9 @@
                             <select id="contactDocFromCatalog" onchange="fillContactDocFromCatalog()" class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-3 text-sm text-white outline-none focus:border-sant-cyan transition-colors">
                                 <option value="">— Selecionar item —</option>
                             </select>
+                            <button type="button" onclick="generateProposalPdf()" class="mt-2 w-full bg-sant-surface border border-sant-cyan/30 hover:bg-sant-cyan/10 text-sant-cyan px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5">
+                                <i class="ph ph-file-pdf"></i> Gerar Proposta em PDF (todos os itens do Catálogo)
+                            </button>
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-gray-400 uppercase mb-1.5">Título</label>
@@ -26612,6 +26615,71 @@
             const it = c.pipelineProducts[idx];
             document.getElementById('contactDocTitle').value = `Proposta – ${it.name}`;
             document.getElementById('contactDocTitle').focus();
+        }
+
+        // Gera uma proposta em PDF pronta pra enviar, a partir dos itens do Catálogo vinculados
+        // ao lead (c.pipelineProducts) — reaproveita o padrão de janela+print já usado nos
+        // relatórios (printReportPdf), com um layout mais parecido com um orçamento de verdade.
+        function generateProposalPdf() {
+            const c = contacts.find(x => x.id === currentHistoryContactId);
+            if (!c) return;
+            const items = c.pipelineProducts || [];
+            if (!items.length) { showToast('Este contato não tem itens do Catálogo vinculados no Pipeline.', 'error'); return; }
+
+            const companyName = (currentOrg && currentOrg.company_name) || 'Vend-s Inteligência';
+            const ownerName = currentOrg && currentOrg.owner_name || '';
+            const rows = items.map(it => {
+                const subtotal = (it.price || 0) * (it.qty || 1) * (1 - (it.discountPct || 0) / 100);
+                return `<tr>
+                    <td>${it.name}</td>
+                    <td style="text-align:center">${it.qty || 1}</td>
+                    <td style="text-align:right">R$ ${(it.price||0).toLocaleString('pt-BR', {minimumFractionDigits:2})}</td>
+                    <td style="text-align:center">${it.discountPct ? it.discountPct + '%' : '—'}</td>
+                    <td style="text-align:right">R$ ${subtotal.toLocaleString('pt-BR', {minimumFractionDigits:2})}</td>
+                </tr>`;
+            }).join('');
+            const total = items.reduce((s,it) => s + (it.price||0) * (it.qty||1) * (1 - (it.discountPct||0)/100), 0);
+
+            const win = window.open('', '_blank');
+            win.document.write(`
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>Proposta — ${fullName(c)}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 32px; color: #111; }
+                        .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #5b8fa8; padding-bottom:16px; margin-bottom:24px; }
+                        .header h1 { font-size: 20px; margin:0; color:#3d6e85; }
+                        .header p { font-size: 11px; color:#666; margin:2px 0 0; }
+                        .meta { font-size: 12px; color:#333; margin-bottom:20px; }
+                        .meta b { color:#111; }
+                        table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 16px; }
+                        th, td { border: 1px solid #ccc; padding: 8px 10px; }
+                        th { background: #f0f0f0; text-align:left; }
+                        .total-row td { font-weight:bold; font-size:14px; border-top:2px solid #111; }
+                        .terms { font-size: 11px; color:#555; margin-top: 24px; border-top:1px solid #ccc; padding-top:12px; }
+                        @media print { body { padding: 0; } }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <div><h1>${companyName}</h1>${ownerName ? `<p>${ownerName}</p>` : ''}</div>
+                        <div style="text-align:right"><p><b>Proposta Comercial</b></p><p>${new Date().toLocaleDateString('pt-BR')}</p></div>
+                    </div>
+                    <div class="meta">
+                        <p><b>Cliente:</b> ${fullName(c)}${c.company ? ' — ' + c.company : ''}</p>
+                        ${c.phoneProf || c.phonePess || c.phone ? `<p><b>Contato:</b> ${c.phoneProf || c.phonePess || c.phone}</p>` : ''}
+                    </div>
+                    <table>
+                        <thead><tr><th>Item</th><th style="text-align:center">Qtd.</th><th style="text-align:right">Preço</th><th style="text-align:center">Desc.</th><th style="text-align:right">Subtotal</th></tr></thead>
+                        <tbody>${rows}<tr class="total-row"><td colspan="4" style="text-align:right">Total</td><td style="text-align:right">R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits:2})}</td></tr></tbody>
+                    </table>
+                    ${c.paymentTerms ? `<div class="terms"><b>Condição de pagamento:</b> ${c.paymentTerms}</div>` : ''}
+                    <scr${''}ipt>window.onload = () => { window.print(); };</scr${''}ipt>
+                </body>
+                </html>
+            `);
+            win.document.close();
         }
 
         function addContactDoc() {
