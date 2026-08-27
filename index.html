@@ -20860,6 +20860,13 @@
         // recarregar a página (ex: outra chamada de sincronização falhou silenciosamente antes).
         async function forceFullResync() {
             if (!navigator.onLine) { showToast('Sem internet agora — não dá pra forçar sincronização offline.', 'error'); return; }
+            // Primeiro tenta REENVIAR qualquer alteração local presa (a fila offline) — antes o
+            // botão só PUXAVA da nuvem, então uma máquina com algo travado localmente nunca
+            // conseguia se corrigir clicando nele, só a máquina que já estava correta.
+            if (getOfflineQueue().length > 0) {
+                showToast(`Reenviando ${getOfflineQueue().length} alteração(ões) presa(s)...`);
+                await replayOfflineQueue();
+            }
             showToast('Buscando dados mais recentes da nuvem...');
             await Promise.all([
                 loadContactsFromSupabase(),
