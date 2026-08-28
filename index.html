@@ -6457,7 +6457,7 @@
                     fireNotification({ title: ev.title, startTime: ev.startTime, location: ev.location, id: ev.id });
                     ev.notifiedDate = currentStr;
                     saveEventsToStorage();
-                    cloudSyncEvent(ev);
+                    cloudPatchEvent(ev.id, { notifiedDate: ev.notifiedDate });
                 }
             });
 
@@ -6478,7 +6478,7 @@
                     });
                     ev.travelNotifiedDate = currentStr;
                     saveEventsToStorage();
-                    cloudSyncEvent(ev);
+                    cloudPatchEvent(ev.id, { travelNotifiedDate: ev.travelNotifiedDate });
                 }
             });
 
@@ -6506,7 +6506,7 @@
                     t.notifiedOffsets = firedOffsets;
                     t.notified = true;
                     saveTasksToStorage();
-                    cloudSyncTask(t);
+                    cloudPatchTask(t.id, { "notifiedOffsets": t.notifiedOffsets, notified: t.notified });
                 }
             });
         }
@@ -7401,6 +7401,17 @@
             const sb = getSB(); if (!sb || !currentUser) return;
             await syncOrQueue('tasks', 'upsert', t.id, () => sb.from('tasks').upsert(taskToRow(t), { onConflict: 'id' }).select('id'));
         }
+        // Atualização parcial — só os campos indicados, nunca a linha inteira. Usada por processos
+        // automáticos em segundo plano (lembretes, notificações) que não devem arriscar sobrescrever
+        // outros campos (como "completed") com uma cópia desatualizada guardada na memória local.
+        async function cloudPatchTask(id, fields) {
+            const sb = getSB(); if (!sb || !currentUser) return;
+            await syncOrQueue('tasks', 'upsert', id, () => sb.from('tasks').update(fields).eq('id', id).select('id'));
+        }
+        async function cloudPatchEvent(id, fields) {
+            const sb = getSB(); if (!sb || !currentUser) return;
+            await syncOrQueue('events', 'upsert', id, () => sb.from('events').update(fields).eq('id', id).select('id'));
+        }
         async function cloudDeleteTask(id) {
             const sb = getSB(); if (!sb || !currentUser) return;
             await syncOrQueue('tasks', 'delete', id, () => sb.from('tasks').delete().eq('id', id));
@@ -7441,6 +7452,10 @@
         async function cloudSyncNote(n) {
             const sb = getSB(); if (!sb || !currentUser) return;
             await syncOrQueue('notes', 'upsert', n.id, () => sb.from('notes').upsert(noteToRow(n), { onConflict: 'id' }).select('id'));
+        }
+        async function cloudPatchNote(id, fields) {
+            const sb = getSB(); if (!sb || !currentUser) return;
+            await syncOrQueue('notes', 'upsert', id, () => sb.from('notes').update(fields).eq('id', id).select('id'));
         }
         async function cloudDeleteNote(id) {
             const sb = getSB(); if (!sb || !currentUser) return;
@@ -28210,7 +28225,7 @@
                     n.dueDate = next;
                     n.updatedAt = new Date().toISOString();
                     saveNotesToStorage();
-                    cloudSyncNote(n);
+                    cloudPatchNote(n.id, { "dueDate": n.dueDate, "updatedAt": n.updatedAt });
                     if (currentView === 'notes') renderNotes();
                 }
             });
