@@ -4447,6 +4447,33 @@
     </div>
 
     <!-- MODAL DE LIXEIRA DA AGENDA -->
+    <!-- MODAL DE ENVIO PARA ASSINATURA ELETRÔNICA (ZapSign) -->
+    <div id="esignModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeEsignModal()">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-md shadow-2xl">
+            <div class="flex justify-between items-center p-5 border-b border-sant-border">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-signature text-sant-purple"></i> Assinatura Eletrônica</h3>
+                <button onclick="closeEsignModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <div class="p-5 space-y-3">
+                <p class="text-xs text-gray-500">Envie o PDF da proposta (gere e salve pelo botão "Gerar Proposta em PDF") para o cliente assinar digitalmente. Você recebe o link de assinatura e o status fica visível aqui no histórico do contato.</p>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 uppercase mb-1.5">Arquivo PDF da proposta</label>
+                    <input type="file" id="esignFileInput" accept="application/pdf" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-sant-purple">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 uppercase mb-1.5">Nome do signatário</label>
+                    <input type="text" id="esignSignerName" class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-sant-purple">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 uppercase mb-1.5">E-mail do signatário</label>
+                    <input type="email" id="esignSignerEmail" placeholder="cliente@exemplo.com" class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-sant-purple">
+                </div>
+                <p id="esignMsg" class="hidden text-xs"></p>
+                <button id="esignSubmitBtn" onclick="submitEsignRequest()" class="w-full bg-sant-purple hover:bg-sant-purple/90 text-white px-4 py-3 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2"><i class="ph ph-paper-plane-tilt"></i> Enviar para Assinatura</button>
+            </div>
+        </div>
+    </div>
+
     <div id="eventsTrashModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeEventsTrashModal()">
         <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl">
             <div class="flex justify-between items-center p-5 border-b border-sant-border shrink-0">
@@ -4906,6 +4933,12 @@
                             <button type="button" onclick="generateProposalPdf()" class="mt-2 w-full bg-sant-surface border border-sant-cyan/30 hover:bg-sant-cyan/10 text-sant-cyan px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5">
                                 <i class="ph ph-file-pdf"></i> Gerar Proposta em PDF (todos os itens do Catálogo)
                             </button>
+                        </div>
+                        <div>
+                            <button type="button" onclick="openEsignModal()" class="w-full bg-sant-purple/10 border border-sant-purple/30 hover:bg-sant-purple/20 text-sant-purple px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5">
+                                <i class="ph ph-signature"></i> Enviar para Assinatura Eletrônica
+                            </button>
+                            <p class="text-[10px] text-gray-600 mt-1 text-center">Gere o PDF da proposta acima, salve o arquivo e envie aqui pra assinatura digital do cliente.</p>
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-gray-400 uppercase mb-1.5">Título</label>
@@ -26589,6 +26622,8 @@
                         expiryBadge = `<span class="text-[10px] text-gray-500 shrink-0" title="Validade">${fmt}</span>`;
                     }
                 }
+                const esignBadge = d.esignProvider ? `<span class="text-[10px] font-bold text-sant-purple bg-sant-purple/10 border border-sant-purple/30 px-1.5 py-0.5 rounded-full shrink-0 flex items-center gap-1"><i class="ph ph-signature"></i> Assinatura eletrônica</span>` : '';
+                const esignRefreshBtn = (d.esignProvider && d.status !== 'assinado' && d.status !== 'recusado') ? `<button onclick="checkEsignStatus('${d.id}')" class="text-[10px] text-gray-500 hover:text-sant-purple flex items-center gap-1" title="Verificar status da assinatura"><i class="ph ph-arrows-clockwise"></i> Verificar</button>` : '';
                 return `<div class="p-2 bg-[#0a0a0a] border ${meta.border} rounded-lg">
                     <div class="flex items-center gap-2">
                         <i class="ph ph-file-text shrink-0" style="color:${meta.color}"></i>
@@ -26598,6 +26633,8 @@
                     <div class="flex items-center flex-wrap gap-2 mt-2 pl-6">
                         <button onclick="setContactDocExpiry('${d.id}')" class="shrink-0" title="Definir/editar validade">${expiryBadge || '<span class="text-[10px] text-gray-600 hover:text-sant-cyan">+ validade</span>'}</button>
                         <select onchange="updateContactDocStatus('${d.id}', this.value)" class="text-[10px] font-bold rounded-full px-2 py-1 border outline-none cursor-pointer ${meta.bg} ${meta.border}" style="color:${meta.color}">${opts}</select>
+                        ${esignBadge}
+                        ${esignRefreshBtn}
                     </div>
                 </div>`;
             }).join('');
@@ -26736,6 +26773,125 @@
             cloudSyncContact(c);
             renderContactDocs();
             showToast(`Status atualizado para "${DOC_STATUS_META[status].label}"!`);
+        }
+
+        // Assinatura Eletrônica (ZapSign) — envia o PDF da proposta pro cliente assinar digitalmente,
+        // sem sair do CRM. Usa uma Edge Function (send-for-signature) que guarda a chave de API do
+        // ZapSign no servidor, nunca exposta no navegador.
+        function openEsignModal() {
+            const c = contacts.find(x => x.id === currentHistoryContactId);
+            if (!c) return;
+            document.getElementById('esignFileInput').value = '';
+            document.getElementById('esignSignerName').value = fullName(c);
+            document.getElementById('esignSignerEmail').value = c.emailProf || c.emailPess || c.email || '';
+            document.getElementById('esignMsg').classList.add('hidden');
+            document.getElementById('esignModal').classList.remove('hidden');
+        }
+        function closeEsignModal() {
+            document.getElementById('esignModal').classList.add('hidden');
+        }
+        function esignShowMsg(text, isError) {
+            const el = document.getElementById('esignMsg');
+            el.textContent = text;
+            el.className = 'text-xs ' + (isError ? 'text-red-400' : 'text-green-400');
+            el.classList.remove('hidden');
+        }
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+        async function submitEsignRequest() {
+            const c = contacts.find(x => x.id === currentHistoryContactId);
+            if (!c) return;
+            const fileInput = document.getElementById('esignFileInput');
+            const signerName = document.getElementById('esignSignerName').value.trim();
+            const signerEmail = document.getElementById('esignSignerEmail').value.trim();
+            const file = fileInput.files[0];
+            if (!file) { esignShowMsg('Selecione o arquivo PDF da proposta.', true); return; }
+            if (file.type !== 'application/pdf') { esignShowMsg('O arquivo precisa ser um PDF.', true); return; }
+            if (!signerName) { esignShowMsg('Informe o nome do signatário.', true); return; }
+            if (!signerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(signerEmail)) { esignShowMsg('Informe um e-mail válido do signatário.', true); return; }
+
+            const btn = document.getElementById('esignSubmitBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Enviando...';
+            try {
+                const base64 = await fileToBase64(file);
+                const sb = getSB();
+                const { data: sessionData } = await sb.auth.getSession();
+                const token = sessionData?.session?.access_token;
+                const res = await fetch(`${SUPABASE_URL}/functions/v1/send-for-signature`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify({
+                        filename: file.name,
+                        base64_pdf: base64,
+                        signer_name: signerName,
+                        signer_email: signerEmail,
+                        contact_id: c.id,
+                    }),
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    esignShowMsg(data.error === 'not_configured'
+                        ? 'Assinatura eletrônica ainda não configurada — assim que a chave do ZapSign estiver pronta, isso passa a funcionar.'
+                        : 'Não foi possível enviar para assinatura agora. Tente novamente em instantes.', true);
+                    return;
+                }
+                if (!c.documents) c.documents = [];
+                c.documents.push({
+                    id: crypto.randomUUID(),
+                    title: file.name.replace(/\.pdf$/i, ''),
+                    url: data.sign_url || data.original_file || '',
+                    status: 'enviado',
+                    esignProvider: 'zapsign',
+                    esignToken: data.token,
+                    esignStatus: data.status || 'pending',
+                    createdAt: new Date().toISOString(),
+                });
+                saveToStorage();
+                cloudSyncContact(c);
+                renderContactDocs();
+                closeEsignModal();
+                showToast('Enviado para assinatura! O cliente vai receber o link por e-mail.');
+            } catch(e) {
+                console.warn('submitEsignRequest:', e.message);
+                esignShowMsg('Erro de conexão. Tente novamente.', true);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="ph ph-paper-plane-tilt"></i> Enviar para Assinatura';
+            }
+        }
+        async function checkEsignStatus(docId) {
+            const c = contacts.find(x => x.id === currentHistoryContactId);
+            if (!c || !c.documents) return;
+            const d = c.documents.find(x => x.id === docId);
+            if (!d || !d.esignToken) return;
+            try {
+                const sb = getSB();
+                const { data: sessionData } = await sb.auth.getSession();
+                const token = sessionData?.session?.access_token;
+                const res = await fetch(`${SUPABASE_URL}/functions/v1/check-signature-status?token=${encodeURIComponent(d.esignToken)}`, {
+                    headers: { 'Authorization': 'Bearer ' + token },
+                });
+                const data = await res.json();
+                if (!res.ok) { showToast('Não foi possível verificar o status agora.', 'error'); return; }
+                d.esignStatus = data.status;
+                if (data.status === 'signed') d.status = 'assinado';
+                else if (data.status === 'refused') d.status = 'recusado';
+                d.updatedAt = new Date().toISOString();
+                saveToStorage();
+                cloudSyncContact(c);
+                renderContactDocs();
+                showToast(data.status === 'signed' ? 'Documento assinado! 🎉' : 'Status atualizado.');
+            } catch(e) {
+                console.warn('checkEsignStatus:', e.message);
+                showToast('Erro de conexão ao verificar status.', 'error');
+            }
         }
 
         function deleteContactDoc(docId) {
