@@ -887,6 +887,7 @@
                             <div><label class="text-xs text-gray-400 mb-1 block">Interações registradas</label><input type="number" id="bigGoalInputInteractions" min="0" max="9999" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none"></div>
                             <div><label class="text-xs text-gray-400 mb-1 block">Follow-ups realizados</label><input type="number" id="bigGoalInputFollowups" min="0" max="9999" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none"></div>
                             <div><label class="text-xs text-gray-400 mb-1 block">Novos contatos</label><input type="number" id="bigGoalInputNewContacts" min="0" max="9999" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none"></div>
+                            <div><label class="text-xs text-gray-400 mb-1 block">Receita (R$)</label><input type="number" id="bigGoalInputRevenue" min="0" max="9999999" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white focus:border-sant-cyan outline-none"></div>
                         </div>
                         <button onclick="saveBigGoals()" class="mt-4 bg-sant-cyan text-sant-bg px-5 py-2 rounded-lg text-sm font-bold hover:bg-cyan-400 transition-colors">Salvar meta</button>
                     </div>
@@ -8547,7 +8548,7 @@
                             <span class="text-xs text-gray-300">${m.label}</span>
                         </div>
                         <div class="flex items-center gap-2">
-                            ${deltaBadge(m.actual, m.prev)}
+                            ${deltaBadge(m.actual, m.prev, m.isCurrency)}
                             ${badge}
                             <span class="text-xs font-bold text-white">${pct}%</span>
                         </div>
@@ -8575,9 +8576,9 @@
         let bigGoalsPeriod = localStorage.getItem('vends_big_goals_period') || 'month';
 
         function loadBigGoals() {
-            monthlyGoals   = JSON.parse(localStorage.getItem('vends_monthly_goals')   || '{"tasks":20,"interactions":40,"followups":10,"newContacts":8}');
-            quarterlyGoals = JSON.parse(localStorage.getItem('vends_quarterly_goals') || '{"tasks":60,"interactions":120,"followups":30,"newContacts":24}');
-            yearlyGoals    = JSON.parse(localStorage.getItem('vends_yearly_goals')    || '{"tasks":240,"interactions":480,"followups":120,"newContacts":96}');
+            monthlyGoals   = JSON.parse(localStorage.getItem('vends_monthly_goals')   || '{"tasks":20,"interactions":40,"followups":10,"newContacts":8,"revenue":0}');
+            quarterlyGoals = JSON.parse(localStorage.getItem('vends_quarterly_goals') || '{"tasks":60,"interactions":120,"followups":30,"newContacts":24,"revenue":0}');
+            yearlyGoals    = JSON.parse(localStorage.getItem('vends_yearly_goals')    || '{"tasks":240,"interactions":480,"followups":120,"newContacts":96,"revenue":0}');
         }
 
         function toggleBigGoalsPeriod(period) {
@@ -8611,6 +8612,7 @@
                 document.getElementById('bigGoalInputInteractions').value = g.interactions || 0;
                 document.getElementById('bigGoalInputFollowups').value    = g.followups    || 0;
                 document.getElementById('bigGoalInputNewContacts').value  = g.newContacts  || 0;
+                document.getElementById('bigGoalInputRevenue').value      = g.revenue      || 0;
             }
         }
 
@@ -8620,6 +8622,7 @@
                 interactions: parseInt(document.getElementById('bigGoalInputInteractions').value) || 0,
                 followups:    parseInt(document.getElementById('bigGoalInputFollowups').value)    || 0,
                 newContacts:  parseInt(document.getElementById('bigGoalInputNewContacts').value)  || 0,
+                revenue:      parseFloat(document.getElementById('bigGoalInputRevenue').value)    || 0,
             };
             if (bigGoalsPeriod === 'month') {
                 monthlyGoals = g;
@@ -8703,6 +8706,11 @@
                 return (c.interactions||[]).some(i => i.date >= c.nextContact);
             }).length;
             const newContacts = contacts.filter(c => c.createdAt && c.createdAt.substring(0,10) >= periodStartStr).length;
+            const revenueDone = contacts.reduce((sum, c) => {
+                if (c.pipelineStage !== 'ganho' || !c.stageEnteredAt) return sum;
+                const ref = c.stageEnteredAt.substring(0,10);
+                return (ref >= periodStartStr && ref <= todayStr) ? sum + (c.dealValue || 0) : sum;
+            }, 0);
 
             const prevTasks = tasks.filter(t => {
                 if (!t.completed) return false;
@@ -8719,12 +8727,18 @@
                 const d = c.createdAt ? c.createdAt.substring(0,10) : '';
                 return d >= prevStartStr && d <= prevEndStr;
             }).length;
+            const prevRevenue = contacts.reduce((sum, c) => {
+                if (c.pipelineStage !== 'ganho' || !c.stageEnteredAt) return sum;
+                const ref = c.stageEnteredAt.substring(0,10);
+                return (ref >= prevStartStr && ref <= prevEndStr) ? sum + (c.dealValue || 0) : sum;
+            }, 0);
 
-            const deltaBadge = (cur, prev) => {
+            const deltaBadge = (cur, prev, isCurrency) => {
                 const d = cur - prev;
+                const fmt = v => isCurrency ? `R$ ${Math.abs(v).toLocaleString('pt-BR')}` : Math.abs(v);
                 const prevLabel = bigGoalsPeriod === 'month' ? 'mês passado' : bigGoalsPeriod === 'quarter' ? 'trimestre passado' : 'ano passado';
-                if (d > 0) return `<span class="text-[10px] font-bold text-green-400 flex items-center gap-0.5" title="vs ${prevLabel} (${prev})"><i class="ph ph-trend-up"></i>+${d}</span>`;
-                if (d < 0) return `<span class="text-[10px] font-bold text-red-400 flex items-center gap-0.5" title="vs ${prevLabel} (${prev})"><i class="ph ph-trend-down"></i>${d}</span>`;
+                if (d > 0) return `<span class="text-[10px] font-bold text-green-400 flex items-center gap-0.5" title="vs ${prevLabel} (${isCurrency ? 'R$ '+prev.toLocaleString('pt-BR') : prev})"><i class="ph ph-trend-up"></i>+${fmt(d)}</span>`;
+                if (d < 0) return `<span class="text-[10px] font-bold text-red-400 flex items-center gap-0.5" title="vs ${prevLabel} (${isCurrency ? 'R$ '+prev.toLocaleString('pt-BR') : prev})"><i class="ph ph-trend-down"></i>-${fmt(d)}</span>`;
                 return `<span class="text-[10px] text-gray-600 flex items-center gap-0.5" title="vs ${prevLabel} (${prev})"><i class="ph ph-equals"></i></span>`;
             };
 
@@ -8733,7 +8747,10 @@
                 { label:'Interações registradas', icon:'ph-handshake',              color:'#fbbf24', actual: interactionsDone, prev: prevInteractions, goal: goals.interactions || 0 },
                 { label:'Follow-ups realizados',  icon:'ph-arrow-counter-clockwise',color:'#a78bfa', actual: followupsDone,    prev: prevFollowups,    goal: goals.followups    || 0 },
                 { label:'Novos contatos',         icon:'ph-user-plus',              color:'#34d399', actual: newContacts,      prev: prevNewContacts,  goal: goals.newContacts  || 0 },
+                { label:'Receita (negócios ganhos)', icon:'ph-currency-circle-dollar', color:'#4ade80', actual: revenueDone,   prev: prevRevenue,      goal: goals.revenue      || 0, isCurrency: true },
             ];
+
+            const fmtBRL = v => `R$ ${v.toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 0})}`;
 
             el.innerHTML = metrics.map(m => {
                 if (!m.goal) return '';
@@ -8743,7 +8760,7 @@
                 const barColor = over ? '#4ade80' : half ? '#fbbf24' : '#f87171';
                 const badge    = over
                     ? `<span class="text-[10px] font-bold text-green-400 bg-green-400/10 border border-green-400/20 rounded-full px-2 py-0.5">✓ Meta!</span>`
-                    : `<span class="text-[10px] text-gray-500">${m.actual}/${m.goal}</span>`;
+                    : `<span class="text-[10px] text-gray-500">${m.isCurrency ? fmtBRL(m.actual) + ' / ' + fmtBRL(m.goal) : m.actual + '/' + m.goal}</span>`;
                 return `<div>
                     <div class="flex items-center justify-between mb-1.5">
                         <div class="flex items-center gap-2">
@@ -8751,7 +8768,7 @@
                             <span class="text-xs text-gray-300">${m.label}</span>
                         </div>
                         <div class="flex items-center gap-2">
-                            ${deltaBadge(m.actual, m.prev)}
+                            ${deltaBadge(m.actual, m.prev, m.isCurrency)}
                             ${badge}
                             <span class="text-xs font-bold text-white">${pct}%</span>
                         </div>
