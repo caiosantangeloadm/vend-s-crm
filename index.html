@@ -28288,11 +28288,15 @@
             list.innerHTML = c.interactions.map(i => {
                 const icon = typeIcons[i.type] || 'ph-bookmark';
                 const dateFormatted = i.date ? i.date.split('-').reverse().join('/') : '';
+                const isWpp = i.type === 'WhatsApp';
+                const badgeTag = isWpp ? 'button' : 'div';
+                const badgeAttrs = isWpp ? `onclick="reopenInteractionWhatsapp('${i.id}')" title="Abrir no WhatsApp"` : '';
+                const badgeExtraClass = isWpp ? 'hover:bg-[#25D366] hover:text-white hover:border-[#25D366] cursor-pointer transition-colors' : '';
                 return `
                 <div class="flex gap-3 p-3 bg-[#0a0a0a] border border-sant-border rounded-xl group">
-                    <div class="w-9 h-9 rounded-full bg-sant-cyan/10 text-sant-cyan flex items-center justify-center shrink-0 border border-sant-cyan/20 text-lg">
+                    <${badgeTag} ${badgeAttrs} class="w-9 h-9 rounded-full bg-sant-cyan/10 text-sant-cyan flex items-center justify-center shrink-0 border border-sant-cyan/20 text-lg ${badgeExtraClass}">
                         <i class="ph ${icon}"></i>
-                    </div>
+                    </${badgeTag}>
                     <div class="flex-1 min-w-0">
                         <div class="flex justify-between items-start">
                             <span class="text-xs font-bold text-sant-cyan uppercase">${i.type}</span>
@@ -28317,6 +28321,17 @@
                 renderContacts(document.getElementById('searchInput') ? document.getElementById('searchInput').value : '');
                 showToast('Interação excluída.');
             });
+        }
+
+        function reopenInteractionWhatsapp(interactionId) {
+            const c = contacts.find(x => x.id === currentHistoryContactId);
+            if (!c) return;
+            const i = c.interactions && c.interactions.find(x => x.id === interactionId);
+            if (!i) return;
+            const phone = (c.phoneProf || c.phonePess || c.phone || '').replace(/\D/g, '');
+            if (!phone) { showToast('Este contato não tem telefone cadastrado.', 'error'); return; }
+            const text = i.notes || '';
+            window.open(`https://wa.me/55${phone}${text ? '?text=' + encodeURIComponent(text) : ''}`, '_blank');
         }
 
         function toggleFocusMode() {
