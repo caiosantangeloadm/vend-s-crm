@@ -26287,6 +26287,32 @@
                 });
             });
 
+            // Documentos & Propostas
+            (c.documents || []).forEach(d => {
+                const dt = (d.createdAt || '').substring(0,10);
+                if (!dt) return;
+                const docMeta = DOC_STATUS_META[d.status] || DOC_STATUS_META.rascunho;
+                items.push({ date: dt, sortKey: d.createdAt || dt, type: 'document',
+                    icon: 'ph-file-text',
+                    color: docMeta.color,
+                    label: `Documento: ${docMeta.label}`,
+                    text: d.title || d.url || '',
+                });
+            });
+
+            // Notas vinculadas (módulo Notas)
+            (notes || []).filter(n => n.contactId === contactId && !n.deletedAt).forEach(n => {
+                const dt = (n.createdAt || '').substring(0,10);
+                if (!dt) return;
+                items.push({ date: dt, sortKey: n.createdAt || dt, type: 'note',
+                    icon: 'ph-note',
+                    color: '#a78bfa',
+                    label: 'Nota',
+                    text: n.title || (n.body || '').substring(0, 60) || '',
+                    id: n.id,
+                });
+            });
+
             // Edições do changelog
             const fieldIcons = { 'Nome':'ph-user', 'Etiquetas':'ph-hash', 'Categoria':'ph-tag',
                 'Telefone':'ph-phone', 'E-mail':'ph-envelope', 'Empresa':'ph-buildings',
@@ -26337,6 +26363,8 @@
                         ? `onclick="closeHistoryModal();editTask('${item.id}')" style="cursor:pointer"`
                         : item.type === 'event'
                         ? `onclick="closeHistoryModal();switchToDayView('${item.date}')" style="cursor:pointer"`
+                        : item.type === 'note'
+                        ? `onclick="closeHistoryModal();gsOpenNote('${item.id}')" style="cursor:pointer"`
                         : '';
                     html += `<div class="flex gap-3 py-2 border-b border-sant-border/40 last:border-0 hover:bg-[#141414] rounded-lg px-2 -mx-2 transition-colors" ${clickable}>
                         <div class="flex flex-col items-center gap-1 shrink-0 w-8">
