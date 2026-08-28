@@ -26628,6 +26628,7 @@
                     <div class="flex items-center gap-2">
                         <i class="ph ph-file-text shrink-0" style="color:${meta.color}"></i>
                         <a href="${d.url}" target="_blank" rel="noopener" class="text-sm hover:underline truncate flex-1" style="color:${meta.color}">${d.title || d.url}</a>
+                        <button onclick="sendDocViaWhatsapp('${d.id}')" class="text-gray-500 hover:text-[#25D366] shrink-0 p-1" title="Enviar por WhatsApp"><i class="ph ph-whatsapp-logo"></i></button>
                         <button onclick="deleteContactDoc('${d.id}')" class="text-gray-500 hover:text-red-500 shrink-0 p-1" title="Excluir"><i class="ph ph-trash"></i></button>
                     </div>
                     <div class="flex items-center flex-wrap gap-2 mt-2 pl-6">
@@ -26903,6 +26904,24 @@
             renderContactDocs();
         }
 
+        // Envia o link do documento/proposta direto pro WhatsApp do contato, com texto pronto —
+        // sem precisar abrir o modal de Enviar Mensagem e escolher um modelo.
+        function sendDocViaWhatsapp(docId) {
+            const c = contacts.find(x => x.id === currentHistoryContactId);
+            if (!c || !c.documents) return;
+            const d = c.documents.find(x => x.id === docId);
+            if (!d) return;
+            const phone = (c.phoneProf || c.phonePess || c.phone || '').replace(/\D/g, '');
+            if (!phone) { showToast('Este contato não tem telefone cadastrado.', 'error'); return; }
+            const firstName = c.name || fullName(c);
+            const text = `Olá ${firstName}! Segue ${d.title ? `"${d.title}"` : 'o documento'}: ${d.url}`;
+            window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
+            if (!c.interactions) c.interactions = [];
+            c.interactions.unshift({ id: crypto.randomUUID(), type: 'WhatsApp', date: getSPTodayStr(), notes: `Documento enviado: ${d.title || d.url}` });
+            saveToStorage();
+            cloudSyncContact(c);
+        }
+
         function renderContactLinks() {
             const box = document.getElementById('contactLinksList');
             if (!box || !currentHistoryContactId) return;
@@ -26930,6 +26949,7 @@
                         <i class="ph ph-microphone text-pink-400"></i>
                         <a href="#" onclick="event.preventDefault();openContactAttachment('${l.id}')" class="text-sm text-pink-300 hover:underline truncate flex-1">${l.title}</a>
                         <span class="text-[10px] text-gray-600 shrink-0">${formatNoteDate ? formatNoteDate(l.createdAt) : ''}</span>
+                        <button onclick="sendLinkViaWhatsapp('${l.id}')" class="text-gray-500 hover:text-[#25D366] shrink-0" title="Enviar por WhatsApp"><i class="ph ph-whatsapp-logo"></i></button>
                         <button onclick="deleteContactLink('${l.id}')" class="text-gray-500 hover:text-red-500 shrink-0"><i class="ph ph-trash"></i></button>
                     </div>`
                 : l.isFile
@@ -26937,14 +26957,48 @@
                         <i class="ph ${fileIcon(l.title)} text-amber-400"></i>
                         <a href="#" onclick="event.preventDefault();openContactAttachment('${l.id}')" class="text-sm text-amber-300 hover:underline truncate flex-1">${l.title}</a>
                         ${l.size ? `<span class="text-[10px] text-gray-600 shrink-0">${formatSize(l.size)}</span>` : ''}
+                        <button onclick="sendLinkViaWhatsapp('${l.id}')" class="text-gray-500 hover:text-[#25D366] shrink-0" title="Enviar por WhatsApp"><i class="ph ph-whatsapp-logo"></i></button>
                         <button onclick="deleteContactLink('${l.id}')" class="text-gray-500 hover:text-red-500 shrink-0"><i class="ph ph-trash"></i></button>
                     </div>`
                 : `<div class="flex items-center gap-2 p-2 bg-[#0a0a0a] border border-sant-border rounded-lg">
                         <i class="ph ph-link text-sant-cyan"></i>
                         <a href="${l.url}" target="_blank" rel="noopener" class="text-sm text-sant-cyan hover:underline truncate flex-1">${l.title || l.url}</a>
+                        <button onclick="sendLinkViaWhatsapp('${l.id}')" class="text-gray-500 hover:text-[#25D366] shrink-0" title="Enviar por WhatsApp"><i class="ph ph-whatsapp-logo"></i></button>
                         <button onclick="deleteContactLink('${l.id}')" class="text-gray-500 hover:text-red-500 shrink-0"><i class="ph ph-trash"></i></button>
                     </div>`
             ).join('');
+        }
+
+        async function sendLinkViaWhatsapp(linkId) {
+            const c = contacts.find(x => x.id === currentHistoryContactId);
+            if (!c || !c.links) return;
+            const l = c.links.find(x => x.id === linkId);
+            if (!l) return;
+            const phone = (c.phoneProf || c.phonePess || c.phone || '').replace(/\D/g, '');
+            if (!phone) { showToast('Este contato não tem telefone cadastrado.', 'error'); return; }
+
+            let url = l.url;
+            if (l.isFile && l.storagePath) {
+                const sb = getSB();
+                if (!sb) return;
+                try {
+                    const { data, error } = await sb.storage.from(ATTACHMENT_BUCKET).createSignedUrl(l.storagePath, 3600);
+                    if (error || !data?.signedUrl) throw error || new Error('sem URL');
+                    url = data.signedUrl;
+                } catch(e) {
+                    showToast('Erro ao gerar link do anexo: ' + (e.message || 'tente novamente'), 'error');
+                    return;
+                }
+            }
+            if (!url) { showToast('Este item não tem um link pra compartilhar.', 'error'); return; }
+
+            const firstName = c.name || fullName(c);
+            const text = `Olá ${firstName}! Segue ${l.title ? `"${l.title}"` : 'o link'}: ${url}`;
+            window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
+            if (!c.interactions) c.interactions = [];
+            c.interactions.unshift({ id: crypto.randomUUID(), type: 'WhatsApp', date: getSPTodayStr(), notes: `Link/anexo enviado: ${l.title || url}` });
+            saveToStorage();
+            cloudSyncContact(c);
         }
 
         function addContactLink() {
