@@ -20613,7 +20613,12 @@
             const typeCounts = {};
             allInts.forEach(i => { typeCounts[i.type||'Outro'] = (typeCounts[i.type||'Outro']||0)+1; });
 
-            return { start, end, allInts, newContacts, followupsHonored, bdays, newLeads, typeCounts };
+            // Negócios ganhos no mês (Pipeline)
+            const wonDeals = contacts.filter(c => c.pipelineStage === 'ganho' && c.stageEnteredAt
+                && c.stageEnteredAt.substring(0,10) >= start && c.stageEnteredAt.substring(0,10) <= end);
+            const wonRevenue = wonDeals.reduce((s,c) => s + (c.dealValue||0), 0);
+
+            return { start, end, allInts, newContacts, followupsHonored, bdays, newLeads, typeCounts, wonDeals, wonRevenue };
         }
 
         function generateMonthlyReport() {
@@ -20633,6 +20638,7 @@
                 { label: 'Follow-ups honrados',   value: d.followupsHonored.length, icon: 'ph-check-circle', color: '#a78bfa' },
                 { label: 'Aniversariantes',       value: d.bdays.length, icon: 'ph-cake', color: '#ec4899' },
                 { label: 'Novos leads',           value: d.newLeads.length, icon: 'ph-star', color: '#fbbf24' },
+                { label: 'Receita fechada',        value: 'R$ ' + d.wonRevenue.toLocaleString('pt-BR'), icon: 'ph-currency-circle-dollar', color: '#4ade80' },
             ];
 
             const typeRows = Object.entries(d.typeCounts).sort((a,b) => b[1]-a[1])
@@ -20660,7 +20666,7 @@
             body.innerHTML = `
                 <div>
                     <h3 class="text-lg font-bold text-white mb-4">${monthNames[month-1]} ${year}</h3>
-                    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+                    <div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
                         ${kpis.map(k => `<div class="bg-sant-surface border border-sant-border rounded-xl p-4 text-center">
                             <i class="ph ${k.icon} text-2xl mb-2 block" style="color:${k.color}"></i>
                             <p class="text-3xl font-bold text-white">${k.value}</p>
@@ -20692,6 +20698,16 @@
                               </div>`).join('')
                             : '<p class="text-xs text-gray-600 italic">Nenhum follow-up honrado.</p>'}
                     </div>
+                    <div class="bg-sant-surface border border-sant-border rounded-2xl p-5">
+                        <p class="text-xs font-bold text-white uppercase tracking-wide mb-4 flex items-center gap-2"><i class="ph ph-currency-circle-dollar text-green-400"></i> Negócios Ganhos</p>
+                        ${d.wonDeals.length
+                            ? d.wonDeals.map(c => `<div class="flex items-center gap-3 py-1.5 border-b border-sant-border last:border-0">
+                                ${contactAvatarHtml(c,'w-7 h-7 text-[10px]')}
+                                <p class="flex-1 text-sm text-white truncate">${fullName(c)}</p>
+                                <span class="text-[11px] text-green-400 font-bold">R$ ${(c.dealValue||0).toLocaleString('pt-BR')}</span>
+                              </div>`).join('')
+                            : '<p class="text-xs text-gray-600 italic">Nenhum negócio fechado no mês.</p>'}
+                    </div>
                 </div>`;
         }
 
@@ -20709,8 +20725,9 @@
                 ['Follow-ups honrados',   d.followupsHonored.length, '#a78bfa'],
                 ['Aniversariantes',       d.bdays.length, '#ec4899'],
                 ['Novos leads',           d.newLeads.length, '#fbbf24'],
+                ['Receita fechada',       'R$ ' + d.wonRevenue.toLocaleString('pt-BR'), '#4ade80'],
             ].map(([l,v,c]) => `<div style="background:#111;border:1px solid #1f1f1f;border-radius:12px;padding:16px;text-align:center">
-                <div style="font-size:32px;font-weight:900;color:${c}">${v}</div>
+                <div style="font-size:26px;font-weight:900;color:${c}">${v}</div>
                 <div style="font-size:11px;color:#9ca3af;margin-top:4px">${l}</div></div>`).join('');
 
             const typeHtml = Object.entries(d.typeCounts).sort((a,b)=>b[1]-a[1])
@@ -20721,6 +20738,8 @@
             const bdayHtml = d.bdays.map(c=>{const bm=String(getBirthMonth(c.birth)).padStart(2,'0');const bd=String(getBirthDay(c.birth)).padStart(2,'0');return`<tr><td style="padding:5px 0;color:#fff;border-bottom:1px solid #1f1f1f">${fullName(c)}</td><td style="padding:5px 0;color:#ec4899;font-weight:700;text-align:right;border-bottom:1px solid #1f1f1f">🎂 ${bd}/${bm}</td></tr>`;}).join('');
 
             const fuHtml = d.followupsHonored.map(c=>`<tr><td style="padding:5px 0;color:#fff;border-bottom:1px solid #1f1f1f">${fullName(c)}</td><td style="padding:5px 0;color:#4ade80;font-weight:700;text-align:right;border-bottom:1px solid #1f1f1f">✓ ${fmtDate(c.nextContact)}</td></tr>`).join('');
+
+            const wonHtml = d.wonDeals.map(c=>`<tr><td style="padding:5px 0;color:#fff;border-bottom:1px solid #1f1f1f">${fullName(c)}</td><td style="padding:5px 0;color:#4ade80;font-weight:700;text-align:right;border-bottom:1px solid #1f1f1f">R$ ${(c.dealValue||0).toLocaleString('pt-BR')}</td></tr>`).join('');
 
             const section = (title, color, content) => `
                 <div style="background:#0a0a0a;border:1px solid #1f1f1f;border-radius:12px;padding:20px;margin-bottom:16px">
@@ -20739,12 +20758,13 @@
                     <div style="font-size:12px;color:#6b7280;margin-top:6px">Gerado em ${genDate}</div>
                 </div>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px">${kpiHtml}</div>
+            <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:24px">${kpiHtml}</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
                 ${section('Interações por tipo','#5b8fa8',`<table style="width:100%;border-collapse:collapse">${typeHtml||'<tr><td style="color:#6b7280;padding:6px 0">Nenhuma interação</td></tr>'}</table>`)}
                 ${section('Novos contatos','#34d399',`<table style="width:100%;border-collapse:collapse">${contactHtml||'<tr><td style="color:#6b7280;padding:6px 0">Nenhum contato adicionado</td></tr>'}</table>`)}
                 ${section('Aniversariantes','#ec4899',`<table style="width:100%;border-collapse:collapse">${bdayHtml||'<tr><td style="color:#6b7280;padding:6px 0">Nenhum aniversariante</td></tr>'}</table>`)}
                 ${section('Follow-ups honrados','#a78bfa',`<table style="width:100%;border-collapse:collapse">${fuHtml||'<tr><td style="color:#6b7280;padding:6px 0">Nenhum follow-up honrado</td></tr>'}</table>`)}
+                ${section('Negócios ganhos','#4ade80',`<table style="width:100%;border-collapse:collapse">${wonHtml||'<tr><td style="color:#6b7280;padding:6px 0">Nenhum negócio fechado</td></tr>'}</table>`)}
             </div>
             <script>window.onload=()=>{window.print()}<\/script></body></html>`);
             win.document.close();
