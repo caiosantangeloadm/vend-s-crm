@@ -1717,6 +1717,9 @@
                         <button onclick="openQuickAddTaskModal()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan/40 text-gray-300 px-4 py-2.5 rounded-lg flex items-center gap-2 font-medium transition-all" title="Captura Rápida (atalho: T) — Ex: Ligar cliente #vendas @Maria !alta">
                             <i class="ph ph-lightning"></i> Captura Rápida
                         </button>
+                        <button onclick="exportTodayTasksPdf()" class="bg-sant-surface border border-sant-cyan/30 hover:bg-sant-cyan/10 text-sant-cyan px-4 py-2.5 rounded-lg flex items-center gap-2 font-medium transition-all" title="Gera um PDF com as tarefas de hoje, em lista e por prioridade (Eisenhower)">
+                            <i class="ph ph-file-pdf"></i> PDF do Dia
+                        </button>
                         <button onclick="openTaskModal()" class="bg-sant-purple text-white px-5 py-2.5 rounded-xl flex items-center gap-2 font-bold hover:bg-purple-800 transition-all shadow-lg shadow-purple-900/20">
                             <i class="ph ph-plus"></i> Nova Tarefa
                         </button>
@@ -25220,6 +25223,86 @@
                     ? items.map(eisenhowerCardHtml).join('')
                     : '<p class="text-[11px] text-gray-600 italic">Nada aqui.</p>';
             });
+        }
+
+        // PDF das tarefas de hoje — combina uma lista simples (ordenada por horário) com a
+        // Matriz de Eisenhower (urgente x importante), só para as tarefas do dia atual.
+        function exportTodayTasksPdf() {
+            const todayStr = getSPTodayStr();
+            const todaysTasks = tasks.filter(t => !t.deletedAt && !t.archived && t.date === todayStr);
+            if (!todaysTasks.length) { showToast('Nenhuma tarefa para hoje.', 'error'); return; }
+
+            const P_META = {
+                urgent: { label: 'URGENTE', color: '#ef4444' },
+                high:   { label: 'ALTA',    color: '#f97316' },
+                medium: { label: 'MÉDIA',   color: '#eab308' },
+                low:    { label: 'BAIXA',   color: '#22c55e' },
+            };
+            const byTime = (a,b) => (a.time||'99:99').localeCompare(b.time||'99:99');
+            const sorted = [...todaysTasks].sort(byTime);
+
+            const listRows = sorted.map(t => {
+                const p = P_META[t.priority] || P_META.medium;
+                const contact = t.contactId ? contacts.find(c => c.id === t.contactId) : null;
+                return `<tr>
+                    <td style="padding:8px 10px;border-bottom:1px solid #1f1f1f;color:#94a3b8;white-space:nowrap">${t.time || '--:--'}</td>
+                    <td style="padding:8px 10px;border-bottom:1px solid #1f1f1f;color:#fff">${t.title}${t.completed ? ' <span style="color:#4ade80;font-size:11px">(concluída)</span>' : ''}${contact ? `<br><span style="color:#6b7280;font-size:11px">${fullName(contact)}</span>` : ''}</td>
+                    <td style="padding:8px 10px;border-bottom:1px solid #1f1f1f;text-align:right"><span style="background:${p.color};color:#000;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px">${p.label}</span></td>
+                </tr>`;
+            }).join('');
+
+            const isUrgent = t => t.priority === 'urgent' || t.priority === 'high';
+            const quadrants = { do: [], plan: [], delegate: [], drop: [] };
+            todaysTasks.forEach(t => {
+                const urgent = isUrgent(t), important = !!t.important;
+                if (urgent && important) quadrants.do.push(t);
+                else if (!urgent && important) quadrants.plan.push(t);
+                else if (urgent && !important) quadrants.delegate.push(t);
+                else quadrants.drop.push(t);
+            });
+            const quadMeta = {
+                do:       { title: '🔥 Faça Agora',        sub: 'Urgente e Importante',        color: '#ef4444' },
+                plan:     { title: '🗓️ Planeje',           sub: 'Importante, não urgente',      color: '#5b8fa8' },
+                delegate: { title: '📤 Delegue',           sub: 'Urgente, não importante',      color: '#fbbf24' },
+                drop:     { title: '🗑️ Elimine/Adie',      sub: 'Nem urgente, nem importante', color: '#6b7280' },
+            };
+            const quadBox = key => {
+                const items = quadrants[key].sort(byTime);
+                const m = quadMeta[key];
+                return `<div style="background:#0a0a0a;border:1px solid ${m.color}40;border-radius:12px;padding:16px">
+                    <p style="font-size:13px;font-weight:700;color:${m.color};margin:0 0 2px">${m.title}</p>
+                    <p style="font-size:10px;color:#6b7280;margin:0 0 10px">${m.sub}</p>
+                    ${items.length ? items.map(t => `<div style="padding:6px 0;border-bottom:1px solid #1f1f1f;font-size:12px;color:#e2e8f0">${t.time ? `<span style="color:#6b7280">${t.time}</span> ` : ''}${t.title}</div>`).join('')
+                                   : '<p style="font-size:11px;color:#4b5563;font-style:italic">Nada aqui.</p>'}
+                </div>`;
+            };
+
+            const dateFmt = todayStr.split('-').reverse().join('/');
+            const genDate = new Date().toLocaleDateString('pt-BR', {day:'2-digit', month:'long', year:'numeric'});
+
+            const win = window.open('', '_blank');
+            win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Tarefas do Dia — ${dateFmt}</title>
+            <style>*{margin:0;padding:0;box-sizing:border-box}body{background:#030303;color:#fff;font-family:Inter,sans-serif;padding:32px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+            @media print{body{padding:20px}}</style></head><body>
+            <div style="margin-bottom:28px;padding-bottom:16px;border-bottom:1px solid #1f1f1f">
+                <div style="font-size:20px;font-weight:900;color:#5b8fa8">Vend-s Inteligência CRM</div>
+                <div style="font-size:26px;font-weight:900;color:#fff;margin-top:4px">Tarefas do Dia — ${dateFmt}</div>
+                <div style="font-size:12px;color:#6b7280;margin-top:6px">Gerado em ${genDate} · ${todaysTasks.length} tarefa${todaysTasks.length>1?'s':''}</div>
+            </div>
+
+            <h3 style="font-size:12px;font-weight:700;color:#5b8fa8;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 12px">Lista por horário</h3>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:32px">
+                <thead><tr><th style="text-align:left;padding:6px 10px;font-size:10px;color:#6b7280;text-transform:uppercase">Hora</th><th style="text-align:left;padding:6px 10px;font-size:10px;color:#6b7280;text-transform:uppercase">Tarefa</th><th style="text-align:right;padding:6px 10px;font-size:10px;color:#6b7280;text-transform:uppercase">Prioridade</th></tr></thead>
+                <tbody>${listRows}</tbody>
+            </table>
+
+            <h3 style="font-size:12px;font-weight:700;color:#5b8fa8;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 12px">Por prioridade — Matriz de Eisenhower</h3>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+                ${quadBox('do')}${quadBox('plan')}${quadBox('delegate')}${quadBox('drop')}
+            </div>
+
+            <script>window.onload=()=>{window.print()}<\/script></body></html>`);
+            win.document.close();
         }
 
         function getTaskKanbanCol(t) {
