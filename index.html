@@ -2012,6 +2012,7 @@
                     </div>
                     <div id="pipelineFunnelSummary" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 shrink-0"></div>
                     <div id="pipelineFunnelBars" class="bg-sant-surface border border-sant-border rounded-2xl p-5 space-y-3 mb-6 shrink-0"></div>
+                    <div id="pipelineFunnelConversion" class="bg-sant-surface border border-sant-border rounded-2xl p-5 space-y-3 mb-6 shrink-0"></div>
                     <div class="bg-sant-surface border border-sant-border rounded-2xl p-5 pb-10">
                         <p class="text-xs font-bold text-white uppercase tracking-wide mb-3 flex items-center gap-2"><i class="ph ph-hourglass text-sant-cyan"></i> Tempo Médio por Estágio</p>
                         <div id="pipelineAvgTimeBars"></div>
@@ -19767,6 +19768,45 @@
                         </div>
                     </div>`;
                 }).join('');
+
+            // Conversão entre etapas — usa o histórico real de transições (stageHistory), não só
+            // o estágio atual: um lead que já passou por "Proposta" conta aqui mesmo que hoje
+            // esteja em "Negociação" ou já tenha fechado.
+            const conversionBox = document.getElementById('pipelineFunnelConversion');
+            if (conversionBox) {
+                const FUNNEL_ORDER = ['novo', 'contato', 'proposta', 'negociacao', 'ganho'];
+                const reachedCount = stageId => leads.filter(c => {
+                    const hist = c.stageHistory && c.stageHistory.length ? c.stageHistory : [{ stage: getPipelineStage(c) }];
+                    return hist.some(h => h.stage === stageId);
+                }).length;
+                const firstReached = reachedCount(FUNNEL_ORDER[0]) || 1;
+                conversionBox.innerHTML = `<p class="text-xs font-bold text-white uppercase tracking-wide mb-3 flex items-center gap-2"><i class="ph ph-funnel text-sant-purple"></i> Conversão entre Etapas</p>` +
+                    FUNNEL_ORDER.map((stageId, i) => {
+                        const stage = PIPELINE_STAGES.find(s => s.id === stageId);
+                        const count = reachedCount(stageId);
+                        const ofTotalPct = Math.round((count / firstReached) * 100);
+                        let stepBadge = '';
+                        if (i > 0) {
+                            const prevCount = reachedCount(FUNNEL_ORDER[i-1]) || 1;
+                            const stepPct = Math.round((count / prevCount) * 100);
+                            const stepColor = stepPct >= 60 ? '#4ade80' : stepPct >= 30 ? '#fbbf24' : '#f87171';
+                            stepBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="color:${stepColor};background:${stepColor}1a;border:1px solid ${stepColor}40">${stepPct}% avançou pra cá</span>`;
+                        }
+                        return `
+                        <div class="flex items-center gap-3">
+                            ${i > 0 ? `<i class="ph ph-arrow-down text-gray-700 text-xs shrink-0" style="margin-left:6px"></i>` : '<div class="w-3 shrink-0"></div>'}
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between gap-2 mb-1">
+                                    <span class="text-xs font-medium text-gray-300 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full shrink-0" style="background:${stage.color}"></span> ${stage.label}</span>
+                                    <div class="flex items-center gap-2 shrink-0">${stepBadge}<span class="text-xs text-gray-500">${count} (${ofTotalPct}%)</span></div>
+                                </div>
+                                <div class="h-2 bg-[#1f1f1f] rounded-full overflow-hidden">
+                                    <div class="h-full rounded-full" style="width:${ofTotalPct}%; background:${stage.color}"></div>
+                                </div>
+                            </div>
+                        </div>`;
+                    }).join('');
+            }
 
             // Tempo médio por estágio — usa o histórico de transições (stageHistory)
             const durationsByStage = {};
