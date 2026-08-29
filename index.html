@@ -25233,10 +25233,10 @@
             if (!todaysTasks.length) { showToast('Nenhuma tarefa para hoje.', 'error'); return; }
 
             const P_META = {
-                urgent: { label: 'URGENTE', color: '#ef4444' },
-                high:   { label: 'ALTA',    color: '#f97316' },
-                medium: { label: 'MÉDIA',   color: '#eab308' },
-                low:    { label: 'BAIXA',   color: '#22c55e' },
+                urgent: { label: 'URGENTE', color: '#dc2626' },
+                high:   { label: 'ALTA',    color: '#ea580c' },
+                medium: { label: 'MÉDIA',   color: '#ca8a04' },
+                low:    { label: 'BAIXA',   color: '#16a34a' },
             };
             const byTime = (a,b) => (a.time||'99:99').localeCompare(b.time||'99:99');
             const sorted = [...todaysTasks].sort(byTime);
@@ -25245,9 +25245,9 @@
                 const p = P_META[t.priority] || P_META.medium;
                 const contact = t.contactId ? contacts.find(c => c.id === t.contactId) : null;
                 return `<tr>
-                    <td style="padding:8px 10px;border-bottom:1px solid #1f1f1f;color:#94a3b8;white-space:nowrap">${t.time || '--:--'}</td>
-                    <td style="padding:8px 10px;border-bottom:1px solid #1f1f1f;color:#fff">${t.title}${t.completed ? ' <span style="color:#4ade80;font-size:11px">(concluída)</span>' : ''}${contact ? `<br><span style="color:#6b7280;font-size:11px">${fullName(contact)}</span>` : ''}</td>
-                    <td style="padding:8px 10px;border-bottom:1px solid #1f1f1f;text-align:right"><span style="background:${p.color};color:#000;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px">${p.label}</span></td>
+                    <td>${t.time || '--:--'}</td>
+                    <td>${t.title}${t.completed ? ' <span style="color:#16a34a;font-size:11px">(concluída)</span>' : ''}${contact ? `<br><span style="color:#888;font-size:11px">${fullName(contact)}</span>` : ''}</td>
+                    <td style="text-align:right"><span style="color:${p.color};font-weight:700">${p.label}</span></td>
                 </tr>`;
             }).join('');
 
@@ -25261,47 +25261,58 @@
                 else quadrants.drop.push(t);
             });
             const quadMeta = {
-                do:       { title: '🔥 Faça Agora',        sub: 'Urgente e Importante',        color: '#ef4444' },
-                plan:     { title: '🗓️ Planeje',           sub: 'Importante, não urgente',      color: '#5b8fa8' },
-                delegate: { title: '📤 Delegue',           sub: 'Urgente, não importante',      color: '#fbbf24' },
-                drop:     { title: '🗑️ Elimine/Adie',      sub: 'Nem urgente, nem importante', color: '#6b7280' },
+                do:       { title: 'Faça Agora',   sub: 'Urgente e Importante',        color: '#dc2626' },
+                plan:     { title: 'Planeje',       sub: 'Importante, não urgente',      color: '#3d6e85' },
+                delegate: { title: 'Delegue',       sub: 'Urgente, não importante',      color: '#ca8a04' },
+                drop:     { title: 'Elimine/Adie',  sub: 'Nem urgente, nem importante', color: '#666' },
             };
             const quadBox = key => {
                 const items = quadrants[key].sort(byTime);
                 const m = quadMeta[key];
-                return `<div style="background:#0a0a0a;border:1px solid ${m.color}40;border-radius:12px;padding:16px">
+                return `<div style="border:1px solid #ccc;border-left:4px solid ${m.color};border-radius:6px;padding:12px 14px">
                     <p style="font-size:13px;font-weight:700;color:${m.color};margin:0 0 2px">${m.title}</p>
-                    <p style="font-size:10px;color:#6b7280;margin:0 0 10px">${m.sub}</p>
-                    ${items.length ? items.map(t => `<div style="padding:6px 0;border-bottom:1px solid #1f1f1f;font-size:12px;color:#e2e8f0">${t.time ? `<span style="color:#6b7280">${t.time}</span> ` : ''}${t.title}</div>`).join('')
-                                   : '<p style="font-size:11px;color:#4b5563;font-style:italic">Nada aqui.</p>'}
+                    <p style="font-size:10px;color:#888;margin:0 0 8px">${m.sub}</p>
+                    ${items.length ? items.map(t => `<div style="padding:4px 0;border-top:1px solid #eee;font-size:12px;color:#222">${t.time ? `<span style="color:#888">${t.time}</span> ` : ''}${t.title}</div>`).join('')
+                                   : '<p style="font-size:11px;color:#aaa;font-style:italic">Nada aqui.</p>'}
                 </div>`;
             };
 
             const dateFmt = todayStr.split('-').reverse().join('/');
-            const genDate = new Date().toLocaleDateString('pt-BR', {day:'2-digit', month:'long', year:'numeric'});
 
             const win = window.open('', '_blank');
-            win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Tarefas do Dia — ${dateFmt}</title>
-            <style>*{margin:0;padding:0;box-sizing:border-box}body{background:#030303;color:#fff;font-family:Inter,sans-serif;padding:32px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-            @media print{body{padding:20px}}</style></head><body>
-            <div style="margin-bottom:28px;padding-bottom:16px;border-bottom:1px solid #1f1f1f">
-                <div style="font-size:20px;font-weight:900;color:#5b8fa8">Vend-s Inteligência CRM</div>
-                <div style="font-size:26px;font-weight:900;color:#fff;margin-top:4px">Tarefas do Dia — ${dateFmt}</div>
-                <div style="font-size:12px;color:#6b7280;margin-top:6px">Gerado em ${genDate} · ${todaysTasks.length} tarefa${todaysTasks.length>1?'s':''}</div>
-            </div>
+            win.document.write(`
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>Tarefas do Dia — ${dateFmt}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 24px; color: #111; }
+                        h1 { font-size: 18px; margin-bottom: 4px; }
+                        p.meta { font-size: 11px; color: #666; margin-bottom: 16px; }
+                        h2.sec { font-size: 12px; color: #3d6e85; text-transform: uppercase; letter-spacing: 0.06em; margin: 20px 0 8px; }
+                        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+                        th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; vertical-align: top; }
+                        th { background: #f0f0f0; }
+                        @media print { body { padding: 0; } }
+                    </style>
+                </head>
+                <body>
+                    <h1>Tarefas do Dia — ${dateFmt}</h1>
+                    <p class="meta">Vend-s Inteligência CRM · Exportado em ${new Date().toLocaleString('pt-BR')} · ${todaysTasks.length} tarefa${todaysTasks.length>1?'s':''}</p>
 
-            <h3 style="font-size:12px;font-weight:700;color:#5b8fa8;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 12px">Lista por horário</h3>
-            <table style="width:100%;border-collapse:collapse;margin-bottom:32px">
-                <thead><tr><th style="text-align:left;padding:6px 10px;font-size:10px;color:#6b7280;text-transform:uppercase">Hora</th><th style="text-align:left;padding:6px 10px;font-size:10px;color:#6b7280;text-transform:uppercase">Tarefa</th><th style="text-align:right;padding:6px 10px;font-size:10px;color:#6b7280;text-transform:uppercase">Prioridade</th></tr></thead>
-                <tbody>${listRows}</tbody>
-            </table>
+                    <h2 class="sec">Lista por horário</h2>
+                    <table><thead><tr><th>Hora</th><th>Tarefa</th><th style="text-align:right">Prioridade</th></tr></thead>
+                    <tbody>${listRows}</tbody></table>
 
-            <h3 style="font-size:12px;font-weight:700;color:#5b8fa8;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 12px">Por prioridade — Matriz de Eisenhower</h3>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-                ${quadBox('do')}${quadBox('plan')}${quadBox('delegate')}${quadBox('drop')}
-            </div>
+                    <h2 class="sec">Por prioridade — Matriz de Eisenhower</h2>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                        ${quadBox('do')}${quadBox('plan')}${quadBox('delegate')}${quadBox('drop')}
+                    </div>
 
-            <script>window.onload=()=>{window.print()}<\/script></body></html>`);
+                    <scr${''}ipt>window.onload = () => { window.print(); };</scr${''}ipt>
+                </body>
+                </html>
+            `);
             win.document.close();
         }
 
