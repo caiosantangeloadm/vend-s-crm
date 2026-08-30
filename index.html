@@ -5048,6 +5048,12 @@
                     </div>
                 </div>
 
+                <!-- Indicado por -->
+                <div class="px-4 pt-3 pb-2 hidden" id="referredBySection">
+                    <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 mb-2"><i class="ph ph-share-network text-sant-purple"></i> Indicado por</h4>
+                    <div id="referredByChip"></div>
+                </div>
+
                 <!-- Indicações -->
                 <div class="px-4 pt-3 pb-2 hidden" id="referralsSection">
                     <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 mb-2"><i class="ph ph-share-network text-sant-cyan"></i> Indicações <span id="referralsCount" class="text-[10px] font-bold text-gray-600 bg-sant-surface border border-sant-border rounded-full px-2 py-0.5"></span></h4>
@@ -26470,6 +26476,7 @@
             renderFrequencyChart(c);
             renderRelationships(c);
             renderReferrals(c);
+            renderReferredBy(c);
             // Observações internas
             const pnInp = document.getElementById('privateNotesInput');
             const pnCnt = document.getElementById('privateNotesCount');
@@ -28440,6 +28447,20 @@
             'cliente de': 'ph-currency-circle-dollar', 'parceiro de': 'ph-link',
             'amigo de': 'ph-smiley', 'fornecedor de': 'ph-package'
         };
+
+        function renderReferredBy(c) {
+            const section = document.getElementById('referredBySection');
+            const chip = document.getElementById('referredByChip');
+            if (!section || !chip) return;
+            const referrer = c.referredByContactId ? contacts.find(x => x.id === c.referredByContactId) : null;
+            if (!referrer) { section.classList.add('hidden'); return; }
+            section.classList.remove('hidden');
+            chip.innerHTML = `<div class="flex items-center gap-2 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 cursor-pointer hover:border-sant-cyan/40 transition-colors w-fit"
+                    onclick="closeHistoryModal(); setTimeout(()=>openHistoryModal('${referrer.id}'),100)">
+                ${contactAvatarHtml(referrer, 'w-6 h-6 text-[9px] shrink-0')}
+                <p class="text-xs font-medium text-white">${fullName(referrer)}</p>
+            </div>`;
+        }
 
         function renderReferrals(c) {
             const section = document.getElementById('referralsSection');
