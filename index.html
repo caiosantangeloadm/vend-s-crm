@@ -1122,6 +1122,9 @@
                         <button onclick="openNearbyContactsModal()" id="btnNearbyContacts" title="Contatos Próximos (usa sua localização)" class="p-2.5 bg-sant-surface border border-sant-border rounded-lg text-gray-500 hover:text-sant-cyan hover:border-sant-cyan transition-colors shrink-0">
                             <i class="ph ph-navigation-arrow text-lg"></i>
                         </button>
+                        <button onclick="openContactsTrashModal()" title="Lixeira de Contatos" class="p-2.5 bg-sant-surface border border-sant-border rounded-lg text-gray-500 hover:text-red-400 hover:border-red-400/40 transition-colors shrink-0">
+                            <i class="ph ph-trash text-lg"></i>
+                        </button>
                         <button onclick="toggleAdvFilters()" id="btnAdvFilters" title="Filtros Avançados" class="p-2.5 bg-sant-surface border border-sant-border rounded-lg text-gray-500 hover:text-sant-cyan hover:border-sant-cyan transition-colors shrink-0">
                             <i class="ph ph-funnel text-lg"></i>
                         </button>
@@ -4117,6 +4120,23 @@
     </div>
 
     <!-- Modal: Contatos Próximos (geolocalização) -->
+    <!-- MODAL DE LIXEIRA DE CONTATOS -->
+    <div id="contactsTrashModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeContactsTrashModal()">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center p-5 border-b border-sant-border shrink-0">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-trash text-red-400"></i> Lixeira de Contatos</h3>
+                <button onclick="closeContactsTrashModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <div class="overflow-y-auto custom-scrollbar p-5">
+                <div class="flex items-center justify-between gap-3 mb-3">
+                    <p class="text-xs text-gray-500">Contatos excluídos ficam aqui por 30 dias antes de serem removidos definitivamente.</p>
+                    <button id="btnEmptyContactsTrash" onclick="emptyContactsTrash()" class="hidden shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors"><i class="ph ph-trash"></i> Esvaziar</button>
+                </div>
+                <div id="contactsTrashList" class="space-y-2"></div>
+            </div>
+        </div>
+    </div>
+
     <div id="nearbyContactsModal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
         <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
             <div class="p-6">
@@ -6560,6 +6580,7 @@
             purgeOldTrashedNotes();
             purgeOldTrashedEvents();
             purgeOldTrashedTasks();
+            purgeOldTrashedContacts();
         }
 
         function checkUrgentTaskReminders() {
@@ -7088,8 +7109,10 @@
 
                 // Sempre aplica dados do Supabase (fonte da verdade) — exceto registros
                 // com sincronização pendente (fila offline), que mantêm o valor local.
-                const cloudCount = data.length;
-                contacts = _mergeCloudData(data, contacts, 'contacts');
+                // Contatos na Lixeira (deletedAt preenchido) não entram na lista principal.
+                const activeData = data.filter(r => !r.deletedAt);
+                const cloudCount = activeData.length;
+                contacts = _mergeCloudData(activeData, contacts, 'contacts');
                 localStorage.setItem('sant_crm_contacts', JSON.stringify(contacts));
                 migrateContactCodes();
                 if (currentView === 'contacts') renderContacts(document.getElementById('searchInput')?.value || '');
@@ -15280,12 +15303,16 @@
             if (idx === -1) return;
             const snapshot = JSON.parse(JSON.stringify(contacts[idx])); // cópia profunda
             const name = fullName(snapshot);
+            // Vai pra Lixeira (soft-delete) — fica recuperável por 30 dias, nunca mais some de vez
+            // sem passar por lá. cloudDeleteContact (DELETE de verdade) fica só pra Esvaziar Lixeira.
+            contacts[idx].deletedAt = new Date().toISOString();
+            cloudSyncContact(contacts[idx]);
             contacts.splice(idx, 1);
             saveToStorage();
-            cloudDeleteContact(id); // remove do Supabase em background
             renderContacts();
             if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
-            showUndoToast(`"${name}" excluído.`, () => {
+            showUndoToast(`"${name}" excluído (foi pra Lixeira).`, () => {
+                snapshot.deletedAt = null;
                 contacts.splice(idx, 0, snapshot); // restaura na posição original
                 saveToStorage();
                 cloudSyncContact(snapshot); // restaura no Supabase também
@@ -15293,6 +15320,104 @@
                 showToast(`"${name}" restaurado!`);
             });
         }
+
+        // ── Lixeira de Contatos ──────────────────────────────────────────────
+        // Diferente de tasks/events/notes (que mantêm os itens excluídos na mesma lista
+        // global, só filtrando por deletedAt na tela), a lista de contatos é grande demais
+        // e referenciada em centenas de pontos do app — por isso a Lixeira busca os
+        // contatos excluídos direto do Supabase sob demanda, sem carregá-los na memória
+        // o tempo todo.
+        async function openContactsTrashModal() {
+            document.getElementById('contactsTrashModal').classList.remove('hidden');
+            await renderContactsTrashList();
+        }
+        function closeContactsTrashModal() {
+            document.getElementById('contactsTrashModal').classList.add('hidden');
+        }
+        async function renderContactsTrashList() {
+            const box = document.getElementById('contactsTrashList');
+            const emptyBtn = document.getElementById('btnEmptyContactsTrash');
+            if (!box) return;
+            box.innerHTML = '<p class="text-xs text-gray-600 italic">Carregando...</p>';
+            const sb = getSB();
+            if (!sb) { box.innerHTML = '<p class="text-xs text-red-400">Sem conexão com a nuvem.</p>'; return; }
+            try {
+                const { data, error } = await sb.from('contacts').select('*').order('"createdAt"', { ascending: true });
+                if (error) throw error;
+                const trashed = (data || []).filter(r => r.deletedAt).sort((a,b) => (b.deletedAt||'').localeCompare(a.deletedAt||''));
+                if (emptyBtn) emptyBtn.classList.toggle('hidden', trashed.length === 0);
+                if (!trashed.length) { box.innerHTML = '<p class="text-xs text-gray-600 italic">Lixeira vazia.</p>'; return; }
+                box.innerHTML = trashed.map(c => {
+                    const name = `${c.name || ''} ${c.lastName || ''}`.trim() || '(sem nome)';
+                    const delDate = c.deletedAt ? new Date(c.deletedAt).toLocaleDateString('pt-BR') : '';
+                    return `<div class="flex items-center gap-3 p-2.5 bg-[#0a0a0a] border border-sant-border rounded-lg">
+                        <div class="w-8 h-8 rounded-full bg-sant-cyan/10 text-sant-cyan text-xs font-bold flex items-center justify-center shrink-0">${(name.charAt(0)||'?').toUpperCase()}</div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm text-white truncate">${name}</p>
+                            <p class="text-[10px] text-gray-600">Excluído em ${delDate}</p>
+                        </div>
+                        <button onclick="restoreContactFromTrash('${c.id}')" class="text-gray-500 hover:text-green-400 shrink-0 p-1" title="Restaurar"><i class="ph ph-arrow-counter-clockwise"></i></button>
+                        <button onclick="permanentlyDeleteContact('${c.id}')" class="text-gray-500 hover:text-red-500 shrink-0 p-1" title="Excluir definitivamente"><i class="ph ph-trash"></i></button>
+                    </div>`;
+                }).join('');
+            } catch(e) {
+                box.innerHTML = '<p class="text-xs text-red-400">Erro ao carregar a lixeira.</p>';
+                console.warn('renderContactsTrashList:', e.message);
+            }
+        }
+        async function restoreContactFromTrash(id) {
+            const sb = getSB();
+            if (!sb) return;
+            try {
+                const { data, error } = await sb.from('contacts').select('*').eq('id', id).single();
+                if (error || !data) throw error || new Error('não encontrado');
+                data.deletedAt = null;
+                const { error: upErr } = await sb.from('contacts').update({ "deletedAt": null }).eq('id', id).select('id');
+                if (upErr) throw upErr;
+                contacts.push(data);
+                saveToStorage();
+                renderContacts();
+                await renderContactsTrashList();
+                showToast('Contato restaurado!');
+            } catch(e) {
+                showToast('Erro ao restaurar: ' + (e.message || 'tente novamente'), 'error');
+            }
+        }
+        function permanentlyDeleteContact(id) {
+            showConfirm('Excluir este contato definitivamente?', 'Esta ação não pode ser desfeita.', async () => {
+                await cloudDeleteContact(id);
+                await renderContactsTrashList();
+                showToast('Contato excluído definitivamente.');
+            });
+        }
+        function emptyContactsTrash() {
+            showConfirm('Esvaziar a lixeira de Contatos?', 'Todos os contatos na lixeira serão excluídos definitivamente. Esta ação não pode ser desfeita.', async () => {
+                const sb = getSB();
+                if (!sb) return;
+                try {
+                    const { data, error } = await sb.from('contacts').select('id, "deletedAt"');
+                    if (error) throw error;
+                    const trashedRows = (data || []).filter(r => r.deletedAt);
+                    for (const row of trashedRows) { await cloudDeleteContact(row.id); }
+                    await renderContactsTrashList();
+                    showToast('Lixeira de Contatos esvaziada.');
+                } catch(e) {
+                    showToast('Erro ao esvaziar a lixeira: ' + (e.message || 'tente novamente'), 'error');
+                }
+            });
+        }
+        async function purgeOldTrashedContacts() {
+            const sb = getSB();
+            if (!sb || !currentUser) return;
+            const cutoff = Date.now() - (parseInt(localStorage.getItem('vends_trash_retention_days')) || 30) * 86400000;
+            try {
+                const { data, error } = await sb.from('contacts').select('id, "deletedAt"');
+                if (error || !data) return;
+                const toPurge = data.filter(r => r.deletedAt && new Date(r.deletedAt).getTime() < cutoff);
+                for (const row of toPurge) { await cloudDeleteContact(row.id); }
+            } catch(e) { console.warn('purgeOldTrashedContacts:', e.message); }
+        }
+        // ── fim Lixeira de Contatos ──────────────────────────────────────────
 
         function updateCategorySelects() {
             const select = document.getElementById('contactCategory');
@@ -20901,6 +21026,7 @@
                 "createdAt": c.createdAt || new Date().toISOString(),
                 "lossReason": c.lossReason || '', "lossReasonNote": c.lossReasonNote || '',
                 "tempSnoozeUntil": c.tempSnoozeUntil || '',
+                "deletedAt": c.deletedAt || null,
             };
         }
 
