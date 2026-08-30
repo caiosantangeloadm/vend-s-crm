@@ -3045,6 +3045,17 @@
                                 <div id="contactPhotoPreview" class="w-10 h-10 rounded-full bg-sant-cyan/10 border border-sant-cyan/20 shrink-0 overflow-hidden flex items-center justify-center"><i class="ph ph-user text-gray-600" style="font-size:18px"></i></div>
                             </div>
                         </div>
+                        <div class="md:col-span-1">
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1"><i class="ph ph-identification-card text-sant-purple"></i> Foto de Documento (RG, CNPJ, cartão...)</label>
+                            <div class="flex gap-3 items-center">
+                                <input type="url" id="contactDocPhoto" placeholder="Cole uma URL ou envie um arquivo" oninput="previewContactDocPhoto(this.value)" class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-4 py-2.5 text-sm text-white focus:border-sant-cyan outline-none transition-colors">
+                                <label id="contactDocPhotoUploadLabel" class="shrink-0 cursor-pointer bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan px-3 py-2.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5" title="Enviar imagem do computador/celular">
+                                    <i class="ph ph-upload-simple"></i>
+                                    <input type="file" accept="image/*" class="hidden" onchange="uploadContactDocPhoto(event)">
+                                </label>
+                                <div id="contactDocPhotoPreview" class="w-10 h-10 rounded-lg bg-sant-purple/10 border border-sant-purple/20 shrink-0 overflow-hidden flex items-center justify-center"><i class="ph ph-identification-card text-gray-600" style="font-size:18px"></i></div>
+                            </div>
+                        </div>
                         <div>
                             <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Categoria</label>
                             <select id="contactCategory" class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-2.5 text-sm text-white focus:border-sant-cyan outline-none transition-colors appearance-none">
@@ -4748,6 +4759,7 @@
             <div class="flex justify-between items-center p-5 border-b border-sant-border shrink-0">
                 <div class="flex items-center gap-4">
                     <div id="historyContactAvatar" class="shrink-0"></div>
+                    <a id="historyDocPhotoThumb" href="#" target="_blank" rel="noopener" class="hidden shrink-0 w-12 h-12 rounded-lg overflow-hidden border border-sant-purple/30" title="Foto de documento (RG, CNPJ, cartão...)"></a>
                     <div>
                     <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-clock-clockwise text-sant-cyan"></i> Histórico de Interações</h3>
                     <div class="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -13486,6 +13498,15 @@
                 prev.innerHTML = `<i class="ph ph-user text-gray-600" style="font-size:18px"></i>`;
             }
         }
+        function previewContactDocPhoto(url) {
+            const prev = document.getElementById('contactDocPhotoPreview');
+            if (!prev) return;
+            if (url) {
+                prev.innerHTML = `<img src="${url}" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='<i class=\\'ph ph-identification-card text-gray-600\\' style=\\'font-size:18px\\'></i>'">`;
+            } else {
+                prev.innerHTML = `<i class="ph ph-identification-card text-gray-600" style="font-size:18px"></i>`;
+            }
+        }
 
         function contactWaUrl(c) {
             const raw = (c.phoneProf || c.phonePess || '').replace(/\D/g, '');
@@ -14339,6 +14360,7 @@
                 stageEnteredAt: existing ? (existing.stageEnteredAt || existing.createdAt || new Date().toISOString()) : new Date().toISOString(),
                 stageHistory: existing ? (existing.stageHistory || []) : [{ stage: 'novo', enteredAt: new Date().toISOString() }],
                 photo: document.getElementById('contactPhoto').value.trim(),
+                docPhoto: document.getElementById('contactDocPhoto').value.trim(),
                 tags: [...currentContactTags],
                 lists: [...currentContactLists],
                 customFields: currentContactCustomFields.filter(f => f.label.trim() || f.value.trim()).map(f => ({ label: f.label.trim(), value: f.value.trim() })),
@@ -14565,6 +14587,8 @@
             document.getElementById('contactNotes').value = contact.notes || '';
             document.getElementById('contactPhoto').value = contact.photo || '';
             previewContactPhoto(contact.photo || '');
+            document.getElementById('contactDocPhoto').value = contact.docPhoto || '';
+            previewContactDocPhoto(contact.docPhoto || '');
 
             document.getElementById('contactIsLead').checked = contact.isLead || false;
             document.getElementById('tempContainer').classList.toggle('hidden', !contact.isLead);
@@ -21033,7 +21057,7 @@
                 "nextContact": c.nextContact || '', "nextStep": c.nextStep || '',
                 "contactFrequencyDays": c.contactFrequencyDays || 0,
                 "ignoreInactivityAlerts": c.ignoreInactivityAlerts || false,
-                photo: c.photo || '', "privateNotes": c.privateNotes || '',
+                photo: c.photo || '', "docPhoto": c.docPhoto || '', "privateNotes": c.privateNotes || '',
                 "addressStreet": c.addressStreet || '', "addressNumber": c.addressNumber || '',
                 "addressNeighborhood": c.addressNeighborhood || '',
                 "addressCity": c.addressCity || '', "addressState": c.addressState || '',
@@ -22622,6 +22646,8 @@
             fillContactPipelineProductSelect();
             renderContactPipelineProducts();
             previewContactPhoto('');
+            document.getElementById('contactDocPhoto').value = '';
+            previewContactDocPhoto('');
             document.getElementById('contactModal').classList.remove('hidden');
             takeModalSnapshot('contactModal');
         }
@@ -26478,6 +26504,16 @@
             renderRelationships(c);
             renderReferrals(c);
             renderReferredBy(c);
+            const docPhotoThumb = document.getElementById('historyDocPhotoThumb');
+            if (docPhotoThumb) {
+                if (c.docPhoto) {
+                    docPhotoThumb.href = c.docPhoto;
+                    docPhotoThumb.innerHTML = `<img src="${c.docPhoto}" class="w-full h-full object-cover">`;
+                    docPhotoThumb.classList.remove('hidden');
+                } else {
+                    docPhotoThumb.classList.add('hidden');
+                }
+            }
             // Observações internas
             const pnInp = document.getElementById('privateNotesInput');
             const pnCnt = document.getElementById('privateNotesCount');
@@ -27537,6 +27573,40 @@
             } catch(e) {
                 console.warn('Avatar upload:', e.message);
                 showToast('Erro ao enviar foto: ' + (e.message || 'tente novamente'), 'error');
+            } finally {
+                label.innerHTML = originalHtml;
+            }
+        }
+
+        async function uploadContactDocPhoto(event) {
+            const file = event.target.files[0];
+            event.target.value = '';
+            if (!file) return;
+            if (!file.type.startsWith('image/')) { showToast('Selecione um arquivo de imagem.', 'error'); return; }
+            if (file.size > AVATAR_MAX_MB * 1024 * 1024) {
+                showToast(`Imagem muito grande — o limite é ${AVATAR_MAX_MB}MB.`, 'error');
+                return;
+            }
+            const sb = getSB();
+            if (!sb || !currentUser) { showToast('Faça login para enviar uma imagem.', 'error'); return; }
+
+            const label = document.getElementById('contactDocPhotoUploadLabel');
+            const originalHtml = label.innerHTML;
+            label.innerHTML = '<i class="ph ph-spinner-gap animate-spin"></i>';
+
+            const ext = file.name.split('.').pop();
+            const storagePath = `${currentUser.id}/docphoto-${crypto.randomUUID()}.${ext}`;
+
+            try {
+                const { error } = await sb.storage.from(AVATAR_BUCKET).upload(storagePath, file, { upsert: false });
+                if (error) throw error;
+                const { data } = sb.storage.from(AVATAR_BUCKET).getPublicUrl(storagePath);
+                document.getElementById('contactDocPhoto').value = data.publicUrl;
+                previewContactDocPhoto(data.publicUrl);
+                showToast('Imagem enviada!');
+            } catch(e) {
+                console.warn('Doc photo upload:', e.message);
+                showToast('Erro ao enviar imagem: ' + (e.message || 'tente novamente'), 'error');
             } finally {
                 label.innerHTML = originalHtml;
             }
