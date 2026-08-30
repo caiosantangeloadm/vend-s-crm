@@ -21784,7 +21784,7 @@
             const rows = [];
             contacts.forEach(c => {
                 (c.documents || []).forEach(d => {
-                    rows.push({ contactId: c.id, contactName: fullName(c), title: d.title || d.url, url: d.url, status: d.status || 'rascunho', createdAt: d.createdAt || '' });
+                    rows.push({ contactId: c.id, contactName: fullName(c), title: d.title || d.url, url: d.url, status: d.status || 'rascunho', createdAt: d.createdAt || '', expiresAt: d.expiresAt || '' });
                 });
             });
             return rows;
@@ -21798,18 +21798,37 @@
             const counts = { rascunho: 0, enviado: 0, assinado: 0, recusado: 0 };
             docs.forEach(d => { counts[d.status] = (counts[d.status] || 0) + 1; });
 
+            const todayStr = getSPTodayStr();
+            const in15 = addDaysToDateStr(todayStr, 15);
+            const expiredCount = docs.filter(d => d.expiresAt && d.expiresAt < todayStr).length;
+            const dueSoonCount = docs.filter(d => d.expiresAt && d.expiresAt >= todayStr && d.expiresAt <= in15).length;
+
             summaryEl.innerHTML = Object.keys(DOC_STATUS_META).map(k => `
                 <div class="bg-sant-surface border rounded-xl p-4 text-center" style="border-color:${DOC_STATUS_META[k].color}33">
                     <p class="text-3xl font-bold" style="color:${DOC_STATUS_META[k].color}">${counts[k] || 0}</p>
                     <p class="text-xs text-gray-500 mt-1">${DOC_STATUS_META[k].label}</p>
-                </div>`).join('');
+                </div>`).join('')
+                + `<div class="bg-sant-surface border rounded-xl p-4 text-center" style="border-color:#f8717133">
+                    <p class="text-3xl font-bold" style="color:#f87171">${expiredCount}</p>
+                    <p class="text-xs text-gray-500 mt-1">Vencidos</p>
+                </div>
+                <div class="bg-sant-surface border rounded-xl p-4 text-center" style="border-color:#fbbf2433">
+                    <p class="text-3xl font-bold" style="color:#fbbf24">${dueSoonCount}</p>
+                    <p class="text-xs text-gray-500 mt-1">Vencem em 15 dias</p>
+                </div>`;
 
             if (!docs.length) {
                 tableEl.innerHTML = emptyState('ph-file-text', 'Nenhum documento cadastrado ainda', 'Adicione propostas e contratos no Histórico de cada contato, seção "Documentos & Propostas".');
                 return;
             }
 
-            const sorted = [...docs].sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||''));
+            const sorted = [...docs].sort((a,b) => {
+                // Vencidos/a vencer primeiro, depois por data de criação decrescente
+                const aHasExp = !!a.expiresAt, bHasExp = !!b.expiresAt;
+                if (aHasExp && bHasExp && a.expiresAt !== b.expiresAt) return a.expiresAt.localeCompare(b.expiresAt);
+                if (aHasExp !== bHasExp) return aHasExp ? -1 : 1;
+                return (b.createdAt||'').localeCompare(a.createdAt||'');
+            });
             tableEl.innerHTML = `<div class="bg-sant-surface border border-sant-border rounded-2xl overflow-hidden">
                 <table class="w-full text-sm">
                     <thead><tr class="border-b border-sant-border bg-[#0d0d0d]">
@@ -21817,15 +21836,24 @@
                         <th class="text-left px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Contato</th>
                         <th class="text-center px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Status</th>
                         <th class="text-left px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Criado em</th>
+                        <th class="text-left px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Validade</th>
                     </tr></thead>
                     <tbody>${sorted.map(d => {
                         const meta = DOC_STATUS_META[d.status] || DOC_STATUS_META.rascunho;
                         const dateFmt = d.createdAt ? new Date(d.createdAt).toLocaleDateString('pt-BR') : '—';
+                        let expHtml = '<span class="text-gray-600">—</span>';
+                        if (d.expiresAt) {
+                            const expFmt = d.expiresAt.split('-').reverse().join('/');
+                            if (d.expiresAt < todayStr) expHtml = `<span class="text-red-400 font-bold">Vencido em ${expFmt}</span>`;
+                            else if (d.expiresAt <= in15) expHtml = `<span class="text-amber-400 font-bold">Vence em ${expFmt}</span>`;
+                            else expHtml = `<span class="text-gray-400">${expFmt}</span>`;
+                        }
                         return `<tr class="border-b border-sant-border/50 hover:bg-white/3 transition-colors cursor-pointer" onclick="switchView('contacts');openHistoryModal('${d.contactId}')">
                             <td class="px-4 py-3"><a href="${d.url}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="text-sant-cyan hover:underline">${d.title}</a></td>
                             <td class="px-4 py-3 text-white">${d.contactName}</td>
                             <td class="px-3 py-3 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold" style="color:${meta.color};background:${meta.color}18;border:1px solid ${meta.color}33">${meta.label}</span></td>
                             <td class="px-4 py-3 text-gray-400">${dateFmt}</td>
+                            <td class="px-4 py-3 text-xs">${expHtml}</td>
                         </tr>`;
                     }).join('')}</tbody>
                 </table>
@@ -21835,8 +21863,8 @@
         function exportDocumentsReportCsv() {
             const docs = collectAllContactDocs();
             if (!docs.length) { showToast('Nenhum documento para exportar.', 'error'); return; }
-            const headers = ['Documento','Contato','Status','Link','Criado em'];
-            const rows = docs.map(d => [d.title, d.contactName, (DOC_STATUS_META[d.status]||DOC_STATUS_META.rascunho).label, d.url, d.createdAt ? new Date(d.createdAt).toLocaleDateString('pt-BR') : '']);
+            const headers = ['Documento','Contato','Status','Link','Criado em','Validade'];
+            const rows = docs.map(d => [d.title, d.contactName, (DOC_STATUS_META[d.status]||DOC_STATUS_META.rascunho).label, d.url, d.createdAt ? new Date(d.createdAt).toLocaleDateString('pt-BR') : '', d.expiresAt ? d.expiresAt.split('-').reverse().join('/') : '']);
             const csv = [headers,...rows].map(r => r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
             const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
             const a = document.createElement('a');
