@@ -27267,9 +27267,13 @@
                 });
                 const data = await res.json();
                 if (!res.ok) {
-                    esignShowMsg(data.error === 'not_configured'
-                        ? 'Assinatura eletrônica ainda não configurada — assim que a chave do ZapSign estiver pronta, isso passa a funcionar.'
-                        : 'Não foi possível enviar para assinatura agora. Tente novamente em instantes.', true);
+                    let msg = 'Não foi possível enviar para assinatura agora. Tente novamente em instantes.';
+                    if (data.error === 'not_configured') {
+                        msg = 'Assinatura eletrônica ainda não configurada — assim que a chave do ZapSign estiver pronta, isso passa a funcionar.';
+                    } else if (data.error === 'zapsign_error' && data.details) {
+                        msg = 'ZapSign recusou o envio: ' + (data.details.message || JSON.stringify(data.details));
+                    }
+                    esignShowMsg(msg, true);
                     return;
                 }
                 if (!c.documents) c.documents = [];
