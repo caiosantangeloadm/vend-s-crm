@@ -693,6 +693,15 @@
                     <div id="dashWaitingList" class="space-y-2"></div>
                 </div>
 
+                <!-- Card: Negócios Parados -->
+                <div id="dashStalledDealsCard" data-dash-title="Negócios Parados" class="hidden bg-sant-surface border border-sant-border rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase flex items-center gap-2"><i class="ph ph-kanban text-red-400"></i> Negócios Parados</p>
+                        <span id="dashStalledDealsCount" class="text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 rounded-full px-2 py-0.5"></span>
+                    </div>
+                    <div id="dashStalledDealsList" class="space-y-2"></div>
+                </div>
+
                 <!-- Card: Hoje Preciso de Atenção -->
                 <div id="dashAttentionCard" class="hidden bg-sant-surface border border-red-500/20 rounded-2xl p-6">
                     <div class="flex items-center justify-between mb-4">
@@ -7873,6 +7882,7 @@
             renderCallsCard(todayStr);
             renderTaskGoalCard(todayStr);
             renderWaitingCard(todayStr);
+            renderStalledDealsCard(todayStr);
             // Refresh streak UI quando dashboard abre
             const _sd = parseInt(localStorage.getItem('vends_streak_days')||'0');
             const _sb = parseInt(localStorage.getItem('vends_streak_best')||'0');
@@ -8108,6 +8118,32 @@
                 (waiting.length > 5 ? `<p class="text-[10px] text-gray-600 text-center pt-1">+${waiting.length-5} tarefa(s) — clique para ver todas</p>` : '');
         }
 
+        function renderStalledDealsCard(todayStr) {
+            const card = document.getElementById('dashStalledDealsCard');
+            if (!card) return;
+            const openLeads = contacts.filter(c => c.isLead && !c.deletedAt && c.pipelineStage && c.pipelineStage !== 'ganho' && c.pipelineStage !== 'perdido' && c.stageEnteredAt);
+            const stalled = openLeads
+                .map(c => ({ c, days: _daysBetween(c.stageEnteredAt.substring(0,10), todayStr) }))
+                .filter(x => x.days >= 7)
+                .sort((a,b) => b.days - a.days);
+
+            if (stalled.length === 0) { card.classList.add('hidden'); return; }
+            card.classList.remove('hidden');
+            document.getElementById('dashStalledDealsCount').textContent = `${stalled.length} parado${stalled.length!==1?'s':''}`;
+
+            const list = document.getElementById('dashStalledDealsList');
+            list.innerHTML = stalled.slice(0, 5).map(({c, days}) => {
+                const stage = PIPELINE_STAGES.find(s => s.id === c.pipelineStage);
+                const aging = getStageAgingColor(days, c.pipelineStage);
+                return `<div class="flex items-center gap-2.5 py-1.5 border-b border-sant-border/40 last:border-0 cursor-pointer hover:bg-white/3 transition-colors rounded px-1" onclick="switchView('pipeline')">
+                    <i class="ph ph-warning-circle shrink-0 text-sm ${aging ? aging.text : 'text-gray-500'}"></i>
+                    <span class="text-xs text-white flex-1 truncate">${fullName(c)} <span class="text-gray-500">— ${stage ? stage.label : c.pipelineStage}</span></span>
+                    <span class="text-[10px] font-bold shrink-0 ${aging ? aging.text : 'text-gray-500'}">${days}d</span>
+                </div>`;
+            }).join('') +
+            (stalled.length > 5 ? `<p class="text-[10px] text-gray-600 text-center pt-1">+${stalled.length-5} negócio(s) — clique para ver o Pipeline</p>` : '');
+        }
+
         function renderFollowupRate(todayStr) {
             const rateEl   = document.getElementById('dashFollowupRate');
             const totalEl  = document.getElementById('dashFollowupTotal');
@@ -8201,6 +8237,7 @@
             { id: 'dashTaskGoalCard',       title: 'Meta de Tarefas do Dia' },
             { id: 'dashEngagementRankingCard', title: 'Ranking de Engajamento' },
             { id: 'dashWaitingCard',        title: 'Aguardando Terceiros' },
+            { id: 'dashStalledDealsCard',   title: 'Negócios Parados' },
             { id: 'dashAttentionCard',      title: 'Hoje Preciso de Atenção' },
             { id: 'dashFollowupCard',       title: 'Taxa de Follow-ups' },
             { id: 'dashLeadsEvolutionCard', title: 'Evolução de Leads' },
