@@ -10351,7 +10351,7 @@
                         <p class="text-sm font-medium text-[#ec4899] truncate">${fullName(c)}</p>
                         ${isToday ? '<p class="text-[10px] text-sant-purple font-bold">🎉 Hoje!</p>' : ''}
                     </div>
-                    ${isToday ? `<button onclick="event.stopPropagation(); sendBirthdayWhatsapp('${c.id}')" title="Parabenizar por WhatsApp" class="text-[#25D366] hover:text-white hover:bg-[#25D366] p-1.5 rounded-lg transition-colors shrink-0">${WHATSAPP_SVG_ICON}</button>` : `<i class="ph ph-cake text-sant-purple shrink-0"></i>`}
+                    ${isToday ? `<button onclick="event.stopPropagation(); sendBirthdayWhatsapp('${c.id}')" title="Parabenizar por WhatsApp" class="flex items-center gap-1.5 bg-[#25D366] hover:bg-[#1fb855] text-white text-xs font-bold px-3 py-2 rounded-lg transition-colors shrink-0">${WHATSAPP_SVG_ICON} WhatsApp</button>` : `<i class="ph ph-cake text-sant-purple shrink-0"></i>`}
                 </div>`;
             }).join('') + `</div>`;
         }
