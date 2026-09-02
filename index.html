@@ -1307,6 +1307,7 @@
                         <input type="file" accept=".csv" class="hidden" onchange="importPipelineLeadsCsv(event)">
                     </label>
                     <button onclick="exportPipelineCsv()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-3 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 shrink-0" title="Exportar Pipeline em CSV"><i class="ph ph-file-csv"></i></button>
+                    <button onclick="exportPipelinePdf()" class="bg-sant-surface border border-sant-border hover:border-sant-cyan text-sant-cyan px-3 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 shrink-0" title="Exportar Pipeline (Kanban) em PDF"><i class="ph ph-file-pdf"></i></button>
                     <button onclick="openModal(true)" class="bg-sant-purple text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-purple-800 transition-colors flex items-center gap-2 shrink-0 shadow-lg shadow-purple-900/20"><i class="ph ph-plus"></i> Novo Lead</button>
                 </div>
 
@@ -10350,9 +10351,23 @@
                         <p class="text-sm font-medium text-[#ec4899] truncate">${fullName(c)}</p>
                         ${isToday ? '<p class="text-[10px] text-sant-purple font-bold">🎉 Hoje!</p>' : ''}
                     </div>
-                    <i class="ph ph-cake text-sant-purple shrink-0"></i>
+                    ${isToday ? `<button onclick="event.stopPropagation(); sendBirthdayWhatsapp('${c.id}')" title="Parabenizar por WhatsApp" class="text-[#25D366] hover:text-white hover:bg-[#25D366] p-1.5 rounded-lg transition-colors shrink-0">${WHATSAPP_SVG_ICON}</button>` : `<i class="ph ph-cake text-sant-purple shrink-0"></i>`}
                 </div>`;
             }).join('') + `</div>`;
+        }
+
+        function sendBirthdayWhatsapp(contactId) {
+            const c = contacts.find(x => x.id === contactId);
+            if (!c) return;
+            const phone = (c.phoneProf || c.phonePess || c.phone || '').replace(/\D/g, '');
+            if (!phone) { showToast('Este contato não tem telefone cadastrado.', 'error'); return; }
+            const firstName = c.name || fullName(c);
+            const text = `Feliz aniversário, ${firstName}! 🎉🎂 Desejo tudo de bom nesse novo ciclo!`;
+            window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
+            if (!c.interactions) c.interactions = [];
+            c.interactions.unshift({ id: crypto.randomUUID(), type: 'WhatsApp', date: getSPTodayStr(), notes: 'Parabéns de aniversário enviado' });
+            saveToStorage();
+            cloudSyncContact(c);
         }
 
         function switchView(viewId) {
@@ -22708,6 +22723,62 @@
                 return [stage ? stage.label : '', fullName(c), c.company || '', c.temperature || '', c.dealValue || 0, daysInStage, c.origin || ''];
             });
             downloadReportCsv(`pipeline_vendas_${getSPTodayStr()}.csv`, ['Estágio', 'Nome', 'Empresa', 'Temperatura', 'Valor', 'Dias no Estágio', 'Origem'], rows);
+        }
+
+        // Exporta o Pipeline como um board visual (colunas por estágio), não só uma lista —
+        // útil pra reunião de revisão de vendas impressa. Usa o mesmo estilo claro/seguro dos
+        // outros PDFs (fundo branco, texto escuro) pra garantir que abre certo em qualquer leitor.
+        function exportPipelinePdf() {
+            const leads = contacts.filter(c => c.isLead && !c.deletedAt);
+            if (!leads.length) { showToast('Nenhuma oportunidade no Pipeline pra exportar.', 'error'); return; }
+            const todayStr = getSPTodayStr();
+
+            const columnsHtml = PIPELINE_STAGES.map(stage => {
+                const stageLeads = leads.filter(c => getPipelineStage(c) === stage.id)
+                    .sort((a,b) => (b.dealValue||0) - (a.dealValue||0));
+                const stageValue = stageLeads.reduce((s,c) => s + (c.dealValue||0), 0);
+                const cards = stageLeads.map(c => {
+                    const days = c.stageEnteredAt ? _daysBetween(c.stageEnteredAt.substring(0,10), todayStr) : null;
+                    return `<div style="border:1px solid #ccc;border-left:3px solid ${stage.color};border-radius:6px;padding:8px 10px;margin-bottom:8px;break-inside:avoid">
+                        <div style="font-size:12px;font-weight:700;color:#111">${fullName(c)}</div>
+                        ${c.company ? `<div style="font-size:10px;color:#666">${c.company}</div>` : ''}
+                        <div style="font-size:11px;color:#111;font-weight:700;margin-top:3px">R$ ${(c.dealValue||0).toLocaleString('pt-BR')}</div>
+                        ${days !== null ? `<div style="font-size:9px;color:#999;margin-top:2px">${days}d neste estágio</div>` : ''}
+                    </div>`;
+                }).join('') || '<p style="font-size:10px;color:#aaa;font-style:italic">Nenhum lead aqui.</p>';
+                return `<td style="vertical-align:top;padding:0 6px;width:${100/PIPELINE_STAGES.length}%">
+                    <div style="border-bottom:2px solid ${stage.color};padding-bottom:6px;margin-bottom:10px">
+                        <div style="font-size:11px;font-weight:700;color:${stage.color};text-transform:uppercase">${stage.label}</div>
+                        <div style="font-size:10px;color:#666">${stageLeads.length} · R$ ${stageValue.toLocaleString('pt-BR')}</div>
+                    </div>
+                    ${cards}
+                </td>`;
+            }).join('');
+
+            const totalValue = leads.reduce((s,c) => s + (c.dealValue||0), 0);
+            const win = window.open('', '_blank');
+            win.document.write(`
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>Pipeline de Vendas — ${todayStr}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 24px; color: #111; }
+                        h1 { font-size: 18px; margin-bottom: 4px; }
+                        p.meta { font-size: 11px; color: #666; margin-bottom: 16px; }
+                        table { width: 100%; border-collapse: collapse; }
+                        @media print { body { padding: 10px; } @page { size: landscape; } }
+                    </style>
+                </head>
+                <body>
+                    <h1>Pipeline de Vendas</h1>
+                    <p class="meta">Vend-s Inteligência CRM · Exportado em ${new Date().toLocaleString('pt-BR')} · ${leads.length} oportunidade(s) · Valor total: R$ ${totalValue.toLocaleString('pt-BR')}</p>
+                    <table><tr>${columnsHtml}</tr></table>
+                    <scr${''}ipt>window.onload = () => { window.print(); };</scr${''}ipt>
+                </body>
+                </html>
+            `);
+            win.document.close();
         }
 
         function exportLeadsCsv() {
