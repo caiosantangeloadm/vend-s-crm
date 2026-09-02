@@ -9423,7 +9423,8 @@
                     label: `Follow-up atrasado há ${diff}d`,
                     name: fullName(c),
                     action: `openHistoryModal('${c.id}')`,
-                    actionLabel: 'Histórico'
+                    actionLabel: 'Histórico',
+                    waContactId: c.id,
                 });
             });
 
@@ -9435,7 +9436,8 @@
                     label: 'Follow-up para hoje',
                     name: fullName(c),
                     action: `openHistoryModal('${c.id}')`,
-                    actionLabel: 'Registrar'
+                    actionLabel: 'Registrar',
+                    waContactId: c.id,
                 });
             });
 
@@ -9463,7 +9465,8 @@
                     label: 'Tarefa urgente vencida',
                     name: t.title,
                     action: `switchView('tasks')`,
-                    actionLabel: 'Ver tarefa'
+                    actionLabel: 'Ver tarefa',
+                    waContactId: t.contactId || null,
                 });
             });
 
@@ -9568,11 +9571,26 @@
                         <p class="text-[10px] font-bold uppercase tracking-wider" style="color:${item.color}">${item.label}</p>
                         <p class="text-sm text-white font-medium truncate">${item.name}</p>
                     </div>
+                    ${item.waContactId ? `<button onclick="event.stopPropagation(); sendAttentionWhatsapp('${item.waContactId}')" title="Enviar WhatsApp" class="shrink-0 flex items-center justify-center text-[#25D366] hover:bg-[#25D366] hover:text-white bg-[#25D366]/10 border border-[#25D366]/30 rounded-lg p-2 transition-colors">${WHATSAPP_SVG_ICON}</button>` : ''}
                     <button onclick="${item.action}" class="shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors hover:opacity-80" style="color:${item.color};border-color:${item.color}40;background:${item.color}15">
                         ${item.actionLabel} →
                     </button>
                 </div>`).join('') +
                 (extra > 0 ? `<p class="text-[11px] text-gray-600 text-center pt-1">+${extra} item${extra !== 1 ? 'ns' : ''} adicionais — resolva os acima primeiro.</p>` : '');
+        }
+
+        function sendAttentionWhatsapp(contactId) {
+            const c = contacts.find(x => x.id === contactId);
+            if (!c) return;
+            const phone = (c.phoneProf || c.phonePess || c.phone || '').replace(/\D/g, '');
+            if (!phone) { showToast('Este contato não tem telefone cadastrado.', 'error'); return; }
+            const firstName = c.name || fullName(c);
+            const text = `Olá ${firstName}! Tudo bem? Passando pra retomar nosso contato.`;
+            window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
+            if (!c.interactions) c.interactions = [];
+            c.interactions.unshift({ id: crypto.randomUUID(), type: 'WhatsApp', date: getSPTodayStr(), notes: 'Retomada de contato (via card Hoje Preciso de Atenção)' });
+            saveToStorage();
+            cloudSyncContact(c);
         }
 
         function renderPriorityActions(todayStr) {
@@ -10351,7 +10369,10 @@
                         <p class="text-sm font-medium text-[#ec4899] truncate">${fullName(c)}</p>
                         ${isToday ? '<p class="text-[10px] text-sant-purple font-bold">🎉 Hoje!</p>' : ''}
                     </div>
-                    ${isToday ? `<button onclick="event.stopPropagation(); sendBirthdayWhatsapp('${c.id}')" title="Parabenizar por WhatsApp" class="flex items-center gap-1.5 bg-[#25D366] hover:bg-[#1fb855] text-white text-xs font-bold px-3 py-2 rounded-lg transition-colors shrink-0">${WHATSAPP_SVG_ICON} WhatsApp</button>` : `<i class="ph ph-cake text-sant-purple shrink-0"></i>`}
+                    ${isToday ? `<div class="flex items-center gap-1.5 shrink-0">
+                        ${(c.phoneProf || c.phonePess || c.phone) ? `<button onclick="event.stopPropagation(); sendBirthdayWhatsapp('${c.id}')" title="Parabenizar por WhatsApp" class="flex items-center gap-1.5 bg-[#25D366] hover:bg-[#1fb855] text-white text-xs font-bold px-3 py-2 rounded-lg transition-colors">${WHATSAPP_SVG_ICON} WhatsApp</button>` : ''}
+                        ${(c.emailProf || c.emailPess || c.email) ? `<button onclick="event.stopPropagation(); sendBirthdayEmail('${c.id}')" title="Parabenizar por E-mail" class="flex items-center gap-1.5 bg-sant-cyan hover:bg-cyan-400 text-sant-bg text-xs font-bold px-3 py-2 rounded-lg transition-colors"><i class="ph ph-envelope-simple"></i> E-mail</button>` : ''}
+                    </div>` : `<i class="ph ph-cake text-sant-purple shrink-0"></i>`}
                 </div>`;
             }).join('') + `</div>`;
         }
@@ -10366,6 +10387,21 @@
             window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
             if (!c.interactions) c.interactions = [];
             c.interactions.unshift({ id: crypto.randomUUID(), type: 'WhatsApp', date: getSPTodayStr(), notes: 'Parabéns de aniversário enviado' });
+            saveToStorage();
+            cloudSyncContact(c);
+        }
+
+        function sendBirthdayEmail(contactId) {
+            const c = contacts.find(x => x.id === contactId);
+            if (!c) return;
+            const email = c.emailProf || c.emailPess || c.email || '';
+            if (!email) { showToast('Este contato não tem e-mail cadastrado.', 'error'); return; }
+            const firstName = c.name || fullName(c);
+            const subject = 'Feliz aniversário! 🎉';
+            const body = `Olá ${firstName}!\n\nFeliz aniversário! Desejo tudo de bom nesse novo ciclo.\n\nAbraços!`;
+            window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            if (!c.interactions) c.interactions = [];
+            c.interactions.unshift({ id: crypto.randomUUID(), type: 'E-mail', date: getSPTodayStr(), notes: 'Parabéns de aniversário enviado' });
             saveToStorage();
             cloudSyncContact(c);
         }
