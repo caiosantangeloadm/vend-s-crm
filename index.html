@@ -15850,6 +15850,7 @@
             resetTemplateForm();
             document.getElementById('tplFormSection').classList.remove('hidden');
             document.getElementById('tplFormSection').classList.add('flex');
+            document.getElementById('tplFormSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
         function closeTplFormSection() {
             document.getElementById('tplFormSection').classList.add('hidden');
@@ -15928,6 +15929,7 @@
             document.getElementById('tplFormTitle').innerText = 'Editar Modelo';
             document.getElementById('tplSaveBtn').innerText = 'Salvar';
             renderSignaturePreview();
+            document.getElementById('tplFormSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         function saveTemplate() {
