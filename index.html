@@ -5248,6 +5248,16 @@
                         <input type="checkbox" id="tplUseSignature" checked onchange="renderSignaturePreview()" class="w-4 h-4 accent-sant-cyan cursor-pointer">
                         Incluir assinatura padrão ao enviar
                     </label>
+                    <label class="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                        <input type="checkbox" id="tplIsBirthday" class="w-4 h-4 accent-pink-500 cursor-pointer">
+                        <i class="ph ph-cake text-pink-400"></i> Usar como modelo de Aniversário (botão 1-clique)
+                    </label>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Aplicar só pra esta categoria (opcional)</label>
+                        <select id="tplTargetCategory" class="w-full bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-sm text-white outline-none">
+                            <option value="">Todas as categorias</option>
+                        </select>
+                    </div>
                     <div class="flex gap-2 justify-end">
                         <button onclick="resetTemplateForm()" class="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Limpar</button>
                         <button id="tplSaveBtn" onclick="saveTemplate()" class="bg-sant-purple hover:bg-purple-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">Adicionar</button>
@@ -5753,7 +5763,7 @@
         const defaultMessageTemplates = [
             { id: 'tpl-boas-vindas', title: 'Boas-vindas', channel: 'whatsapp', subject: '', body: 'Olá {{nome}}! 😊 Seja muito bem-vindo(a)! Foi um prazer ter você com a gente. Qualquer dúvida, estou à disposição.' },
             { id: 'tpl-cobranca', title: 'Cobrança', channel: 'whatsapp', subject: '', body: 'Olá {{nome}}, espero que esteja bem! Passando para lembrar sobre o pagamento pendente. Qualquer dúvida, estou à disposição. Obrigado!' },
-            { id: 'tpl-aniversario', title: 'Aniversário', channel: 'both', subject: 'Feliz Aniversário! 🎉', body: 'Feliz aniversário, {{nome}}! 🎉 Desejamos um dia repleto de alegria e um ano incrível pela frente. Um abraço!' },
+            { id: 'tpl-aniversario', title: 'Aniversário', channel: 'both', subject: 'Feliz Aniversário! 🎉', body: 'Feliz aniversário, {{nome}}! 🎉 Desejamos um dia repleto de alegria e um ano incrível pela frente. Um abraço!', isBirthday: true, targetCategory: '' },
             { id: 'tpl-followup', title: 'Follow-up', channel: 'whatsapp', subject: '', body: 'Oi {{nome}}, tudo bem? Faz um tempinho que não conversamos — fico à disposição para o que precisar.' }
         ];
 
@@ -10377,13 +10387,23 @@
             }).join('') + `</div>`;
         }
 
+        // Escolhe o melhor modelo de Aniversário pro contato: prioriza um modelo específico da
+        // categoria dele (ex: "Cliente"), senão usa o modelo genérico (sem categoria definida).
+        function getBirthdayTemplate(c, channel) {
+            const candidates = messageTemplates.filter(t => t.isBirthday && (t.channel === channel || t.channel === 'both'));
+            if (!candidates.length) return null;
+            return candidates.find(t => t.targetCategory && t.targetCategory === c.category)
+                || candidates.find(t => !t.targetCategory)
+                || candidates[0];
+        }
         function sendBirthdayWhatsapp(contactId) {
             const c = contacts.find(x => x.id === contactId);
             if (!c) return;
             const phone = (c.phoneProf || c.phonePess || c.phone || '').replace(/\D/g, '');
             if (!phone) { showToast('Este contato não tem telefone cadastrado.', 'error'); return; }
             const firstName = c.name || fullName(c);
-            const text = `Feliz aniversário, ${firstName}! 🎉🎂 Desejo tudo de bom nesse novo ciclo!`;
+            const tpl = getBirthdayTemplate(c, 'whatsapp');
+            const text = tpl ? fillMessageTemplate(tpl.body, c) : `Feliz aniversário, ${firstName}! 🎉🎂 Desejo tudo de bom nesse novo ciclo!`;
             window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
             if (!c.interactions) c.interactions = [];
             c.interactions.unshift({ id: crypto.randomUUID(), type: 'WhatsApp', date: getSPTodayStr(), notes: 'Parabéns de aniversário enviado' });
@@ -10397,8 +10417,9 @@
             const email = c.emailProf || c.emailPess || c.email || '';
             if (!email) { showToast('Este contato não tem e-mail cadastrado.', 'error'); return; }
             const firstName = c.name || fullName(c);
-            const subject = 'Feliz aniversário! 🎉';
-            const body = `Olá ${firstName}!\n\nFeliz aniversário! Desejo tudo de bom nesse novo ciclo.\n\nAbraços!`;
+            const tpl = getBirthdayTemplate(c, 'email');
+            const subject = tpl ? fillMessageTemplate(tpl.subject || 'Feliz aniversário! 🎉', c) : 'Feliz aniversário! 🎉';
+            const body = tpl ? fillMessageTemplate(tpl.body, c) : `Olá ${firstName}!\n\nFeliz aniversário! Desejo tudo de bom nesse novo ciclo.\n\nAbraços!`;
             window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
             if (!c.interactions) c.interactions = [];
             c.interactions.unshift({ id: crypto.randomUUID(), type: 'E-mail', date: getSPTodayStr(), notes: 'Parabéns de aniversário enviado' });
@@ -15804,6 +15825,13 @@
             document.getElementById('tplSubjectWrap').classList.toggle('hidden', document.getElementById('tplChannel').value === 'whatsapp');
         }
 
+        function fillTplTargetCategorySelect(selected) {
+            const sel = document.getElementById('tplTargetCategory');
+            if (!sel) return;
+            const sortedCats = [...categories].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+            sel.innerHTML = '<option value="">Todas as categorias</option>' + sortedCats.map(c => `<option value="${c}">${c}</option>`).join('');
+            sel.value = selected || '';
+        }
         function resetTemplateForm() {
             editingTemplateId = null;
             document.getElementById('tplTitle').value = '';
@@ -15811,6 +15839,8 @@
             document.getElementById('tplSubject').value = '';
             document.getElementById('tplBody').value = '';
             document.getElementById('tplUseSignature').checked = true;
+            document.getElementById('tplIsBirthday').checked = false;
+            fillTplTargetCategorySelect('');
             toggleTplSubjectField();
             document.getElementById('tplFormTitle').innerText = 'Novo Modelo';
             document.getElementById('tplSaveBtn').innerText = 'Adicionar';
@@ -15833,6 +15863,7 @@
                             ${channelLabel(t.channel)}
                         </p>
                         ${t.body ? `<p class="text-[11px] text-gray-600 truncate mt-1">${t.body.substring(0,60)}${t.body.length>60?'…':''}</p>` : ''}
+                        ${t.isBirthday ? `<span class="inline-flex items-center gap-1 text-[9px] font-bold text-pink-400 bg-pink-500/10 border border-pink-500/25 rounded-full px-1.5 py-0.5 mt-1"><i class="ph ph-cake"></i> Aniversário${t.targetCategory ? ' · ' + t.targetCategory : ''}</span>` : ''}
                     </div>
                     <button onclick="editTemplate('${t.id}')" class="text-gray-500 hover:text-sant-cyan transition-colors p-1 shrink-0"><i class="ph ph-pencil-simple"></i></button>
                     <button onclick="deleteTemplate('${t.id}')" class="text-gray-500 hover:text-red-500 transition-colors p-1 shrink-0"><i class="ph ph-trash"></i></button>
@@ -15861,6 +15892,8 @@
             document.getElementById('tplSubject').value = t.subject || '';
             document.getElementById('tplBody').value = t.body || '';
             document.getElementById('tplUseSignature').checked = t.useSignature !== false;
+            document.getElementById('tplIsBirthday').checked = !!t.isBirthday;
+            fillTplTargetCategorySelect(t.targetCategory || '');
             toggleTplSubjectField();
             document.getElementById('tplFormTitle').innerText = 'Editar Modelo';
             document.getElementById('tplSaveBtn').innerText = 'Salvar';
@@ -15873,12 +15906,15 @@
             const subject = document.getElementById('tplSubject').value.trim();
             const body = document.getElementById('tplBody').value.trim();
             const useSignature = document.getElementById('tplUseSignature').checked;
+            const isBirthday = document.getElementById('tplIsBirthday').checked;
+            const targetCategory = document.getElementById('tplTargetCategory').value;
             if (!title || !body) { showToast('Preencha o título e a mensagem.', 'error'); return; }
             if (editingTemplateId) {
                 const t = messageTemplates.find(x => x.id === editingTemplateId);
                 t.title = title; t.channel = channel; t.subject = subject; t.body = body; t.useSignature = useSignature;
+                t.isBirthday = isBirthday; t.targetCategory = targetCategory;
             } else {
-                messageTemplates.push({ id: crypto.randomUUID(), title, channel, subject, body, useSignature });
+                messageTemplates.push({ id: crypto.randomUUID(), title, channel, subject, body, useSignature, isBirthday, targetCategory });
             }
             saveMessageTemplatesToStorage();
             renderTemplatesList();
