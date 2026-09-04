@@ -702,6 +702,15 @@
                     <div id="dashStalledDealsList" class="space-y-2"></div>
                 </div>
 
+                <!-- Card: Sem Interação Este Mês -->
+                <div id="dashNoInteractionMonthCard" data-dash-title="Sem Interação Este Mês" class="hidden bg-sant-surface border border-sant-border rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase flex items-center gap-2"><i class="ph ph-chat-circle-dots text-amber-400"></i> Sem Interação Este Mês</p>
+                        <span id="dashNoInteractionMonthCount" class="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-full px-2 py-0.5"></span>
+                    </div>
+                    <div id="dashNoInteractionMonthList" class="space-y-2"></div>
+                </div>
+
                 <!-- Card: Hoje Preciso de Atenção -->
                 <div id="dashAttentionCard" class="hidden bg-sant-surface border border-red-500/20 rounded-2xl p-6">
                     <div class="flex items-center justify-between mb-4">
@@ -7918,6 +7927,7 @@
             renderTaskGoalCard(todayStr);
             renderWaitingCard(todayStr);
             renderStalledDealsCard(todayStr);
+            renderNoInteractionMonthCard(todayStr);
             // Refresh streak UI quando dashboard abre
             const _sd = parseInt(localStorage.getItem('vends_streak_days')||'0');
             const _sb = parseInt(localStorage.getItem('vends_streak_best')||'0');
@@ -8179,6 +8189,34 @@
             (stalled.length > 5 ? `<p class="text-[10px] text-gray-600 text-center pt-1">+${stalled.length-5} negócio(s) — clique para ver o Pipeline</p>` : '');
         }
 
+        function renderNoInteractionMonthCard(todayStr) {
+            const card = document.getElementById('dashNoInteractionMonthCard');
+            if (!card) return;
+            const monthStart = todayStr.substring(0, 7) + '-01';
+            const stale = contacts.filter(c => {
+                if (c.deletedAt) return false;
+                const ints = c.interactions || [];
+                return !ints.some(i => i.date && i.date >= monthStart);
+            }).map(c => {
+                const ints = c.interactions || [];
+                const lastDate = ints.length ? [...ints].sort((a,b) => (b.date||'').localeCompare(a.date||''))[0].date : (c.createdAt ? c.createdAt.substring(0,10) : null);
+                return { c, lastDate };
+            }).sort((a,b) => (a.lastDate||'').localeCompare(b.lastDate||''));
+
+            if (stale.length === 0) { card.classList.add('hidden'); return; }
+            card.classList.remove('hidden');
+            document.getElementById('dashNoInteractionMonthCount').textContent = `${stale.length} contato${stale.length!==1?'s':''}`;
+
+            const list = document.getElementById('dashNoInteractionMonthList');
+            list.innerHTML = stale.slice(0, 5).map(({c, lastDate}) => `
+                <div class="flex items-center gap-2.5 py-1.5 border-b border-sant-border/40 last:border-0 cursor-pointer hover:bg-white/3 transition-colors rounded px-1" onclick="openHistoryModal('${c.id}')">
+                    <i class="ph ph-chat-circle-dots shrink-0 text-sm text-amber-400"></i>
+                    <span class="text-xs text-white flex-1 truncate">${fullName(c)}${c.company?` <span class="text-gray-500">— ${c.company}</span>`:''}</span>
+                    <span class="text-[10px] font-bold shrink-0 text-gray-500">${lastDate ? lastDate.split('-').reverse().join('/') : 'nunca'}</span>
+                </div>`).join('') +
+            (stale.length > 5 ? `<p class="text-[10px] text-gray-600 text-center pt-1">+${stale.length-5} contato(s) sem interação este mês</p>` : '');
+        }
+
         function renderFollowupRate(todayStr) {
             const rateEl   = document.getElementById('dashFollowupRate');
             const totalEl  = document.getElementById('dashFollowupTotal');
@@ -8273,6 +8311,7 @@
             { id: 'dashEngagementRankingCard', title: 'Ranking de Engajamento' },
             { id: 'dashWaitingCard',        title: 'Aguardando Terceiros' },
             { id: 'dashStalledDealsCard',   title: 'Negócios Parados' },
+            { id: 'dashNoInteractionMonthCard', title: 'Sem Interação Este Mês' },
             { id: 'dashAttentionCard',      title: 'Hoje Preciso de Atenção' },
             { id: 'dashFollowupCard',       title: 'Taxa de Follow-ups' },
             { id: 'dashLeadsEvolutionCard', title: 'Evolução de Leads' },
@@ -10421,6 +10460,25 @@
             window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
             if (!c.interactions) c.interactions = [];
             c.interactions.unshift({ id: crypto.randomUUID(), type: 'WhatsApp', date: getSPTodayStr(), notes: 'Parabéns de aniversário enviado' });
+            saveToStorage();
+            cloudSyncContact(c);
+        }
+
+        function copyContactField(text, label) {
+            if (!text) return;
+            navigator.clipboard.writeText(text).then(() => showToast(`${label} copiado!`));
+        }
+
+        function sendCompanyAnniversaryWhatsapp(contactId) {
+            const c = contacts.find(x => x.id === contactId);
+            if (!c) return;
+            const phone = (c.phoneProf || c.phonePess || c.phone || '').replace(/\D/g, '');
+            if (!phone) { showToast('Este contato não tem telefone cadastrado.', 'error'); return; }
+            const firstName = c.name || fullName(c);
+            const text = `Parabéns pelo aniversário da ${c.company || 'empresa'}, ${firstName}! 🏢🎉 Desejo cada vez mais sucesso!`;
+            window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
+            if (!c.interactions) c.interactions = [];
+            c.interactions.unshift({ id: crypto.randomUUID(), type: 'WhatsApp', date: getSPTodayStr(), notes: 'Parabéns de aniversário da empresa enviado' });
             saveToStorage();
             cloudSyncContact(c);
         }
@@ -14007,8 +14065,8 @@
                     </div>
                     <div class="space-y-2 mt-auto">
                         ${dispJob?`<p class="text-xs text-sant-cyan truncate"><i class="ph ph-briefcase mr-1"></i>${dispJob}</p>`:''}
-                        ${dispPhone?`<p class="text-xs text-gray-400 truncate"><i class="ph ph-phone mr-1"></i>${dispPhone}</p>`:''}
-                        ${dispEmail?`<p class="text-xs text-gray-400 truncate"><i class="ph ph-envelope-simple mr-1"></i>${dispEmail}</p>`:''}
+                        ${dispPhone?`<p class="text-xs text-gray-400 truncate cursor-pointer hover:text-sant-cyan transition-colors" onclick="event.stopPropagation();copyContactField('${dispPhone}','Telefone')" title="Clique para copiar"><i class="ph ph-phone mr-1"></i>${dispPhone} <i class="ph ph-copy text-[10px] opacity-0 group-hover:opacity-60"></i></p>`:''}
+                        ${dispEmail?`<p class="text-xs text-gray-400 truncate cursor-pointer hover:text-sant-cyan transition-colors" onclick="event.stopPropagation();copyContactField('${dispEmail}','E-mail')" title="Clique para copiar"><i class="ph ph-envelope-simple mr-1"></i>${dispEmail} <i class="ph ph-copy text-[10px] opacity-0 group-hover:opacity-60"></i></p>`:''}
                         ${lastInteractionDate?`<p class="text-[10px] text-gray-500 truncate"><i class="ph ph-clock-counter-clockwise mr-1"></i>Última interação: ${lastInteractionDate.split('-').reverse().join('/')}</p>`:''}
                         ${tagsHtml}
                         ${(dispPhone||waUrl||dispEmail)?`<div class="flex gap-2 mt-3 pt-3 border-t border-sant-border">
@@ -14039,8 +14097,8 @@
                             ${newBadge} ${leadTag} ${channelBadge} ${scoreBadge} ${qualBadge} ${dealBadge} ${revenueBadge} ${accessBadge} ${inact} ${freqBadge} ${bdayBadge} ${companyAnnivBadge} ${nextStepBadge}
                         </div>
                         <div class="text-xs text-sant-cyan truncate hidden md:block">${dispJob||'-'}</div>
-                        <div class="text-xs text-gray-400 truncate hidden md:block">${dispPhone||'-'}</div>
-                        <div class="text-xs text-gray-400 truncate hidden md:block">${dispEmail||'-'}</div>
+                        <div class="text-xs text-gray-400 truncate hidden md:block ${dispPhone?'cursor-pointer hover:text-sant-cyan':''}" ${dispPhone?`onclick="event.stopPropagation();copyContactField('${dispPhone}','Telefone')" title="Clique para copiar"`:''}>${dispPhone||'-'}</div>
+                        <div class="text-xs text-gray-400 truncate hidden md:block ${dispEmail?'cursor-pointer hover:text-sant-cyan':''}" ${dispEmail?`onclick="event.stopPropagation();copyContactField('${dispEmail}','E-mail')" title="Clique para copiar"`:''}>${dispEmail||'-'}</div>
                     </div>
                     <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                         ${dispPhone?`<a href="tel:${dispPhone.replace(/\D/g,'')}" onclick="event.stopPropagation();logCallAttempt('${c.id}')" class="text-sant-cyan hover:text-[#7aafc8] p-1 bg-[#141414] rounded" title="Ligar"><i class="ph ph-phone-call text-xs"></i></a>`:''}
@@ -14073,8 +14131,8 @@
                         </div>
                     </div>
                     <div class="text-xs text-sant-cyan truncate">${dispJob||'-'}</div>
-                    <div class="text-xs text-gray-400 truncate">${dispPhone||'-'}</div>
-                    <div class="text-xs text-gray-400 truncate">${dispEmail||'-'}</div>
+                    <div class="text-xs text-gray-400 truncate ${dispPhone?'cursor-pointer hover:text-sant-cyan':''}" ${dispPhone?`onclick="event.stopPropagation();copyContactField('${dispPhone}','Telefone')" title="Clique para copiar"`:''}>${dispPhone||'-'}</div>
+                    <div class="text-xs text-gray-400 truncate ${dispEmail?'cursor-pointer hover:text-sant-cyan':''}" ${dispEmail?`onclick="event.stopPropagation();copyContactField('${dispEmail}','E-mail')" title="Clique para copiar"`:''}>${dispEmail||'-'}</div>
                 </div>
                 <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                     ${dispPhone?`<a href="tel:${dispPhone.replace(/\D/g,'')}" onclick="event.stopPropagation();logCallAttempt('${c.id}')" class="text-sant-cyan hover:text-[#7aafc8] p-1.5 bg-[#141414] rounded" title="Ligar"><i class="ph ph-phone-call"></i></a>`:''}
@@ -28162,7 +28220,10 @@
             const diffDays = Math.round((anniv - today) / 86400000);
             const dayFmt = `${String(bd).padStart(2,'0')}/${String(bm).padStart(2,'0')}`;
             if (diffDays > 14) return '';
-            if (diffDays === 0) return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-500/15 text-indigo-400 border border-indigo-500/25" title="Aniversário da empresa hoje! (${dayFmt})">🏢 Hoje!</span>`;
+            if (diffDays === 0) {
+                const hasPhone = !!(c.phoneProf || c.phonePess || c.phone);
+                return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-500/15 text-indigo-400 border border-indigo-500/25 ${hasPhone?'cursor-pointer hover:bg-indigo-500/25':''}" title="Aniversário da empresa hoje! (${dayFmt})${hasPhone?' — clique pra mandar parabéns':''}" ${hasPhone?`onclick="event.stopPropagation();sendCompanyAnniversaryWhatsapp('${c.id}')"`:''}>🏢 Hoje!${hasPhone?' <i class="ph ph-whatsapp-logo"></i>':''}</span>`;
+            }
             return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20" title="Aniversário da empresa em ${diffDays} dias (${dayFmt})">🏢 em ${diffDays}d</span>`;
         }
 
