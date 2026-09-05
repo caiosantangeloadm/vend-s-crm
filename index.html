@@ -10534,7 +10534,7 @@
             if(viewId === 'dashboard') renderDashboard();
             if(viewId === 'myweek') renderMyWeek();
             if(viewId === 'feed') renderActivityFeed();
-            if(viewId === 'calendar') renderCalendar();
+            if(viewId === 'calendar') { renderCalendar(); refreshEventsOnCalendarOpen(); }
             if(viewId === 'tasks') _refreshCurrentTaskView();
             if(viewId === 'notes') renderNotes();
             if(viewId === 'settings') renderSettingsView();
@@ -21492,6 +21492,19 @@
             showToast('Sincronização completa! ✓');
         }
 
+        // Evita que o usuário marque "Realizado"/edite um compromisso em cima de uma cópia
+        // desatualizada logo ao abrir a Agenda (ex: outra máquina editou o mesmo evento há
+        // pouco e o canal em tempo real deste dispositivo não pegou a mudança) — busca a
+        // versão mais recente assim que a aba Agenda é aberta, antes de qualquer ação do
+        // usuário. Throttle simples pra não repetir a busca em trocas rápidas de aba.
+        let lastCalendarOpenSyncAt = 0;
+        function refreshEventsOnCalendarOpen() {
+            if (!navigator.onLine || !currentUser) return;
+            if (Date.now() - lastCalendarOpenSyncAt < 20000) return;
+            lastCalendarOpenSyncAt = Date.now();
+            loadEventsFromSupabase();
+        }
+
         async function loadEventsFromSupabase() {
             const sb = getSB(); if (!sb || !currentUser) return;
             try {
@@ -24939,7 +24952,31 @@
             sel.value = selectedId || '';
         }
 
+        // Corrige o bug de "edição em cima de dado desatualizado": se este dispositivo ainda
+        // não tinha recebido uma alteração feita em outra máquina (ex: canal em tempo real
+        // perdeu um evento por estar em segundo plano), editar aqui com a cópia antiga e salvar
+        // reverte silenciosamente o que a outra máquina já tinha salvo (upsert da linha inteira).
+        // Busca a versão mais atual do evento específico assim que o modal abre, e atualiza o
+        // array local em segundo plano — como saveEvent() sempre lê `events` no momento de
+        // salvar (não no momento de abrir), isso garante que a base da edição fique fresca
+        // mesmo que o usuário demore pra clicar em Salvar.
+        async function refreshSingleEventFromCloud(id) {
+            const sb = getSB();
+            if (!sb || !currentUser || !navigator.onLine) return;
+            if (getOfflineQueue().some(q => q.table === 'events' && q.id === id)) return;
+            try {
+                const { data, error } = await sb.from('events').select('*').eq('id', id).maybeSingle();
+                if (error || !data) return;
+                const idx = events.findIndex(e => e.id === id);
+                if (idx !== -1) {
+                    events[idx] = data;
+                    localStorage.setItem('sant_crm_events', JSON.stringify(events));
+                }
+            } catch(e) { /* falha silenciosa — não crítico, o resync periódico cobre depois */ }
+        }
+
         function openEventModal(ev = null, dateStr = null) {
+            if (ev && ev.id) refreshSingleEventFromCloud(ev.id);
             eventEditDateContext = (ev && (ev.recurrence || 'none') !== 'none') ? (dateStr || ev.startDate) : null;
             document.getElementById('eventId').value = ev ? ev.id : '';
             document.getElementById('eventModalTitle').innerText = ev ? 'Editar Compromisso' : 'Novo Compromisso';
