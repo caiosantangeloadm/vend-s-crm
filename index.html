@@ -1166,6 +1166,9 @@
                     <button onclick="toggleQuickFilterNeverContacted()" id="btnQuickNeverContacted" class="px-3 py-1.5 rounded-full border border-red-400/40 text-red-400/70 hover:text-red-400 hover:border-red-400 transition-colors text-xs font-medium flex items-center gap-1.5">
                         <i class="ph ph-chat-circle-dots"></i> Nunca Contatado
                     </button>
+                    <button onclick="toggleQuickFilterIncomplete()" id="btnQuickIncomplete" class="px-3 py-1.5 rounded-full border border-orange-400/40 text-orange-400/70 hover:text-orange-400 hover:border-orange-400 transition-colors text-xs font-medium flex items-center gap-1.5">
+                        <i class="ph ph-warning-circle"></i> Perfil Incompleto
+                    </button>
                 </div>
 
                 <!-- Barra de Seleção Múltipla -->
@@ -1770,6 +1773,7 @@
                     <div class="flex items-center gap-2 sm:ml-auto flex-wrap">
                         <button id="btnEmptyTasksTrash" onclick="emptyTasksTrash()" class="hidden items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors"><i class="ph ph-trash"></i> Esvaziar Lixeira</button>
                         <button id="btnCleanOldCompletedTasks" onclick="cleanOldCompletedTasks()" class="hidden items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-red-400 hover:border-red-400/40 transition-colors" title="Move tarefas concluídas antigas pra Lixeira, liberando espaço"><i class="ph ph-broom"></i> Limpar Concluídas Antigas</button>
+                        <button onclick="copyTodayTasksList()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-sant-cyan hover:border-sant-cyan/40 transition-colors" title="Copiar lista de tarefas de hoje em texto"><i class="ph ph-copy"></i> Copiar Tarefas de Hoje</button>
                         <div class="relative">
                             <select id="taskSortSelect" onchange="setTaskSort(this.value)" class="appearance-none bg-sant-surface border border-sant-border rounded-lg pl-7 pr-3 py-2 text-sm text-gray-400 outline-none transition-colors cursor-pointer hover:border-sant-cyan">
                                 <option value="date">Por data</option>
@@ -4298,6 +4302,7 @@
                 <button id="bcEmail" class="hidden flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-sant-surface border border-sant-border text-gray-300 hover:border-sant-cyan hover:text-sant-cyan text-sm font-medium transition-colors"><i class="ph ph-envelope"></i> E-mail</button>
                 <button id="bcVcf" onclick="" class="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:border-sant-cyan hover:text-sant-cyan text-sm transition-colors" title="Baixar vCard"><i class="ph ph-address-book"></i></button>
                 <button id="bcShare" class="hidden items-center justify-center gap-2 px-3 py-2 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:border-sant-cyan hover:text-sant-cyan text-sm transition-colors" title="Compartilhar"><i class="ph ph-share-network"></i></button>
+                <button id="bcCopyText" class="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-sant-surface border border-sant-border text-gray-400 hover:border-sant-cyan hover:text-sant-cyan text-sm transition-colors" title="Copiar como texto"><i class="ph ph-copy"></i></button>
             </div>
         </div>
     </div>
@@ -4843,6 +4848,7 @@
                     <label class="text-xs font-bold text-gray-500 uppercase tracking-wider shrink-0">Próximo contato em</label>
                     <input type="date" id="historyNextContact" onchange="setNextContact(this.value)" class="bg-[#141414] border border-sant-border rounded-lg px-3 py-1.5 text-sm text-white outline-none">
                     <button id="historyNextContactClear" onclick="setNextContact('')" title="Remover lembrete" class="hidden text-gray-500 hover:text-red-500 transition-colors p-1"><i class="ph ph-x-circle"></i></button>
+                    <button id="historyNextContactWhatsapp" onclick="sendFollowupWhatsapp()" class="hidden items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#25D366]/10 border border-[#25D366]/30 hover:bg-[#25D366]/20 text-[#25D366] text-xs font-bold transition-colors" title="Follow-up vencido — retomar contato por WhatsApp"><i class="ph ph-whatsapp-logo"></i> Retomar</button>
                 </div>
                 <!-- Próximo passo -->
                 <div class="flex items-center gap-2">
@@ -5828,6 +5834,7 @@
         let quickFilterNeverContacted = false;
         let quickFilterNoPhone = false;
         let quickFilterNoEmail = false;
+        let quickFilterIncomplete = false;
         let quickFilterInactiveDash = false;
         let currentContactTags = [];
         let currentContactLists = [];
@@ -13624,6 +13631,7 @@
             if (quickFilterNeverContacted) filtered = filtered.filter(c => !c.interactions || c.interactions.length === 0);
             if (quickFilterNoPhone) filtered = filtered.filter(c => !(c.phoneProf || c.phonePess || c.phone));
             if (quickFilterNoEmail) filtered = filtered.filter(c => !(c.emailProf || c.emailPess || c.email));
+            if (quickFilterIncomplete) filtered = filtered.filter(c => !(c.phoneProf || c.phonePess || c.phone) || !(c.emailProf || c.emailPess || c.email));
             if (quickFilterInactiveDash) filtered = filtered.filter(c => {
                 if (c.ignoreInactivityAlerts) return false;
                 const days = getInactivityDays(c);
@@ -25689,6 +25697,15 @@
             if (email) { emBtn.classList.remove('hidden'); emBtn.onclick = () => window.open('mailto:'+email,'_blank'); }
             else emBtn.classList.add('hidden');
             vcfBtn.onclick = () => exportContactVcf(id);
+            const copyTextBtn = document.getElementById('bcCopyText');
+            copyTextBtn.onclick = () => {
+                const lines = [fullName(c)];
+                if (jobStr) lines.push(jobStr);
+                if (phone) lines.push('📞 ' + phone);
+                if (email) lines.push('✉️ ' + email);
+                if (c.site) lines.push('🌐 ' + c.site);
+                navigator.clipboard.writeText(lines.join('\n')).then(() => showToast('Cartão copiado como texto!'));
+            };
             if (navigator.share) {
                 shareBtn.classList.remove('hidden'); shareBtn.classList.add('flex');
                 shareBtn.onclick = () => navigator.share({ title: fullName(c), text: `${fullName(c)}${c.company?' · '+c.company:''}${phone?' · '+phone:''}`, url: window.location.href });
@@ -25877,6 +25894,24 @@
 
         // PDF das tarefas de hoje — combina uma lista simples (ordenada por horário) com a
         // Matriz de Eisenhower (urgente x importante), só para as tarefas do dia atual.
+        function copyTodayTasksList() {
+            const todayStr = getSPTodayStr();
+            const todaysTasks = tasks.filter(t => !t.deletedAt && !t.archived && t.date === todayStr);
+            if (!todaysTasks.length) { showToast('Nenhuma tarefa para hoje.', 'error'); return; }
+            const byTime = (a,b) => (a.time||'99:99').localeCompare(b.time||'99:99');
+            const sorted = [...todaysTasks].sort(byTime);
+            const P_LABEL = { urgent: 'urgente', high: 'alta', medium: 'média', low: 'baixa' };
+            const lines = sorted.map(t => {
+                const check = t.completed ? '✅' : '⬜';
+                const time = t.time ? `${t.time} — ` : '';
+                const prio = t.priority && t.priority !== 'medium' ? ` (${P_LABEL[t.priority]})` : '';
+                return `${check} ${time}${t.title}${prio}`;
+            });
+            const dateFmt = todayStr.split('-').reverse().join('/');
+            const text = `📋 Tarefas de hoje (${dateFmt})\n\n${lines.join('\n')}`;
+            navigator.clipboard.writeText(text).then(() => showToast('Lista de tarefas de hoje copiada!'));
+        }
+
         function exportTodayTasksPdf() {
             const todayStr = getSPTodayStr();
             const todaysTasks = tasks.filter(t => !t.deletedAt && !t.archived && t.date === todayStr);
@@ -26591,6 +26626,15 @@
             renderContacts(document.getElementById('searchInput') ? document.getElementById('searchInput').value : '');
         }
 
+        function toggleQuickFilterIncomplete() {
+            quickFilterIncomplete = !quickFilterIncomplete;
+            const btn = document.getElementById('btnQuickIncomplete');
+            btn.className = quickFilterIncomplete
+                ? 'px-3 py-1.5 rounded-full bg-orange-400 text-sant-bg font-bold transition-colors text-xs flex items-center gap-1.5'
+                : 'px-3 py-1.5 rounded-full border border-orange-400/40 text-orange-400/70 hover:text-orange-400 hover:border-orange-400 transition-colors text-xs font-medium flex items-center gap-1.5';
+            renderContacts(document.getElementById('searchInput') ? document.getElementById('searchInput').value : '');
+        }
+
         function applyAdvFilters() {
             activeFilters.category    = document.getElementById('filterCategory').value;
             activeFilters.isLead      = document.getElementById('filterLead').value;
@@ -26615,6 +26659,7 @@
             quickFilterNeverContacted = false;
             quickFilterNoPhone = false;
             quickFilterNoEmail = false;
+            quickFilterIncomplete = false;
             quickFilterInactiveDash = false;
             activeFilters = { category: '', isLead: '', temperature: '', tag: '', origin: '', list: '', city: '', state: '', intType: '', intFrom: '', intTo: '', pipelineStage: '' };
             ['filterCategory','filterLead','filterTemp','filterTag','filterOrigin','filterList','filterCity','filterState','filterIntType','filterIntFrom','filterIntTo','filterPipelineStage'].forEach(id => {
@@ -26918,6 +26963,9 @@
 
             document.getElementById('historyNextContact').value = c.nextContact || '';
             document.getElementById('historyNextContactClear').classList.toggle('hidden', !c.nextContact);
+            const followupWaBtn = document.getElementById('historyNextContactWhatsapp');
+            const followupOverdue = c.nextContact && c.nextContact <= getSPTodayStr() && (c.phoneProf || c.phonePess || c.phone);
+            if (followupWaBtn) { followupWaBtn.classList.toggle('hidden', !followupOverdue); followupWaBtn.classList.toggle('flex', !!followupOverdue); }
             const nsInp = document.getElementById('historyNextStep');
             const nsClr = document.getElementById('historyNextStepClear');
             if (nsInp) nsInp.value = c.nextStep || '';
@@ -28513,9 +28561,28 @@
                 localStorage.removeItem(key);
             }
             saveToStorage();
+            cloudSyncContact(c);
             document.getElementById('historyNextContactClear').classList.toggle('hidden', !c.nextContact);
+            const followupWaBtn = document.getElementById('historyNextContactWhatsapp');
+            const followupOverdue = c.nextContact && c.nextContact <= getSPTodayStr() && (c.phoneProf || c.phonePess || c.phone);
+            if (followupWaBtn) { followupWaBtn.classList.toggle('hidden', !followupOverdue); followupWaBtn.classList.toggle('flex', !!followupOverdue); }
             renderFollowUpHistory(c);
             showToast(c.nextContact ? 'Lembrete de follow-up definido.' : 'Lembrete removido.');
+        }
+
+        function sendFollowupWhatsapp() {
+            if (!currentHistoryContactId) return;
+            const c = contacts.find(x => x.id === currentHistoryContactId);
+            if (!c) return;
+            const phone = (c.phoneProf || c.phonePess || c.phone || '').replace(/\D/g, '');
+            if (!phone) { showToast('Este contato não tem telefone cadastrado.', 'error'); return; }
+            const firstName = c.name || fullName(c);
+            const text = `Oi ${firstName}! Tudo bem? Passando aqui pra retomar nosso contato :)`;
+            window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
+            if (!c.interactions) c.interactions = [];
+            c.interactions.unshift({ id: crypto.randomUUID(), type: 'WhatsApp', date: getSPTodayStr(), notes: 'Follow-up retomado por WhatsApp' });
+            saveToStorage();
+            cloudSyncContact(c);
         }
 
         // Resumo rápido em linguagem natural — gerado por regras a partir dos dados já existentes
