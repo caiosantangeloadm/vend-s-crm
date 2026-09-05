@@ -1057,6 +1057,7 @@
                 <div class="bg-sant-surface border border-sant-border rounded-2xl p-6 flex flex-col">
                     <div class="flex justify-between items-center mb-6 shrink-0">
                         <p class="text-xs font-bold text-white tracking-wide uppercase flex items-center gap-2"><i class="ph ph-cake text-sant-purple text-lg"></i> Aniversariantes do Mês</p>
+                        <button onclick="copyMonthBirthdaysList()" class="text-[10px] text-gray-500 hover:text-sant-cyan transition-colors flex items-center gap-1" title="Copiar lista de aniversariantes do mês"><i class="ph ph-copy"></i> Copiar lista</button>
                     </div>
                     <div id="dashMonthBirthdays" class="space-y-3"></div>
                 </div>
@@ -4797,7 +4798,10 @@
                         <span id="historyRelDuration" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full border border-sant-cyan/30 bg-sant-cyan/10 text-sant-cyan items-center gap-1"><i class="ph ph-calendar-heart"></i> <span></span></span>
                         <button id="tempSuggestionChip" onclick="applyTemperatureSuggestion()" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-400/40 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20 transition-colors items-center gap-1" title="Clique para aplicar"></button>
                     </div>
-                    <a id="historyContactAddress" href="#" target="_blank" rel="noopener" class="hidden text-xs text-sant-cyan hover:underline mt-1 items-center gap-1"><i class="ph ph-map-pin"></i> <span></span></a>
+                    <div class="hidden items-center gap-1.5 mt-1" id="historyContactAddressWrap">
+                        <a id="historyContactAddress" href="#" target="_blank" rel="noopener" class="text-xs text-sant-cyan hover:underline flex items-center gap-1"><i class="ph ph-map-pin"></i> <span></span></a>
+                        <button onclick="event.stopPropagation();copyContactField(document.getElementById('historyContactAddress').querySelector('span').innerText,'Endereço')" class="text-gray-500 hover:text-sant-cyan transition-colors" title="Copiar endereço"><i class="ph ph-copy text-xs"></i></button>
+                    </div>
                     <div class="flex items-center gap-3 mt-1">
                         <a id="historyContactInstagram" href="#" target="_blank" rel="noopener" class="hidden text-xs text-pink-400 hover:underline items-center gap-1"><i class="ph ph-instagram-logo"></i> Instagram</a>
                         <a id="historyContactLinkedin" href="#" target="_blank" rel="noopener" class="hidden text-xs text-sant-cyan hover:underline items-center gap-1"><i class="ph ph-linkedin-logo"></i> LinkedIn</a>
@@ -10468,6 +10472,20 @@
                     </div>` : `<i class="ph ph-cake text-sant-purple shrink-0"></i>`}
                 </div>`;
             }).join('') + `</div>`;
+        }
+
+        function copyMonthBirthdaysList() {
+            const todayStr = getSPTodayStr();
+            const currentMonth = parseInt(todayStr.substring(5, 7));
+            const monthNames = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+            const monthBdays = contacts
+                .filter(c => c.birth && getBirthMonth(c.birth) === currentMonth)
+                .map(c => ({ c, day: getBirthDay(c.birth) }))
+                .sort((a, b) => a.day - b.day);
+            if (monthBdays.length === 0) { showToast('Nenhum aniversariante este mês.', 'error'); return; }
+            const lines = monthBdays.map(({c, day}) => `${String(day).padStart(2,'0')}/${String(currentMonth).padStart(2,'0')} — ${fullName(c)}`);
+            const text = `🎂 Aniversariantes de ${monthNames[currentMonth-1]}\n\n${lines.join('\n')}`;
+            navigator.clipboard.writeText(text).then(() => showToast('Lista de aniversariantes copiada!'));
         }
 
         // Escolhe o melhor modelo de Aniversário pro contato: prioriza um modelo específico da
@@ -26876,15 +26894,16 @@
                 }
             }
             const addrLink = document.getElementById('historyContactAddress');
+            const addrWrap = document.getElementById('historyContactAddressWrap');
             const addrStr = buildAddressString(c);
             if (addrStr) {
                 addrLink.href = getMapsUrl(c);
                 addrLink.querySelector('span').innerText = addrStr;
-                addrLink.classList.remove('hidden');
-                addrLink.classList.add('inline-flex');
+                addrWrap.classList.remove('hidden');
+                addrWrap.classList.add('flex');
             } else {
-                addrLink.classList.add('hidden');
-                addrLink.classList.remove('inline-flex');
+                addrWrap.classList.add('hidden');
+                addrWrap.classList.remove('flex');
             }
             const igLink = document.getElementById('historyContactInstagram');
             const igUrl = getInstagramUrl(c);
