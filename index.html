@@ -7308,6 +7308,7 @@
                 tags: e.tags || [],
                 attachments: e.attachments || [],
                 "deletedAt": e.deletedAt || null,
+                "updatedAt": e.updatedAt || new Date().toISOString(),
             };
         }
 
@@ -7428,8 +7429,15 @@
                         const arr = { contacts, tasks, events, notes, products }[item.table];
                         const record = arr?.find(x => x.id === item.id);
                         if (!record) continue; // registro não existe mais localmente, nada a sincronizar
-                        const rowFn = { contacts: contactToRow, tasks: taskToRow, events: eventToRow, notes: noteToRow, products: productToRow }[item.table];
-                        result = await withTimeout(sb.from(item.table).upsert(rowFn(record), { onConflict: 'id' }).select('id'), 5000);
+                        if (item.table === 'events') {
+                            // Reenvio de fila presa há muito tempo (ex: celular que ficou dias sem
+                            // abrir o app) não pode sobrescrever cegamente uma mudança mais recente
+                            // feita em outro dispositivo enquanto isso — mesma proteção de cloudSyncEvent.
+                            result = await withTimeout(_upsertEventSafely(sb, record), 5000);
+                        } else {
+                            const rowFn = { contacts: contactToRow, tasks: taskToRow, notes: noteToRow, products: productToRow }[item.table];
+                            result = await withTimeout(sb.from(item.table).upsert(rowFn(record), { onConflict: 'id' }).select('id'), 5000);
+                        }
                     }
                     // Mesma correção do syncOrQueue: sem checar .error, um erro real do servidor
                     // era tratado como sucesso e a alteração "sumia" da fila sem nunca ter sido salva.
@@ -7529,9 +7537,31 @@
             const sb = getSB(); if (!sb || !currentUser) return;
             await syncOrQueue('tasks', 'delete', id, () => sb.from('tasks').delete().eq('id', id));
         }
+        // Antes de gravar um evento na nuvem, confere se ela já não tem uma versão MAIS NOVA
+        // do que a que estamos prestes a enviar (feita em outro dispositivo enquanto esta
+        // alteração ficava presa na fila offline, às vezes por dias — ex: celular que ficou
+        // sem abrir o app). Sem isso, uma gravação antiga "atrasada" reverte silenciosamente
+        // uma mudança mais recente feita em outro aparelho.
+        async function _upsertEventSafely(sb, record) {
+            if (record.updatedAt) {
+                try {
+                    const { data: cloudRow } = await sb.from('events').select('*').eq('id', record.id).maybeSingle();
+                    if (cloudRow && cloudRow.updatedAt && new Date(cloudRow.updatedAt).getTime() > new Date(record.updatedAt).getTime()) {
+                        const idx = events.findIndex(x => x.id === record.id);
+                        if (idx !== -1) { events[idx] = cloudRow; localStorage.setItem('sant_crm_events', JSON.stringify(events)); }
+                        if (currentView === 'calendar') renderCalendar();
+                        if (currentView === 'dashboard') renderDashboard();
+                        return { data: [{ id: record.id }] };
+                    }
+                } catch(e) { /* se a checagem falhar, segue com o upsert normal abaixo */ }
+            }
+            return sb.from('events').upsert(eventToRow(record), { onConflict: 'id' }).select('id');
+        }
         async function cloudSyncEvent(e) {
             const sb = getSB(); if (!sb || !currentUser) return;
-            await syncOrQueue('events', 'upsert', e.id, () => sb.from('events').upsert(eventToRow(e), { onConflict: 'id' }).select('id'));
+            e.updatedAt = new Date().toISOString();
+            localStorage.setItem('sant_crm_events', JSON.stringify(events));
+            await syncOrQueue('events', 'upsert', e.id, () => _upsertEventSafely(sb, e));
         }
         async function cloudDeleteEvent(id) {
             const sb = getSB(); if (!sb || !currentUser) return;
