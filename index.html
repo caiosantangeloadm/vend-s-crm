@@ -5813,7 +5813,7 @@
         ];
 
         let currentMonthDate;
-        let calViewMode = 'day';
+        let calViewMode = 'month';
         let calFilterType = '';
         let calWorkWeekMode = localStorage.getItem('vends_cal_workweek') === '1';
         let calFilterContact = '';
@@ -10634,7 +10634,12 @@
             if(viewId === 'dashboard') renderDashboard();
             if(viewId === 'myweek') renderMyWeek();
             if(viewId === 'feed') renderActivityFeed();
-            if(viewId === 'calendar') { renderCalendar(); refreshEventsOnCalendarOpen(); }
+            if(viewId === 'calendar') {
+                const todayParts = getSPTodayStr().split('-').map(Number);
+                currentMonthDate = new Date(todayParts[0], todayParts[1] - 1, todayParts[2]);
+                setCalendarMode('day');
+                refreshEventsOnCalendarOpen();
+            }
             if(viewId === 'tasks') _refreshCurrentTaskView();
             if(viewId === 'notes') renderNotes();
             if(viewId === 'settings') renderSettingsView();
