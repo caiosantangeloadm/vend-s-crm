@@ -5848,6 +5848,7 @@
         let quickFilterNoEmail = false;
         let quickFilterIncomplete = false;
         let quickFilterBirthdayToday = false;
+        let quickFilterFollowupOverdue = false;
         let quickFilterInactiveDash = false;
         let currentContactTags = [];
         let currentContactLists = [];
@@ -8036,10 +8037,10 @@
                 </div>`;
 
             sectionsEl.innerHTML =
-                stat('ph-calendar-check','#5b8fa8', evToday.length,  'eventos<br>hoje',    `switchView('calendar')`) +
+                stat('ph-calendar-check','#5b8fa8', evToday.length,  'eventos<br>hoje',    `switchView('calendar');setTimeout(()=>switchToDayView('${todayStr}'),200)`) +
                 stat('ph-check-square',  '#34d399', tasksPend.length,'tarefas<br>pendentes',`switchView('tasks')`) +
                 stat('ph-cake',          '#ec4899', bdayToday.length,'aniversários<br>hoje',`goToBirthdaysToday()`) +
-                stat('ph-bell-ringing',  '#fbbf24', fuOverdue.length,'follow-ups<br>vencidos',`switchView('contacts')`);
+                stat('ph-bell-ringing',  '#fbbf24', fuOverdue.length,'follow-ups<br>vencidos',`goToFollowupsOverdue()`);
 
             // ── Lista compacta dos itens do dia ────────────────────────────
             const rows = [];
@@ -13680,6 +13681,11 @@
                 const todayStr = getSPTodayStr();
                 const tm = parseInt(todayStr.substring(5,7)), td = parseInt(todayStr.substring(8,10));
                 filtered = filtered.filter(c => c.birth && getBirthMonth(c.birth) === tm && getBirthDay(c.birth) === td);
+            }
+            if (quickFilterFollowupOverdue) {
+                const todayStr = getSPTodayStr();
+                filtered = filtered.filter(c => c.nextContact && c.nextContact <= todayStr
+                    && !(c.interactions||[]).some(i => i.date >= c.nextContact));
             }
             if (quickFilterInactiveDash) filtered = filtered.filter(c => {
                 if (c.ignoreInactivityAlerts) return false;
@@ -26744,6 +26750,7 @@
             quickFilterNoEmail = false;
             quickFilterIncomplete = false;
             quickFilterBirthdayToday = false;
+            quickFilterFollowupOverdue = false;
             quickFilterInactiveDash = false;
             activeFilters = { category: '', isLead: '', temperature: '', tag: '', origin: '', list: '', city: '', state: '', intType: '', intFrom: '', intTo: '', pipelineStage: '' };
             ['filterCategory','filterLead','filterTemp','filterTag','filterOrigin','filterList','filterCity','filterState','filterIntType','filterIntFrom','filterIntTo','filterPipelineStage'].forEach(id => {
@@ -26758,6 +26765,14 @@
             switchView('contacts');
             renderContacts('');
             showToast('Filtrando aniversariantes de hoje.');
+        }
+
+        function goToFollowupsOverdue() {
+            resetAllContactQuickFilters();
+            quickFilterFollowupOverdue = true;
+            switchView('contacts');
+            renderContacts('');
+            showToast('Filtrando follow-ups vencidos.');
         }
 
         // Drill-down do Dashboard: card Saúde da Base → lista de Contatos já filtrada
