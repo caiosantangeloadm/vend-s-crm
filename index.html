@@ -5847,6 +5847,7 @@
         let quickFilterNoPhone = false;
         let quickFilterNoEmail = false;
         let quickFilterIncomplete = false;
+        let quickFilterBirthdayToday = false;
         let quickFilterInactiveDash = false;
         let currentContactTags = [];
         let currentContactLists = [];
@@ -8037,7 +8038,7 @@
             sectionsEl.innerHTML =
                 stat('ph-calendar-check','#5b8fa8', evToday.length,  'eventos<br>hoje',    `switchView('calendar')`) +
                 stat('ph-check-square',  '#34d399', tasksPend.length,'tarefas<br>pendentes',`switchView('tasks')`) +
-                stat('ph-cake',          '#ec4899', bdayToday.length,'aniversários<br>hoje',`switchView('contacts')`) +
+                stat('ph-cake',          '#ec4899', bdayToday.length,'aniversários<br>hoje',`goToBirthdaysToday()`) +
                 stat('ph-bell-ringing',  '#fbbf24', fuOverdue.length,'follow-ups<br>vencidos',`switchView('contacts')`);
 
             // ── Lista compacta dos itens do dia ────────────────────────────
@@ -13675,6 +13676,11 @@
             if (quickFilterNoPhone) filtered = filtered.filter(c => !(c.phoneProf || c.phonePess || c.phone));
             if (quickFilterNoEmail) filtered = filtered.filter(c => !(c.emailProf || c.emailPess || c.email));
             if (quickFilterIncomplete) filtered = filtered.filter(c => !(c.phoneProf || c.phonePess || c.phone) || !(c.emailProf || c.emailPess || c.email));
+            if (quickFilterBirthdayToday) {
+                const todayStr = getSPTodayStr();
+                const tm = parseInt(todayStr.substring(5,7)), td = parseInt(todayStr.substring(8,10));
+                filtered = filtered.filter(c => c.birth && getBirthMonth(c.birth) === tm && getBirthDay(c.birth) === td);
+            }
             if (quickFilterInactiveDash) filtered = filtered.filter(c => {
                 if (c.ignoreInactivityAlerts) return false;
                 const days = getInactivityDays(c);
@@ -26737,12 +26743,21 @@
             quickFilterNoPhone = false;
             quickFilterNoEmail = false;
             quickFilterIncomplete = false;
+            quickFilterBirthdayToday = false;
             quickFilterInactiveDash = false;
             activeFilters = { category: '', isLead: '', temperature: '', tag: '', origin: '', list: '', city: '', state: '', intType: '', intFrom: '', intTo: '', pipelineStage: '' };
             ['filterCategory','filterLead','filterTemp','filterTag','filterOrigin','filterList','filterCity','filterState','filterIntType','filterIntFrom','filterIntTo','filterPipelineStage'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.value = '';
             });
+        }
+
+        function goToBirthdaysToday() {
+            resetAllContactQuickFilters();
+            quickFilterBirthdayToday = true;
+            switchView('contacts');
+            renderContacts('');
+            showToast('Filtrando aniversariantes de hoje.');
         }
 
         // Drill-down do Dashboard: card Saúde da Base → lista de Contatos já filtrada
