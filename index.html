@@ -702,6 +702,15 @@
                     <div id="dashStalledDealsList" class="space-y-2"></div>
                 </div>
 
+                <!-- Card: Clientes Sem Movimento -->
+                <div id="dashClientsStalledCard" data-dash-title="Clientes Sem Movimento" class="hidden bg-sant-surface border border-sant-border rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase flex items-center gap-2"><i class="ph ph-shopping-cart-simple text-orange-400"></i> Clientes Sem Movimento</p>
+                        <span id="dashClientsStalledCount" class="text-[10px] font-bold text-orange-400 bg-orange-500/10 border border-orange-500/20 rounded-full px-2 py-0.5"></span>
+                    </div>
+                    <div id="dashClientsStalledList" class="space-y-2"></div>
+                </div>
+
                 <!-- Card: Sem Interação Este Mês -->
                 <div id="dashNoInteractionMonthCard" data-dash-title="Sem Interação Este Mês" class="hidden bg-sant-surface border border-sant-border rounded-2xl p-6">
                     <div class="flex items-center justify-between mb-3">
@@ -2334,6 +2343,9 @@
                         </div>
                         <button id="btnNotesFavorite" onclick="toggleNotesFavoriteFilter()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-[#fbbf24] transition-colors" title="Mostrar só as notas favoritas">
                             <i class="ph ph-star"></i> Favoritas
+                        </button>
+                        <button onclick="copyTodayRemindersNotes()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-sant-cyan transition-colors" title="Copiar notas com lembrete/vencimento hoje">
+                            <i class="ph ph-copy"></i> Copiar Lembretes de Hoje
                         </button>
                         <button id="btnNotesArchive" onclick="toggleNotesArchive()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-white transition-colors">
                             <i class="ph ph-archive"></i> Arquivo
@@ -7969,6 +7981,7 @@
             renderWaitingCard(todayStr);
             renderStalledDealsCard(todayStr);
             renderNoInteractionMonthCard(todayStr);
+            renderClientsStalledCard(todayStr);
             // Refresh streak UI quando dashboard abre
             const _sd = parseInt(localStorage.getItem('vends_streak_days')||'0');
             const _sb = parseInt(localStorage.getItem('vends_streak_best')||'0');
@@ -8230,6 +8243,35 @@
             (stalled.length > 5 ? `<p class="text-[10px] text-gray-600 text-center pt-1">+${stalled.length-5} negócio(s) — clique para ver o Pipeline</p>` : '');
         }
 
+        function renderClientsStalledCard(todayStr) {
+            const card = document.getElementById('dashClientsStalledCard');
+            if (!card) return;
+            const cutoff60 = addDaysToDateStr(todayStr, -60);
+            const stalled = contacts.filter(c => {
+                if (c.deletedAt || !(c.totalRevenue > 0)) return false;
+                const ints = c.interactions || [];
+                const lastDate = ints.length ? [...ints].sort((a,b) => (b.date||'').localeCompare(a.date||''))[0].date : null;
+                return !lastDate || lastDate < cutoff60;
+            }).map(c => {
+                const ints = c.interactions || [];
+                const lastDate = ints.length ? [...ints].sort((a,b) => (b.date||'').localeCompare(a.date||''))[0].date : null;
+                return { c, lastDate };
+            }).sort((a,b) => (a.lastDate||'').localeCompare(b.lastDate||''));
+
+            if (stalled.length === 0) { card.classList.add('hidden'); return; }
+            card.classList.remove('hidden');
+            document.getElementById('dashClientsStalledCount').textContent = `${stalled.length} cliente${stalled.length!==1?'s':''}`;
+
+            const list = document.getElementById('dashClientsStalledList');
+            list.innerHTML = stalled.slice(0, 5).map(({c, lastDate}) => `
+                <div class="flex items-center gap-2.5 py-1.5 border-b border-sant-border/40 last:border-0 cursor-pointer hover:bg-white/3 transition-colors rounded px-1" onclick="openHistoryModal('${c.id}')">
+                    <i class="ph ph-shopping-cart-simple shrink-0 text-sm text-orange-400"></i>
+                    <span class="text-xs text-white flex-1 truncate">${fullName(c)}${c.company?` <span class="text-gray-500">— ${c.company}</span>`:''}</span>
+                    <span class="text-[10px] font-bold shrink-0 text-gray-500">${lastDate ? lastDate.split('-').reverse().join('/') : 'nunca'}</span>
+                </div>`).join('') +
+            (stalled.length > 5 ? `<p class="text-[10px] text-gray-600 text-center pt-1">+${stalled.length-5} cliente(s) sem movimento há 60+ dias</p>` : '');
+        }
+
         function renderNoInteractionMonthCard(todayStr) {
             const card = document.getElementById('dashNoInteractionMonthCard');
             if (!card) return;
@@ -8353,6 +8395,7 @@
             { id: 'dashWaitingCard',        title: 'Aguardando Terceiros' },
             { id: 'dashStalledDealsCard',   title: 'Negócios Parados' },
             { id: 'dashNoInteractionMonthCard', title: 'Sem Interação Este Mês' },
+            { id: 'dashClientsStalledCard', title: 'Clientes Sem Movimento' },
             { id: 'dashAttentionCard',      title: 'Hoje Preciso de Atenção' },
             { id: 'dashFollowupCard',       title: 'Taxa de Follow-ups' },
             { id: 'dashLeadsEvolutionCard', title: 'Evolução de Leads' },
@@ -10470,7 +10513,7 @@
                         ${String(day).padStart(2,'0')}
                     </div>
                     <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium text-[#ec4899] truncate">${fullName(c)}</p>
+                        <p class="text-sm font-medium text-[#ec4899] truncate">${/famil/i.test(c.category||'') ? '👨‍👩‍👧 ' : ''}${fullName(c)}</p>
                         ${isToday ? '<p class="text-[10px] text-sant-purple font-bold">🎉 Hoje!</p>' : ''}
                     </div>
                     ${isToday ? `<div class="flex items-center gap-1.5 shrink-0">
@@ -17670,6 +17713,7 @@
                             </div>
                             <div class="flex flex-col gap-0.5 opacity-100 sm:opacity-0 sm:group-hover/ev:opacity-100 transition-opacity shrink-0">
                                 ${e.virtualLocation ? `<a href="${e.virtualLocation}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="text-sant-cyan hover:text-white text-[11px] leading-none" title="Entrar na reunião"><i class="ph ph-video-camera"></i></a>` : ''}
+                                ${(linkedC && (linkedC.phoneProf||linkedC.phonePess||linkedC.phone)) ? `<button onclick="event.stopPropagation();sendEventReminderWhatsapp('${e.id}','${dateStr}')" class="text-[#25D366] hover:text-[#1fb855] text-[11px] leading-none" title="Lembrar compromisso por WhatsApp"><i class="ph ph-whatsapp-logo"></i></button>` : ''}
                                 <select onclick="event.stopPropagation()" onchange="event.stopPropagation();setEventOutcome('${e.id}','${dateStr}',this.value)" class="bg-transparent border-none outline-none text-[10px] leading-none cursor-pointer" style="color:${om?om.color:'#6b7280'};max-width:20px" title="Resultado do compromisso">
                                     <option value="" ${!outcome?'selected':''}>—</option>
                                     <option value="realized" ${outcome==='realized'?'selected':''}>✅ Realizado</option>
@@ -18058,6 +18102,24 @@
             cancelled:   { icon: 'ph-x-circle',          color: '#94a3b8', label: 'Cancelado' },
             rescheduled: { icon: 'ph-arrows-clockwise',  color: '#fbbf24', label: 'Remarcado' },
         };
+        function sendEventReminderWhatsapp(id, dateStr) {
+            const ev = events.find(e => e.id === id);
+            if (!ev) return;
+            const c = ev.contactId ? contacts.find(x => x.id === ev.contactId) : null;
+            if (!c) return;
+            const phone = (c.phoneProf || c.phonePess || c.phone || '').replace(/\D/g, '');
+            if (!phone) { showToast('Este contato não tem telefone cadastrado.', 'error'); return; }
+            const firstName = c.name || fullName(c);
+            const dateFmt = dateStr.split('-').reverse().join('/');
+            const timeStr = ev.startTime ? ` às ${ev.startTime}` : '';
+            const text = `Oi ${firstName}! Passando pra lembrar do nosso compromisso "${ev.title}" hoje (${dateFmt})${timeStr}. Até já!`;
+            window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
+            if (!c.interactions) c.interactions = [];
+            c.interactions.unshift({ id: crypto.randomUUID(), type: 'WhatsApp', date: getSPTodayStr(), notes: 'Lembrete de compromisso enviado' });
+            saveToStorage();
+            cloudSyncContact(c);
+        }
+
         function setEventOutcome(id, dateStr, outcome) {
             const ev = events.find(e => e.id === id);
             if (!ev) return;
@@ -25894,6 +25956,21 @@
 
         // PDF das tarefas de hoje — combina uma lista simples (ordenada por horário) com a
         // Matriz de Eisenhower (urgente x importante), só para as tarefas do dia atual.
+        function copyTodayRemindersNotes() {
+            const todayStr = getSPTodayStr();
+            const dueNotes = notes.filter(n => !n.deletedAt && !n.archived && n.dueDate && n.dueDate <= todayStr);
+            if (!dueNotes.length) { showToast('Nenhuma nota com lembrete pra hoje.', 'error'); return; }
+            const sorted = [...dueNotes].sort((a,b) => (a.dueDate||'').localeCompare(b.dueDate||''));
+            const lines = sorted.map(n => {
+                const overdue = n.dueDate < todayStr ? ' (atrasada)' : '';
+                const title = n.title || (n.body||'').split('\n')[0].substring(0,60) || 'Sem título';
+                return `📝 ${title}${overdue}`;
+            });
+            const dateFmt = todayStr.split('-').reverse().join('/');
+            const text = `🔔 Lembretes de notas (${dateFmt})\n\n${lines.join('\n')}`;
+            navigator.clipboard.writeText(text).then(() => showToast('Lista de lembretes copiada!'));
+        }
+
         function copyTodayTasksList() {
             const todayStr = getSPTodayStr();
             const todaysTasks = tasks.filter(t => !t.deletedAt && !t.archived && t.date === todayStr);
