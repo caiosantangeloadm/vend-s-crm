@@ -1592,7 +1592,7 @@
             <div id="view-calendar" class="hidden max-w-6xl mx-auto flex flex-col">
                 <div class="flex gap-6">
                 <!-- ── Mini-calendário lateral ── -->
-                <div class="hidden lg:flex flex-col gap-4 shrink-0 w-56">
+                <div id="calMiniPanel" class="hidden lg:flex flex-col gap-4 shrink-0 w-56">
                     <div class="bg-sant-surface border border-sant-border rounded-xl p-4 sticky top-0">
                         <div class="flex items-center justify-between mb-3">
                             <button onclick="miniCalNav(-1)" class="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-white transition-colors rounded hover:bg-white/5"><i class="ph ph-caret-left text-xs"></i></button>
@@ -1623,6 +1623,9 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-3">
+                        <button id="btnToggleCalMini" onclick="toggleCalMiniPanel()" class="hidden lg:flex w-10 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan items-center justify-center transition-colors shrink-0" title="Ocultar mini-calendário">
+                            <i class="ph ph-sidebar-simple text-lg"></i>
+                        </button>
                         <div class="flex bg-sant-surface border border-sant-border rounded-lg overflow-hidden shrink-0">
                             <button id="btnViewCalMonth" onclick="setCalendarMode('month')" class="px-4 py-2 text-sm font-medium text-sant-cyan bg-sant-cyan/10 transition-colors">Mês</button>
                             <button id="btnViewCalWeek" onclick="setCalendarMode('week')" class="px-4 py-2 text-sm font-medium text-gray-400 hover:text-white transition-colors">Semana</button>
@@ -10638,6 +10641,7 @@
                 const todayParts = getSPTodayStr().split('-').map(Number);
                 currentMonthDate = new Date(todayParts[0], todayParts[1] - 1, todayParts[2]);
                 setCalendarMode('day');
+                applyCalMiniPanelState();
                 refreshEventsOnCalendarOpen();
             }
             if(viewId === 'tasks') _refreshCurrentTaskView();
@@ -16293,6 +16297,23 @@
                 (calWorkWeekMode
                     ? 'px-3 h-10 rounded border border-sant-cyan bg-sant-cyan/10 text-sant-cyan text-sm font-medium transition-colors'
                     : 'px-3 h-10 rounded border border-sant-border hover:border-sant-cyan text-gray-400 hover:text-sant-cyan text-sm font-medium transition-colors');
+        }
+
+        // Recolher/mostrar o mini-calendário lateral (só desktop, ele já fica oculto no mobile
+        // via classe lg:flex) — dá mais espaço horizontal pra visão principal da Agenda quando
+        // o usuário quiser, sem mexer no layout do celular.
+        let calMiniCollapsed = localStorage.getItem('vends_cal_mini_collapsed') === '1';
+        function applyCalMiniPanelState() {
+            const panel = document.getElementById('calMiniPanel');
+            const btn = document.getElementById('btnToggleCalMini');
+            if (!panel) return;
+            panel.style.display = calMiniCollapsed ? 'none' : '';
+            if (btn) btn.title = calMiniCollapsed ? 'Mostrar mini-calendário' : 'Ocultar mini-calendário';
+        }
+        function toggleCalMiniPanel() {
+            calMiniCollapsed = !calMiniCollapsed;
+            localStorage.setItem('vends_cal_mini_collapsed', calMiniCollapsed ? '1' : '0');
+            applyCalMiniPanelState();
         }
 
         function setCalendarMode(mode) {
