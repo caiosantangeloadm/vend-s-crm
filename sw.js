@@ -1,9 +1,8 @@
-const CACHE_NAME = 'sant-crm-cache-v2';
+const CACHE_NAME = 'sant-crm-cache-v1';
 const CORE_ASSETS = [
-    './',
-    './index.html',
+    './Sant CRM Cloude.html',
     './manifest.json',
-    './icon.svg'
+    './ICONE VEND-S.svg'
 ];
 
 self.addEventListener('install', (event) => {
@@ -22,7 +21,8 @@ self.addEventListener('activate', (event) => {
     self.clients.claim();
 });
 
-// Estratégia: network-first para o HTML principal, cache-first para demais.
+// Estratégia: network-first para o HTML principal (sempre pega a versão mais nova quando online),
+// cache-first para os demais arquivos (ícones, manifest).
 self.addEventListener('fetch', (event) => {
     const req = event.request;
     if (req.method !== 'GET') return;
@@ -45,18 +45,35 @@ self.addEventListener('fetch', (event) => {
     );
 });
 
-// Clique na notificação push: abre/foca a aba do app
+// ── Push real ────────────────────────────────────────────────────────
+// Disparado pelo navegador quando o servidor (Edge Function) envia um push,
+// mesmo com o app/aba completamente fechado — é isso que resolve o problema
+// de notificações que só apareciam com o app aberto.
+self.addEventListener('push', (event) => {
+    let data = { title: 'Vend-s CRM', body: 'Você tem uma notificação.', tag: 'vends-push', url: '/' };
+    try { if (event.data) data = { ...data, ...event.data.json() }; } catch (e) {}
+
+    event.waitUntil(
+        self.registration.showNotification(data.title, {
+            body: data.body,
+            tag: data.tag,
+            icon: './ICONE VEND-S.svg',
+            badge: './ICONE VEND-S.svg',
+            data: { url: data.url || '/' },
+        })
+    );
+});
+
+// Clique na notificação: foca uma aba já aberta do CRM, ou abre uma nova.
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    const url = event.notification.data?.url || './';
+    const targetUrl = (event.notification.data && event.notification.data.url) || '/';
     event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
             for (const client of clientList) {
-                if (client.url.includes('vend-s-crm') && 'focus' in client) {
-                    return client.focus();
-                }
+                if ('focus' in client) return client.focus();
             }
-            return clients.openWindow(url);
+            if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
         })
     );
 });

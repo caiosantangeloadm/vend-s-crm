@@ -7055,6 +7055,7 @@
             if (Notification.permission === 'granted') {
                 if (btn)    { btn.innerHTML = '<i class="ph ph-bell"></i> Ativada'; btn.className = btn.className.replace('text-gray-400','text-green-400').replace('border-sant-border','border-green-400/30'); }
                 if (status) status.textContent = '✓ Notificações ativas — você receberá alertas em segundo plano';
+                subscribeToPush();
             } else if (Notification.permission === 'denied') {
                 if (btn)    { btn.innerHTML = '<i class="ph ph-bell-slash"></i> Bloqueada'; btn.disabled = true; }
                 if (status) status.textContent = 'Bloqueada no browser. Desbloqueie em Configurações do site.';
@@ -7132,6 +7133,42 @@
             } else {
                 new Notification(title, { body, tag: tag || 'vends-crm', icon: './icon.svg' });
             }
+        }
+        // ── Push real (Web Push) ─────────────────────────────────────────────
+        // Chave pública VAPID — segura de expor no cliente (é a metade pública do par de
+        // chaves; a privada fica só no servidor/Edge Function, nunca aqui).
+        const VAPID_PUBLIC_KEY = 'BOuvjkPR9GaK-4w3tTXH51ditob5zKkr486E4lgJdADpNMFA2crM5b30eZMZqnKDAlxBcNM-F5OP1m4RQ37G75k';
+
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const rawData = atob(base64);
+            return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+        }
+
+        // Inscreve este dispositivo/navegador pra receber Push de verdade (funciona mesmo
+        // com o app fechado) e salva a inscrição no Supabase — é isso que a Edge Function
+        // "send-push-reminders" usa pra saber pra onde mandar cada aviso.
+        async function subscribeToPush() {
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+            const sb = getSB(); if (!sb || !currentUser) return;
+            try {
+                const reg = await navigator.serviceWorker.ready;
+                let sub = await reg.pushManager.getSubscription();
+                if (!sub) {
+                    sub = await reg.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+                    });
+                }
+                const json = sub.toJSON();
+                await sb.from('push_subscriptions').upsert({
+                    user_id: currentUser.id,
+                    endpoint: json.endpoint,
+                    p256dh: json.keys.p256dh,
+                    auth: json.keys.auth,
+                }, { onConflict: 'endpoint' });
+            } catch (e) { console.warn('Push subscribe falhou:', e.message); }
         }
         // ── fim Push ──────────────────────────────────────────────────────────
 
