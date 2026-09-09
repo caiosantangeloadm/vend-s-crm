@@ -50,7 +50,9 @@ self.addEventListener('fetch', (event) => {
 // mesmo com o app/aba completamente fechado — é isso que resolve o problema
 // de notificações que só apareciam com o app aberto.
 self.addEventListener('push', (event) => {
-    let data = { title: 'Vend-s CRM', body: 'Você tem uma notificação.', tag: 'vends-push', url: '/' };
+    // Enviado sem conteúdo de propósito (ver Edge Function send-push-reminders) — a mensagem
+    // genérica abaixo é o que sempre aparece; tocar nela abre o CRM com os detalhes reais.
+    let data = { title: '🔔 Vend-s CRM', body: 'Você tem um lembrete — toque para ver na Agenda/Tarefas.', tag: 'vends-push', url: '/' };
     try { if (event.data) data = { ...data, ...event.data.json() }; } catch (e) {}
 
     event.waitUntil(
