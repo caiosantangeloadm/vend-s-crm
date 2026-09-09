@@ -7064,7 +7064,13 @@
 
         function requestPushPermission() {
             if (!('Notification' in window)) { showToast('Seu browser não suporta notificações push.', 'error'); return; }
-            if (Notification.permission === 'granted') { showToast('Notificações push já estão ativas!'); return; }
+            if (Notification.permission === 'granted') {
+                // Já concedida — ainda assim tenta (re)criar a inscrição real de push, caso ela
+                // tenha se perdido (ex: dados do site limpos, troca de aparelho) sem a permissão
+                // do navegador ter sido revogada.
+                subscribeToPush().then(() => showToast('Notificações push já estão ativas! Inscrição confirmada.'));
+                return;
+            }
             Notification.requestPermission().then(permission => {
                 initPushNotifications();
                 if (permission === 'granted') {
@@ -7150,7 +7156,10 @@
         // com o app fechado) e salva a inscrição no Supabase — é isso que a Edge Function
         // "send-push-reminders" usa pra saber pra onde mandar cada aviso.
         async function subscribeToPush() {
-            if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                showToast('Este navegador não suporta Push real (Web Push API).', 'error');
+                return;
+            }
             const sb = getSB(); if (!sb || !currentUser) return;
             try {
                 const reg = await navigator.serviceWorker.ready;
@@ -7162,13 +7171,17 @@
                     });
                 }
                 const json = sub.toJSON();
-                await sb.from('push_subscriptions').upsert({
+                const { error } = await sb.from('push_subscriptions').upsert({
                     user_id: currentUser.id,
                     endpoint: json.endpoint,
                     p256dh: json.keys.p256dh,
                     auth: json.keys.auth,
                 }, { onConflict: 'endpoint' });
-            } catch (e) { console.warn('Push subscribe falhou:', e.message); }
+                if (error) { console.warn('Push subscribe (salvar) falhou:', error.message); showToast('Erro ao salvar inscrição de push: ' + error.message, 'error'); }
+            } catch (e) {
+                console.warn('Push subscribe falhou:', e.message);
+                showToast('Erro ao criar inscrição de push: ' + e.message, 'error');
+            }
         }
         // ── fim Push ──────────────────────────────────────────────────────────
 
