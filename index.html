@@ -3968,7 +3968,7 @@
                     <div id="taskAttachmentsList" class="space-y-2 mb-2"></div>
                     <label id="taskAttachUploadLabel" class="flex items-center gap-1.5 text-xs text-gray-400 hover:text-sant-cyan cursor-pointer transition-colors w-fit">
                         <i class="ph ph-paperclip"></i> Anexar arquivo
-                        <input type="file" class="hidden" onchange="uploadTaskAttachment(event)">
+                        <input type="file" class="hidden" accept=".pdf,image/*,.doc,.docx,.xls,.xlsx" multiple onchange="uploadTaskAttachment(event)">
                     </label>
                 </div>
 
@@ -4030,7 +4030,7 @@
                     <div id="taskAttachmentsList" class="space-y-2 mb-2"></div>
                     <label class="flex items-center justify-center gap-2 border border-dashed border-sant-border hover:border-sant-cyan rounded-lg px-3 py-2 text-xs text-gray-400 hover:text-sant-cyan cursor-pointer transition-colors">
                         <i class="ph ph-upload-simple"></i> <span id="taskAttachUploadLabel">Anexar arquivo (PDF, foto — até 10MB)</span>
-                        <input type="file" id="taskAttachFileInput" class="hidden" accept=".pdf,image/*,.doc,.docx,.xls,.xlsx" onchange="uploadTaskAttachment(event)">
+                        <input type="file" id="taskAttachFileInput" class="hidden" accept=".pdf,image/*,.doc,.docx,.xls,.xlsx" multiple onchange="uploadTaskAttachment(event)">
                     </label>
                 </div>
 
@@ -28385,13 +28385,10 @@
         }
 
         async function uploadTaskAttachment(event) {
-            const file = event.target.files[0];
+            const files = Array.from(event.target.files || []);
             event.target.value = '';
-            if (!file) return;
-            if (file.size > ATTACHMENT_MAX_MB * 1024 * 1024) {
-                showToast(`Arquivo muito grande — o limite é ${ATTACHMENT_MAX_MB}MB.`, 'error');
-                return;
-            }
+            if (!files.length) return;
+
             const sb = getSB();
             if (!sb || !currentUser) { showToast('Faça login para anexar arquivos.', 'error'); return; }
             const taskId = document.getElementById('taskId').value;
@@ -28400,25 +28397,45 @@
 
             const label = document.getElementById('taskAttachUploadLabel');
             const originalLabel = label.textContent;
-            label.textContent = 'Enviando...';
 
-            const ext = file.name.split('.').pop();
-            const storagePath = `${currentUser.id}/task-${t.id}/${crypto.randomUUID()}.${ext}`;
+            let okCount = 0;
+            let failCount = 0;
 
-            try {
-                const { error } = await sb.storage.from(ATTACHMENT_BUCKET).upload(storagePath, file, { upsert: false });
-                if (error) throw error;
-                if (!t.attachments) t.attachments = [];
-                t.attachments.push({ id: crypto.randomUUID(), title: file.name, storagePath, size: file.size, createdAt: new Date().toISOString() });
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if (file.size > ATTACHMENT_MAX_MB * 1024 * 1024) {
+                    showToast(`"${file.name}" é muito grande — o limite é ${ATTACHMENT_MAX_MB}MB.`, 'error');
+                    failCount++;
+                    continue;
+                }
+                label.textContent = files.length > 1 ? `Enviando ${i + 1}/${files.length}...` : 'Enviando...';
+                const ext = file.name.split('.').pop();
+                const storagePath = `${currentUser.id}/task-${t.id}/${crypto.randomUUID()}.${ext}`;
+                try {
+                    const { error } = await sb.storage.from(ATTACHMENT_BUCKET).upload(storagePath, file, { upsert: false });
+                    if (error) throw error;
+                    if (!t.attachments) t.attachments = [];
+                    t.attachments.push({ id: crypto.randomUUID(), title: file.name, storagePath, size: file.size, createdAt: new Date().toISOString() });
+                    okCount++;
+                } catch(e) {
+                    console.warn('Task attachment upload:', e.message);
+                    failCount++;
+                }
+            }
+
+            if (okCount > 0) {
                 saveTasksToStorage();
                 cloudSyncTask(t);
                 renderTaskAttachments(t.id);
-                showToast('Arquivo anexado!');
-            } catch(e) {
-                console.warn('Task attachment upload:', e.message);
-                showToast('Erro ao enviar arquivo: ' + (e.message || 'tente novamente'), 'error');
-            } finally {
-                label.textContent = originalLabel;
+            }
+            label.textContent = originalLabel;
+
+            if (okCount > 0 && failCount === 0) {
+                showToast(okCount > 1 ? `${okCount} arquivos anexados!` : 'Arquivo anexado!');
+            } else if (okCount > 0 && failCount > 0) {
+                showToast(`${okCount} anexado(s), ${failCount} com erro.`, 'error');
+            } else if (failCount > 0) {
+                showToast('Erro ao enviar arquivo(s) — tente novamente.', 'error');
             }
         }
 
