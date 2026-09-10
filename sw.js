@@ -1,13 +1,17 @@
-const CACHE_NAME = 'sant-crm-cache-v1';
-const CORE_ASSETS = [
-    './Sant CRM Cloude.html',
-    './manifest.json',
-    './ICONE VEND-S.svg'
-];
+const CACHE_NAME = 'sant-crm-cache-v2';
+// IMPORTANTE: "./Sant CRM Cloude.html" não existe no site publicado (lá o arquivo é servido
+// como index.html) — isso fazia cache.addAll() falhar inteiro (rejeita tudo se UM arquivo não
+// existir), o que impedia o Service Worker de terminar de instalar. SEM instalação completa,
+// NENHUM Push real funciona em nenhum navegador/dispositivo — esse era o bug raiz por trás de
+// toda a dificuldade de hoje. Corrigido: só arquivos que realmente existem no site publicado,
+// e cada um é buscado individualmente (um arquivo faltando não derruba mais os outros).
+const CORE_ASSETS = ['./', './manifest.json'];
 
 self.addEventListener('install', (event) => {
     event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS))
+        caches.open(CACHE_NAME).then((cache) =>
+            Promise.allSettled(CORE_ASSETS.map((url) => cache.add(url)))
+        )
     );
     self.skipWaiting();
 });

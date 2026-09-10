@@ -6553,7 +6553,10 @@
         function registerServiceWorker() {
             if (!('serviceWorker' in navigator)) return;
             if (location.protocol === 'file:') return; // SW exige http(s)
-            navigator.serviceWorker.register('./sw.js').catch(() => {});
+            navigator.serviceWorker.register('./sw.js').catch((e) => {
+                console.warn('Falha ao registrar Service Worker:', e.message);
+                showToast('Aviso: recurso de segundo plano não pôde ser ativado (' + e.message + ')', 'error');
+            });
         }
 
         // Checa lembretes por horário (eventos, deslocamento, tarefas) — chamada tanto no
