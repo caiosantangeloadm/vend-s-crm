@@ -52,16 +52,30 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('push', (event) => {
     // Enviado sem conteúdo de propósito (ver Edge Function send-push-reminders) — a mensagem
     // genérica abaixo é o que sempre aparece; tocar nela abre o CRM com os detalhes reais.
-    let data = { title: '🔔 Vend-s CRM', body: 'Você tem um lembrete — toque para ver na Agenda/Tarefas.', tag: 'vends-push', url: '/' };
-    try { if (event.data) data = { ...data, ...event.data.json() }; } catch (e) {}
+    // Sem ícone/badge de propósito (o arquivo tem espaço no nome, o que pode falhar em
+    // alguns navegadores/SOs e, se a Promise de showNotification rejeitar, o navegador cai
+    // no aviso genérico próprio dele em vez do nosso — por isso simplificamos ao máximo e
+    // blindamos com try/catch, garantindo que ALGUMA notificação sempre apareça).
+    let title = '🔔 Vend-s CRM';
+    let body = 'Você tem um lembrete — toque para ver na Agenda/Tarefas.';
+    let url = '/';
+    try {
+        if (event.data) {
+            const json = event.data.json();
+            if (json.title) title = json.title;
+            if (json.body) body = json.body;
+            if (json.url) url = json.url;
+        }
+    } catch (e) { /* payload vazio ou inválido — usa o texto padrão acima */ }
 
     event.waitUntil(
-        self.registration.showNotification(data.title, {
-            body: data.body,
-            tag: data.tag,
-            icon: './ICONE VEND-S.svg',
-            badge: './ICONE VEND-S.svg',
-            data: { url: data.url || '/' },
+        self.registration.showNotification(title, {
+            body: body,
+            tag: 'vends-push',
+            data: { url: url },
+        }).catch(() => {
+            // Última tentativa, o mais simples possível, sem nenhuma opção extra.
+            return self.registration.showNotification(title, { body: body });
         })
     );
 });
