@@ -7068,7 +7068,7 @@
                 // Já concedida — ainda assim tenta (re)criar a inscrição real de push, caso ela
                 // tenha se perdido (ex: dados do site limpos, troca de aparelho) sem a permissão
                 // do navegador ter sido revogada.
-                subscribeToPush().then(() => showToast('Notificações push já estão ativas! Inscrição confirmada.'));
+                subscribeToPush(true).then(() => showToast('Notificações push já estão ativas! Inscrição renovada.'));
                 return;
             }
             Notification.requestPermission().then(permission => {
@@ -7155,7 +7155,7 @@
         // Inscreve este dispositivo/navegador pra receber Push de verdade (funciona mesmo
         // com o app fechado) e salva a inscrição no Supabase — é isso que a Edge Function
         // "send-push-reminders" usa pra saber pra onde mandar cada aviso.
-        async function subscribeToPush() {
+        async function subscribeToPush(force) {
             if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
                 showToast('Este navegador não suporta Push real (Web Push API).', 'error');
                 return;
@@ -7164,6 +7164,16 @@
             try {
                 const reg = await navigator.serviceWorker.ready;
                 let sub = await reg.pushManager.getSubscription();
+                // "force" (clique manual do usuário no botão) cancela a inscrição existente e cria
+                // uma 100% nova — necessário porque o navegador pode continuar "confiando" numa
+                // inscrição que o Google já invalidou do lado dele (erro 410 "Gone"), sem nenhum
+                // aviso — reaproveitá-la silenciosamente faz o push falhar pra sempre sem erro
+                // visível. No carregamento automático da página, mantemos a reutilização normal
+                // (mais barata) — só forçamos renovação quando o próprio usuário pede.
+                if (sub && force) {
+                    try { await sub.unsubscribe(); } catch (e) { /* segue mesmo se falhar */ }
+                    sub = null;
+                }
                 if (!sub) {
                     sub = await reg.pushManager.subscribe({
                         userVisibleOnly: true,
