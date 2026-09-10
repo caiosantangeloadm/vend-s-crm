@@ -7173,12 +7173,25 @@
                 if (sub && force) {
                     try { await sub.unsubscribe(); } catch (e) { /* segue mesmo se falhar */ }
                     sub = null;
+                    // Pequena pausa: assinar de novo imediatamente após cancelar às vezes falha
+                    // ("Registration failed") por pura questão de tempo do serviço de push.
+                    await new Promise(r => setTimeout(r, 800));
                 }
                 if (!sub) {
-                    sub = await reg.pushManager.subscribe({
-                        userVisibleOnly: true,
-                        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-                    });
+                    try {
+                        sub = await reg.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+                        });
+                    } catch (e) {
+                        // Uma segunda tentativa, com mais pausa — cobre falhas transitórias do
+                        // serviço de push logo após cancelar a inscrição anterior.
+                        await new Promise(r => setTimeout(r, 1500));
+                        sub = await reg.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+                        });
+                    }
                 }
                 const json = sub.toJSON();
                 const { error } = await sb.from('push_subscriptions').upsert({
