@@ -446,7 +446,7 @@
                 </span>
                 <!-- Próximo Compromisso -->
                 <span id="nextEventBadge" onclick="switchView('calendar')" class="hidden items-center gap-1.5 px-2.5 py-1 rounded-lg border border-sant-cyan/30 bg-sant-cyan/10 text-[11px] font-semibold text-sant-cyan cursor-pointer shrink-0 max-w-[220px]" title="Ir para a Agenda">
-                    <i class="ph ph-alarm"></i> <span id="nextEventBadgeText" class="truncate"></span>
+                    <i class="ph ph-alarm shrink-0"></i> <span id="nextEventBadgeTitle" class="truncate min-w-0"></span><span id="nextEventBadgeTime" class="shrink-0 opacity-90"></span>
                 </span>
                 <!-- Indicador de Sincronização -->
                 <div onclick="showToast(document.getElementById('realtimeDot').title)" class="flex items-center gap-1.5 cursor-pointer shrink-0" title="Sincronização">
@@ -6684,8 +6684,9 @@
         // ── Badge "Próximo Compromisso" (header) ────────────────────────────
         function updateNextEventBadge() {
             const badge = document.getElementById('nextEventBadge');
-            const textEl = document.getElementById('nextEventBadgeText');
-            if (!badge || !textEl) return;
+            const titleEl = document.getElementById('nextEventBadgeTitle');
+            const timeEl = document.getElementById('nextEventBadgeTime');
+            if (!badge || !titleEl || !timeEl) return;
             try {
                 const todayStr = getSPTodayStr();
                 const tf = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false });
@@ -6704,7 +6705,8 @@
 
                 const diff = nextMin - nowMin;
                 const timeLabel = diff <= 0 ? 'agora' : diff < 60 ? `em ${diff}min` : `em ${Math.floor(diff/60)}h${diff%60 ? (diff%60)+'min' : ''}`;
-                textEl.textContent = `${next.title} ${timeLabel}`;
+                titleEl.textContent = next.title;
+                timeEl.textContent = ` ${timeLabel}`;
                 badge.title = `${next.title} às ${next.startTime} — clique para ir à Agenda`;
                 badge.classList.remove('hidden');
                 badge.classList.add('inline-flex');
