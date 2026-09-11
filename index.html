@@ -1830,6 +1830,7 @@
                                 <option value="date">Por data</option>
                                 <option value="priority">Por prioridade</option>
                                 <option value="createdAt">Por criação</option>
+                                <option value="manual">Manual (arrastar)</option>
                             </select>
                             <i class="ph ph-sort-ascending absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none text-sm"></i>
                         </div>
@@ -2077,6 +2078,10 @@
                         <div id="lossReasonBars" class="space-y-3"></div>
                         <div id="lossReasonInsight" class="mt-4 pt-4 border-t border-sant-border"></div>
                         <div id="lossReasonOriginMatrix" class="mt-4 pt-4 border-t border-sant-border overflow-x-auto"></div>
+                    </div>
+                    <div id="topClientsReportSection" class="hidden bg-sant-surface border border-sant-border rounded-2xl p-5 mb-8 shrink-0">
+                        <p class="text-xs font-bold text-white uppercase tracking-wide mb-4 flex items-center gap-2"><i class="ph ph-trophy text-[#fbbf24]"></i> Top Clientes (por valor ganho)</p>
+                        <div id="topClientsList" class="space-y-2"></div>
                     </div>
                     <div id="leadsDetailedLists" class="space-y-8 pb-10 pr-2"></div>
                 </div>
@@ -4563,6 +4568,24 @@
             <div class="flex justify-end gap-2 p-5 border-t border-sant-border">
                 <button onclick="closeQuickSaleModal()" class="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Cancelar</button>
                 <button onclick="saveQuickSale()" class="px-4 py-2 rounded-lg bg-sant-purple hover:bg-purple-700 text-white text-sm font-bold transition-colors">Adicionar ao Pipeline</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE COMPARTILHAR NOTA (link público somente-leitura) -->
+    <div id="noteShareModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeNoteShareModal()">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-md shadow-2xl">
+            <div class="flex justify-between items-center p-5 border-b border-sant-border">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-share-network text-sant-cyan"></i> Compartilhar Nota</h3>
+                <button onclick="closeNoteShareModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <div class="p-5 space-y-3">
+                <p class="text-xs text-gray-500">Qualquer pessoa com este link consegue ler esta nota, sem precisar de login — sem opção de editar.</p>
+                <div class="flex gap-2">
+                    <input type="text" id="noteShareUrlInput" readonly class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-xs text-gray-300 outline-none">
+                    <button onclick="copyNoteShareUrl()" class="shrink-0 bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"><i class="ph ph-copy"></i> Copiar</button>
+                </div>
+                <button onclick="stopSharingNote()" class="w-full mt-1 bg-[#141414] border border-sant-border hover:border-red-500/40 text-gray-400 hover:text-red-400 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-link-break"></i> Parar de compartilhar (invalida o link)</button>
             </div>
         </div>
     </div>
@@ -7477,6 +7500,7 @@
                 "actualTimeSpent": t.actualTimeSpent || 0,
                 "timerStartedAt": t.timerStartedAt || null,
                 "deletedAt": t.deletedAt || null,
+                "sortOrder": t.sortOrder ?? null,
             };
         }
 
@@ -7786,6 +7810,7 @@
                 attachments: n.attachments || [],
                 "versionHistory": n.versionHistory || [],
                 "sortOrder": n.sortOrder ?? null,
+                "publicToken": n.publicToken || null,
                 "deletedAt": n.deletedAt || null,
                 "createdAt": n.createdAt || new Date().toISOString(),
                 "updatedAt": n.updatedAt || new Date().toISOString(),
@@ -13363,6 +13388,7 @@
                     <div class="flex items-center flex-wrap gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         <div class="flex items-center gap-0.5 mr-0.5">${colorDots}</div>
                         <button onclick="event.stopPropagation(); openNoteFullscreen('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-0.5" title="Ler em tela cheia"><i class="ph ph-arrows-out text-sm"></i></button>
+                        <button onclick="event.stopPropagation(); openNoteShareModal('${n.id}')" class="${n.publicToken ? 'text-sant-cyan' : 'text-gray-400 hover:text-sant-cyan'} p-0.5" title="${n.publicToken ? 'Compartilhada (ver/gerenciar link)' : 'Compartilhar por link'}"><i class="ph ph-share-network text-sm"></i></button>
                         <button onclick="event.stopPropagation(); copyNoteToClipboard('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-0.5" title="Copiar conteúdo"><i class="ph ph-clipboard-text text-sm"></i></button>
                         ${(() => {
                             const phone = linkedContact ? (linkedContact.phoneProf || linkedContact.phonePess || linkedContact.phone) : '';
@@ -13401,6 +13427,40 @@
         function closeNoteFullscreen() {
             document.getElementById('noteFullscreenModal').classList.add('hidden');
             noteFullscreenId = null;
+        }
+
+        // ── Compartilhar Nota (link público somente-leitura) ────────────────
+        let noteShareId = null;
+        function openNoteShareModal(noteId) {
+            const n = notes.find(x => x.id === noteId);
+            if (!n) return;
+            noteShareId = noteId;
+            if (!n.publicToken) {
+                n.publicToken = crypto.randomUUID().replace(/-/g, '');
+                saveNotesToStorage();
+                cloudSyncNote(n);
+                renderNotes();
+            }
+            document.getElementById('noteShareUrlInput').value = `${location.origin}/api/note-view?token=${n.publicToken}`;
+            document.getElementById('noteShareModal').classList.remove('hidden');
+        }
+        function closeNoteShareModal() {
+            document.getElementById('noteShareModal').classList.add('hidden');
+            noteShareId = null;
+        }
+        function copyNoteShareUrl() {
+            const input = document.getElementById('noteShareUrlInput');
+            navigator.clipboard.writeText(input.value).then(() => showToast('Link copiado!'));
+        }
+        function stopSharingNote() {
+            const n = notes.find(x => x.id === noteShareId);
+            if (!n) return;
+            n.publicToken = null;
+            saveNotesToStorage();
+            cloudSyncNote(n);
+            closeNoteShareModal();
+            renderNotes();
+            showToast('Compartilhamento removido — o link antigo não funciona mais.');
         }
 
         function convertNoteToTask(noteId) {
@@ -18746,6 +18806,37 @@
             else renderTasks(currentTaskFilter, searchVal);
         }
 
+        // ── Ordenação manual de Tarefas (arrastar, só na Lista) ──────────────
+        let draggedTaskId = null;
+        function onTaskDragStart(event, id) {
+            draggedTaskId = id;
+            event.dataTransfer.effectAllowed = 'move';
+        }
+        function onTaskDrop(event, targetId) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('note-drag-over');
+            if (!draggedTaskId || draggedTaskId === targetId) return;
+            const dragged = tasks.find(x => x.id === draggedTaskId);
+            const target = tasks.find(x => x.id === targetId);
+            draggedTaskId = null;
+            if (!dragged || !target) return;
+
+            const notDeleted = tasks.filter(t => !t.deletedAt);
+            const fromIdx = notDeleted.findIndex(t => t.id === dragged.id);
+            const toIdx = notDeleted.findIndex(t => t.id === target.id);
+            notDeleted.splice(fromIdx, 1);
+            notDeleted.splice(toIdx, 0, dragged);
+            notDeleted.forEach((t, i) => { t.sortOrder = i; });
+
+            saveTasksToStorage();
+            // Só sincroniza as tarefas cujo sortOrder realmente mudou (não a lista inteira) —
+            // evita muitas chamadas de rede numa base com centenas de tarefas.
+            const rangeStart = Math.min(fromIdx, toIdx), rangeEnd = Math.max(fromIdx, toIdx);
+            notDeleted.slice(rangeStart, rangeEnd + 1).forEach(t => cloudSyncTask(t));
+            const searchVal = document.getElementById('taskSearchInput') ? document.getElementById('taskSearchInput').value : '';
+            renderTasks(currentTaskFilter, searchVal);
+        }
+
         // ── Aviso de Sobrecarga do Dia ────────────────────────────────────────
         function getDailyCapacityMinutes() {
             return (parseInt(localStorage.getItem('vends_daily_capacity_hours') || '8') || 8) * 60;
@@ -18873,6 +18964,9 @@
                     const ca = a.createdAt || '';
                     const cb = b.createdAt || '';
                     return cb.localeCompare(ca);
+                }
+                if (currentTaskSort === 'manual') {
+                    return (a.sortOrder ?? 999999) - (b.sortOrder ?? 999999);
                 }
                 const dateA = a.date || '9999-12-31';
                 const dateB = b.date || '9999-12-31';
@@ -19058,8 +19152,11 @@
                     ? `<span class="ml-2 text-[10px] font-bold text-gray-400 bg-gray-500/10 border border-gray-500/20 px-1.5 py-0.5 rounded-full" title="Sem atualização há ${stalledDays} dias"><i class="ph ph-clock-countdown"></i> Parada há ${stalledDays}d</span>`
                     : '';
 
+                const manualDrag = currentTaskSort === 'manual'
+                    ? `draggable="true" ondragstart="onTaskDragStart(event,'${t.id}')" ondragover="event.preventDefault(); this.classList.add('note-drag-over')" ondragleave="this.classList.remove('note-drag-over')" ondrop="onTaskDrop(event,'${t.id}')" ondragend="this.classList.remove('note-drag-over')"`
+                    : '';
                 return `
-                <div id="tcard-${t.id}" class="flex items-start gap-2 sm:gap-4 p-3 sm:p-4 bg-sant-surface border rounded-xl group transition-colors ${selectedTaskIds.has(t.id) ? 'border-sant-cyan bg-sant-cyan/5' : isBlocked ? 'border-red-500/30 bg-red-500/5 hover:border-red-500/50' : 'border-sant-border hover:border-sant-cyan/30'} ${isOverdue ? 'overdue-task' : ''} ${allDone && !t.completed ? 'border-sant-cyan/20' : ''}">
+                <div id="tcard-${t.id}" ${manualDrag} class="flex items-start gap-2 sm:gap-4 p-3 sm:p-4 bg-sant-surface border rounded-xl group transition-colors ${selectedTaskIds.has(t.id) ? 'border-sant-cyan bg-sant-cyan/5' : isBlocked ? 'border-red-500/30 bg-red-500/5 hover:border-red-500/50' : 'border-sant-border hover:border-sant-cyan/30'} ${isOverdue ? 'overdue-task' : ''} ${allDone && !t.completed ? 'border-sant-cyan/20' : ''} ${currentTaskSort === 'manual' ? 'cursor-move' : ''}">
                     ${taskBulkMode ? `<input type="checkbox" onclick="event.stopPropagation();toggleTaskSelect('${t.id}')" ${selectedTaskIds.has(t.id)?'checked':''} class="w-4 h-4 accent-sant-cyan cursor-pointer rounded shrink-0 mt-1.5">` : `
                     <button onclick="toggleTask('${t.id}')" class="w-6 h-6 rounded border ${t.completed ? 'bg-sant-cyan border-sant-cyan text-sant-bg' : isBlocked ? 'border-red-500/50 text-transparent cursor-not-allowed' : 'border-gray-500 text-transparent'} flex items-center justify-center shrink-0 mt-0.5 transition-colors" ${isBlocked ? 'title="Bloqueada — conclua a tarefa anterior primeiro"' : ''}>
                         <i class="ph ${isBlocked ? 'ph-lock text-red-400/60' : 'ph-check'}"></i>
@@ -20422,6 +20519,23 @@
             preco: 'Preço', timing: 'Timing / momento errado', sem_resposta: 'Sem resposta',
             concorrencia: 'Escolheu concorrente', sem_orcamento: 'Sem orçamento', outro: 'Outro',
         };
+        function renderTopClientsSection() {
+            const box = document.getElementById('topClientsReportSection');
+            const list = document.getElementById('topClientsList');
+            if (!box || !list) return;
+            const won = contacts.filter(c => c.pipelineStage === 'ganho' && c.dealValue > 0 && !c.deletedAt)
+                .sort((a,b) => (b.dealValue||0) - (a.dealValue||0))
+                .slice(0, 10);
+            if (!won.length) { box.classList.add('hidden'); return; }
+            box.classList.remove('hidden');
+            const medals = ['🥇','🥈','🥉'];
+            list.innerHTML = won.map((c, i) => `
+                <div onclick="openHistoryModal('${c.id}')" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 cursor-pointer transition-colors border border-transparent hover:border-sant-border">
+                    <span class="w-6 text-center text-sm shrink-0">${medals[i] || (i+1)}</span>
+                    <span class="flex-1 text-sm text-white truncate">${fullName(c)}</span>
+                    <span class="text-sm font-bold text-[#fbbf24] shrink-0">R$ ${(c.dealValue||0).toLocaleString('pt-BR')}</span>
+                </div>`).join('');
+        }
         function renderLossReasonSection(leads) {
             const box = document.getElementById('lossReasonReportSection');
             const bars = document.getElementById('lossReasonBars');
@@ -20693,6 +20807,7 @@
             const leadsNoContactYet = leads.filter(c => !(c.interactions||[]).length).length;
 
             renderLossReasonSection(leads);
+            renderTopClientsSection();
 
             summary.innerHTML = `
                 <div class="bg-sant-purple/10 border border-sant-purple/20 rounded-xl p-4 flex flex-col justify-center items-center text-center">
@@ -29793,6 +29908,7 @@
                     if (ql && !ql.classList.contains('hidden')) { closeQuickLook(); return; }
                     if (!document.getElementById('noteFullscreenModal').classList.contains('hidden')) { closeNoteFullscreen(); return; }
                     if (!document.getElementById('quickSaleModal').classList.contains('hidden')) { closeQuickSaleModal(); return; }
+                    if (!document.getElementById('noteShareModal').classList.contains('hidden')) { closeNoteShareModal(); return; }
                     if (!document.getElementById('quickNoteModal').classList.contains('hidden')) { closeQuickNoteModal(); return; }
                     if (!document.getElementById('quickAddTaskModal').classList.contains('hidden')) { closeQuickAddTaskModal(); return; }
                     if (!document.getElementById('taskTemplatesModal').classList.contains('hidden')) { closeTaskTemplatesModal(); return; }
