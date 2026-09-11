@@ -74,6 +74,14 @@
         .modal-overlay:not(.hidden) > div { animation: modalPop 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
 
+        /* Cabeçalho: em telas curtas (ex: celular em paisagem), o conteúdo pode ficar mais
+           largo que a tela — em vez de esconder itens (sino de notificação, ajuda, tema)
+           fora da área visível sem chance de alcançá-los, permite rolar o cabeçalho na
+           horizontal (arrastar/deslizar) até o item desejado. Barra de rolagem escondida
+           por estética, já que dá pra ver que há mais conteúdo pelo próprio corte lateral. */
+        #mainHeader { overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+        #mainHeader::-webkit-scrollbar { display: none; }
+
         .notes-masonry { column-count: 1; column-gap: 1.25rem; }
         @media (min-width: 640px) { .notes-masonry { column-count: 2; } }
         @media (min-width: 1024px) { .notes-masonry { column-count: 3; } }
@@ -408,8 +416,8 @@
 
     <main class="flex-1 flex flex-col relative h-full overflow-hidden">
         
-        <header class="h-20 border-b border-sant-border flex items-center px-8 shrink-0 glass-panel absolute top-0 left-0 w-full z-10">
-            <div class="flex items-center gap-4">
+        <header id="mainHeader" class="h-20 border-b border-sant-border flex items-center px-8 shrink-0 glass-panel absolute top-0 left-0 w-full z-10">
+            <div class="flex items-center gap-4 shrink-0">
                 <!-- Logo Vend-s oficial -->
                 <img src="LOGO VEND-S.svg" alt="Vend-s" style="height:68px; width:auto; object-fit:contain;">
                 <!-- Separador vertical -->
@@ -417,7 +425,7 @@
                 <!-- Subtítulo ao lado direito -->
                 <span class="text-[11px] font-semibold tracking-[2px]" style="color:#5b8fa8; opacity:0.7; line-height:1.5;">Inteligência<br>CRM</span>
             </div>
-            <div class="ml-auto flex items-center gap-3">
+            <div class="ml-auto flex items-center gap-3 shrink-0">
                 <!-- Busca Global -->
                 <div class="relative" id="globalSearchWrap">
                     <div class="flex items-center gap-2 bg-[#111] border border-sant-border rounded-xl px-3 py-2 w-64 focus-within:border-[#5b8fa8] transition-colors">
