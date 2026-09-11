@@ -4532,6 +4532,33 @@
         </div>
     </div>
 
+    <!-- MODAL DE NOVA VENDA RÁPIDA (global, de qualquer tela) -->
+    <div id="quickSaleModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeQuickSaleModal()">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-md shadow-2xl">
+            <div class="flex justify-between items-center p-5 border-b border-sant-border">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-kanban text-sant-purple"></i> Nova Venda</h3>
+                <button onclick="closeQuickSaleModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <div class="p-5 space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Cliente</label>
+                    <select id="quickSaleContactSelect" class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-2.5 text-sm text-white focus:border-sant-purple outline-none transition-colors">
+                        <option value="">Selecione um contato...</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Valor da venda (opcional)</label>
+                    <input type="number" id="quickSaleValue" min="0" step="1" placeholder="0" class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-2.5 text-sm text-white focus:border-sant-purple outline-none transition-colors">
+                </div>
+                <button onclick="closeQuickSaleModal(); switchView('contacts'); setTimeout(() => openModal(true), 150);" class="text-xs text-gray-500 hover:text-sant-cyan transition-colors flex items-center gap-1"><i class="ph ph-user-plus"></i> Cliente novo? Cadastrar do zero</button>
+            </div>
+            <div class="flex justify-end gap-2 p-5 border-t border-sant-border">
+                <button onclick="closeQuickSaleModal()" class="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Cancelar</button>
+                <button onclick="saveQuickSale()" class="px-4 py-2 rounded-lg bg-sant-purple hover:bg-purple-700 text-white text-sm font-bold transition-colors">Adicionar ao Pipeline</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL DE NOTA RÁPIDA (global, de qualquer tela) -->
     <div id="quickNoteModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeQuickNoteModal()">
         <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-md shadow-2xl">
@@ -29680,8 +29707,39 @@
             else if (type === 'event') { switchView('calendar'); setTimeout(() => openEventModal(), 150); }
             else if (type === 'task') { switchView('tasks'); setTimeout(() => openTaskModal(), 150); }
             else if (type === 'note') { switchView('notes'); setTimeout(() => expandNewNote(), 150); }
-            else if (type === 'sale') { switchView('pipeline'); setTimeout(() => openModal(true), 150); }
+            else if (type === 'sale') { openQuickSaleModal(); }
             else if (type === 'product') { switchView('catalog'); setTimeout(() => openProductModal(), 150); }
+        }
+
+        // ── Nova Venda rápida (cliente já existente) ────────────────────────
+        function openQuickSaleModal() {
+            populateContactSelect('quickSaleContactSelect');
+            document.getElementById('quickSaleValue').value = '';
+            document.getElementById('quickSaleModal').classList.remove('hidden');
+        }
+        function closeQuickSaleModal() {
+            document.getElementById('quickSaleModal').classList.add('hidden');
+        }
+        function saveQuickSale() {
+            const contactId = document.getElementById('quickSaleContactSelect').value;
+            if (!contactId) { showToast('Selecione um cliente.', 'error'); return; }
+            const c = contacts.find(x => x.id === contactId);
+            if (!c) return;
+            const value = parseFloat(document.getElementById('quickSaleValue').value) || 0;
+            c.isLead = true;
+            if (value > 0) c.dealValue = value;
+            if (!c.temperature) c.temperature = 'morno';
+            if (!c.pipelineStage) {
+                c.pipelineStage = 'novo';
+                c.stageEnteredAt = new Date().toISOString();
+                if (!c.stageHistory) c.stageHistory = [];
+                c.stageHistory.push({ stage: 'novo', enteredAt: c.stageEnteredAt });
+            }
+            saveToStorage(c.id);
+            closeQuickSaleModal();
+            showToast(`${fullName(c)} adicionado ao Pipeline!`);
+            switchView('pipeline');
+            setTimeout(() => renderPipeline(), 150);
         }
         document.addEventListener('click', (e) => {
             const wrap = document.getElementById('quickAddFabWrap');
@@ -29726,6 +29784,7 @@
                     const ql = document.getElementById('quickLookPopover');
                     if (ql && !ql.classList.contains('hidden')) { closeQuickLook(); return; }
                     if (!document.getElementById('noteFullscreenModal').classList.contains('hidden')) { closeNoteFullscreen(); return; }
+                    if (!document.getElementById('quickSaleModal').classList.contains('hidden')) { closeQuickSaleModal(); return; }
                     if (!document.getElementById('quickNoteModal').classList.contains('hidden')) { closeQuickNoteModal(); return; }
                     if (!document.getElementById('quickAddTaskModal').classList.contains('hidden')) { closeQuickAddTaskModal(); return; }
                     if (!document.getElementById('taskTemplatesModal').classList.contains('hidden')) { closeTaskTemplatesModal(); return; }
