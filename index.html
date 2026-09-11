@@ -525,6 +525,12 @@
         <!-- FAB de Ação Rápida (global) -->
         <div id="quickAddFabWrap" class="fixed bottom-24 right-6 z-40 flex flex-col items-end gap-2">
             <div id="quickAddFabMenu" class="hidden flex-col items-end gap-2">
+                <button onclick="quickAddAction('sale')" class="flex items-center gap-2 bg-sant-surface border border-sant-border hover:border-sant-purple text-gray-200 hover:text-sant-purple pl-4 pr-3 py-2 rounded-full text-sm font-medium shadow-xl transition-colors">
+                    Nova Venda <i class="ph ph-kanban text-sant-purple"></i>
+                </button>
+                <button onclick="quickAddAction('product')" class="flex items-center gap-2 bg-sant-surface border border-sant-border hover:border-amber-400 text-gray-200 hover:text-amber-400 pl-4 pr-3 py-2 rounded-full text-sm font-medium shadow-xl transition-colors">
+                    Novo Item <i class="ph ph-package text-amber-400"></i>
+                </button>
                 <button onclick="quickAddAction('contact')" class="flex items-center gap-2 bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-200 hover:text-sant-cyan pl-4 pr-3 py-2 rounded-full text-sm font-medium shadow-xl transition-colors">
                     Novo Contato <i class="ph ph-user-plus text-sant-cyan"></i>
                 </button>
@@ -29674,6 +29680,8 @@
             else if (type === 'event') { switchView('calendar'); setTimeout(() => openEventModal(), 150); }
             else if (type === 'task') { switchView('tasks'); setTimeout(() => openTaskModal(), 150); }
             else if (type === 'note') { switchView('notes'); setTimeout(() => expandNewNote(), 150); }
+            else if (type === 'sale') { switchView('pipeline'); setTimeout(() => openModal(true), 150); }
+            else if (type === 'product') { switchView('catalog'); setTimeout(() => openProductModal(), 150); }
         }
         document.addEventListener('click', (e) => {
             const wrap = document.getElementById('quickAddFabWrap');
