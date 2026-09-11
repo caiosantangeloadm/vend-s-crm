@@ -18807,7 +18807,8 @@
         }
 
         // ── Ordenação manual de Tarefas (arrastar, só na Lista) ──────────────
-        let draggedTaskId = null;
+        // Reaproveita a variável global `draggedTaskId` (já declarada acima, usada também
+        // pelo drag-and-drop do Kanban) — só um arraste acontece por vez, não há conflito.
         function onTaskDragStart(event, id) {
             draggedTaskId = id;
             event.dataTransfer.effectAllowed = 'move';
