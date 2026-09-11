@@ -444,6 +444,10 @@
                     <i id="trialBannerIcon" class="ph ph-clock-countdown"></i> <span id="trialBannerText"></span>
                     <i id="trialBannerDismiss" class="ph ph-x ml-1 cursor-pointer opacity-70 hover:opacity-100" onclick="event.stopPropagation(); dismissTrialBanner()" title="Dispensar por hoje"></i>
                 </span>
+                <!-- Próximo Compromisso -->
+                <span id="nextEventBadge" onclick="switchView('calendar')" class="hidden items-center gap-1.5 px-2.5 py-1 rounded-lg border border-sant-cyan/30 bg-sant-cyan/10 text-[11px] font-semibold text-sant-cyan cursor-pointer shrink-0 max-w-[220px]" title="Ir para a Agenda">
+                    <i class="ph ph-alarm"></i> <span id="nextEventBadgeText" class="truncate"></span>
+                </span>
                 <!-- Indicador de Sincronização -->
                 <div onclick="showToast(document.getElementById('realtimeDot').title)" class="flex items-center gap-1.5 cursor-pointer shrink-0" title="Sincronização">
                     <div id="realtimeDot" class="hidden w-2 h-2 rounded-full bg-green-400" style="box-shadow:0 0 6px #4ade80"></div>
@@ -517,6 +521,27 @@
         <button id="scrollTopBtn" onclick="scrollMainToTop()" class="hidden fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-sant-cyan text-sant-bg shadow-2xl flex items-center justify-center hover:bg-cyan-400 transition-all hover:scale-110" title="Voltar ao topo">
             <i class="ph ph-arrow-up text-xl font-bold"></i>
         </button>
+
+        <!-- FAB de Ação Rápida (global) -->
+        <div id="quickAddFabWrap" class="fixed bottom-24 right-6 z-40 flex flex-col items-end gap-2">
+            <div id="quickAddFabMenu" class="hidden flex-col items-end gap-2">
+                <button onclick="quickAddAction('contact')" class="flex items-center gap-2 bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-200 hover:text-sant-cyan pl-4 pr-3 py-2 rounded-full text-sm font-medium shadow-xl transition-colors">
+                    Novo Contato <i class="ph ph-user-plus text-sant-cyan"></i>
+                </button>
+                <button onclick="quickAddAction('event')" class="flex items-center gap-2 bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-200 hover:text-sant-cyan pl-4 pr-3 py-2 rounded-full text-sm font-medium shadow-xl transition-colors">
+                    Novo Compromisso <i class="ph ph-calendar-plus text-sant-cyan"></i>
+                </button>
+                <button onclick="quickAddAction('task')" class="flex items-center gap-2 bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-200 hover:text-sant-cyan pl-4 pr-3 py-2 rounded-full text-sm font-medium shadow-xl transition-colors">
+                    Nova Tarefa <i class="ph ph-check-square-offset text-sant-cyan"></i>
+                </button>
+                <button onclick="quickAddAction('note')" class="flex items-center gap-2 bg-sant-surface border border-sant-border hover:border-sant-cyan text-gray-200 hover:text-sant-cyan pl-4 pr-3 py-2 rounded-full text-sm font-medium shadow-xl transition-colors">
+                    Nova Nota <i class="ph ph-note-pencil text-sant-cyan"></i>
+                </button>
+            </div>
+            <button id="quickAddFabBtn" onclick="toggleQuickAddFab()" title="Ação rápida" class="w-14 h-14 rounded-full bg-sant-cyan text-sant-bg shadow-2xl flex items-center justify-center hover:bg-cyan-400 transition-all hover:scale-110">
+                <i id="quickAddFabIcon" class="ph ph-plus text-2xl font-bold transition-transform"></i>
+            </button>
+        </div>
 
         <div id="offlineBanner" class="hidden fixed top-0 left-0 right-0 z-[60] bg-amber-500 text-black text-xs font-bold text-center py-1.5 items-center justify-center gap-2">
             <i class="ph ph-wifi-slash"></i> <span id="offlineBannerText">Sem conexão — suas alterações estão sendo salvas neste dispositivo e serão sincronizadas quando a internet voltar.</span>
@@ -4519,6 +4544,24 @@
         </div>
     </div>
 
+    <!-- MODAL DE LEITURA EM TELA CHEIA DA NOTA -->
+    <div id="noteFullscreenModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeNoteFullscreen()">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-hidden flex flex-col shadow-2xl">
+            <div class="flex justify-between items-start gap-3 p-6 border-b border-sant-border shrink-0">
+                <h3 id="noteFullscreenTitle" class="text-xl font-bold text-white break-words flex-1"></h3>
+                <button onclick="closeNoteFullscreen()" class="text-gray-400 hover:text-white transition-colors shrink-0"><i class="ph ph-x text-xl"></i></button>
+            </div>
+            <div class="p-6 overflow-y-auto flex-1 custom-scrollbar">
+                <div id="noteFullscreenMeta" class="text-xs text-gray-500 mb-4"></div>
+                <div id="noteFullscreenBody" class="text-base text-gray-200 leading-relaxed break-words note-md-body"></div>
+            </div>
+            <div class="flex justify-end gap-2 p-4 border-t border-sant-border shrink-0">
+                <button onclick="closeNoteFullscreen(); startEditNote(noteFullscreenId)" class="px-4 py-2 rounded-lg bg-[#141414] border border-sant-border hover:border-sant-cyan text-gray-300 hover:text-sant-cyan text-sm font-medium transition-colors flex items-center gap-1.5"><i class="ph ph-pencil-simple"></i> Editar</button>
+                <button onclick="closeNoteFullscreen()" class="px-4 py-2 rounded-lg bg-sant-cyan hover:bg-cyan-400 text-sant-bg text-sm font-bold transition-colors">Fechar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL DE HISTÓRICO DE EXECUÇÕES DE AUTOMAÇÃO -->
     <div id="automationLogModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeAutomationLogModal()">
         <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl">
@@ -6638,6 +6681,36 @@
             });
         }
 
+        // ── Badge "Próximo Compromisso" (header) ────────────────────────────
+        function updateNextEventBadge() {
+            const badge = document.getElementById('nextEventBadge');
+            const textEl = document.getElementById('nextEventBadgeText');
+            if (!badge || !textEl) return;
+            try {
+                const todayStr = getSPTodayStr();
+                const tf = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false });
+                const [hStr, mStr] = tf.format(new Date()).split(':');
+                const nowMin = parseInt(hStr) * 60 + parseInt(mStr);
+
+                const todaysEvents = events.filter(e => e.startTime && isEventOnDate(e, todayStr));
+                let next = null, nextMin = Infinity;
+                todaysEvents.forEach(e => {
+                    const [eh, em] = e.startTime.split(':').map(Number);
+                    const evMin = eh * 60 + em;
+                    if (evMin >= nowMin && evMin < nextMin) { next = e; nextMin = evMin; }
+                });
+
+                if (!next) { badge.classList.add('hidden'); badge.classList.remove('inline-flex'); return; }
+
+                const diff = nextMin - nowMin;
+                const timeLabel = diff <= 0 ? 'agora' : diff < 60 ? `em ${diff}min` : `em ${Math.floor(diff/60)}h${diff%60 ? (diff%60)+'min' : ''}`;
+                textEl.textContent = `${next.title} ${timeLabel}`;
+                badge.title = `${next.title} às ${next.startTime} — clique para ir à Agenda`;
+                badge.classList.remove('hidden');
+                badge.classList.add('inline-flex');
+            } catch (e) { /* silencioso — badge é só um adicional visual */ }
+        }
+
         function startNotificationEngine() {
             if(notificationInterval) clearInterval(notificationInterval);
             if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
@@ -6646,6 +6719,7 @@
 
             notificationInterval = setInterval(() => {
                 checkTimedReminders();
+                updateNextEventBadge();
                 const now = new Date();
                 const timeFormatter = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false });
                 const [hStr, mStr] = timeFormatter.format(now).split(':');
@@ -6680,6 +6754,7 @@
 
             // Verifica imediatamente ao abrir o app
             checkTimedReminders();
+            updateNextEventBadge();
             checkBirthdayReminders();
             checkCompanyAnniversaryReminders();
             checkFollowupReminders();
@@ -7827,6 +7902,7 @@
         }
 
         function renderDashboard() {
+            updateNextEventBadge();
             const dashPeriodSelectEl = document.getElementById('dashPeriodSelect');
             if (dashPeriodSelectEl) dashPeriodSelectEl.value = String(getDashPeriodDays());
             document.getElementById('dashTotalContacts').innerText = contacts.length;
@@ -13243,6 +13319,7 @@
                     <span class="text-[10px] text-gray-500 whitespace-nowrap flex items-center gap-1.5">${formatNoteDate(n.updatedAt || n.createdAt)}${(n.body||'').length > 500 ? `<i class="ph ph-text-align-left text-gray-600" title="Nota longa (${(n.body||'').length} caracteres)"></i>` : ''}</span>
                     <div class="flex items-center flex-wrap gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         <div class="flex items-center gap-0.5 mr-0.5">${colorDots}</div>
+                        <button onclick="event.stopPropagation(); openNoteFullscreen('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-0.5" title="Ler em tela cheia"><i class="ph ph-arrows-out text-sm"></i></button>
                         <button onclick="event.stopPropagation(); copyNoteToClipboard('${n.id}')" class="text-gray-400 hover:text-sant-cyan p-0.5" title="Copiar conteúdo"><i class="ph ph-clipboard-text text-sm"></i></button>
                         ${(() => {
                             const phone = linkedContact ? (linkedContact.phoneProf || linkedContact.phonePess || linkedContact.phone) : '';
@@ -13257,6 +13334,30 @@
                     </div>
                 </div>
             </div>`;
+        }
+
+        let noteFullscreenId = null;
+        function openNoteFullscreen(noteId) {
+            const n = notes.find(x => x.id === noteId);
+            if (!n) return;
+            noteFullscreenId = noteId;
+            document.getElementById('noteFullscreenTitle').textContent = n.title || '(sem título)';
+            document.getElementById('noteFullscreenMeta').textContent = formatNoteDate(n.updatedAt || n.createdAt);
+            const bodyEl = document.getElementById('noteFullscreenBody');
+            if (n.checklist && n.checklist.length > 0) {
+                bodyEl.innerHTML = n.checklist.map(it => `
+                    <div class="flex items-start gap-2 mb-2">
+                        <i class="ph ${it.done ? 'ph-check-square' : 'ph-square'} text-lg mt-0.5 shrink-0 ${it.done ? 'text-sant-cyan' : 'text-gray-500'}"></i>
+                        <span class="break-words ${it.done ? 'text-gray-600 line-through' : 'text-gray-200'}">${(it.text||'').replace(/</g,'&lt;')}</span>
+                    </div>`).join('');
+            } else {
+                bodyEl.innerHTML = mdToHtml(n.body || '');
+            }
+            document.getElementById('noteFullscreenModal').classList.remove('hidden');
+        }
+        function closeNoteFullscreen() {
+            document.getElementById('noteFullscreenModal').classList.add('hidden');
+            noteFullscreenId = null;
         }
 
         function convertNoteToTask(noteId) {
@@ -29548,6 +29649,35 @@
             if (area) area.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
+        // ── FAB de Ação Rápida (global) ───────────────────────────────────────
+        function toggleQuickAddFab() {
+            const menu = document.getElementById('quickAddFabMenu');
+            const icon = document.getElementById('quickAddFabIcon');
+            const opening = menu.classList.contains('hidden');
+            menu.classList.toggle('hidden', !opening);
+            menu.classList.toggle('flex', opening);
+            icon.style.transform = opening ? 'rotate(45deg)' : 'rotate(0deg)';
+        }
+        function closeQuickAddFab() {
+            const menu = document.getElementById('quickAddFabMenu');
+            const icon = document.getElementById('quickAddFabIcon');
+            if (!menu || menu.classList.contains('hidden')) return;
+            menu.classList.add('hidden');
+            menu.classList.remove('flex');
+            if (icon) icon.style.transform = 'rotate(0deg)';
+        }
+        function quickAddAction(type) {
+            closeQuickAddFab();
+            if (type === 'contact') { switchView('contacts'); setTimeout(() => openModal(), 150); }
+            else if (type === 'event') { switchView('calendar'); setTimeout(() => openEventModal(), 150); }
+            else if (type === 'task') { switchView('tasks'); setTimeout(() => openTaskModal(), 150); }
+            else if (type === 'note') { switchView('notes'); setTimeout(() => expandNewNote(), 150); }
+        }
+        document.addEventListener('click', (e) => {
+            const wrap = document.getElementById('quickAddFabWrap');
+            if (wrap && !wrap.contains(e.target)) closeQuickAddFab();
+        });
+
         function setupEventListeners() {
             const _mainArea = document.getElementById('mainContentArea');
             const _scrollBtn = document.getElementById('scrollTopBtn');
@@ -29585,6 +29715,7 @@
                 if (e.key === 'Escape') {
                     const ql = document.getElementById('quickLookPopover');
                     if (ql && !ql.classList.contains('hidden')) { closeQuickLook(); return; }
+                    if (!document.getElementById('noteFullscreenModal').classList.contains('hidden')) { closeNoteFullscreen(); return; }
                     if (!document.getElementById('quickNoteModal').classList.contains('hidden')) { closeQuickNoteModal(); return; }
                     if (!document.getElementById('quickAddTaskModal').classList.contains('hidden')) { closeQuickAddTaskModal(); return; }
                     if (!document.getElementById('taskTemplatesModal').classList.contains('hidden')) { closeTaskTemplatesModal(); return; }
