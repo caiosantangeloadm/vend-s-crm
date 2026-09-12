@@ -1459,6 +1459,7 @@
                         <h2 class="text-2xl font-bold text-white">Catálogo de Produtos & Serviços</h2>
                         <p class="text-sm text-gray-500">Base pra precificação, custos e futuras vendas</p>
                     </div>
+                    <button onclick="openCatalogShareModal()" class="bg-sant-surface border border-sant-border hover:border-amber-400 text-gray-300 hover:text-amber-400 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 shrink-0" title="Compartilhar tabela de preços por link, sem dar acesso ao CRM"><i class="ph ph-share-network"></i> Compartilhar</button>
                     <button onclick="openProductModal()" class="bg-sant-purple text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-purple-800 transition-colors flex items-center gap-2 shrink-0"><i class="ph ph-plus"></i> Novo Item</button>
                 </div>
 
@@ -1694,6 +1695,7 @@
                                 <button onclick="closeAgendaMoreMenu(); openFreeSlotFinderModal()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-white transition-colors text-left"><i class="ph ph-magic-wand text-sant-cyan"></i> Achar horário livre</button>
                                 <button onclick="closeAgendaMoreMenu(); openEventTemplatesModal()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-white transition-colors text-left"><i class="ph ph-copy-simple text-sant-cyan"></i> Modelos de Evento</button>
                                 <button id="btnCopyWeekMenu" onclick="closeAgendaMoreMenu(); copyWeekToNextWeek()" class="hidden w-full items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-white transition-colors text-left"><i class="ph ph-copy text-sant-cyan"></i> Copiar Semana</button>
+                                <button id="btnShareWeekMenu" onclick="closeAgendaMoreMenu(); openWeekShareModal()" class="hidden w-full items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-white transition-colors text-left"><i class="ph ph-share-network text-sant-cyan"></i> Compartilhar Semana</button>
                                 <div class="border-t border-sant-border my-1"></div>
                                 <button onclick="closeAgendaMoreMenu(); openEventsTrashModal()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-red-400 transition-colors text-left"><i class="ph ph-trash text-red-400"></i> Lixeira da Agenda</button>
                             </div>
@@ -3866,6 +3868,7 @@
                 <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-check-square text-sant-cyan"></i> <span id="taskModalTitle">Nova Tarefa</span></h3>
                 <div class="flex items-center gap-3">
                     <button id="taskSaveAsTemplateBtn" onclick="saveTaskAsTemplate()" class="hidden text-xs text-gray-400 hover:text-sant-cyan transition-colors flex items-center gap-1" title="Salvar esta tarefa como modelo reaproveitável"><i class="ph ph-copy-simple"></i> Salvar como modelo</button>
+                    <button id="taskShareBtn" onclick="openTaskShareModal()" class="hidden text-xs text-gray-400 hover:text-sant-cyan transition-colors flex items-center gap-1" title="Compartilhar esta tarefa por link, sem dar acesso ao CRM"><i class="ph ph-share-network"></i> Compartilhar</button>
                     <button onclick="closeTaskModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
                 </div>
             </div>
@@ -4577,6 +4580,41 @@
         </div>
     </div>
 
+    <!-- MODAL DE COMPARTILHAR SEMANA (link público somente-leitura de 7 dias) -->
+    <div id="weekShareModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeWeekShareModal()">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-md shadow-2xl">
+            <div class="flex justify-between items-center p-5 border-b border-sant-border">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-share-network text-sant-purple"></i> Compartilhar Semana</h3>
+                <button onclick="closeWeekShareModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <div class="p-5 space-y-3">
+                <p class="text-xs text-gray-500">Link com os compromissos <b id="weekShareRangeLabel"></b>, sem login e sem editar. Usa o mesmo link/senha da Agenda Somente-Leitura (Configurações → Agenda) — gerar um novo lá também invalida este.</p>
+                <div class="flex gap-2">
+                    <input type="text" id="weekShareUrlInput" readonly class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-xs text-gray-300 outline-none">
+                    <button onclick="copyWeekShareUrl()" class="shrink-0 bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"><i class="ph ph-copy"></i> Copiar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE COMPARTILHAR CATÁLOGO (tabela de preços pública) -->
+    <div id="catalogShareModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeCatalogShareModal()">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-md shadow-2xl">
+            <div class="flex justify-between items-center p-5 border-b border-sant-border">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-share-network text-amber-400"></i> Compartilhar Catálogo</h3>
+                <button onclick="closeCatalogShareModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <div class="p-5 space-y-3">
+                <p class="text-xs text-gray-500">Link com todos os itens <b>ativos</b> do seu catálogo (nome, preço, descrição) — sem login, sem custo/margem, sem opção de editar. Ideal pra mandar direto pro cliente.</p>
+                <div class="flex gap-2">
+                    <input type="text" id="catalogShareUrlInput" readonly class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-xs text-gray-300 outline-none">
+                    <button onclick="copyCatalogShareUrl()" class="shrink-0 bg-amber-400/10 border border-amber-400/30 hover:bg-amber-400/20 text-amber-400 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"><i class="ph ph-copy"></i> Copiar</button>
+                </div>
+                <button onclick="stopSharingCatalog()" class="w-full mt-1 bg-[#141414] border border-sant-border hover:border-red-500/40 text-gray-400 hover:text-red-400 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-link-break"></i> Parar de compartilhar (invalida o link)</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL DE COMPARTILHAR DIA (link público somente-leitura de um dia inteiro) -->
     <div id="dayShareModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeDayShareModal()">
         <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-md shadow-2xl">
@@ -4590,6 +4628,24 @@
                     <input type="text" id="dayShareUrlInput" readonly class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-xs text-gray-300 outline-none">
                     <button onclick="copyDayShareUrl()" class="shrink-0 bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"><i class="ph ph-copy"></i> Copiar</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE COMPARTILHAR TAREFA (link público somente-leitura) -->
+    <div id="taskShareModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeTaskShareModal()">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-md shadow-2xl">
+            <div class="flex justify-between items-center p-5 border-b border-sant-border">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-share-network text-sant-cyan"></i> Compartilhar Tarefa</h3>
+                <button onclick="closeTaskShareModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <div class="p-5 space-y-3">
+                <p class="text-xs text-gray-500">Qualquer pessoa com este link vê o título, descrição, checklist e prazo desta tarefa — sem login e sem acesso ao resto do CRM. Útil pra passar pra alguém de fora (terceirizado, freelancer).</p>
+                <div class="flex gap-2">
+                    <input type="text" id="taskShareUrlInput" readonly class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-xs text-gray-300 outline-none">
+                    <button onclick="copyTaskShareUrl()" class="shrink-0 bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"><i class="ph ph-copy"></i> Copiar</button>
+                </div>
+                <button onclick="stopSharingTask()" class="w-full mt-1 bg-[#141414] border border-sant-border hover:border-red-500/40 text-gray-400 hover:text-red-400 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-link-break"></i> Parar de compartilhar (invalida o link)</button>
             </div>
         </div>
     </div>
@@ -7541,6 +7597,7 @@
                 "timerStartedAt": t.timerStartedAt || null,
                 "deletedAt": t.deletedAt || null,
                 "sortOrder": t.sortOrder ?? null,
+                "publicToken": t.publicToken || null,
             };
         }
 
@@ -13509,6 +13566,37 @@
             noteFullscreenId = null;
         }
 
+        // ── Compartilhar Tarefa (link público somente-leitura) ──────────────
+        function openTaskShareModal() {
+            const id = document.getElementById('taskId').value;
+            const t = tasks.find(x => x.id === id);
+            if (!t) return;
+            if (!t.publicToken) {
+                t.publicToken = crypto.randomUUID().replace(/-/g, '');
+                saveTasksToStorage();
+                cloudSyncTask(t);
+            }
+            document.getElementById('taskShareUrlInput').value = `${location.origin}/api/task-view?token=${t.publicToken}`;
+            document.getElementById('taskShareModal').classList.remove('hidden');
+        }
+        function closeTaskShareModal() {
+            document.getElementById('taskShareModal').classList.add('hidden');
+        }
+        function copyTaskShareUrl() {
+            const input = document.getElementById('taskShareUrlInput');
+            navigator.clipboard.writeText(input.value).then(() => showToast('Link copiado!'));
+        }
+        function stopSharingTask() {
+            const id = document.getElementById('taskId').value;
+            const t = tasks.find(x => x.id === id);
+            if (!t) return;
+            t.publicToken = null;
+            saveTasksToStorage();
+            cloudSyncTask(t);
+            closeTaskShareModal();
+            showToast('Compartilhamento removido — o link antigo não funciona mais.');
+        }
+
         // ── Compartilhar Compromisso (link público somente-leitura) ─────────
         function openEventShareModal() {
             const id = document.getElementById('eventId').value;
@@ -14647,6 +14735,7 @@
 
         // ── Feed .ics assinável (Google Calendar) ────────────────────────────
         let icsFeedToken = localStorage.getItem('vends_ics_feed_token') || '';
+        let catalogPublicToken = localStorage.getItem('vends_catalog_public_token') || '';
         function generateIcsFeedToken() {
             return (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, '');
         }
@@ -14688,6 +14777,56 @@
         function copyDayShareUrl() {
             const input = document.getElementById('dayShareUrlInput');
             navigator.clipboard.writeText(input.value).then(() => showToast('Link copiado!'));
+        }
+
+        // ── Compartilhar Semana (link público somente-leitura de 7 dias) ─────
+        // Reaproveita o mesmo token da Agenda Somente-Leitura (icsFeedToken), igual ao
+        // "Compartilhar Dia" — só muda o recorte (?start=&end=) exibido na página pública.
+        function openWeekShareModal() {
+            if (calViewMode !== 'week') { showToast('Mude para a Visão Semana primeiro.', 'error'); return; }
+            if (!icsFeedToken) { showToast('Link ainda não foi gerado — abra Configurações → Agenda uma vez e tente de novo.', 'error'); return; }
+            const pad = n => String(n).padStart(2, '0');
+            const toStr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+            const weekStart = new Date(currentMonthDate);
+            const weekStartStr = toStr(weekStart);
+            const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 6);
+            const weekEndStr = toStr(weekEnd);
+            const fmt = s => { const [y,m,d] = s.split('-'); return `${d}/${m}`; };
+            document.getElementById('weekShareRangeLabel').textContent = `de ${fmt(weekStartStr)} a ${fmt(weekEndStr)}`;
+            document.getElementById('weekShareUrlInput').value = `${location.origin}/api/agenda-view?token=${icsFeedToken}&start=${weekStartStr}&end=${weekEndStr}`;
+            document.getElementById('weekShareModal').classList.remove('hidden');
+        }
+        function closeWeekShareModal() {
+            document.getElementById('weekShareModal').classList.add('hidden');
+        }
+        function copyWeekShareUrl() {
+            const input = document.getElementById('weekShareUrlInput');
+            navigator.clipboard.writeText(input.value).then(() => showToast('Link copiado!'));
+        }
+
+        // ── Compartilhar Catálogo (link público — tabela de preços) ──────────
+        function openCatalogShareModal() {
+            if (!catalogPublicToken) {
+                catalogPublicToken = generateIcsFeedToken();
+                localStorage.setItem('vends_catalog_public_token', catalogPublicToken);
+                syncPreferencesToSupabase();
+            }
+            document.getElementById('catalogShareUrlInput').value = `${location.origin}/api/catalog-view?token=${catalogPublicToken}`;
+            document.getElementById('catalogShareModal').classList.remove('hidden');
+        }
+        function closeCatalogShareModal() {
+            document.getElementById('catalogShareModal').classList.add('hidden');
+        }
+        function copyCatalogShareUrl() {
+            const input = document.getElementById('catalogShareUrlInput');
+            navigator.clipboard.writeText(input.value).then(() => showToast('Link copiado!'));
+        }
+        function stopSharingCatalog() {
+            catalogPublicToken = '';
+            localStorage.removeItem('vends_catalog_public_token');
+            syncPreferencesToSupabase();
+            closeCatalogShareModal();
+            showToast('Compartilhamento removido — o link antigo não funciona mais.');
         }
 
         function regenerateIcsFeedToken() {
@@ -16717,6 +16856,8 @@
             document.getElementById('calendarListView').classList.toggle('hidden', mode !== 'list');
             const copyBtn = document.getElementById('btnCopyWeekMenu');
             if (copyBtn) { copyBtn.classList.toggle('hidden', mode !== 'week'); copyBtn.classList.toggle('flex', mode === 'week'); }
+            const shareBtn = document.getElementById('btnShareWeekMenu');
+            if (shareBtn) { shareBtn.classList.toggle('hidden', mode !== 'week'); shareBtn.classList.toggle('flex', mode === 'week'); }
             updateWorkWeekBtn();
 
             if(mode === 'week') {
@@ -20093,6 +20234,7 @@
             currentTaskCustomFields = t.customFields ? t.customFields.map(f => ({...f})) : [];
             renderTaskCustomFields();
             document.getElementById('taskSaveAsTemplateBtn').classList.remove('hidden');
+            document.getElementById('taskShareBtn').classList.remove('hidden');
             renderChangeLogGeneric(t.changeLog, 'taskChangeLog', 'taskChangeLogSection', 'taskChangeLogBadge');
             document.getElementById('taskAttachmentsSection').classList.remove('hidden');
             renderTaskAttachments(t.id);
@@ -22182,6 +22324,7 @@
                     "automationExecutionLog": automationExecutionLog,
                     "messageSignature": localStorage.getItem('sant_crm_message_signature') || '',
                     "icsFeedToken": icsFeedToken || null,
+                    "catalogPublicToken": catalogPublicToken || null,
                     "pipelineMonthlyGoals": pipelineMonthlyGoals,
                     "pipelineWipLimits": pipelineWipLimits,
                     "searchHistory": JSON.parse(localStorage.getItem('vends_search_history') || '[]'),
@@ -22335,6 +22478,7 @@
                 if (data.icsFeedToken) { icsFeedToken = data.icsFeedToken; localStorage.setItem('vends_ics_feed_token', icsFeedToken); }
                 else if (!icsFeedToken) { icsFeedToken = generateIcsFeedToken(); localStorage.setItem('vends_ics_feed_token', icsFeedToken); }
                 loadIcsFeedUrl();
+                if (data.catalogPublicToken) { catalogPublicToken = data.catalogPublicToken; localStorage.setItem('vends_catalog_public_token', catalogPublicToken); }
                 // Sincroniza de volta para garantir consistência (streak já foi restaurado do cloud)
                 syncPreferencesToSupabase();
                 markSyncSuccess();
@@ -25696,6 +25840,7 @@
             currentTaskCustomFields = [];
             renderTaskCustomFields();
             document.getElementById('taskSaveAsTemplateBtn').classList.add('hidden');
+            document.getElementById('taskShareBtn').classList.add('hidden');
             document.getElementById('taskChangeLogSection').classList.add('hidden');
             document.getElementById('taskAttachmentsSection').classList.add('hidden');
             document.getElementById('taskCommentsSection').classList.add('hidden');
@@ -30043,6 +30188,9 @@
                     if (!document.getElementById('noteShareModal').classList.contains('hidden')) { closeNoteShareModal(); return; }
                     if (!document.getElementById('eventShareModal').classList.contains('hidden')) { closeEventShareModal(); return; }
                     if (!document.getElementById('dayShareModal').classList.contains('hidden')) { closeDayShareModal(); return; }
+                    if (!document.getElementById('catalogShareModal').classList.contains('hidden')) { closeCatalogShareModal(); return; }
+                    if (!document.getElementById('taskShareModal').classList.contains('hidden')) { closeTaskShareModal(); return; }
+                    if (!document.getElementById('weekShareModal').classList.contains('hidden')) { closeWeekShareModal(); return; }
                     if (!document.getElementById('quickNoteModal').classList.contains('hidden')) { closeQuickNoteModal(); return; }
                     if (!document.getElementById('quickAddTaskModal').classList.contains('hidden')) { closeQuickAddTaskModal(); return; }
                     if (!document.getElementById('taskTemplatesModal').classList.contains('hidden')) { closeTaskTemplatesModal(); return; }
