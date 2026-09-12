@@ -4577,6 +4577,23 @@
         </div>
     </div>
 
+    <!-- MODAL DE COMPARTILHAR DIA (link público somente-leitura de um dia inteiro) -->
+    <div id="dayShareModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeDayShareModal()">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-md shadow-2xl">
+            <div class="flex justify-between items-center p-5 border-b border-sant-border">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-share-network text-sant-purple"></i> Compartilhar Dia</h3>
+                <button onclick="closeDayShareModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <div class="p-5 space-y-3">
+                <p class="text-xs text-gray-500">Link com todos os compromissos <b id="dayShareDateLabel"></b>, sem login e sem editar. Usa o mesmo link/senha da Agenda Somente-Leitura (Configurações → Agenda) — gerar um novo lá também invalida este.</p>
+                <div class="flex gap-2">
+                    <input type="text" id="dayShareUrlInput" readonly class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-xs text-gray-300 outline-none">
+                    <button onclick="copyDayShareUrl()" class="shrink-0 bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"><i class="ph ph-copy"></i> Copiar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL DE COMPARTILHAR COMPROMISSO (link público somente-leitura) -->
     <div id="eventShareModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeEventShareModal()">
         <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-md shadow-2xl">
@@ -14655,6 +14672,24 @@
             if (!url) { showToast('Link ainda não foi gerado — tente novamente em instantes.', 'error'); return; }
             navigator.clipboard.writeText(url).then(() => showToast('Link copiado! Compartilhe com quem precisar ver sua agenda.'));
         }
+        // ── Compartilhar Dia (link público somente-leitura de um dia) ───────
+        // Reaproveita o mesmo token da Agenda Somente-Leitura (icsFeedToken) — mesma
+        // superfície de segurança que o usuário já aceitou, só que abrindo direto naquele dia.
+        function openDayShareModal(dateStr) {
+            if (!icsFeedToken) { showToast('Link ainda não foi gerado — abra Configurações → Agenda uma vez e tente de novo.', 'error'); return; }
+            const [y, m, d] = dateStr.split('-');
+            document.getElementById('dayShareDateLabel').textContent = `de ${d}/${m}/${y}`;
+            document.getElementById('dayShareUrlInput').value = `${location.origin}/api/agenda-view?token=${icsFeedToken}&date=${dateStr}`;
+            document.getElementById('dayShareModal').classList.remove('hidden');
+        }
+        function closeDayShareModal() {
+            document.getElementById('dayShareModal').classList.add('hidden');
+        }
+        function copyDayShareUrl() {
+            const input = document.getElementById('dayShareUrlInput');
+            navigator.clipboard.writeText(input.value).then(() => showToast('Link copiado!'));
+        }
+
         function regenerateIcsFeedToken() {
             showConfirm('Gerar novo link de assinatura?', 'O link atual deixará de funcionar — se você já assinou no Google Calendar, precisará assinar de novo com o novo link.', () => {
                 icsFeedToken = generateIcsFeedToken();
@@ -18041,6 +18076,7 @@
                     <div class="flex items-center justify-between mb-2">
                         <h3 class="text-sm font-bold text-white capitalize flex items-center gap-2">${dayLabel}${dayHoliday ? `<span class="text-[10px] font-bold text-pink-400 bg-pink-500/10 border border-pink-500/20 rounded-full px-2 py-0.5 normal-case flex items-center gap-1"><i class="ph ph-flag"></i> ${dayHoliday}</span>` : ''}</h3>
                         <div class="flex items-center gap-3">
+                            <button onclick="openDayShareModal('${dateStr}')" class="text-xs text-gray-400 hover:text-sant-cyan flex items-center gap-1 transition-colors" title="Compartilhar só os compromissos deste dia por link"><i class="ph ph-share-network"></i> Compartilhar Dia</button>
                             <button onclick="copyDayToNextWeek('${dateStr}')" class="text-xs text-gray-400 hover:text-sant-cyan flex items-center gap-1 transition-colors" title="Copiar os compromissos deste dia para o mesmo dia da próxima semana"><i class="ph ph-copy"></i> Copiar Dia</button>
                             <button onclick="openEventModal(null, '${dateStr}')" class="text-xs text-sant-cyan hover:text-[#7aafc8] flex items-center gap-1 transition-colors"><i class="ph ph-plus"></i> Novo evento</button>
                         </div>
@@ -30006,6 +30042,7 @@
                     if (!document.getElementById('quickSaleModal').classList.contains('hidden')) { closeQuickSaleModal(); return; }
                     if (!document.getElementById('noteShareModal').classList.contains('hidden')) { closeNoteShareModal(); return; }
                     if (!document.getElementById('eventShareModal').classList.contains('hidden')) { closeEventShareModal(); return; }
+                    if (!document.getElementById('dayShareModal').classList.contains('hidden')) { closeDayShareModal(); return; }
                     if (!document.getElementById('quickNoteModal').classList.contains('hidden')) { closeQuickNoteModal(); return; }
                     if (!document.getElementById('quickAddTaskModal').classList.contains('hidden')) { closeQuickAddTaskModal(); return; }
                     if (!document.getElementById('taskTemplatesModal').classList.contains('hidden')) { closeTaskTemplatesModal(); return; }

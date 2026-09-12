@@ -99,13 +99,24 @@ module.exports = async (req, res) => {
         const pad = x => String(x).padStart(2, '0');
         const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
 
+        // ?date=YYYY-MM-DD restringe a visualização a um único dia (link "Compartilhar Dia" da
+        // Agenda) — mesmo token da agenda inteira, só muda o recorte exibido nesta página.
+        const singleDate = /^\d{4}-\d{2}-\d{2}$/.test(req.query.date || '') ? req.query.date : null;
+
         const byDay = {};
-        for (let i = 0; i < 30; i++) {
-            const dateStr = addDays(todayStr, i);
+        if (singleDate) {
             const dayEvents = validEvents
-                .filter(e => isEventOnDate(e, dateStr))
+                .filter(e => isEventOnDate(e, singleDate))
                 .sort((a, b) => (a.startTime || '23:59').localeCompare(b.startTime || '23:59'));
-            if (dayEvents.length) byDay[dateStr] = dayEvents;
+            if (dayEvents.length) byDay[singleDate] = dayEvents;
+        } else {
+            for (let i = 0; i < 30; i++) {
+                const dateStr = addDays(todayStr, i);
+                const dayEvents = validEvents
+                    .filter(e => isEventOnDate(e, dateStr))
+                    .sort((a, b) => (a.startTime || '23:59').localeCompare(b.startTime || '23:59'));
+                if (dayEvents.length) byDay[dateStr] = dayEvents;
+            }
         }
 
         const dayBlocks = Object.keys(byDay).sort().map(dateStr => {
@@ -137,9 +148,9 @@ module.exports = async (req, res) => {
 <div style="max-width:600px;margin:0 auto;padding:32px 20px;">
     <div style="margin-bottom:28px;">
         <div style="font-size:24px;font-weight:900;letter-spacing:-1px;"><span style="color:#5b8fa8;">Vend-s</span></div>
-        <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:2px;margin-top:3px;">Agenda — Visualização Somente-Leitura</div>
+        <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:2px;margin-top:3px;">${singleDate ? 'Compromissos do Dia' : 'Agenda'} — Visualização Somente-Leitura</div>
     </div>
-    ${dayBlocks || '<p style="color:#64748b;font-size:13px;">Nenhum compromisso nos próximos 30 dias.</p>'}
+    ${dayBlocks || `<p style="color:#64748b;font-size:13px;">Nenhum compromisso ${singleDate ? 'nesse dia' : 'nos próximos 30 dias'}.</p>`}
     <div style="margin-top:32px;padding-top:16px;border-top:1px solid #1f1f1f;text-align:center;">
         <p style="font-size:11px;color:#2d3748;">Vend-s Inteligência CRM — esta é uma visualização pública somente-leitura, sem opção de edição.</p>
     </div>
