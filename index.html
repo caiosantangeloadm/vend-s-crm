@@ -18,7 +18,7 @@
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
@@ -4580,6 +4580,25 @@
         </div>
     </div>
 
+    <!-- MODAL DE COMPARTILHAR CARTÃO DE CONTATO (link público somente-leitura) -->
+    <div id="contactShareModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeContactShareModal()">
+        <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-md shadow-2xl">
+            <div class="flex justify-between items-center p-5 border-b border-sant-border">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph ph-share-network text-sant-cyan"></i> Compartilhar Cartão</h3>
+                <button onclick="closeContactShareModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <div class="p-5 space-y-3">
+                <p class="text-xs text-gray-500">Link com nome, empresa, telefone, e-mail e site deste contato — sem login, sem dados privados (notas, histórico), sem opção de editar.</p>
+                <div class="flex gap-2">
+                    <input type="text" id="contactShareUrlInput" readonly class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-xs text-gray-300 outline-none">
+                    <button onclick="copyContactShareUrl()" class="shrink-0 bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"><i class="ph ph-copy"></i> Copiar</button>
+                </div>
+                <div id="contactShareQr" class="flex justify-center py-2"></div>
+                <button onclick="stopSharingContact()" class="w-full mt-1 bg-[#141414] border border-sant-border hover:border-red-500/40 text-gray-400 hover:text-red-400 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-link-break"></i> Parar de compartilhar (invalida o link)</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL DE COMPARTILHAR SEMANA (link público somente-leitura de 7 dias) -->
     <div id="weekShareModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeWeekShareModal()">
         <div class="bg-sant-surface border border-sant-border rounded-2xl w-full max-w-md shadow-2xl">
@@ -4593,6 +4612,7 @@
                     <input type="text" id="weekShareUrlInput" readonly class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-xs text-gray-300 outline-none">
                     <button onclick="copyWeekShareUrl()" class="shrink-0 bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"><i class="ph ph-copy"></i> Copiar</button>
                 </div>
+                <div id="weekShareQr" class="flex justify-center py-2"></div>
             </div>
         </div>
     </div>
@@ -4610,6 +4630,7 @@
                     <input type="text" id="catalogShareUrlInput" readonly class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-xs text-gray-300 outline-none">
                     <button onclick="copyCatalogShareUrl()" class="shrink-0 bg-amber-400/10 border border-amber-400/30 hover:bg-amber-400/20 text-amber-400 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"><i class="ph ph-copy"></i> Copiar</button>
                 </div>
+                <div id="catalogShareQr" class="flex justify-center py-2"></div>
                 <button onclick="stopSharingCatalog()" class="w-full mt-1 bg-[#141414] border border-sant-border hover:border-red-500/40 text-gray-400 hover:text-red-400 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-link-break"></i> Parar de compartilhar (invalida o link)</button>
             </div>
         </div>
@@ -4628,6 +4649,7 @@
                     <input type="text" id="dayShareUrlInput" readonly class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-xs text-gray-300 outline-none">
                     <button onclick="copyDayShareUrl()" class="shrink-0 bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"><i class="ph ph-copy"></i> Copiar</button>
                 </div>
+                <div id="dayShareQr" class="flex justify-center py-2"></div>
             </div>
         </div>
     </div>
@@ -4645,6 +4667,8 @@
                     <input type="text" id="taskShareUrlInput" readonly class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-xs text-gray-300 outline-none">
                     <button onclick="copyTaskShareUrl()" class="shrink-0 bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"><i class="ph ph-copy"></i> Copiar</button>
                 </div>
+                <div id="taskShareQr" class="flex justify-center py-2"></div>
+                <button id="taskShareWhatsappBtn" onclick="sendTaskShareWhatsapp()" class="hidden w-full bg-[#25D366]/10 border border-[#25D366]/30 hover:bg-[#25D366]/20 text-[#25D366] px-3 py-2 rounded-lg text-xs font-medium transition-colors items-center justify-center gap-2"><i class="ph ph-whatsapp-logo"></i> Enviar por WhatsApp</button>
                 <button onclick="stopSharingTask()" class="w-full mt-1 bg-[#141414] border border-sant-border hover:border-red-500/40 text-gray-400 hover:text-red-400 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-link-break"></i> Parar de compartilhar (invalida o link)</button>
             </div>
         </div>
@@ -4663,6 +4687,7 @@
                     <input type="text" id="eventShareUrlInput" readonly class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-xs text-gray-300 outline-none">
                     <button onclick="copyEventShareUrl()" class="shrink-0 bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"><i class="ph ph-copy"></i> Copiar</button>
                 </div>
+                <div id="eventShareQr" class="flex justify-center py-2"></div>
                 <button onclick="stopSharingEvent()" class="w-full mt-1 bg-[#141414] border border-sant-border hover:border-red-500/40 text-gray-400 hover:text-red-400 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-link-break"></i> Parar de compartilhar (invalida o link)</button>
             </div>
         </div>
@@ -4681,6 +4706,7 @@
                     <input type="text" id="noteShareUrlInput" readonly class="flex-1 bg-[#141414] border border-sant-border rounded-lg px-3 py-2 text-xs text-gray-300 outline-none">
                     <button onclick="copyNoteShareUrl()" class="shrink-0 bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"><i class="ph ph-copy"></i> Copiar</button>
                 </div>
+                <div id="noteShareQr" class="flex justify-center py-2"></div>
                 <button onclick="stopSharingNote()" class="w-full mt-1 bg-[#141414] border border-sant-border hover:border-red-500/40 text-gray-400 hover:text-red-400 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-link-break"></i> Parar de compartilhar (invalida o link)</button>
             </div>
         </div>
@@ -5041,6 +5067,7 @@
                     <button onclick="goToEditFromHistoryModal()" class="text-gray-400 hover:text-sant-cyan transition-colors" title="Editar Cadastro"><i class="ph ph-pencil-simple text-lg"></i></button>
                     <button onclick="exportContactPdf(currentHistoryContactId)" class="text-gray-400 hover:text-sant-cyan transition-colors" title="Exportar briefing PDF"><i class="ph ph-file-pdf text-lg"></i></button>
                     <button onclick="openSendMessageModal(currentHistoryContactId)" class="text-gray-400 hover:text-sant-cyan transition-colors" title="Enviar Mensagem"><i class="ph ph-paper-plane-tilt text-lg"></i></button>
+                    <button onclick="openContactShareModal(currentHistoryContactId)" class="text-gray-400 hover:text-sant-cyan transition-colors" title="Compartilhar Cartão de Contato por link"><i class="ph ph-share-network text-lg"></i></button>
                     <button onclick="closeHistoryModal()" class="text-gray-400 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
                 </div>
             </div>
@@ -13566,6 +13593,38 @@
             noteFullscreenId = null;
         }
 
+        // ── Compartilhar Cartão de Contato (link público somente-leitura) ────
+        let contactShareId = null;
+        function openContactShareModal(contactId) {
+            const c = contacts.find(x => x.id === contactId);
+            if (!c) return;
+            contactShareId = contactId;
+            if (!c.publicToken) {
+                c.publicToken = crypto.randomUUID().replace(/-/g, '');
+                saveToStorage(c.id);
+            }
+            const contactShareUrl = `${location.origin}/api/contact-view?token=${c.publicToken}`;
+            document.getElementById('contactShareUrlInput').value = contactShareUrl;
+            renderShareQr('contactShareQr', contactShareUrl);
+            document.getElementById('contactShareModal').classList.remove('hidden');
+        }
+        function closeContactShareModal() {
+            document.getElementById('contactShareModal').classList.add('hidden');
+            contactShareId = null;
+        }
+        function copyContactShareUrl() {
+            const input = document.getElementById('contactShareUrlInput');
+            navigator.clipboard.writeText(input.value).then(() => showToast('Link copiado!'));
+        }
+        function stopSharingContact() {
+            const c = contacts.find(x => x.id === contactShareId);
+            if (!c) return;
+            c.publicToken = null;
+            saveToStorage(c.id);
+            closeContactShareModal();
+            showToast('Compartilhamento removido — o link antigo não funciona mais.');
+        }
+
         // ── Compartilhar Tarefa (link público somente-leitura) ──────────────
         function openTaskShareModal() {
             const id = document.getElementById('taskId').value;
@@ -13576,7 +13635,14 @@
                 saveTasksToStorage();
                 cloudSyncTask(t);
             }
-            document.getElementById('taskShareUrlInput').value = `${location.origin}/api/task-view?token=${t.publicToken}`;
+            const taskShareUrl = `${location.origin}/api/task-view?token=${t.publicToken}`;
+            document.getElementById('taskShareUrlInput').value = taskShareUrl;
+            renderShareQr('taskShareQr', taskShareUrl);
+            const contact = t.contactId ? contacts.find(x => x.id === t.contactId) : null;
+            const waBtn = document.getElementById('taskShareWhatsappBtn');
+            const canWa = contact && contactWaUrl(contact);
+            waBtn.classList.toggle('hidden', !canWa);
+            waBtn.classList.toggle('flex', !!canWa);
             document.getElementById('taskShareModal').classList.remove('hidden');
         }
         function closeTaskShareModal() {
@@ -13585,6 +13651,17 @@
         function copyTaskShareUrl() {
             const input = document.getElementById('taskShareUrlInput');
             navigator.clipboard.writeText(input.value).then(() => showToast('Link copiado!'));
+        }
+        function sendTaskShareWhatsapp() {
+            const id = document.getElementById('taskId').value;
+            const t = tasks.find(x => x.id === id);
+            if (!t) return;
+            const contact = t.contactId ? contacts.find(x => x.id === t.contactId) : null;
+            const base = contact ? contactWaUrl(contact) : '';
+            if (!base) { showToast('Este contato não tem telefone cadastrado.', 'error'); return; }
+            const url = document.getElementById('taskShareUrlInput').value;
+            const message = `Tarefa: ${t.title}\n${url}`;
+            window.open(`${base}?text=${encodeURIComponent(message)}`, '_blank');
         }
         function stopSharingTask() {
             const id = document.getElementById('taskId').value;
@@ -13607,7 +13684,9 @@
                 saveEventsToStorage();
                 cloudSyncEvent(e);
             }
-            document.getElementById('eventShareUrlInput').value = `${location.origin}/api/event-view?token=${e.publicToken}`;
+            const eventShareUrl = `${location.origin}/api/event-view?token=${e.publicToken}`;
+            document.getElementById('eventShareUrlInput').value = eventShareUrl;
+            renderShareQr('eventShareQr', eventShareUrl);
             document.getElementById('eventShareModal').classList.remove('hidden');
         }
         function closeEventShareModal() {
@@ -13640,7 +13719,9 @@
                 cloudSyncNote(n);
                 renderNotes();
             }
-            document.getElementById('noteShareUrlInput').value = `${location.origin}/api/note-view?token=${n.publicToken}`;
+            const noteShareUrl = `${location.origin}/api/note-view?token=${n.publicToken}`;
+            document.getElementById('noteShareUrlInput').value = noteShareUrl;
+            renderShareQr('noteShareQr', noteShareUrl);
             document.getElementById('noteShareModal').classList.remove('hidden');
         }
         function closeNoteShareModal() {
@@ -14736,6 +14817,21 @@
         // ── Feed .ics assinável (Google Calendar) ────────────────────────────
         let icsFeedToken = localStorage.getItem('vends_ics_feed_token') || '';
         let catalogPublicToken = localStorage.getItem('vends_catalog_public_token') || '';
+        // ── QR Code genérico para links de compartilhamento ──────────────────
+        // Reaproveita a biblioteca qrcode.min.js (já carregada pro 2FA, nunca usada no
+        // lado do cliente até agora) — gera um QR pequeno ao lado de qualquer link "Compartilhar",
+        // útil pra quem está com o celular na mão escanear na hora, sem precisar digitar nada.
+        function renderShareQr(containerId, url) {
+            const el = document.getElementById(containerId);
+            if (!el) return;
+            el.innerHTML = '';
+            if (typeof QRCode === 'undefined' || !url) return;
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'background:#fff;padding:8px;border-radius:8px;display:inline-block;';
+            el.appendChild(wrap);
+            new QRCode(wrap, { text: url, width: 128, height: 128 });
+        }
+
         function generateIcsFeedToken() {
             return (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, '');
         }
@@ -14768,7 +14864,9 @@
             if (!icsFeedToken) { showToast('Link ainda não foi gerado — abra Configurações → Agenda uma vez e tente de novo.', 'error'); return; }
             const [y, m, d] = dateStr.split('-');
             document.getElementById('dayShareDateLabel').textContent = `de ${d}/${m}/${y}`;
-            document.getElementById('dayShareUrlInput').value = `${location.origin}/api/agenda-view?token=${icsFeedToken}&date=${dateStr}`;
+            const dayShareUrl = `${location.origin}/api/agenda-view?token=${icsFeedToken}&date=${dateStr}`;
+            document.getElementById('dayShareUrlInput').value = dayShareUrl;
+            renderShareQr('dayShareQr', dayShareUrl);
             document.getElementById('dayShareModal').classList.remove('hidden');
         }
         function closeDayShareModal() {
@@ -14793,7 +14891,9 @@
             const weekEndStr = toStr(weekEnd);
             const fmt = s => { const [y,m,d] = s.split('-'); return `${d}/${m}`; };
             document.getElementById('weekShareRangeLabel').textContent = `de ${fmt(weekStartStr)} a ${fmt(weekEndStr)}`;
-            document.getElementById('weekShareUrlInput').value = `${location.origin}/api/agenda-view?token=${icsFeedToken}&start=${weekStartStr}&end=${weekEndStr}`;
+            const weekShareUrl = `${location.origin}/api/agenda-view?token=${icsFeedToken}&start=${weekStartStr}&end=${weekEndStr}`;
+            document.getElementById('weekShareUrlInput').value = weekShareUrl;
+            renderShareQr('weekShareQr', weekShareUrl);
             document.getElementById('weekShareModal').classList.remove('hidden');
         }
         function closeWeekShareModal() {
@@ -14811,7 +14911,9 @@
                 localStorage.setItem('vends_catalog_public_token', catalogPublicToken);
                 syncPreferencesToSupabase();
             }
-            document.getElementById('catalogShareUrlInput').value = `${location.origin}/api/catalog-view?token=${catalogPublicToken}`;
+            const catalogShareUrl = `${location.origin}/api/catalog-view?token=${catalogPublicToken}`;
+            document.getElementById('catalogShareUrlInput').value = catalogShareUrl;
+            renderShareQr('catalogShareQr', catalogShareUrl);
             document.getElementById('catalogShareModal').classList.remove('hidden');
         }
         function closeCatalogShareModal() {
@@ -22120,6 +22222,7 @@
                 "createdAt": c.createdAt || new Date().toISOString(),
                 "lossReason": c.lossReason || '', "lossReasonNote": c.lossReasonNote || '',
                 "tempSnoozeUntil": c.tempSnoozeUntil || '',
+                "publicToken": c.publicToken || null,
                 "deletedAt": c.deletedAt || null,
             };
         }
@@ -30191,6 +30294,7 @@
                     if (!document.getElementById('catalogShareModal').classList.contains('hidden')) { closeCatalogShareModal(); return; }
                     if (!document.getElementById('taskShareModal').classList.contains('hidden')) { closeTaskShareModal(); return; }
                     if (!document.getElementById('weekShareModal').classList.contains('hidden')) { closeWeekShareModal(); return; }
+                    if (!document.getElementById('contactShareModal').classList.contains('hidden')) { closeContactShareModal(); return; }
                     if (!document.getElementById('quickNoteModal').classList.contains('hidden')) { closeQuickNoteModal(); return; }
                     if (!document.getElementById('quickAddTaskModal').classList.contains('hidden')) { closeQuickAddTaskModal(); return; }
                     if (!document.getElementById('taskTemplatesModal').classList.contains('hidden')) { closeTaskTemplatesModal(); return; }
