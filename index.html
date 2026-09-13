@@ -2799,6 +2799,13 @@
                                 </div>
                             </div>
                         </div>
+                        <!-- Central de Compartilhamentos Ativos -->
+                        <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
+                            <p class="text-xs font-bold text-white uppercase tracking-wide mb-1 flex items-center gap-2"><i class="ph ph-share-network text-sant-cyan"></i> Central de Compartilhamentos</p>
+                            <p class="text-[11px] text-gray-500 mb-4">Todos os links públicos ativos no momento (Notas, Tarefas, Compromissos, Contatos, Catálogo) — revogue aqui qualquer um sem precisar abrir o item de novo.</p>
+                            <div id="shareCenterCatalog" class="mb-3"></div>
+                            <div id="shareCenterList" class="space-y-2 max-h-80 overflow-y-auto custom-scrollbar"></div>
+                        </div>
                         <div class="bg-sant-surface border border-sant-border rounded-2xl p-6">
                             <div class="flex items-center justify-between mb-3">
                                 <p class="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-2"><i class="ph ph-hard-drives text-sant-cyan"></i> Espaço de Anexos</p>
@@ -4594,6 +4601,7 @@
                     <button onclick="copyContactShareUrl()" class="shrink-0 bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"><i class="ph ph-copy"></i> Copiar</button>
                 </div>
                 <div id="contactShareQr" class="flex justify-center py-2"></div>
+                <button id="contactShareWhatsappBtn" onclick="sendContactShareWhatsapp()" class="hidden w-full bg-[#25D366]/10 border border-[#25D366]/30 hover:bg-[#25D366]/20 text-[#25D366] px-3 py-2 rounded-lg text-xs font-medium transition-colors items-center justify-center gap-2"><i class="ph ph-whatsapp-logo"></i> Enviar por WhatsApp</button>
                 <button onclick="stopSharingContact()" class="w-full mt-1 bg-[#141414] border border-sant-border hover:border-red-500/40 text-gray-400 hover:text-red-400 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-link-break"></i> Parar de compartilhar (invalida o link)</button>
             </div>
         </div>
@@ -13606,6 +13614,10 @@
             const contactShareUrl = `${location.origin}/api/contact-view?token=${c.publicToken}`;
             document.getElementById('contactShareUrlInput').value = contactShareUrl;
             renderShareQr('contactShareQr', contactShareUrl);
+            const waBtn = document.getElementById('contactShareWhatsappBtn');
+            const canWa = !!contactWaUrl(c);
+            waBtn.classList.toggle('hidden', !canWa);
+            waBtn.classList.toggle('flex', canWa);
             document.getElementById('contactShareModal').classList.remove('hidden');
         }
         function closeContactShareModal() {
@@ -13615,6 +13627,15 @@
         function copyContactShareUrl() {
             const input = document.getElementById('contactShareUrlInput');
             navigator.clipboard.writeText(input.value).then(() => showToast('Link copiado!'));
+        }
+        function sendContactShareWhatsapp() {
+            const c = contacts.find(x => x.id === contactShareId);
+            if (!c) return;
+            const base = contactWaUrl(c);
+            if (!base) { showToast('Este contato não tem telefone cadastrado.', 'error'); return; }
+            const url = document.getElementById('contactShareUrlInput').value;
+            const message = `Segue meu cartão de contato:\n${url}`;
+            window.open(`${base}?text=${encodeURIComponent(message)}`, '_blank');
         }
         function stopSharingContact() {
             const c = contacts.find(x => x.id === contactShareId);
@@ -14830,6 +14851,60 @@
             wrap.style.cssText = 'background:#fff;padding:8px;border-radius:8px;display:inline-block;';
             el.appendChild(wrap);
             new QRCode(wrap, { text: url, width: 128, height: 128 });
+        }
+
+        // ── Central de Compartilhamentos Ativos (Configurações → Backup) ─────
+        // Lista tudo que tem um link público ativo no momento (por item + o Catálogo, que é
+        // de conta), com opção de revogar cada um sem precisar reabrir o item original.
+        function renderShareCenter() {
+            const catalogBox = document.getElementById('shareCenterCatalog');
+            const list = document.getElementById('shareCenterList');
+            if (!catalogBox || !list) return;
+
+            catalogBox.innerHTML = catalogPublicToken
+                ? `<div class="flex items-center justify-between gap-2 bg-[#141414] border border-amber-400/20 rounded-lg px-3 py-2">
+                        <span class="text-xs text-gray-300 flex items-center gap-1.5"><i class="ph ph-package text-amber-400"></i> Catálogo de Preços — compartilhado</span>
+                        <button onclick="stopSharingCatalog(); renderShareCenter();" class="text-[11px] text-red-400 hover:text-red-300 font-medium">Revogar</button>
+                   </div>`
+                : `<p class="text-[11px] text-gray-600">Catálogo: não compartilhado no momento.</p>`;
+
+            const items = [
+                ...notes.filter(n => n.publicToken && !n.deletedAt).map(n => ({ type: 'note', id: n.id, icon: 'ph-note', label: n.title || '(nota sem título)' })),
+                ...tasks.filter(t => t.publicToken && !t.deletedAt).map(t => ({ type: 'task', id: t.id, icon: 'ph-check-square', label: t.title })),
+                ...events.filter(e => e.publicToken && !e.deletedAt).map(e => ({ type: 'event', id: e.id, icon: 'ph-calendar-blank', label: e.title })),
+                ...contacts.filter(c => c.publicToken && !c.deletedAt).map(c => ({ type: 'contact', id: c.id, icon: 'ph-user', label: fullName(c) })),
+            ];
+
+            if (!items.length) {
+                list.innerHTML = '<p class="text-[11px] text-gray-600">Nenhuma nota, tarefa, compromisso ou contato compartilhado no momento.</p>';
+                return;
+            }
+            const typeLabels = { note: 'Nota', task: 'Tarefa', event: 'Compromisso', contact: 'Contato' };
+            list.innerHTML = items.map(it => `
+                <div class="flex items-center justify-between gap-2 bg-[#141414] border border-sant-border rounded-lg px-3 py-2">
+                    <span class="text-xs text-gray-300 flex items-center gap-1.5 min-w-0"><i class="ph ${it.icon} text-sant-cyan shrink-0"></i> <span class="text-gray-600 shrink-0">${typeLabels[it.type]}:</span> <span class="truncate">${escapeHtmlInline(it.label)}</span></span>
+                    <button onclick="revokeShareItem('${it.type}','${it.id}')" class="text-[11px] text-red-400 hover:text-red-300 font-medium shrink-0">Revogar</button>
+                </div>`).join('');
+        }
+        function escapeHtmlInline(str) {
+            return String(str || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+        function revokeShareItem(type, id) {
+            if (type === 'note') {
+                const n = notes.find(x => x.id === id); if (!n) return;
+                n.publicToken = null; saveNotesToStorage(); cloudSyncNote(n);
+            } else if (type === 'task') {
+                const t = tasks.find(x => x.id === id); if (!t) return;
+                t.publicToken = null; saveTasksToStorage(); cloudSyncTask(t);
+            } else if (type === 'event') {
+                const e = events.find(x => x.id === id); if (!e) return;
+                e.publicToken = null; saveEventsToStorage(); cloudSyncEvent(e);
+            } else if (type === 'contact') {
+                const c = contacts.find(x => x.id === id); if (!c) return;
+                c.publicToken = null; saveToStorage(c.id);
+            }
+            showToast('Compartilhamento revogado.');
+            renderShareCenter();
         }
 
         function generateIcsFeedToken() {
@@ -25235,6 +25310,7 @@
             }
             renderAttachmentStorageUsage();
             loadIcsFeedUrl();
+            renderShareCenter();
             const bdayEl = document.getElementById('s-bday-advance');
             if (bdayEl) bdayEl.value = localStorage.getItem('vends_bday_advance') || '3';
             const inactEl = document.getElementById('s-inact-days');
