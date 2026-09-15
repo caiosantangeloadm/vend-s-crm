@@ -36,7 +36,7 @@ module.exports = async (req, res) => {
 
     try {
         const noteRes = await fetch(
-            `${SUPABASE_URL}/rest/v1/notes?select=title,body,checklist,"updatedAt","createdAt","deletedAt"&"publicToken"=eq.${encodeURIComponent(token)}`,
+            `${SUPABASE_URL}/rest/v1/notes?select=id,title,body,checklist,"updatedAt","createdAt","deletedAt","shareViews"&"publicToken"=eq.${encodeURIComponent(token)}`,
             { headers }
         );
         const noteData = await noteRes.json();
@@ -45,6 +45,15 @@ module.exports = async (req, res) => {
             return;
         }
         const n = noteData[0];
+
+        // Contador de visualizações — não bloqueia a página se falhar (best-effort).
+        try {
+            await fetch(`${SUPABASE_URL}/rest/v1/notes?id=eq.${encodeURIComponent(n.id)}`, {
+                method: 'PATCH',
+                headers: { ...headers, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+                body: JSON.stringify({ "shareViews": (n.shareViews || 0) + 1, "shareLastViewedAt": new Date().toISOString() }),
+            });
+        } catch (e) { /* silencioso — visualizar a nota não deve falhar por causa do contador */ }
 
         const checklist = Array.isArray(n.checklist) ? n.checklist : [];
         const bodyHtml = checklist.length

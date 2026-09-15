@@ -30,7 +30,7 @@ module.exports = async (req, res) => {
 
     try {
         const prefRes = await fetch(
-            `${SUPABASE_URL}/rest/v1/user_preferences?select=user_id&"catalogPublicToken"=eq.${encodeURIComponent(token)}`,
+            `${SUPABASE_URL}/rest/v1/user_preferences?select=user_id,"catalogShareViews"&"catalogPublicToken"=eq.${encodeURIComponent(token)}`,
             { headers }
         );
         const prefData = await prefRes.json();
@@ -39,6 +39,14 @@ module.exports = async (req, res) => {
             return;
         }
         const userId = prefData[0].user_id;
+
+        try {
+            await fetch(`${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(userId)}`, {
+                method: 'PATCH',
+                headers: { ...headers, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+                body: JSON.stringify({ "catalogShareViews": (prefData[0].catalogShareViews || 0) + 1, "catalogShareLastViewedAt": new Date().toISOString() }),
+            });
+        } catch (err) { /* silencioso */ }
 
         const prodRes = await fetch(
             `${SUPABASE_URL}/rest/v1/products?select=name,type,unit,price,description,"imageUrl",active,"deletedAt"&user_id=eq.${encodeURIComponent(userId)}`,

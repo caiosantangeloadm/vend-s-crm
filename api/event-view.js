@@ -29,7 +29,7 @@ module.exports = async (req, res) => {
 
     try {
         const evRes = await fetch(
-            `${SUPABASE_URL}/rest/v1/events?select=title,"startDate","startTime","endDate","endTime",location,"deletedAt"&"publicToken"=eq.${encodeURIComponent(token)}`,
+            `${SUPABASE_URL}/rest/v1/events?select=id,title,"startDate","startTime","endDate","endTime",location,"deletedAt","shareViews"&"publicToken"=eq.${encodeURIComponent(token)}`,
             { headers }
         );
         const evData = await evRes.json();
@@ -38,6 +38,14 @@ module.exports = async (req, res) => {
             return;
         }
         const e = evData[0];
+
+        try {
+            await fetch(`${SUPABASE_URL}/rest/v1/events?id=eq.${encodeURIComponent(e.id)}`, {
+                method: 'PATCH',
+                headers: { ...headers, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+                body: JSON.stringify({ "shareViews": (e.shareViews || 0) + 1, "shareLastViewedAt": new Date().toISOString() }),
+            });
+        } catch (err) { /* silencioso */ }
 
         const dateLabel = (() => {
             if (!e.startDate) return '';

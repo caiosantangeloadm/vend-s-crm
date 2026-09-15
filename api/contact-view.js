@@ -27,7 +27,7 @@ module.exports = async (req, res) => {
 
     try {
         const cRes = await fetch(
-            `${SUPABASE_URL}/rest/v1/contacts?select=name,"lastName",company,job,"phoneProf","phonePess",phone,"emailProf","emailPess",email,site,"deletedAt"&"publicToken"=eq.${encodeURIComponent(token)}`,
+            `${SUPABASE_URL}/rest/v1/contacts?select=id,name,"lastName",company,job,"phoneProf","phonePess",phone,"emailProf","emailPess",email,site,"deletedAt","shareViews"&"publicToken"=eq.${encodeURIComponent(token)}`,
             { headers }
         );
         const cData = await cRes.json();
@@ -36,6 +36,14 @@ module.exports = async (req, res) => {
             return;
         }
         const c = cData[0];
+
+        try {
+            await fetch(`${SUPABASE_URL}/rest/v1/contacts?id=eq.${encodeURIComponent(c.id)}`, {
+                method: 'PATCH',
+                headers: { ...headers, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+                body: JSON.stringify({ "shareViews": (c.shareViews || 0) + 1, "shareLastViewedAt": new Date().toISOString() }),
+            });
+        } catch (err) { /* silencioso */ }
         const fullName = `${c.name || ''} ${c.lastName || ''}`.trim() || 'Contato';
         const phone = c.phoneProf || c.phonePess || c.phone || '';
         const email = c.emailProf || c.emailPess || c.email || '';

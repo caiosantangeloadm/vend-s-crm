@@ -7,6 +7,7 @@
 // ler a tarefa certa ignorando RLS — mesma abordagem já usada em note-view.js e event-view.js.
 
 const SUPABASE_URL = 'https://hjolrtpenlbtjoitiium.supabase.co';
+const ATTACHMENT_BUCKET = 'attachments';
 
 function escapeHtml(str) {
     return String(str || '')
@@ -27,7 +28,7 @@ module.exports = async (req, res) => {
 
     try {
         const taskRes = await fetch(
-            `${SUPABASE_URL}/rest/v1/tasks?select=title,"desc",date,time,"dueDate",priority,checklist,completed,"deletedAt"&"publicToken"=eq.${encodeURIComponent(token)}`,
+            `${SUPABASE_URL}/rest/v1/tasks?select=id,title,"desc",date,time,"dueDate",priority,checklist,attachments,completed,"deletedAt","shareViews"&"publicToken"=eq.${encodeURIComponent(token)}`,
             { headers }
         );
         const taskData = await taskRes.json();
@@ -36,6 +37,39 @@ module.exports = async (req, res) => {
             return;
         }
         const t = taskData[0];
+
+        try {
+            await fetch(`${SUPABASE_URL}/rest/v1/tasks?id=eq.${encodeURIComponent(t.id)}`, {
+                method: 'PATCH',
+                headers: { ...headers, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+                body: JSON.stringify({ "shareViews": (t.shareViews || 0) + 1, "shareLastViewedAt": new Date().toISOString() }),
+            });
+        } catch (e) { /* silencioso */ }
+
+        // Anexos: cada um vira um link temporário (1h) pro arquivo real no Storage — o
+        // bucket é privado, então o visitante só consegue abrir através desse link assinado,
+        // nunca acessando o arquivo diretamente.
+        const attachments = Array.isArray(t.attachments) ? t.attachments : [];
+        const signedAttachments = await Promise.all(attachments.map(async (a) => {
+            if (!a.storagePath) return null;
+            try {
+                const signRes = await fetch(
+                    `${SUPABASE_URL}/storage/v1/object/sign/${ATTACHMENT_BUCKET}/${a.storagePath}`,
+                    { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ expiresIn: 3600 }) }
+                );
+                const signData = await signRes.json();
+                if (!signData.signedURL) return null;
+                return { title: a.title || 'Arquivo', url: `${SUPABASE_URL}/storage/v1${signData.signedURL}` };
+            } catch (e) { return null; }
+        }));
+        const attachmentsHtml = signedAttachments.filter(Boolean).length
+            ? `<div style="margin-top:16px;padding-top:16px;border-top:1px solid #1f1f1f;">
+                ${signedAttachments.filter(Boolean).map(a => `
+                    <a href="${a.url}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;padding:8px 0;font-size:13px;color:#5b8fa8;text-decoration:none;">
+                        📎 ${escapeHtml(a.title)}
+                    </a>`).join('')}
+               </div>`
+            : '';
 
         const checklist = Array.isArray(t.checklist) ? t.checklist : [];
         const checklistHtml = checklist.length
@@ -73,6 +107,7 @@ module.exports = async (req, res) => {
         </div>
         ${t.desc ? `<p style="font-size:14px;line-height:1.7;color:#cbd5e1;white-space:pre-wrap;margin-bottom:16px;">${escapeHtml(t.desc)}</p>` : ''}
         ${checklistHtml}
+        ${attachmentsHtml}
     </div>
     <div style="margin-top:32px;padding-top:16px;border-top:1px solid #1f1f1f;text-align:center;">
         <p style="font-size:11px;color:#2d3748;">Vend-s Inteligência CRM — esta é uma visualização pública somente-leitura, sem opção de edição.</p>

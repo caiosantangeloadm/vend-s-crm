@@ -741,6 +741,15 @@
                     <div id="dashStalledDealsList" class="space-y-2"></div>
                 </div>
 
+                <!-- Card: Leads sem Próximo Passo -->
+                <div id="dashNoNextStepCard" data-dash-title="Leads sem Próximo Passo" class="hidden bg-sant-surface border border-sant-border rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase flex items-center gap-2"><i class="ph ph-map-pin-line text-amber-400"></i> Leads sem Próximo Passo</p>
+                        <span id="dashNoNextStepCount" class="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-full px-2 py-0.5"></span>
+                    </div>
+                    <div id="dashNoNextStepList" class="space-y-2"></div>
+                </div>
+
                 <!-- Card: Clientes Sem Movimento -->
                 <div id="dashClientsStalledCard" data-dash-title="Clientes Sem Movimento" class="hidden bg-sant-surface border border-sant-border rounded-2xl p-6">
                     <div class="flex items-center justify-between mb-3">
@@ -4601,6 +4610,7 @@
                     <button onclick="copyContactShareUrl()" class="shrink-0 bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"><i class="ph ph-copy"></i> Copiar</button>
                 </div>
                 <div id="contactShareQr" class="flex justify-center py-2"></div>
+                <p id="contactShareStats" class="text-[11px] text-gray-600 text-center"></p>
                 <button id="contactShareWhatsappBtn" onclick="sendContactShareWhatsapp()" class="hidden w-full bg-[#25D366]/10 border border-[#25D366]/30 hover:bg-[#25D366]/20 text-[#25D366] px-3 py-2 rounded-lg text-xs font-medium transition-colors items-center justify-center gap-2"><i class="ph ph-whatsapp-logo"></i> Enviar por WhatsApp</button>
                 <button onclick="stopSharingContact()" class="w-full mt-1 bg-[#141414] border border-sant-border hover:border-red-500/40 text-gray-400 hover:text-red-400 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-link-break"></i> Parar de compartilhar (invalida o link)</button>
             </div>
@@ -4639,6 +4649,7 @@
                     <button onclick="copyCatalogShareUrl()" class="shrink-0 bg-amber-400/10 border border-amber-400/30 hover:bg-amber-400/20 text-amber-400 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"><i class="ph ph-copy"></i> Copiar</button>
                 </div>
                 <div id="catalogShareQr" class="flex justify-center py-2"></div>
+                <p id="catalogShareStats" class="text-[11px] text-gray-600 text-center"></p>
                 <button onclick="stopSharingCatalog()" class="w-full mt-1 bg-[#141414] border border-sant-border hover:border-red-500/40 text-gray-400 hover:text-red-400 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-link-break"></i> Parar de compartilhar (invalida o link)</button>
             </div>
         </div>
@@ -4676,6 +4687,7 @@
                     <button onclick="copyTaskShareUrl()" class="shrink-0 bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"><i class="ph ph-copy"></i> Copiar</button>
                 </div>
                 <div id="taskShareQr" class="flex justify-center py-2"></div>
+                <p id="taskShareStats" class="text-[11px] text-gray-600 text-center"></p>
                 <button id="taskShareWhatsappBtn" onclick="sendTaskShareWhatsapp()" class="hidden w-full bg-[#25D366]/10 border border-[#25D366]/30 hover:bg-[#25D366]/20 text-[#25D366] px-3 py-2 rounded-lg text-xs font-medium transition-colors items-center justify-center gap-2"><i class="ph ph-whatsapp-logo"></i> Enviar por WhatsApp</button>
                 <button onclick="stopSharingTask()" class="w-full mt-1 bg-[#141414] border border-sant-border hover:border-red-500/40 text-gray-400 hover:text-red-400 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-link-break"></i> Parar de compartilhar (invalida o link)</button>
             </div>
@@ -4696,6 +4708,7 @@
                     <button onclick="copyEventShareUrl()" class="shrink-0 bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"><i class="ph ph-copy"></i> Copiar</button>
                 </div>
                 <div id="eventShareQr" class="flex justify-center py-2"></div>
+                <p id="eventShareStats" class="text-[11px] text-gray-600 text-center"></p>
                 <button onclick="stopSharingEvent()" class="w-full mt-1 bg-[#141414] border border-sant-border hover:border-red-500/40 text-gray-400 hover:text-red-400 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-link-break"></i> Parar de compartilhar (invalida o link)</button>
             </div>
         </div>
@@ -4715,6 +4728,7 @@
                     <button onclick="copyNoteShareUrl()" class="shrink-0 bg-sant-cyan/10 border border-sant-cyan/30 hover:bg-sant-cyan/20 text-sant-cyan px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"><i class="ph ph-copy"></i> Copiar</button>
                 </div>
                 <div id="noteShareQr" class="flex justify-center py-2"></div>
+                <p id="noteShareStats" class="text-[11px] text-gray-600 text-center"></p>
                 <button onclick="stopSharingNote()" class="w-full mt-1 bg-[#141414] border border-sant-border hover:border-red-500/40 text-gray-400 hover:text-red-400 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2"><i class="ph ph-link-break"></i> Parar de compartilhar (invalida o link)</button>
             </div>
         </div>
@@ -8316,6 +8330,7 @@
             renderTaskGoalCard(todayStr);
             renderWaitingCard(todayStr);
             renderStalledDealsCard(todayStr);
+            renderNoNextStepCard();
             renderNoInteractionMonthCard(todayStr);
             renderClientsStalledCard(todayStr);
             // Refresh streak UI quando dashboard abre
@@ -8577,6 +8592,27 @@
                 </div>`;
             }).join('') +
             (stalled.length > 5 ? `<p class="text-[10px] text-gray-600 text-center pt-1">+${stalled.length-5} negócio(s) — clique para ver o Pipeline</p>` : '');
+        }
+
+        function renderNoNextStepCard() {
+            const card = document.getElementById('dashNoNextStepCard');
+            if (!card) return;
+            const openLeads = contacts.filter(c => c.isLead && !c.deletedAt && c.pipelineStage && c.pipelineStage !== 'ganho' && c.pipelineStage !== 'perdido');
+            const missing = openLeads.filter(c => !c.nextContact && !c.nextStep);
+
+            if (missing.length === 0) { card.classList.add('hidden'); return; }
+            card.classList.remove('hidden');
+            document.getElementById('dashNoNextStepCount').textContent = `${missing.length} lead${missing.length!==1?'s':''}`;
+
+            const list = document.getElementById('dashNoNextStepList');
+            list.innerHTML = missing.slice(0, 5).map(c => {
+                const stage = PIPELINE_STAGES.find(s => s.id === c.pipelineStage);
+                return `<div class="flex items-center gap-2.5 py-1.5 border-b border-sant-border/40 last:border-0 cursor-pointer hover:bg-white/3 transition-colors rounded px-1" onclick="openHistoryModal('${c.id}')">
+                    <i class="ph ph-map-pin-line shrink-0 text-sm text-amber-400"></i>
+                    <span class="text-xs text-white flex-1 truncate">${fullName(c)} <span class="text-gray-500">— ${stage ? stage.label : c.pipelineStage}</span></span>
+                </div>`;
+            }).join('') +
+            (missing.length > 5 ? `<p class="text-[10px] text-gray-600 text-center pt-1">+${missing.length-5} lead(s) — clique para definir o próximo passo</p>` : '');
         }
 
         function renderClientsStalledCard(todayStr) {
@@ -13614,6 +13650,7 @@
             const contactShareUrl = `${location.origin}/api/contact-view?token=${c.publicToken}`;
             document.getElementById('contactShareUrlInput').value = contactShareUrl;
             renderShareQr('contactShareQr', contactShareUrl);
+            loadShareStats('contacts', c.id, 'contactShareStats');
             const waBtn = document.getElementById('contactShareWhatsappBtn');
             const canWa = !!contactWaUrl(c);
             waBtn.classList.toggle('hidden', !canWa);
@@ -13659,6 +13696,7 @@
             const taskShareUrl = `${location.origin}/api/task-view?token=${t.publicToken}`;
             document.getElementById('taskShareUrlInput').value = taskShareUrl;
             renderShareQr('taskShareQr', taskShareUrl);
+            loadShareStats('tasks', t.id, 'taskShareStats');
             const contact = t.contactId ? contacts.find(x => x.id === t.contactId) : null;
             const waBtn = document.getElementById('taskShareWhatsappBtn');
             const canWa = contact && contactWaUrl(contact);
@@ -13708,6 +13746,7 @@
             const eventShareUrl = `${location.origin}/api/event-view?token=${e.publicToken}`;
             document.getElementById('eventShareUrlInput').value = eventShareUrl;
             renderShareQr('eventShareQr', eventShareUrl);
+            loadShareStats('events', e.id, 'eventShareStats');
             document.getElementById('eventShareModal').classList.remove('hidden');
         }
         function closeEventShareModal() {
@@ -13743,6 +13782,7 @@
             const noteShareUrl = `${location.origin}/api/note-view?token=${n.publicToken}`;
             document.getElementById('noteShareUrlInput').value = noteShareUrl;
             renderShareQr('noteShareQr', noteShareUrl);
+            loadShareStats('notes', n.id, 'noteShareStats');
             document.getElementById('noteShareModal').classList.remove('hidden');
         }
         function closeNoteShareModal() {
@@ -14907,6 +14947,38 @@
             renderShareCenter();
         }
 
+        // ── Estatísticas de visualização dos links de compartilhar ──────────
+        // Busca direto na nuvem (não usa cache local) pra sempre mostrar o número real, já
+        // que o contador é incrementado só no servidor (rota /api/*-view), nunca no cliente.
+        async function loadShareStats(table, id, elId) {
+            const sb = getSB();
+            const el = document.getElementById(elId);
+            if (!sb || !el) return;
+            el.textContent = '';
+            try {
+                const { data } = await sb.from(table).select('"shareViews","shareLastViewedAt"').eq('id', id).single();
+                if (!data) return;
+                const views = data.shareViews || 0;
+                if (views === 0) { el.textContent = 'Ainda não foi visualizado.'; return; }
+                const last = data.shareLastViewedAt ? new Date(data.shareLastViewedAt).toLocaleString('pt-BR') : '';
+                el.textContent = `Visualizado ${views}x${last ? ' — última vez em ' + last : ''}`;
+            } catch (e) { /* silencioso — estatística é só um adicional visual */ }
+        }
+        async function loadCatalogShareStats() {
+            const sb = getSB();
+            const el = document.getElementById('catalogShareStats');
+            if (!sb || !el || !currentUser) return;
+            el.textContent = '';
+            try {
+                const { data } = await sb.from('user_preferences').select('"catalogShareViews","catalogShareLastViewedAt"').eq('user_id', currentUser.id).single();
+                if (!data) return;
+                const views = data.catalogShareViews || 0;
+                if (views === 0) { el.textContent = 'Ainda não foi visualizado.'; return; }
+                const last = data.catalogShareLastViewedAt ? new Date(data.catalogShareLastViewedAt).toLocaleString('pt-BR') : '';
+                el.textContent = `Visualizado ${views}x${last ? ' — última vez em ' + last : ''}`;
+            } catch (e) { /* silencioso */ }
+        }
+
         function generateIcsFeedToken() {
             return (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, '');
         }
@@ -14989,6 +15061,7 @@
             const catalogShareUrl = `${location.origin}/api/catalog-view?token=${catalogPublicToken}`;
             document.getElementById('catalogShareUrlInput').value = catalogShareUrl;
             renderShareQr('catalogShareQr', catalogShareUrl);
+            loadCatalogShareStats();
             document.getElementById('catalogShareModal').classList.remove('hidden');
         }
         function closeCatalogShareModal() {
