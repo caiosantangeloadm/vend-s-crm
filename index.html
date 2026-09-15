@@ -7647,6 +7647,7 @@
                 "deletedAt": t.deletedAt || null,
                 "sortOrder": t.sortOrder ?? null,
                 "publicToken": t.publicToken || null,
+                "updatedAt": t.updatedAt || new Date().toISOString(),
             };
         }
 
@@ -7804,8 +7805,12 @@
                             // abrir o app) não pode sobrescrever cegamente uma mudança mais recente
                             // feita em outro dispositivo enquanto isso — mesma proteção de cloudSyncEvent.
                             result = await withTimeout(_upsertEventSafely(sb, record), 5000);
+                        } else if (item.table === 'tasks') {
+                            // Mesma proteção acima, replicada pra Tarefas (era a lacuna real por trás
+                            // de "tarefa concluída num aparelho não aparece concluída nos outros").
+                            result = await withTimeout(_upsertTaskSafely(sb, record), 5000);
                         } else {
-                            const rowFn = { contacts: contactToRow, tasks: taskToRow, notes: noteToRow, products: productToRow }[item.table];
+                            const rowFn = { contacts: contactToRow, notes: noteToRow, products: productToRow }[item.table];
                             result = await withTimeout(sb.from(item.table).upsert(rowFn(record), { onConflict: 'id' }).select('id'), 5000);
                         }
                     }
@@ -7888,9 +7893,30 @@
             applyState();
         }
 
+        // Mesma proteção usada em Eventos ([[feedback-updatedAt-guard-pattern]]) — antes de
+        // gravar uma tarefa na nuvem, confere se ela já não tem uma versão MAIS NOVA (feita em
+        // outro dispositivo enquanto esta alteração ficava presa na fila offline). Sem isso, uma
+        // gravação antiga "atrasada" reverte silenciosamente um "concluída" feito em outro aparelho.
+        async function _upsertTaskSafely(sb, record) {
+            if (record.updatedAt) {
+                try {
+                    const { data: cloudRow } = await sb.from('tasks').select('*').eq('id', record.id).maybeSingle();
+                    if (cloudRow && cloudRow.updatedAt && new Date(cloudRow.updatedAt).getTime() > new Date(record.updatedAt).getTime()) {
+                        const idx = tasks.findIndex(x => x.id === record.id);
+                        if (idx !== -1) { tasks[idx] = cloudRow; localStorage.setItem('sant_crm_tasks', JSON.stringify(tasks)); }
+                        if (currentView === 'tasks') _refreshCurrentTaskView();
+                        if (currentView === 'dashboard') renderDashboard();
+                        return { data: [{ id: record.id }] };
+                    }
+                } catch(e) { /* se a checagem falhar, segue com o upsert normal abaixo */ }
+            }
+            return sb.from('tasks').upsert(taskToRow(record), { onConflict: 'id' }).select('id');
+        }
         async function cloudSyncTask(t) {
             const sb = getSB(); if (!sb || !currentUser) return;
-            await syncOrQueue('tasks', 'upsert', t.id, () => sb.from('tasks').upsert(taskToRow(t), { onConflict: 'id' }).select('id'));
+            t.updatedAt = new Date().toISOString();
+            localStorage.setItem('sant_crm_tasks', JSON.stringify(tasks));
+            await syncOrQueue('tasks', 'upsert', t.id, () => _upsertTaskSafely(sb, t));
         }
         // Atualização parcial — só os campos indicados, nunca a linha inteira. Usada por processos
         // automáticos em segundo plano (lembretes, notificações) que não devem arriscar sobrescrever
