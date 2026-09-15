@@ -750,6 +750,15 @@
                     <div id="dashNoNextStepList" class="space-y-2"></div>
                 </div>
 
+                <!-- Card: Notas Fixadas -->
+                <div id="dashPinnedNotesCard" data-dash-title="Notas Fixadas" class="hidden bg-sant-surface border border-sant-border rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase flex items-center gap-2"><i class="ph ph-push-pin text-[#fbbf24]"></i> Notas Fixadas</p>
+                        <span id="dashPinnedNotesCount" class="text-[10px] font-bold text-[#fbbf24] bg-[#fbbf24]/10 border border-[#fbbf24]/20 rounded-full px-2 py-0.5"></span>
+                    </div>
+                    <div id="dashPinnedNotesList" class="space-y-2"></div>
+                </div>
+
                 <!-- Card: Clientes Sem Movimento -->
                 <div id="dashClientsStalledCard" data-dash-title="Clientes Sem Movimento" class="hidden bg-sant-surface border border-sant-border rounded-2xl p-6">
                     <div class="flex items-center justify-between mb-3">
@@ -7692,6 +7701,11 @@
             try { return JSON.parse(localStorage.getItem(_offlineQueueKey()) || '[]'); }
             catch(e) { return []; }
         }
+        // Usado pra mostrar um iconezinho discreto nos cards (Tarefa/Contato/Evento) quando
+        // aquele item específico ainda está preso na fila esperando conexão pra sincronizar.
+        function isPendingSync(table, id) {
+            return getOfflineQueue().some(item => item.table === table && item.id === id);
+        }
         function queueOfflineSync(table, action, id) {
             let q = getOfflineQueue();
             // Remove entradas antigas do mesmo registro (a mais recente prevalece)
@@ -8357,6 +8371,7 @@
             renderWaitingCard(todayStr);
             renderStalledDealsCard(todayStr);
             renderNoNextStepCard();
+            renderPinnedNotesCard();
             renderNoInteractionMonthCard(todayStr);
             renderClientsStalledCard(todayStr);
             // Refresh streak UI quando dashboard abre
@@ -8639,6 +8654,29 @@
                 </div>`;
             }).join('') +
             (missing.length > 5 ? `<p class="text-[10px] text-gray-600 text-center pt-1">+${missing.length-5} lead(s) — clique para definir o próximo passo</p>` : '');
+        }
+
+        function renderPinnedNotesCard() {
+            const card = document.getElementById('dashPinnedNotesCard');
+            if (!card) return;
+            const pinned = notes.filter(n => n.pinned && !n.deletedAt && !n.archived);
+
+            if (pinned.length === 0) { card.classList.add('hidden'); return; }
+            card.classList.remove('hidden');
+            document.getElementById('dashPinnedNotesCount').textContent = `${pinned.length} nota${pinned.length!==1?'s':''}`;
+
+            const list = document.getElementById('dashPinnedNotesList');
+            list.innerHTML = pinned.slice(0, 5).map(n => {
+                const snippet = (n.body || '').replace(/\n/g, ' ').slice(0, 60);
+                return `<div class="flex items-start gap-2.5 py-1.5 border-b border-sant-border/40 last:border-0 cursor-pointer hover:bg-white/3 transition-colors rounded px-1" onclick="switchView('notes'); setTimeout(() => startEditNote('${n.id}'), 150);">
+                    <i class="ph ph-push-pin shrink-0 text-sm text-[#fbbf24] mt-0.5"></i>
+                    <div class="min-w-0 flex-1">
+                        <p class="text-xs text-white font-medium truncate">${n.title || '(sem título)'}</p>
+                        ${snippet ? `<p class="text-[10px] text-gray-500 truncate">${snippet}${(n.body||'').length > 60 ? '…' : ''}</p>` : ''}
+                    </div>
+                </div>`;
+            }).join('') +
+            (pinned.length > 5 ? `<p class="text-[10px] text-gray-600 text-center pt-1">+${pinned.length-5} nota(s) fixada(s) — clique para ver todas</p>` : '');
         }
 
         function renderClientsStalledCard(todayStr) {
@@ -14778,6 +14816,7 @@
                 <div id="ccard-${c.id}" class="relative bg-sant-surface border ${selectedContactIds.has(c.id)?'border-sant-cyan bg-sant-cyan/5':c.pinned?'border-amber-400/40':'border-sant-border'} rounded-xl p-5 hover:border-sant-cyan/50 transition-all group flex flex-col h-full min-w-0"
                     onmouseenter="hoveredContactId='${c.id}'" onmouseleave="hoveredContactId=null">
                     ${c.pinned ? `<div class="absolute top-2 left-2 z-10"><i class="ph ph-push-pin-fill text-amber-400 text-xs" title="Fixado"></i></div>` : ''}
+                    ${isPendingSync('contacts', c.id) ? `<div class="absolute top-2 ${c.pinned ? 'left-6' : 'left-2'} z-10"><i class="ph ph-cloud-slash text-amber-400 text-xs" title="Pendente de sincronizar com a nuvem"></i></div>` : ''}
                     <div class="absolute top-3 left-3 z-20 ${bulkMode?'flex':'hidden'} items-center">
                         <input type="checkbox" onclick="event.stopPropagation();toggleContactSelect('${c.id}')" ${selectedContactIds.has(c.id)?'checked':''} class="w-4 h-4 accent-sant-cyan cursor-pointer rounded">
                     </div>
@@ -18540,6 +18579,7 @@
                     const isConflict = e._totalCols > 1;
                     const borderCls = isConflict ? 'border-orange-500/70' : m.border;
                     const conflictIcon = isConflict ? `<i class="ph ph-warning text-orange-400 text-[10px] shrink-0" title="Conflito de horário"></i>` : '';
+                    const pendingSyncIcon = isPendingSync('events', e.id) ? `<i class="ph ph-cloud-slash text-amber-400 text-[10px] shrink-0" title="Pendente de sincronizar com a nuvem"></i>` : '';
                     const realized = (e.realizedDates||[]).includes(dateStr);
                     const outcome = (e.outcomes || {})[dateStr] || '';
                     const om = EVENT_OUTCOME_META[outcome];
@@ -18548,7 +18588,7 @@
                         onclick="openEventModal(events.find(x=>x.id==='${e.id}'),'${dateStr}')">
                         <div class="flex items-start justify-between gap-1 h-full overflow-hidden">
                             <div class="min-w-0 flex-1 overflow-hidden">
-                                <p class="text-xs font-bold truncate leading-tight text-sant-cyan flex items-center gap-1 ${realized?'line-through':''}">${om?`<i class="ph ${om.icon} shrink-0" style="color:${om.color}" title="${om.label}"></i> `:''}${e.title}${conflictIcon}</p>
+                                <p class="text-xs font-bold truncate leading-tight text-sant-cyan flex items-center gap-1 ${realized?'line-through':''}">${om?`<i class="ph ${om.icon} shrink-0" style="color:${om.color}" title="${om.label}"></i> `:''}${e.title}${conflictIcon}${pendingSyncIcon}</p>
                                 ${h>34?`<p class="text-[10px] text-gray-500 mt-0.5 leading-tight">${e.startTime}${e.endTime?' – '+e.endTime:''}</p>`:''}
                                 ${h>54&&e.location?`<p class="text-[10px] text-gray-500 mt-0.5 truncate leading-tight"><i class="ph ph-map-pin"></i> ${e.location}</p>`:''}
                                 ${h>74&&linkedC?`<p class="text-[10px] text-gray-500 mt-0.5 truncate leading-tight"><i class="ph ph-user"></i> ${fullName(linkedC)}</p>`:''}
@@ -19710,7 +19750,7 @@
                         <i class="ph ${isBlocked ? 'ph-lock text-red-400/60' : 'ph-check'}"></i>
                     </button>`}
                     <div class="flex-1 min-w-0 ${t.completed ? 'opacity-50' : ''}">
-                        <h4 class="text-[#fbbf24] font-medium break-words ${t.completed ? 'line-through' : ''}">${t.title} ${t.recurrence && t.recurrence !== 'none' ? '<i class="ph ph-repeat text-sant-cyan text-xs" title="Tarefa recorrente"></i>' : ''}${isBlocked ? `<span class="ml-2 text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded-full"><i class="ph ph-lock"></i> Bloqueada</span>` : ''}${t.waiting ? `<span class="ml-2 text-[10px] font-bold text-sant-purple bg-sant-purple/10 border border-sant-purple/20 px-1.5 py-0.5 rounded-full"><i class="ph ph-hourglass-medium"></i> Aguardando Terceiros</span>` : ''}${stalledBadge}</h4>
+                        <h4 class="text-[#fbbf24] font-medium break-words ${t.completed ? 'line-through' : ''}">${t.title} ${t.recurrence && t.recurrence !== 'none' ? '<i class="ph ph-repeat text-sant-cyan text-xs" title="Tarefa recorrente"></i>' : ''}${isBlocked ? `<span class="ml-2 text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded-full"><i class="ph ph-lock"></i> Bloqueada</span>` : ''}${t.waiting ? `<span class="ml-2 text-[10px] font-bold text-sant-purple bg-sant-purple/10 border border-sant-purple/20 px-1.5 py-0.5 rounded-full"><i class="ph ph-hourglass-medium"></i> Aguardando Terceiros</span>` : ''}${isPendingSync('tasks', t.id) ? `<i class="ph ph-cloud-slash text-amber-400 text-xs ml-1" title="Pendente de sincronizar com a nuvem"></i>` : ''}${stalledBadge}</h4>
                         ${parentTask ? `<p class="text-[11px] text-sant-purple/80 mt-1 flex items-center gap-1"><i class="ph ph-tree-structure"></i> Subtarefa de: <span class="font-medium text-sant-purple cursor-pointer hover:underline" onclick="editTask('${parentTask.id}')">${parentTask.title}</span></p>` : ''}
                         ${t.waiting && t.waitingNote ? `<p class="text-[11px] text-sant-purple/80 mt-1 flex items-center gap-1"><i class="ph ph-chat-circle-dots"></i> ${t.waitingNote}</p>` : ''}
                         ${isBlocked ? `<p class="text-[11px] text-red-400/70 mt-1 flex items-center gap-1"><i class="ph ph-arrow-bend-right-down"></i> Aguardando: <span class="font-medium text-red-400 cursor-pointer hover:underline" onclick="editTask('${blocker.id}')">${blocker.title}</span></p>` : ''}
@@ -23782,6 +23822,7 @@
             const t = tasks.find(x => x.id === id);
             if (!t) return;
             t.timerStartedAt = new Date().toISOString();
+            t._pomodoroNotified = false; // aviso de pausa (25min) — só em memória, não sincroniza
             saveTasksToStorage();
             cloudSyncTask(t);
             _refreshCurrentTaskView();
@@ -23800,11 +23841,18 @@
         // Atualiza os cronômetros em execução na tela a cada segundo (sem re-renderizar tudo)
         setInterval(() => {
             tasks.filter(t => t.timerStartedAt).forEach(t => {
-                const el = document.getElementById('taskTimer-' + t.id);
-                if (!el) return;
                 const elapsedMin = Math.floor((Date.now() - new Date(t.timerStartedAt).getTime()) / 60000);
-                const totalMin = (t.actualTimeSpent || 0) + elapsedMin;
-                el.textContent = `Real: ${formatEstimate(totalMin) || '0min'} (rodando)`;
+                const el = document.getElementById('taskTimer-' + t.id);
+                if (el) {
+                    const totalMin = (t.actualTimeSpent || 0) + elapsedMin;
+                    el.textContent = `Real: ${formatEstimate(totalMin) || '0min'} (rodando)`;
+                }
+                // Aviso de pausa (Pomodoro simples): 25min rodando sem parar — um toast só,
+                // não repete até o cronômetro ser reiniciado (pausar e começar de novo).
+                if (elapsedMin >= 25 && !t._pomodoroNotified) {
+                    t._pomodoroNotified = true;
+                    showToast(`⏱ Já se passaram 25min em "${t.title}" — que tal uma pausa?`);
+                }
             });
         }, 1000);
         // ── fim Cronômetro de Execução ────────────────────────────────────────
