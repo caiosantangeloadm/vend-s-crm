@@ -1528,6 +1528,10 @@
                         <p class="text-[10px] text-amber-400 uppercase tracking-wider mb-1"><i class="ph ph-warning"></i> Estoque Baixo</p>
                         <p id="catalogMetricLowStock" class="text-lg font-bold text-amber-400">0</p>
                     </div>
+                    <div id="catalogNeverSoldCard" onclick="toggleCatalogNeverSoldFilter()" class="hidden bg-sant-surface border border-red-500/30 rounded-xl p-3 cursor-pointer hover:border-red-400/60 transition-colors">
+                        <p class="text-[10px] text-red-400 uppercase tracking-wider mb-1"><i class="ph ph-package"></i> Nunca Vendido</p>
+                        <p id="catalogMetricNeverSold" class="text-lg font-bold text-red-400">0</p>
+                    </div>
                 </div>
 
                 <div id="catalogGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-10"></div>
@@ -11865,6 +11869,7 @@
         let catalogViewMode = 'list';
         let catalogCollapsedTypes = [];
         let catalogShowLowStockOnly = false;
+        let catalogShowNeverSoldOnly = false;
         let currentCatalogSort = localStorage.getItem('vends_catalog_sort') || 'name';
         function setCatalogSort(val) {
             currentCatalogSort = val;
@@ -11900,6 +11905,21 @@
         function toggleCatalogLowStockFilter() {
             catalogShowLowStockOnly = !catalogShowLowStockOnly;
             renderCatalog();
+        }
+        function toggleCatalogNeverSoldFilter() {
+            catalogShowNeverSoldOnly = !catalogShowNeverSoldOnly;
+            renderCatalog();
+        }
+        // Produtos/serviços que nunca entraram num negócio GANHO no Pipeline — diferente do
+        // "Mais Vendidos" do relatório (que soma qualquer negociação, aberta ou não), aqui é
+        // estritamente venda concretizada.
+        function getNeverSoldProductIds() {
+            const soldIds = new Set();
+            contacts.forEach(c => {
+                if (c.pipelineStage !== 'ganho' || !c.pipelineProducts) return;
+                c.pipelineProducts.forEach(it => { if (it.productId) soldIds.add(it.productId); });
+            });
+            return products.filter(p => !p.deletedAt && p.active !== false && !soldIds.has(p.id)).map(p => p.id);
         }
         function loadCatalogViewPrefs() {
             catalogViewMode = localStorage.getItem('sant_crm_catalog_view') || 'list';
@@ -12008,6 +12028,8 @@
             if (activeFilter === 'inactive') list = list.filter(p => p.active === false);
             if (term) list = list.filter(p => p.name.toLowerCase().includes(term) || (p.description||'').toLowerCase().includes(term));
             if (catalogShowLowStockOnly) list = list.filter(p => p.trackStock && p.minStock > 0 && p.stock <= p.minStock);
+            const neverSoldIds = getNeverSoldProductIds();
+            if (catalogShowNeverSoldOnly) list = list.filter(p => neverSoldIds.includes(p.id));
             const sortSelEl = document.getElementById('catalogSortSelect');
             if (sortSelEl && sortSelEl.value !== currentCatalogSort) sortSelEl.value = currentCatalogSort;
             if (currentCatalogSort === 'manual') list.sort((a,b) => (a.sortOrder ?? 999999) - (b.sortOrder ?? 999999));
@@ -12022,6 +12044,15 @@
                 lowStockCard.classList.toggle('bg-amber-500/10', catalogShowLowStockOnly);
             }
             if (lowStockMetric) lowStockMetric.innerText = lowStockItems.length;
+
+            const neverSoldCard = document.getElementById('catalogNeverSoldCard');
+            const neverSoldMetric = document.getElementById('catalogMetricNeverSold');
+            if (neverSoldCard) {
+                neverSoldCard.classList.toggle('hidden', neverSoldIds.length === 0);
+                neverSoldCard.classList.toggle('border-red-400', catalogShowNeverSoldOnly);
+                neverSoldCard.classList.toggle('bg-red-500/10', catalogShowNeverSoldOnly);
+            }
+            if (neverSoldMetric) neverSoldMetric.innerText = neverSoldIds.length;
 
             const activeItems = products.filter(p => !p.deletedAt && p.active !== false);
             const avgPrice = activeItems.length ? activeItems.reduce((s,p) => s + (p.price||0), 0) / activeItems.length : 0;
@@ -14817,6 +14848,7 @@
                     onmouseenter="hoveredContactId='${c.id}'" onmouseleave="hoveredContactId=null">
                     ${c.pinned ? `<div class="absolute top-2 left-2 z-10"><i class="ph ph-push-pin-fill text-amber-400 text-xs" title="Fixado"></i></div>` : ''}
                     ${isPendingSync('contacts', c.id) ? `<div class="absolute top-2 ${c.pinned ? 'left-6' : 'left-2'} z-10"><i class="ph ph-cloud-slash text-amber-400 text-xs" title="Pendente de sincronizar com a nuvem"></i></div>` : ''}
+                    ${c.publicToken ? `<div class="absolute top-2 ${c.pinned && isPendingSync('contacts', c.id) ? 'left-10' : (c.pinned || isPendingSync('contacts', c.id)) ? 'left-6' : 'left-2'} z-10"><i class="ph ph-share-network text-sant-cyan text-xs" title="Cartão compartilhado por link"></i></div>` : ''}
                     <div class="absolute top-3 left-3 z-20 ${bulkMode?'flex':'hidden'} items-center">
                         <input type="checkbox" onclick="event.stopPropagation();toggleContactSelect('${c.id}')" ${selectedContactIds.has(c.id)?'checked':''} class="w-4 h-4 accent-sant-cyan cursor-pointer rounded">
                     </div>
@@ -19750,7 +19782,7 @@
                         <i class="ph ${isBlocked ? 'ph-lock text-red-400/60' : 'ph-check'}"></i>
                     </button>`}
                     <div class="flex-1 min-w-0 ${t.completed ? 'opacity-50' : ''}">
-                        <h4 class="text-[#fbbf24] font-medium break-words ${t.completed ? 'line-through' : ''}">${t.title} ${t.recurrence && t.recurrence !== 'none' ? '<i class="ph ph-repeat text-sant-cyan text-xs" title="Tarefa recorrente"></i>' : ''}${isBlocked ? `<span class="ml-2 text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded-full"><i class="ph ph-lock"></i> Bloqueada</span>` : ''}${t.waiting ? `<span class="ml-2 text-[10px] font-bold text-sant-purple bg-sant-purple/10 border border-sant-purple/20 px-1.5 py-0.5 rounded-full"><i class="ph ph-hourglass-medium"></i> Aguardando Terceiros</span>` : ''}${isPendingSync('tasks', t.id) ? `<i class="ph ph-cloud-slash text-amber-400 text-xs ml-1" title="Pendente de sincronizar com a nuvem"></i>` : ''}${stalledBadge}</h4>
+                        <h4 class="text-[#fbbf24] font-medium break-words ${t.completed ? 'line-through' : ''}">${t.title} ${t.recurrence && t.recurrence !== 'none' ? '<i class="ph ph-repeat text-sant-cyan text-xs" title="Tarefa recorrente"></i>' : ''}${isBlocked ? `<span class="ml-2 text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded-full"><i class="ph ph-lock"></i> Bloqueada</span>` : ''}${t.waiting ? `<span class="ml-2 text-[10px] font-bold text-sant-purple bg-sant-purple/10 border border-sant-purple/20 px-1.5 py-0.5 rounded-full"><i class="ph ph-hourglass-medium"></i> Aguardando Terceiros</span>` : ''}${isPendingSync('tasks', t.id) ? `<i class="ph ph-cloud-slash text-amber-400 text-xs ml-1" title="Pendente de sincronizar com a nuvem"></i>` : ''}${t.publicToken ? `<i class="ph ph-share-network text-sant-cyan text-xs ml-1" title="Compartilhada por link"></i>` : ''}${stalledBadge}</h4>
                         ${parentTask ? `<p class="text-[11px] text-sant-purple/80 mt-1 flex items-center gap-1"><i class="ph ph-tree-structure"></i> Subtarefa de: <span class="font-medium text-sant-purple cursor-pointer hover:underline" onclick="editTask('${parentTask.id}')">${parentTask.title}</span></p>` : ''}
                         ${t.waiting && t.waitingNote ? `<p class="text-[11px] text-sant-purple/80 mt-1 flex items-center gap-1"><i class="ph ph-chat-circle-dots"></i> ${t.waitingNote}</p>` : ''}
                         ${isBlocked ? `<p class="text-[11px] text-red-400/70 mt-1 flex items-center gap-1"><i class="ph ph-arrow-bend-right-down"></i> Aguardando: <span class="font-medium text-red-400 cursor-pointer hover:underline" onclick="editTask('${blocker.id}')">${blocker.title}</span></p>` : ''}
