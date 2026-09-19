@@ -16214,6 +16214,91 @@
             }
         }
 
+        // Exporta só os compromissos de UM dia em .ics pronto pro Outlook (365/Web/Desktop):
+        // horário com fuso America/Sao_Paulo (VTIMEZONE incluso), linhas dobradas em 75 bytes,
+        // cada ocorrência vira um evento avulso (sem RRULE) e UID fixo por dia (reimportar não duplica).
+        function exportDayIcs(dateStr) {
+            try {
+                const dayEvents = events.filter(e => e.startDate && isEventOnDate(e, dateStr))
+                    .sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
+                if (!dayEvents.length) { showToast('Nenhum compromisso neste dia para exportar.', 'error'); return; }
+
+                const esc = s => (s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+                const ymd = s => s.replace(/-/g, '');
+                const hms = s => (s || '00:00').replace(':', '') + '00';
+                const enc = new TextEncoder();
+                const fold = line => {
+                    if (enc.encode(line).length <= 75) return line;
+                    const out = []; let cur = '', bytes = 0;
+                    for (const ch of line) {
+                        const b = enc.encode(ch).length;
+                        if (bytes + b > (out.length ? 74 : 75)) { out.push(cur); cur = ch; bytes = b; }
+                        else { cur += ch; bytes += b; }
+                    }
+                    out.push(cur);
+                    return out.join('\r\n ');
+                };
+                const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
+                const TZ = 'America/Sao_Paulo';
+
+                const vevents = dayEvents.map(e => {
+                    const allDay = !e.startTime;
+                    let start, end;
+                    if (allDay) {
+                        start = `DTSTART;VALUE=DATE:${ymd(dateStr)}`;
+                        end = `DTEND;VALUE=DATE:${ymd(addDaysToDateStr(dateStr, 1))}`;
+                    } else {
+                        start = `DTSTART;TZID=${TZ}:${ymd(dateStr)}T${hms(e.startTime)}`;
+                        let endDay = dateStr, endT = e.endTime;
+                        if (e.endDate && e.endDate !== e.startDate) {
+                            const span = Math.round((new Date(e.endDate + 'T00:00:00') - new Date(e.startDate + 'T00:00:00')) / 86400000);
+                            endDay = addDaysToDateStr(dateStr, span);
+                        }
+                        if (!endT) {
+                            const [h, m] = e.startTime.split(':').map(Number);
+                            const tot = Math.min(h * 60 + m + 60, 23 * 60 + 59);
+                            endT = String(Math.floor(tot / 60)).padStart(2, '0') + ':' + String(tot % 60).padStart(2, '0');
+                        }
+                        end = `DTEND;TZID=${TZ}:${ymd(endDay)}T${hms(endT)}`;
+                    }
+                    const linked = e.contactId ? contacts.find(c => c.id === e.contactId) : null;
+                    const desc = [e.desc, linked ? `Contato: ${fullName(linked)}` : ''].filter(Boolean).join('\n');
+                    return [
+                        'BEGIN:VEVENT',
+                        `UID:${e.id}-${ymd(dateStr)}@vends-crm`,
+                        `DTSTAMP:${stamp}`,
+                        start, end,
+                        `SUMMARY:${esc(e.title || 'Sem título')}`,
+                        e.location ? `LOCATION:${esc(e.location)}` : null,
+                        desc ? `DESCRIPTION:${esc(desc)}` : null,
+                        'TRANSP:OPAQUE',
+                        'END:VEVENT'
+                    ].filter(Boolean).map(fold).join('\r\n');
+                }).join('\r\n');
+
+                const ics = [
+                    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Vend-s CRM//PT-BR', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+                    `X-WR-TIMEZONE:${TZ}`,
+                    'BEGIN:VTIMEZONE', `TZID:${TZ}`,
+                    'BEGIN:STANDARD', 'DTSTART:19700101T000000', 'TZOFFSETFROM:-0300', 'TZOFFSETTO:-0300', 'TZNAME:-03', 'END:STANDARD',
+                    'END:VTIMEZONE'
+                ].join('\r\n') + '\r\n' + vevents + '\r\nEND:VCALENDAR\r\n';
+
+                const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `vends_agenda_${dateStr}.ics`;
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 300);
+                showToast(`${dayEvents.length} compromisso(s) do dia exportados para o Outlook!`);
+            } catch (err) {
+                showToast('Erro ao exportar o dia: ' + err.message, 'error');
+            }
+        }
+
         // Monta as linhas da agenda (evento/tarefa/aniversário) respeitando o período visível
         // e o filtro de tipo ativo (calFilterType) — reaproveitado pelo PDF e pelo CSV.
         // Quando um tipo específico está filtrado, exclui tarefas e aniversários do resultado,
@@ -18565,6 +18650,7 @@
                         <h3 class="text-sm font-bold text-white capitalize flex items-center gap-2">${dayLabel}${dayHoliday ? `<span class="text-[10px] font-bold text-pink-400 bg-pink-500/10 border border-pink-500/20 rounded-full px-2 py-0.5 normal-case flex items-center gap-1"><i class="ph ph-flag"></i> ${dayHoliday}</span>` : ''}</h3>
                         <div class="flex items-center gap-3">
                             <button onclick="openDayShareModal('${dateStr}')" class="text-xs text-gray-400 hover:text-sant-cyan flex items-center gap-1 transition-colors" title="Compartilhar só os compromissos deste dia por link"><i class="ph ph-share-network"></i> Compartilhar Dia</button>
+                            <button onclick="exportDayIcs('${dateStr}')" class="text-xs text-gray-400 hover:text-sant-cyan flex items-center gap-1 transition-colors" title="Baixar os compromissos deste dia em arquivo .ics para importar no Outlook"><i class="ph ph-microsoft-outlook-logo"></i> Exportar p/ Outlook</button>
                             <button onclick="copyDayToNextWeek('${dateStr}')" class="text-xs text-gray-400 hover:text-sant-cyan flex items-center gap-1 transition-colors" title="Copiar os compromissos deste dia para o mesmo dia da próxima semana"><i class="ph ph-copy"></i> Copiar Dia</button>
                             <button onclick="openEventModal(null, '${dateStr}')" class="text-xs text-sant-cyan hover:text-[#7aafc8] flex items-center gap-1 transition-colors"><i class="ph ph-plus"></i> Novo evento</button>
                         </div>
