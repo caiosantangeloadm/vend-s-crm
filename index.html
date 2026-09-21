@@ -1717,7 +1717,8 @@
                                 <button onclick="closeAgendaMoreMenu(); openFreeSlotFinderModal()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-white transition-colors text-left"><i class="ph ph-magic-wand text-sant-cyan"></i> Achar horário livre</button>
                                 <button onclick="closeAgendaMoreMenu(); openEventTemplatesModal()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-white transition-colors text-left"><i class="ph ph-copy-simple text-sant-cyan"></i> Modelos de Evento</button>
                                 <button id="btnCopyWeekMenu" onclick="closeAgendaMoreMenu(); copyWeekToNextWeek()" class="hidden w-full items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-white transition-colors text-left"><i class="ph ph-copy text-sant-cyan"></i> Copiar Semana</button>
-                                <button id="btnShareWeekMenu" onclick="closeAgendaMoreMenu(); openWeekShareModal()" class="hidden w-full items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-white transition-colors text-left"><i class="ph ph-share-network text-sant-cyan"></i> Compartilhar Semana</button>
+                                <button id="btnExportWeekIcsMenu" onclick="closeAgendaMoreMenu(); exportWeekIcs()" class="hidden w-full items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-white transition-colors text-left"><i class="ph ph-microsoft-outlook-logo text-sant-cyan"></i> Exportar Semana p/ Outlook</button>
+                                <button id="btnShareWeekMenu"onclick="closeAgendaMoreMenu(); openWeekShareModal()" class="hidden w-full items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-white transition-colors text-left"><i class="ph ph-share-network text-sant-cyan"></i> Compartilhar Semana</button>
                                 <div class="border-t border-sant-border my-1"></div>
                                 <button onclick="closeAgendaMoreMenu(); openEventsTrashModal()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-red-400 transition-colors text-left"><i class="ph ph-trash text-red-400"></i> Lixeira da Agenda</button>
                             </div>
@@ -12886,7 +12887,7 @@
             saveNotesToStorage();
             cloudSyncNote(n);
             renderNotes();
-            showToast('Nota movida para a Lixeira.');
+            showUndoToast('Nota movida para a Lixeira.', () => restoreNoteFromTrash(id), 6);
         }
         function restoreNoteFromTrash(id) {
             const n = notes.find(x => x.id === id);
@@ -16218,10 +16219,27 @@
         // horário com fuso America/Sao_Paulo (VTIMEZONE incluso), linhas dobradas em 75 bytes,
         // cada ocorrência vira um evento avulso (sem RRULE) e UID fixo por dia (reimportar não duplica).
         function exportDayIcs(dateStr) {
+            _exportIcsDays([dateStr], `vends_agenda_${dateStr}.ics`, 'do dia');
+        }
+        // Semana visível na Agenda (mesmo recorte do "Compartilhar Semana"): 7 dias a partir de currentMonthDate.
+        function exportWeekIcs() {
+            if (calViewMode !== 'week') { showToast('Mude para a Visão Semana primeiro.', 'error'); return; }
+            const pad = n => String(n).padStart(2, '0');
+            const toStr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+            const start = new Date(currentMonthDate);
+            const dates = [];
+            for (let i = 0; i < 7; i++) { const d = new Date(start); d.setDate(d.getDate() + i); dates.push(toStr(d)); }
+            _exportIcsDays(dates, `vends_agenda_${dates[0]}_a_${dates[6]}.ics`, 'da semana');
+        }
+        function _exportIcsDays(dates, fileName, label) {
             try {
-                const dayEvents = events.filter(e => e.startDate && isEventOnDate(e, dateStr))
-                    .sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
-                if (!dayEvents.length) { showToast('Nenhum compromisso neste dia para exportar.', 'error'); return; }
+                const items = [];
+                dates.forEach(ds => {
+                    events.filter(e => e.startDate && isEventOnDate(e, ds))
+                        .sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''))
+                        .forEach(e => items.push({ e, dateStr: ds }));
+                });
+                if (!items.length) { showToast('Nenhum compromisso neste período para exportar.', 'error'); return; }
 
                 const esc = s => (s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
                 const ymd = s => s.replace(/-/g, '');
@@ -16241,7 +16259,7 @@
                 const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
                 const TZ = 'America/Sao_Paulo';
 
-                const vevents = dayEvents.map(e => {
+                const vevents = items.map(({ e, dateStr }) => {
                     const allDay = !e.startTime;
                     let start, end;
                     if (allDay) {
@@ -16288,14 +16306,14 @@
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `vends_agenda_${dateStr}.ics`;
+                a.download = fileName;
                 a.style.display = 'none';
                 document.body.appendChild(a);
                 a.click();
                 setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 300);
-                showToast(`${dayEvents.length} compromisso(s) do dia exportados para o Outlook!`);
+                showToast(`${items.length} compromisso(s) ${label} exportados para o Outlook!`);
             } catch (err) {
-                showToast('Erro ao exportar o dia: ' + err.message, 'error');
+                showToast('Erro ao exportar: ' + err.message, 'error');
             }
         }
 
@@ -17288,6 +17306,8 @@
             document.getElementById('calendarListView').classList.toggle('hidden', mode !== 'list');
             const copyBtn = document.getElementById('btnCopyWeekMenu');
             if (copyBtn) { copyBtn.classList.toggle('hidden', mode !== 'week'); copyBtn.classList.toggle('flex', mode === 'week'); }
+            const expWeekBtn = document.getElementById('btnExportWeekIcsMenu');
+            if (expWeekBtn) { expWeekBtn.classList.toggle('hidden', mode !== 'week'); expWeekBtn.classList.toggle('flex', mode === 'week'); }
             const shareBtn = document.getElementById('btnShareWeekMenu');
             if (shareBtn) { shareBtn.classList.toggle('hidden', mode !== 'week'); shareBtn.classList.toggle('flex', mode === 'week'); }
             updateWorkWeekBtn();
@@ -19151,7 +19171,14 @@
                     saveEventsToStorage();
                     cloudSyncEvent(ev);
                     renderCalendar();
-                    showToast('Compromisso movido para a Lixeira.');
+                    showUndoToast('Compromisso movido para a Lixeira.', () => {
+                        ev.deletedAt = null;
+                        saveEventsToStorage();
+                        cloudSyncEvent(ev);
+                        renderCalendar();
+                        if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
+                        showToast('Compromisso restaurado!');
+                    }, 6);
                     if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
                 });
             }
@@ -20860,7 +20887,14 @@
                 cloudSyncTask(t);
                 _refreshCurrentTaskView();
                 if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
-                showToast('Tarefa movida para a Lixeira.');
+                showUndoToast('Tarefa movida para a Lixeira.', () => {
+                    t.deletedAt = null;
+                    saveTasksToStorage();
+                    cloudSyncTask(t);
+                    _refreshCurrentTaskView();
+                    if (!document.getElementById('view-dashboard').classList.contains('hidden')) renderDashboard();
+                    showToast('Tarefa restaurada!');
+                }, 6);
             });
         }
         function restoreTaskFromTrash(id) {
@@ -26896,7 +26930,7 @@
                         <i class="ph ph-arrow-counter-clockwise"></i> Desfazer
                     </button>
                     <span class="text-gray-500 text-xs w-4 text-center shrink-0">${remaining}</span>`;
-                document.getElementById('undoBtn')?.addEventListener('click', () => {
+                toast.querySelector('#undoBtn')?.addEventListener('click', () => {
                     clearInterval(timer);
                     toast.classList.add('translate-y-10', 'opacity-0');
                     setTimeout(() => toast.remove(), 300);
