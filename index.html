@@ -1717,7 +1717,8 @@
                                 <button onclick="closeAgendaMoreMenu(); openFreeSlotFinderModal()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-white transition-colors text-left"><i class="ph ph-magic-wand text-sant-cyan"></i> Achar horário livre</button>
                                 <button onclick="closeAgendaMoreMenu(); openEventTemplatesModal()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-white transition-colors text-left"><i class="ph ph-copy-simple text-sant-cyan"></i> Modelos de Evento</button>
                                 <button id="btnCopyWeekMenu" onclick="closeAgendaMoreMenu(); copyWeekToNextWeek()" class="hidden w-full items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-white transition-colors text-left"><i class="ph ph-copy text-sant-cyan"></i> Copiar Semana</button>
-                                <button id="btnExportWeekIcsMenu" onclick="closeAgendaMoreMenu(); exportWeekIcs()" class="hidden w-full items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-white transition-colors text-left"><i class="ph ph-microsoft-outlook-logo text-sant-cyan"></i> Exportar Semana p/ Outlook</button>
+                                <button id="btnIcsTasksToggle" onclick="toggleIcsIncludeTasks()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-white transition-colors text-left" title="Vale para Exportar Dia/Semana p/ Outlook"><i class="ph ph-check-square text-sant-cyan"></i> <span id="icsTasksToggleLabel">Tarefas no Outlook: desligado</span></button>
+                                <button id="btnExportWeekIcsMenu"onclick="closeAgendaMoreMenu(); exportWeekIcs()" class="hidden w-full items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-white transition-colors text-left"><i class="ph ph-microsoft-outlook-logo text-sant-cyan"></i> Exportar Semana p/ Outlook</button>
                                 <button id="btnShareWeekMenu"onclick="closeAgendaMoreMenu(); openWeekShareModal()" class="hidden w-full items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-white transition-colors text-left"><i class="ph ph-share-network text-sant-cyan"></i> Compartilhar Semana</button>
                                 <div class="border-t border-sant-border my-1"></div>
                                 <button onclick="closeAgendaMoreMenu(); openEventsTrashModal()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1f1f1f] hover:text-red-400 transition-colors text-left"><i class="ph ph-trash text-red-400"></i> Lixeira da Agenda</button>
@@ -16218,6 +16219,16 @@
         // Exporta só os compromissos de UM dia em .ics pronto pro Outlook (365/Web/Desktop):
         // horário com fuso America/Sao_Paulo (VTIMEZONE incluso), linhas dobradas em 75 bytes,
         // cada ocorrência vira um evento avulso (sem RRULE) e UID fixo por dia (reimportar não duplica).
+        function updateIcsTasksToggleLabel() {
+            const el = document.getElementById('icsTasksToggleLabel');
+            if (el) el.textContent = 'Tarefas no Outlook: ' + (localStorage.getItem('vends_ics_include_tasks') === '1' ? 'ligado ✓' : 'desligado');
+        }
+        function toggleIcsIncludeTasks() {
+            const on = localStorage.getItem('vends_ics_include_tasks') === '1';
+            localStorage.setItem('vends_ics_include_tasks', on ? '0' : '1');
+            updateIcsTasksToggleLabel();
+            showToast(on ? 'Tarefas não serão incluídas no arquivo do Outlook.' : 'Tarefas pendentes agora vão como blocos no arquivo do Outlook.');
+        }
         function exportDayIcs(dateStr) {
             _exportIcsDays([dateStr], `vends_agenda_${dateStr}.ics`, 'do dia');
         }
@@ -16239,7 +16250,13 @@
                         .sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''))
                         .forEach(e => items.push({ e, dateStr: ds }));
                 });
-                if (!items.length) { showToast('Nenhum compromisso neste período para exportar.', 'error'); return; }
+                // Opcional (desligado por padrão): tarefas pendentes do período entram como blocos de calendário
+                const includeTasks = localStorage.getItem('vends_ics_include_tasks') === '1';
+                const taskItems = includeTasks
+                    ? tasks.filter(t => !t.deletedAt && !t.completed && t.date && dates.includes(t.date))
+                        .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
+                    : [];
+                if (!items.length && !taskItems.length) { showToast('Nenhum compromisso neste período para exportar.', 'error'); return; }
 
                 const esc = s => (s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
                 const ymd = s => s.replace(/-/g, '');
@@ -16294,13 +16311,40 @@
                     ].filter(Boolean).map(fold).join('\r\n');
                 }).join('\r\n');
 
+                const pad2 = n => String(n).padStart(2, '0');
+                const taskVevents = taskItems.map(t => {
+                    let start, end;
+                    if (!t.time) {
+                        start = `DTSTART;VALUE=DATE:${ymd(t.date)}`;
+                        end = `DTEND;VALUE=DATE:${ymd(addDaysToDateStr(t.date, 1))}`;
+                    } else {
+                        const [h, m] = t.time.split(':').map(Number);
+                        const tot = Math.min(h * 60 + m + (t.estimatedMinutes > 0 ? Math.min(t.estimatedMinutes, 480) : 30), 23 * 60 + 59);
+                        start = `DTSTART;TZID=${TZ}:${ymd(t.date)}T${hms(t.time)}`;
+                        end = `DTEND;TZID=${TZ}:${ymd(t.date)}T${pad2(Math.floor(tot / 60))}${pad2(tot % 60)}00`;
+                    }
+                    const prio = { urgent: 'Urgente', high: 'Alta', medium: 'Média', low: 'Baixa' }[t.priority];
+                    const desc = [t.desc, prio ? `Prioridade: ${prio}` : ''].filter(Boolean).join('\n');
+                    return [
+                        'BEGIN:VEVENT',
+                        `UID:task-${t.id}-${ymd(t.date)}@vends-crm`,
+                        `DTSTAMP:${stamp}`,
+                        start, end,
+                        `SUMMARY:${esc('☑ ' + (t.title || 'Tarefa'))}`,
+                        desc ? `DESCRIPTION:${esc(desc)}` : null,
+                        'CATEGORIES:Tarefa',
+                        'TRANSP:TRANSPARENT',
+                        'END:VEVENT'
+                    ].filter(Boolean).map(fold).join('\r\n');
+                }).join('\r\n');
+
                 const ics = [
                     'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Vend-s CRM//PT-BR', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
                     `X-WR-TIMEZONE:${TZ}`,
                     'BEGIN:VTIMEZONE', `TZID:${TZ}`,
                     'BEGIN:STANDARD', 'DTSTART:19700101T000000', 'TZOFFSETFROM:-0300', 'TZOFFSETTO:-0300', 'TZNAME:-03', 'END:STANDARD',
                     'END:VTIMEZONE'
-                ].join('\r\n') + '\r\n' + vevents + '\r\nEND:VCALENDAR\r\n';
+                ].join('\r\n') + '\r\n' + [vevents, taskVevents].filter(Boolean).join('\r\n') + '\r\nEND:VCALENDAR\r\n';
 
                 const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
                 const url = URL.createObjectURL(blob);
@@ -16311,7 +16355,7 @@
                 document.body.appendChild(a);
                 a.click();
                 setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 300);
-                showToast(`${items.length} compromisso(s) ${label} exportados para o Outlook!`);
+                showToast(`${items.length} compromisso(s)${taskItems.length ? ` + ${taskItems.length} tarefa(s)` : ''} ${label} exportados para o Outlook!`);
             } catch (err) {
                 showToast('Erro ao exportar: ' + err.message, 'error');
             }
@@ -19203,6 +19247,7 @@
             showToast('Compromisso excluído definitivamente.');
         }
         function toggleAgendaMoreMenu() {
+            updateIcsTasksToggleLabel();
             document.getElementById('agendaMoreMenu').classList.toggle('hidden');
         }
         function closeAgendaMoreMenu() {
