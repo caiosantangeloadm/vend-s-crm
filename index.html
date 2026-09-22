@@ -16307,6 +16307,8 @@
                         e.location ? `LOCATION:${esc(e.location)}` : null,
                         desc ? `DESCRIPTION:${esc(desc)}` : null,
                         'TRANSP:OPAQUE',
+                        // Lembrete de 30 min antes (só para eventos com horário)
+                        ...(allDay ? [] : ['BEGIN:VALARM', 'TRIGGER:-PT30M', 'ACTION:DISPLAY', 'DESCRIPTION:Lembrete', 'END:VALARM']),
                         'END:VEVENT'
                     ].filter(Boolean).map(fold).join('\r\n');
                 }).join('\r\n');
