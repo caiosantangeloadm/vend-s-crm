@@ -3616,6 +3616,15 @@
                     </div>
                 </div>
 
+                <div class="flex flex-wrap items-center gap-1.5 -mt-2">
+                    <span class="text-[10px] font-bold text-gray-500 uppercase mr-1">Duração:</span>
+                    <button type="button" onclick="setEventDuration(15)" class="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-[#141414] border border-sant-border text-gray-400 hover:text-sant-cyan hover:border-sant-cyan/40 transition-colors">15 min</button>
+                    <button type="button" onclick="setEventDuration(30)" class="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-[#141414] border border-sant-border text-gray-400 hover:text-sant-cyan hover:border-sant-cyan/40 transition-colors">30 min</button>
+                    <button type="button" onclick="setEventDuration(60)" class="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-[#141414] border border-sant-border text-gray-400 hover:text-sant-cyan hover:border-sant-cyan/40 transition-colors">1h</button>
+                    <button type="button" onclick="setEventDuration(90)" class="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-[#141414] border border-sant-border text-gray-400 hover:text-sant-cyan hover:border-sant-cyan/40 transition-colors">1h30</button>
+                    <button type="button" onclick="setEventDuration(120)" class="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-[#141414] border border-sant-border text-gray-400 hover:text-sant-cyan hover:border-sant-cyan/40 transition-colors">2h</button>
+                </div>
+
                 <!-- ── SUGESTÃO DE HORÁRIOS LIVRES ── -->
                 <div id="freeSlotsBox" class="hidden rounded-xl border border-sant-cyan/25 bg-sant-cyan/5 p-3">
                     <p class="text-[10px] font-bold text-sant-cyan uppercase tracking-wider mb-2 flex items-center gap-1.5"><i class="ph ph-magic-wand"></i> Próximos horários livres neste dia</p>
@@ -4951,6 +4960,9 @@
                     <button onclick="setAgendaSummaryPeriod('tomorrow')" id="agSumBtnTomorrow" class="flex-1 px-3 py-2 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-white transition-colors">Amanhã</button>
                     <button onclick="setAgendaSummaryPeriod('week')" id="agSumBtnWeek" class="flex-1 px-3 py-2 rounded-lg text-xs font-medium bg-sant-surface border border-sant-border text-gray-400 hover:text-white transition-colors">Esta Semana</button>
                 </div>
+                <label class="flex items-center gap-2 text-xs text-gray-400 cursor-pointer select-none">
+                    <input type="checkbox" id="agSumIncludeTasks" checked onchange="setAgendaSummaryPeriod(agendaSummaryPeriod)" class="accent-[#5b8fa8]"> Incluir tarefas pendentes
+                </label>
                 <textarea id="agendaSummaryText" rows="10" readonly class="w-full bg-[#141414] border border-sant-border rounded-lg px-4 py-3 text-sm text-gray-300 outline-none resize-none"></textarea>
             </div>
             <div class="flex justify-end gap-2 p-5 border-t border-sant-border">
@@ -17892,6 +17904,19 @@
             return `${h}:${m}`;
         }
 
+        // Botões de duração rápida: preenche Término = Início + N minutos (vira o dia se passar da meia-noite)
+        function setEventDuration(min) {
+            const startTime = document.getElementById('eventStartTime').value;
+            if (!startTime) { showToast('Defina primeiro o horário de início.', 'error'); return; }
+            let startDate = document.getElementById('eventStartDate').value || getSPTodayStr();
+            const [h, m] = startTime.split(':').map(Number);
+            const total = h * 60 + m + min;
+            const dayShift = Math.floor(total / 1440);
+            const rem = total % 1440;
+            document.getElementById('eventEndTime').value = String(Math.floor(rem / 60)).padStart(2, '0') + ':' + String(rem % 60).padStart(2, '0');
+            document.getElementById('eventEndDate').value = dayShift ? addDaysToDateStr(startDate, dayShift) : startDate;
+            renderFreeSlotSuggestions();
+        }
         function renderFreeSlotSuggestions() {
             const box = document.getElementById('freeSlotsBox');
             const chips = document.getElementById('freeSlotsChips');
@@ -18108,16 +18133,22 @@
                 const holiday = getBrazilianHoliday(dateStr);
                 const dayEvents = events.filter(e => isEventOnDate(e, dateStr)).sort((a,b) => (a.startTime||'23:59').localeCompare(b.startTime||'23:59'));
                 const bdays = contacts.filter(c => c.birth && c.birth.endsWith(monthDayStr));
+                const inclTasks = document.getElementById('agSumIncludeTasks')?.checked !== false;
+                const dayTasks = inclTasks
+                    ? tasks.filter(t => !t.deletedAt && !t.archived && !t.completed && t.date === dateStr)
+                        .sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'))
+                    : [];
 
                 lines.push(`*${weekDayNamesLong[d.getDay()]}, ${d.getDate()} de ${monthNamesShort[d.getMonth()]}*`);
                 if (holiday) lines.push(`🚩 Feriado: ${holiday}`);
-                if (dayEvents.length === 0 && bdays.length === 0) {
+                if (dayEvents.length === 0 && bdays.length === 0 && dayTasks.length === 0) {
                     lines.push('Nenhum compromisso.');
                 } else {
                     dayEvents.forEach(e => {
                         lines.push(`${e.startTime ? e.startTime + ' — ' : '• '}${e.title}${e.location ? ' (' + e.location + ')' : ''}`);
                     });
                     bdays.forEach(c => lines.push(`🎂 Aniversário: ${fullName(c)}`));
+                    dayTasks.forEach(t => lines.push(`⬜ ${t.time ? t.time + ' — ' : ''}${t.title}`));
                 }
                 lines.push('');
             });
