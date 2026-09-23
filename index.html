@@ -14872,7 +14872,8 @@
                         <button onclick="event.stopPropagation();openBusinessCard('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Cartão de visita"><i class="ph ph-identification-card"></i></button>
                         <button onclick="event.stopPropagation();exportContactPdf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Exportar briefing PDF"><i class="ph ph-file-pdf"></i></button>
                         <button onclick="openHistoryModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 relative" title="Histórico">${histCount}<i class="ph ph-clock-clockwise"></i></button>
-                        <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Exportar vCard"><i class="ph ph-address-book"></i></button>
+                        <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Exportar vCard (Google Contatos)"><i class="ph ph-address-book"></i></button>
+                        <button onclick="exportContactOutlookVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Exportar p/ Outlook"><i class="ph ph-microsoft-outlook-logo"></i></button>
                         <button onclick="openMergeModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Mesclar com outro contato"><i class="ph ph-git-merge"></i></button>
                         <button onclick="duplicateContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1" title="Duplicar"><i class="ph ph-copy"></i></button>
                         <button onclick="editContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1"><i class="ph ph-pencil-simple"></i></button>
@@ -14936,7 +14937,8 @@
                         ${dispEmail?`<a href="mailto:${dispEmail}" onclick="event.stopPropagation()" class="text-sant-cyan hover:text-[#7aafc8] p-1 bg-[#141414] rounded" title="E-mail"><i class="ph ph-envelope-simple text-xs"></i></a>`:''}
                         <button onclick="event.stopPropagation();togglePin('${c.id}')" class="p-1 bg-[#141414] rounded ${c.pinned?'text-amber-400':'text-gray-400 hover:text-amber-400'} transition-colors" title="${c.pinned?'Desafixar':'Fixar no topo'}"><i class="ph ${c.pinned?'ph-push-pin-fill':'ph-push-pin'} text-xs"></i></button>
                         <button onclick="openQuickInteraction('${c.id}')" class="text-gray-400 hover:text-[#fbbf24] p-1 bg-[#141414] rounded" title="Registrar interação rápida"><i class="ph ph-plus-circle text-xs"></i></button>
-                        <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 bg-[#141414] rounded" title="Exportar vCard"><i class="ph ph-address-book text-xs"></i></button>
+                        <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 bg-[#141414] rounded" title="Exportar vCard (Google Contatos)"><i class="ph ph-address-book text-xs"></i></button>
+                        <button onclick="exportContactOutlookVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 bg-[#141414] rounded" title="Exportar p/ Outlook"><i class="ph ph-microsoft-outlook-logo text-xs"></i></button>
                         <button onclick="openMergeModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 bg-[#141414] rounded" title="Mesclar com outro contato"><i class="ph ph-git-merge text-xs"></i></button>
                         <button onclick="duplicateContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 bg-[#141414] rounded" title="Duplicar"><i class="ph ph-copy text-xs"></i></button>
                         <button onclick="editContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1 bg-[#141414] rounded"><i class="ph ph-pencil-simple text-xs"></i></button>
@@ -14973,7 +14975,8 @@
                     <button onclick="event.stopPropagation();openBusinessCard('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Cartão de visita"><i class="ph ph-identification-card"></i></button>
                     <button onclick="event.stopPropagation();exportContactPdf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Exportar briefing PDF"><i class="ph ph-file-pdf"></i></button>
                     <button onclick="openHistoryModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded relative" title="Histórico">${c.interactions&&c.interactions.length?`<span class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-sant-cyan text-sant-bg text-[8px] font-bold rounded-full flex items-center justify-center">${c.interactions.length}</span>`:''}<i class="ph ph-clock-clockwise"></i></button>
-                    <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Exportar vCard"><i class="ph ph-address-book"></i></button>
+                    <button onclick="exportContactVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Exportar vCard (Google Contatos)"><i class="ph ph-address-book"></i></button>
+                    <button onclick="exportContactOutlookVcf('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Exportar p/ Outlook"><i class="ph ph-microsoft-outlook-logo"></i></button>
                     <button onclick="openMergeModal('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Mesclar com outro contato"><i class="ph ph-git-merge"></i></button>
                     <button onclick="duplicateContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded" title="Duplicar"><i class="ph ph-copy"></i></button>
                     <button onclick="editContact('${c.id}')" class="text-gray-400 hover:text-sant-cyan p-1.5 bg-[#141414] rounded"><i class="ph ph-pencil-simple"></i></button>
@@ -16025,6 +16028,32 @@
             if (!c) return;
             downloadVcf(buildVcfEntry(c), `${fullName(c).trim().replace(/[^\w\s-]/g, '') || 'contato'}.vcf`);
             showToast('vCard exportado! Importe no Google Contatos.');
+        }
+
+        // Exportação para Outlook: mesmo vCard, mas com o aniversário sem ano (caso mais comum
+        // na nossa base) reescrito com o ano-sentinela 1604 — é a convenção histórica que o
+        // Outlook/Exchange usa para "aniversário sem ano conhecido" (ele reconhece esse ano
+        // específico e trata como recorrência anual, sem mostrar uma idade errada). O formato
+        // reduzido --MMDD do vCard 3.0, que usamos pro Google Contatos, não é bem interpretado
+        // pelo Outlook. Não foi possível testar a importação real — peça para o usuário conferir.
+        function buildVcfEntryForOutlook(c) {
+            let entry = buildVcfEntry(c);
+            if (c.birth) {
+                const bm = String(getBirthMonth(c.birth)).padStart(2, '0');
+                const bd = String(getBirthDay(c.birth)).padStart(2, '0');
+                const parts = c.birth.split('-');
+                const hasYear = parts.length >= 3 && parts[0].length === 4;
+                if (!hasYear && bm !== '00' && bd !== '00') {
+                    entry = entry.replace(`BDAY:--${bm}${bd}`, `BDAY:1604-${bm}-${bd}`);
+                }
+            }
+            return entry;
+        }
+        function exportContactOutlookVcf(id) {
+            const c = contacts.find(x => x.id === id);
+            if (!c) return;
+            downloadVcf(buildVcfEntryForOutlook(c), `${fullName(c).trim().replace(/[^\w\s-]/g, '') || 'contato'}_outlook.vcf`);
+            showToast('vCard para Outlook exportado! Importe em Pessoas → Adicionar contato → Importar contatos.');
         }
 
         function importCalendarIcs(event) {
