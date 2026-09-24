@@ -15911,7 +15911,10 @@
             if (c.emailPess) lines.push(`EMAIL;TYPE=HOME:${vcfEscape(c.emailPess)}`);
             if (c.site) lines.push(`URL:${vcfEscape(c.site)}`);
             if (buildAddressString(c)) {
-                lines.push(`ADR;TYPE=WORK:;;${vcfEscape(c.addressStreet)}${c.addressNumber ? ', ' + vcfEscape(c.addressNumber) : ''};${vcfEscape(c.addressNeighborhood)} ${vcfEscape(c.addressCity)};;${vcfEscape(c.addressState)};${vcfEscape(c.addressZip)};Brasil`);
+                // ADR tem exatamente 7 componentes (separados por 6 ";"): PO Box;Extenso;Rua;Cidade;Estado;CEP;País.
+                // Bairro entra no componente "Extenso" — usar 8 componentes (como antes) deixa o vCard
+                // fora do padrão e pode fazer leitores rígidos (Outlook) travar nesta linha e na seguinte (BDAY).
+                lines.push(`ADR;TYPE=WORK:;${vcfEscape(c.addressNeighborhood)};${vcfEscape(c.addressStreet)}${c.addressNumber ? ', ' + vcfEscape(c.addressNumber) : ''};${vcfEscape(c.addressCity)};${vcfEscape(c.addressState)};${vcfEscape(c.addressZip)};Brasil`);
             }
             if (c.birth) {
                 const parts = c.birth.split('-');
